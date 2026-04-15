@@ -14,6 +14,7 @@ import InvestorsPage from './pages/InvestorsPage';
 import PricingPage from './pages/PricingPage';
 import AccountingPage, { InvestorReportPage } from './pages/AccountingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
+import CustomersPage from './pages/CustomersPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -43,6 +44,7 @@ const App: React.FC = () => {
           <Route path="pricing" element={<PricingPage />} />
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="accounting/report" element={<InvestorReportPage />} />
+          <Route path="customers" element={<CustomersPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

@@ -28,9 +28,10 @@ interface RowState {
 }
 
 interface NoteState {
-  value: string;
+  value:   string;
   dbValue: string;
-  saving: boolean;
+  saving:  boolean;
+  saved:   boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -87,8 +88,17 @@ const KGMPage: React.FC = () => {
   const [loadingTolls, setLoadingTolls] = useState(false);
   const [sort, setSort] = useState<SortState>({ col: null, dir: 'asc' });
   const [noteStates, setNoteStates] = useState<Map<number, NoteState>>(new Map());
+  const [userId, setUserId] = useState<string | null>(null);
   const fetchAbort = useRef<AbortController | null>(null);
   const inputRef = useRef<Map<number, HTMLInputElement>>(new Map());
+
+  // ── Auth user ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (error) { console.error('[KGM] auth.getUser error:', error); return; }
+      setUserId(data.user?.id ?? null);
+    });
+  }, []);
 
   // ── Fetch cars once ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -158,7 +168,7 @@ const KGMPage: React.FC = () => {
         saveState: 'idle',
         dbValue: dbVal,
       });
-      notes.set(car.id, { value: noteVal, dbValue: noteVal, saving: false });
+      notes.set(car.id, { value: noteVal, dbValue: noteVal, saving: false, saved: false });
     });
 
     setYesterdayMap(yMap);
@@ -205,7 +215,8 @@ const KGMPage: React.FC = () => {
       return next;
     });
 
-    const dateStr = toDateStr(selectedDate);
+    const dateStr  = toDateStr(selectedDate);
+    const noteVal  = noteStates.get(carId)?.value ?? '';
 
     const { data: existing } = await supabase
       .from('kgm')
@@ -218,13 +229,16 @@ const KGMPage: React.FC = () => {
     if (existing?.id) {
       const { error } = await supabase
         .from('kgm')
-        .update({ toll_amount: amount })
+        .update({ toll_amount: amount, note: noteVal || null })
         .eq('id', existing.id);
+      if (error) console.error('[KGM] update toll error:', error);
       err = error;
     } else {
+      const plateNumber = cars.find(c => c.id === carId)?.plate_number ?? null;
       const { error } = await supabase
         .from('kgm')
-        .insert({ car_id: carId, date: dateStr, toll_amount: amount });
+        .insert({ car_id: carId, plate_number: plateNumber, date: dateStr, toll_amount: amount, note: noteVal || null, created_by: userId });
+      if (error) console.error('[KGM] insert toll error:', error);
       err = error;
     }
 
@@ -253,7 +267,7 @@ const KGMPage: React.FC = () => {
       }
       return next;
     });
-  }, [rowStates, selectedDate]);
+  }, [rowStates, noteStates, selectedDate, userId, cars]);
 
   // ── Note change ───────────────────────────────────────────────────────────
   const handleNoteChange = useCallback((carId: number, value: string) => {
@@ -269,12 +283,12 @@ const KGMPage: React.FC = () => {
   // ── Save note ─────────────────────────────────────────────────────────────
   const saveNote = useCallback(async (carId: number) => {
     const ns = noteStates.get(carId);
-    if (!ns || ns.value === ns.dbValue) return;
+    if (!ns || ns.saving) return;
 
     setNoteStates(prev => {
       const next = new Map(prev);
       const r = next.get(carId);
-      if (r) next.set(carId, { ...r, saving: true });
+      if (r) next.set(carId, { ...r, saving: true, saved: false });
       return next;
     });
 
@@ -283,18 +297,29 @@ const KGMPage: React.FC = () => {
       .from('kgm').select('id').eq('car_id', carId).eq('date', dateStr).maybeSingle();
 
     if (existing?.id) {
-      await supabase.from('kgm').update({ note: ns.value }).eq('id', existing.id);
+      const { error } = await supabase.from('kgm').update({ note: ns.value || null }).eq('id', existing.id);
+      if (error) console.error('[KGM] update note error:', error);
     } else {
-      await supabase.from('kgm').insert({ car_id: carId, date: dateStr, note: ns.value });
+      const plateNumber = cars.find(c => c.id === carId)?.plate_number ?? null;
+      const { error } = await supabase.from('kgm').insert({ car_id: carId, plate_number: plateNumber, date: dateStr, note: ns.value || null, created_by: userId });
+      if (error) console.error('[KGM] insert note error:', error);
     }
 
     setNoteStates(prev => {
       const next = new Map(prev);
       const r = next.get(carId);
-      if (r) next.set(carId, { value: r.value, dbValue: r.value, saving: false });
+      if (r) next.set(carId, { value: r.value, dbValue: r.value, saving: false, saved: true });
       return next;
     });
-  }, [noteStates, selectedDate]);
+    setTimeout(() => {
+      setNoteStates(prev => {
+        const next = new Map(prev);
+        const r = next.get(carId);
+        if (r && r.saved) next.set(carId, { ...r, saved: false });
+        return next;
+      });
+    }, 2000);
+  }, [noteStates, selectedDate, userId, cars]);
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const goTo = (n: number) => setSelectedDate(d => addDays(d, n));
@@ -535,6 +560,27 @@ const KGMPage: React.FC = () => {
         .kgm-note-input:hover { border-color: #e5e7eb; background: #fff; }
         .kgm-note-input:focus { border-color: #4ba6ea !important; background: #fff; box-shadow: 0 0 0 3px rgba(75,166,234,0.1); }
         .kgm-note-input.is-saving { opacity: 0.5; pointer-events: none; }
+        .kgm-note-save-btn {
+          flex-shrink: 0;
+          padding: 5px 11px;
+          border-radius: 7px;
+          border: none;
+          background: #4ba6ea;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          opacity: 0;
+          transform: translateX(-4px);
+          transition: opacity 160ms ease, transform 160ms ease, background 120ms ease;
+          pointer-events: none;
+          white-space: nowrap;
+        }
+        .kgm-note-save-btn.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
+        .kgm-note-save-btn:hover { background: #2e8fd4; }
+        .kgm-note-save-btn.saving { background: #93c5fd; cursor: default; pointer-events: none; }
+        .kgm-note-save-btn.saved  { background: #16a34a; cursor: default; pointer-events: none; }
 
       `}</style>
 
@@ -749,16 +795,30 @@ const KGMPage: React.FC = () => {
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <input
-                          type="text"
-                          value={noteValue}
-                          placeholder="Add note…"
-                          className={`kgm-note-input${noteSaving ? ' is-saving' : ''}`}
-                          onChange={e => handleNoteChange(car.id, e.target.value)}
-                          onBlur={() => saveNote(car.id)}
-                          onKeyDown={e => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
-                          disabled={noteSaving}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            type="text"
+                            value={noteValue}
+                            placeholder="Add note…"
+                            className={`kgm-note-input${noteSaving ? ' is-saving' : ''}`}
+                            style={{ flex: 1, minWidth: 0 }}
+                            onChange={e => handleNoteChange(car.id, e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveNote(car.id); } }}
+                            disabled={noteSaving}
+                          />
+                          <button
+                            className={[
+                              'kgm-note-save-btn',
+                              (noteState?.value !== noteState?.dbValue || noteState?.saved) ? 'visible' : '',
+                              noteSaving ? 'saving' : '',
+                              noteState?.saved ? 'saved' : '',
+                            ].filter(Boolean).join(' ')}
+                            onClick={() => saveNote(car.id)}
+                            disabled={noteSaving}
+                          >
+                            {noteSaving ? 'Saving…' : noteState?.saved ? '✓ Saved' : 'Save'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

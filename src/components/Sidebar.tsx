@@ -58,6 +58,16 @@ const fleetItems = [
 
 const managementItems = [
   {
+    label: 'Customers',
+    path: '/dashboard/customers',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     label: 'Users',
     path: '/dashboard/users',
     icon: (
