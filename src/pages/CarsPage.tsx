@@ -477,380 +477,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
   );
 };
 
-// ─── PDF Upload Field ─────────────────────────────────────────────────────────
-
-const PdfUploadField: React.FC<{
-  label: string;
-  existingUrl: string;
-  file: File | null;
-  onFileChange: (f: File | null) => void;
-}> = ({ label, existingUrl, file, onFileChange }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5, letterSpacing: '0.1px' };
-
-  return (
-    <div>
-      <label style={lbl}>{label}</label>
-      <input ref={inputRef} type="file" accept="application/pdf" style={{ display: 'none' }}
-        onChange={e => { onFileChange(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-
-      {file ? (
-        /* New file selected — pending upload */
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid #4ba6ea', borderRadius: 9, background: 'rgba(75,166,234,0.04)' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#4ba6ea' }}>
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span style={{ fontSize: 12, color: '#0f1117', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
-          <button onClick={() => onFileChange(null)} title="Remove" style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, display: 'flex', alignItems: 'center' }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
-          </button>
-        </div>
-      ) : existingUrl ? (
-        /* Already uploaded */
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 9, background: '#f9fafb' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M22 4L12 14.01l-3-3" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#16a34a' }}>Uploaded</span>
-          <a href={existingUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#4ba6ea', textDecoration: 'none', marginLeft: 2 }}>View</a>
-          <button onClick={() => inputRef.current?.click()} style={{ marginLeft: 'auto', padding: '3px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-            Replace
-          </button>
-        </div>
-      ) : (
-        /* No file yet */
-        <div
-          onClick={() => inputRef.current?.click()}
-          style={{ border: '1.5px dashed #e5e7eb', borderRadius: 9, padding: '14px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: '#fafafa', transition: 'border-color 140ms ease' }}
-          onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#4ba6ea'}
-          onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: '#d1d5db' }}>
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 12v4M10 14h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-          </svg>
-          <span style={{ fontSize: 12, color: '#9ca3af' }}>Upload {label} PDF</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Edit Car Modal ───────────────────────────────────────────────────────────
-
-const EditCarModal: React.FC<{ carId: number; onClose: () => void; onSaved: () => void }> = ({ carId, onClose, onSaved }) => {
-  const [loadingData, setLoadingData] = useState(true);
-  const [saving,      setSaving]      = useState(false);
-  const [formError,   setFormError]   = useState<string | null>(null);
-  const [hasReg,      setHasReg]      = useState(false);
-
-  const [modelGroups, setModelGroups] = useState<{ id: number; name: string }[]>([]);
-  const [investors,   setInvestors]   = useState<{ id: number; full_name: string }[]>([]);
-
-  // Section 1
-  const [plateNumber,  setPlateNumber]  = useState('');
-  const [investorId,   setInvestorId]   = useState('');
-  const [modelGroupId, setModelGroupId] = useState('');
-
-  // Section 2
-  const [manufactureYear,  setManufactureYear]  = useState('');
-  const [carPackage,       setCarPackage]        = useState('');
-  const [insuranceExpiry,  setInsuranceExpiry]   = useState('');
-  const [inspectionExpiry, setInspectionExpiry]  = useState('');
-  const [purchaseDate,     setPurchaseDate]      = useState('');
-  const [contractUrl,      setContractUrl]       = useState('');
-  const [invoiceUrl,       setInvoiceUrl]        = useState('');
-  const [insuranceUrl,     setInsuranceUrl]      = useState('');
-  const [ruhsatUrl,        setRuhsatUrl]         = useState('');
-  const [kasko,            setKasko]             = useState('');
-
-  // Pending file uploads (set on file select, uploaded on Save)
-  const [contractFile,  setContractFile]  = useState<File | null>(null);
-  const [invoiceFile,   setInvoiceFile]   = useState<File | null>(null);
-  const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
-  const [ruhsatFile,    setRuhsatFile]    = useState<File | null>(null);
-  const [kaskoFile,     setKaskoFile]     = useState<File | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [carRes, regRes, invRes, mgRes] = await Promise.all([
-        supabase.from('cars').select('id, plate_number, investor_id, model_group_id').eq('id', carId).single(),
-        supabase.from('cars_registration').select('*').eq('car_id', carId).maybeSingle(),
-        supabase.from('investors').select('id, profiles!fk_investor_profile(full_name)'),
-        supabase.from('model_group').select('id, name').order('name'),
-      ]);
-      if (cancelled) return;
-
-      if (carRes.data) {
-        const c = carRes.data as { plate_number: string; investor_id: number | null; model_group_id: number | null };
-        setPlateNumber(c.plate_number ?? '');
-        setInvestorId(c.investor_id != null ? String(c.investor_id) : '');
-        setModelGroupId(c.model_group_id != null ? String(c.model_group_id) : '');
-      }
-
-      if (regRes.data) {
-        const r = regRes.data as Record<string, unknown>;
-        setHasReg(true);
-        setManufactureYear(r.manufacture_year != null ? String(r.manufacture_year) : '');
-        setCarPackage((r.car_package as string) ?? '');
-        setInsuranceExpiry((r.insurance_expiry as string) ?? '');
-        setInspectionExpiry((r.inspection_expiry as string) ?? '');
-        setPurchaseDate((r.purchase_date as string) ?? '');
-        setContractUrl((r.purchase_contract_url as string) ?? '');
-        setInvoiceUrl((r.purchase_invoice_url as string) ?? '');
-        setInsuranceUrl((r.insurance_file_url as string) ?? '');
-        setRuhsatUrl((r.ruhsat_url as string) ?? '');
-        setKasko((r.kasko as string) ?? '');
-      }
-
-      const rawInv = (invRes.data ?? []) as unknown as { id: number; profiles: { full_name: string } | null }[];
-      setInvestors(rawInv.map(r => ({ id: r.id, full_name: r.profiles?.full_name ?? '—' })));
-      setModelGroups((mgRes.data ?? []) as { id: number; name: string }[]);
-      setLoadingData(false);
-    })();
-    return () => { cancelled = true; };
-  }, [carId]);
-
-  const handleSave = async () => {
-    setFormError(null);
-    if (!plateNumber.trim()) { setFormError('Plate number is required.'); return; }
-    setSaving(true);
-
-    const plate = plateNumber.trim().toUpperCase();
-
-    const { error: carErr } = await supabase
-      .from('cars')
-      .update({
-        plate_number:   plate,
-        investor_id:    investorId    ? Number(investorId)    : null,
-        model_group_id: modelGroupId  ? Number(modelGroupId)  : null,
-      })
-      .eq('id', carId);
-
-    if (carErr) { setSaving(false); setFormError(carErr.message); return; }
-
-    // Upload any pending PDF files, fall back to existing URL if none selected
-    const uploadDoc = async (file: File | null, existing: string, prefix: string): Promise<string | null> => {
-      if (!file) return existing || null;
-      const path = `${prefix}-${plate}`;
-      const { error: upErr } = await supabase.storage.from('doc').upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
-      const { data: urlData } = supabase.storage.from('doc').getPublicUrl(path);
-      return urlData.publicUrl;
-    };
-
-    let finalContract: string | null, finalInvoice: string | null,
-        finalInsurance: string | null, finalRuhsat: string | null, finalKasko: string | null;
-    try {
-      [finalContract, finalInvoice, finalInsurance, finalRuhsat, finalKasko] = await Promise.all([
-        uploadDoc(contractFile,  contractUrl,  'S'),
-        uploadDoc(invoiceFile,   invoiceUrl,   'F'),
-        uploadDoc(insuranceFile, insuranceUrl, 'T'),
-        uploadDoc(ruhsatFile,    ruhsatUrl,    'R'),
-        uploadDoc(kaskoFile,     kasko,        'K'),
-      ]);
-    } catch (upErr: unknown) {
-      setSaving(false);
-      setFormError(upErr instanceof Error ? upErr.message : 'File upload failed.');
-      return;
-    }
-
-    const regData = {
-      car_id:               carId,
-      manufacture_year:     manufactureYear ? Number(manufactureYear) : null,
-      car_package:          carPackage.trim()   || null,
-      insurance_expiry:     insuranceExpiry     || null,
-      inspection_expiry:    inspectionExpiry    || null,
-      purchase_date:        purchaseDate        || null,
-      purchase_contract_url: finalContract,
-      purchase_invoice_url:  finalInvoice,
-      insurance_file_url:    finalInsurance,
-      ruhsat_url:            finalRuhsat,
-      kasko:                 finalKasko,
-    };
-
-    const regOp = hasReg
-      ? supabase.from('cars_registration').update(regData).eq('car_id', carId)
-      : supabase.from('cars_registration').insert(regData);
-    const { error: regErr } = await regOp;
-
-    setSaving(false);
-    if (regErr) { setFormError(regErr.message); return; }
-    onSaved();
-    onClose();
-  };
-
-  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 12, fontWeight: 600,
-    color: '#374151', marginBottom: 5, letterSpacing: '0.1px',
-  };
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', fontSize: 14,
-    border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
-    color: '#0f1117', background: '#fff', boxSizing: 'border-box', fontFamily: 'inherit',
-  };
-  const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer', appearance: 'none' };
-  const rowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 };
-
-  return ReactDOM.createPortal(
-    <div
-      onClick={handleBackdrop}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20, animation: 'fadeIn 160ms ease',
-      }}
-    >
-      <div style={{
-        background: '#fff', borderRadius: 16, width: '100%', maxWidth: 580,
-        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
-        animation: 'slideUp 200ms ease',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '22px 24px 18px', borderBottom: '1px solid #f0f0f0',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-        }}>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Edit Car</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Update vehicle details and registration info</div>
-          </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '22px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {loadingData ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite', color: '#4ba6ea' }}>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
-              </svg>
-            </div>
-          ) : (
-            <>
-              {/* Section 1 */}
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
-                  Car Info
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={rowStyle}>
-                    <div>
-                      <label style={labelStyle}>Plate Number <span style={{ color: '#ef4444' }}>*</span></label>
-                      <input type="text" value={plateNumber} onChange={e => setPlateNumber(e.target.value)} style={inputStyle} />
-                    </div>
-                  </div>
-                  <div style={rowStyle}>
-                    <div>
-                      <label style={labelStyle}>Model Group</label>
-                      <select value={modelGroupId} onChange={e => setModelGroupId(e.target.value)} style={selectStyle}>
-                        <option value="">Select model group</option>
-                        {modelGroups.map(mg => <option key={mg.id} value={String(mg.id)}>{mg.name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Investor</label>
-                      <select value={investorId} onChange={e => setInvestorId(e.target.value)} style={selectStyle}>
-                        <option value="">Select investor</option>
-                        {investors.map(inv => <option key={inv.id} value={String(inv.id)}>{inv.full_name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div style={{ height: 1, background: '#f0f0f0' }} />
-
-              {/* Section 2 */}
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14 }}>
-                  Registration Info
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={rowStyle}>
-                    <div>
-                      <label style={labelStyle}>Manufacture Year</label>
-                      <input type="number" value={manufactureYear} onChange={e => setManufactureYear(e.target.value)} placeholder="e.g. 2021" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Car Package</label>
-                      <input type="text" value={carPackage} onChange={e => setCarPackage(e.target.value)} placeholder="e.g. Premium" style={inputStyle} />
-                    </div>
-                  </div>
-                  <div style={rowStyle}>
-                    <div>
-                      <label style={labelStyle}>Insurance Expiry</label>
-                      <input type="date" value={insuranceExpiry} onChange={e => setInsuranceExpiry(e.target.value)} style={inputStyle} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Inspection Expiry</label>
-                      <input type="date" value={inspectionExpiry} onChange={e => setInspectionExpiry(e.target.value)} style={inputStyle} />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Purchase Date</label>
-                    <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} style={{ ...inputStyle, maxWidth: '50%' }} />
-                  </div>
-                  <PdfUploadField label="Purchase Contract" existingUrl={contractUrl}  file={contractFile}  onFileChange={setContractFile}  />
-                  <PdfUploadField label="Purchase Invoice"  existingUrl={invoiceUrl}   file={invoiceFile}   onFileChange={setInvoiceFile}   />
-                  <PdfUploadField label="Insurance File"    existingUrl={insuranceUrl} file={insuranceFile} onFileChange={setInsuranceFile} />
-                  <div style={rowStyle}>
-                    <PdfUploadField label="Ruhsat" existingUrl={ruhsatUrl} file={ruhsatFile} onFileChange={setRuhsatFile} />
-                    <PdfUploadField label="Kasko"  existingUrl={kasko}     file={kaskoFile}  onFileChange={setKaskoFile}  />
-                  </div>
-                </div>
-              </div>
-
-              {/* Error */}
-              {formError && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 9, padding: '10px 12px' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-                    <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
-                    <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
-                  </svg>
-                  <span style={{ fontSize: 13, color: '#dc2626' }}>{formError}</span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || loadingData}
-            style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: saving ? '#93c5fd' : '#4ba6ea', fontSize: 14, fontWeight: 600, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 150ms ease' }}
-          >
-            {saving && (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
-              </svg>
-            )}
-            {saving ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -863,7 +490,6 @@ const CarsPage: React.FC = () => {
   const [cars, setCars]             = useState<CarTableRow[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
   const [tableSearch, setTableSearch] = useState('');
-  const [editingCarId, setEditingCarId] = useState<number | null>(null);
   const [sortCol,  setSortCol]  = useState<'plate_number' | 'model' | 'year' | 'current_km' | 'status' | null>(null);
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('asc');
   const [totalCars, setTotalCars] = useState(0);
@@ -1002,31 +628,6 @@ const CarsPage: React.FC = () => {
             Real-time availability across all branches.
           </p>
         </div>
-        <button
-          onClick={() => setShowAddCar(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '10px 18px', borderRadius: 10, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(75,166,234,0.35)',
-            transition: 'background 150ms ease, box-shadow 150ms ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(75,166,234,0.45)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(75,166,234,0.35)';
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-          Add Car
-        </button>
       </div>
 
       {/* Error state */}
@@ -1202,8 +803,6 @@ const CarsPage: React.FC = () => {
                     );
                   })}
                   {([
-                    { key: 'contract_url',  label: 'Contract'  },
-                    { key: 'invoice_url',   label: 'Invoice'   },
                     { key: 'insurance_url', label: 'Insurance' },
                     { key: 'ruhsat_url',    label: 'Ruhsat'    },
                     { key: 'kasko_url',     label: 'Kasko'     },
@@ -1227,22 +826,13 @@ const CarsPage: React.FC = () => {
                       </th>
                     );
                   })}
-                  <th style={{
-                    padding: '9px 14px', fontSize: 11, fontWeight: 700,
-                    color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
-                    textAlign: 'center', background: '#fff',
-                    borderBottom: '1.5px solid #f0f0f0',
-                    whiteSpace: 'nowrap', userSelect: 'none',
-                  }}>
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {carsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 11 }).map((__, j) => (
+                      {Array.from({ length: 8 }).map((__, j) => (
                         <td key={j} style={{ padding: '12px 14px' }}>
                           <div style={{ height: 14, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: j === 0 ? '80px' : j >= 5 ? '20px' : '60%', margin: j >= 5 ? '0 auto' : undefined }} />
                         </td>
@@ -1302,7 +892,7 @@ const CarsPage: React.FC = () => {
                       <td style={{ padding: '12px 14px' }}>
                         {car.status && car.status !== '—' ? <CarStatusBadge status={car.status} /> : <span style={{ fontSize: 12, color: '#9ca3af' }}>—</span>}
                       </td>
-                      {([car.contract_url, car.invoice_url, car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
+                      {([car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
                         <td key={di} style={{ padding: '12px 14px', textAlign: 'center' }}>
                           {url ? (
                             <a href={url} target="_blank" rel="noreferrer" title="Open document" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea' }}>
@@ -1324,26 +914,6 @@ const CarsPage: React.FC = () => {
                           )}
                         </td>
                       ))}
-                      {/* Actions */}
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => setEditingCarId(car.id)}
-                          title="Edit car"
-                          style={{
-                            width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb',
-                            background: '#fff', cursor: 'pointer', display: 'inline-flex',
-                            alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
-                            transition: 'all 140ms ease',
-                          }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.06)'; }}
-                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fff'; }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                      </td>
                     </tr>
                   ));
                 })()}
@@ -1376,13 +946,6 @@ const CarsPage: React.FC = () => {
         <AddCarModal
           onClose={() => setShowAddCar(false)}
           onAdded={() => setRefreshKey(k => k + 1)}
-        />
-      )}
-      {editingCarId !== null && (
-        <EditCarModal
-          carId={editingCarId}
-          onClose={() => setEditingCarId(null)}
-          onSaved={() => { setEditingCarId(null); setRefreshKey(k => k + 1); }}
         />
       )}
     </div>

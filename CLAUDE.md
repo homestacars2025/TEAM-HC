@@ -1,7 +1,9 @@
-# HomestaCars Admin Dashboard
+# HomestaCars Team Dashboard
 
 ## Project Overview
-Admin dashboard for HomestaCars — a premium car rental company based in Istanbul, Turkey (founded 2025), with two branches in Şişli and Kayaşehir. The company focuses on quality and modern customer experience, ranging from economy to luxury vehicles. Behind the scenes it manages investor-owned vehicles.
+Team dashboard for HomestaCars — accessible at team.homestacars.com. Used by both admin and staff roles. Access is restricted to users where `profiles.role = 'admin'` OR `profiles.role = 'staff'`.
+
+HomestaCars is a premium car rental company based in Istanbul, Turkey (founded 2025), with two branches in Şişli and Kayaşehir. The company focuses on quality and modern customer experience, ranging from economy to luxury vehicles. Behind the scenes it manages investor-owned vehicles.
 
 ## Tech Stack
 - React (TypeScript)

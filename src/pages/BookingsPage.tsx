@@ -293,11 +293,10 @@ interface RowProps {
   onSelect: () => void;
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
-  onDelete: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit, onDelete,
+  booking, isSelected, isEven, onSelect, onToggle, onEdit,
 }) => (
   <tr
     className="bk-row"
@@ -357,11 +356,6 @@ const BookingTableRow: React.FC<RowProps> = ({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </ActionBtn>
-        <ActionBtn onClick={onDelete} title="Delete" hoverColor="#ef4444">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </ActionBtn>
       </div>
@@ -1373,64 +1367,6 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 
 // ─── Delete confirm modal ─────────────────────────────────────────────────────
 
-const DeleteConfirm: React.FC<{
-  booking: Booking;
-  deleting: boolean;
-  onConfirm: () => void;
-  onClose: () => void;
-}> = ({ booking, deleting, onConfirm, onClose }) => {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
-
-  return ReactDOM.createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 24, animation: 'fadeIn 150ms ease',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 400,
-          padding: 28, boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
-          animation: 'slideUp 180ms ease',
-        }}
-      >
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', marginBottom: 8 }}>Delete Booking?</div>
-        <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 24, lineHeight: 1.6 }}>
-          Booking <strong style={{ color: '#0f1117' }}>{booking.booking_number}</strong> for{' '}
-          <strong style={{ color: '#0f1117' }}>{booking.customer_name}</strong> will be permanently deleted.
-        </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose}
-            style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>
-            Cancel
-          </button>
-          <button onClick={onConfirm} disabled={deleting}
-            style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: deleting ? '#fca5a5' : '#ef4444', color: '#fff', fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}>
-            {deleting ? 'Deleting…' : 'Delete'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const BookingsPage: React.FC = () => {
@@ -1445,8 +1381,6 @@ const BookingsPage: React.FC = () => {
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking }>(null);
-  const [deleteTarget, setDeleteTarget]   = useState<Booking | null>(null);
-  const [deleting, setDeleting]           = useState(false);
   const [toast, setToast]                 = useState<ToastState | null>(null);
   const toastTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1571,22 +1505,6 @@ const BookingsPage: React.FC = () => {
       showToast('Update failed', 'error');
     }
   }, [showToast]);
-
-  // ── Delete ──────────────────────────────────────────────────────────────────
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    const { error: deleteError } = await supabase.from('bookings').delete().eq('id', deleteTarget.id);
-    setDeleting(false);
-    if (deleteError) {
-      showToast('Failed to delete booking', 'error');
-    } else {
-      showToast('Booking deleted', 'success');
-      fetchStats(selectedMonth);
-      setBookings(prev => prev.filter(b => b.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    }
-  };
 
   // ── Export CSV ──────────────────────────────────────────────────────────────
   const handleExport = () => {
@@ -1810,7 +1728,6 @@ const BookingsPage: React.FC = () => {
                     onSelect={() => toggleSelectRow(booking.id)}
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
-                    onDelete={() => setDeleteTarget(booking)}
                   />
                 ))}
               </tbody>
@@ -1862,14 +1779,6 @@ const BookingsPage: React.FC = () => {
             fetchStats(selectedMonth);
             fetchBookings(selectedMonth);
           }}
-        />
-      )}
-      {deleteTarget && (
-        <DeleteConfirm
-          booking={deleteTarget}
-          deleting={deleting}
-          onConfirm={handleDelete}
-          onClose={() => setDeleteTarget(null)}
         />
       )}
       {toast && <Toast {...toast} />}

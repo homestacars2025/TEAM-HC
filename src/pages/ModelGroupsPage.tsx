@@ -627,25 +627,6 @@ const ModelGroupsPage: React.FC = () => {
             {loading ? 'Loading…' : `${groups.length} model group${groups.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <button
-          onClick={() => setModal({ mode: 'add' })}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 42, padding: '0 20px',
-            background: '#4ba6ea', color: '#fff', border: 'none',
-            borderRadius: 10, fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-            boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-            transition: 'background 150ms ease, box-shadow 150ms ease',
-          }}
-          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#2e8fd4'; b.style.boxShadow = '0 4px 16px rgba(75,166,234,0.40)'; }}
-          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#4ba6ea'; b.style.boxShadow = '0 2px 8px rgba(75,166,234,0.30)'; }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-          </svg>
-          Add Model Group
-        </button>
       </div>
 
       {/* Error */}

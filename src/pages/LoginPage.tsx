@@ -21,10 +21,24 @@ const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
       setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    const userId = authData.user?.id;
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
+      await supabase.auth.signOut();
+      setError("You don't have access to this portal");
       setLoading(false);
       return;
     }
@@ -211,10 +225,10 @@ const LoginPage: React.FC = () => {
             marginBottom: 8,
             color: 'var(--text-primary)',
           }}>
-            Admin sign in
+            HomestaCars
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
-            Access your HomestaCars dashboard
+            Team Portal — Staff & Admin Access
           </p>
         </div>
 
@@ -236,7 +250,7 @@ const LoginPage: React.FC = () => {
                 onChange={e => setEmail(e.target.value)}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="admin@homestacars.com"
+                placeholder="you@homestacars.com"
                 style={inputStyle('email')}
                 required
                 autoComplete="email"
@@ -340,7 +354,7 @@ const LoginPage: React.FC = () => {
           textAlign: 'center',
           marginTop: 36,
         }}>
-          HomestaCars Admin · Istanbul
+          HomestaCars Team Portal · Istanbul
         </p>
       </div>
 

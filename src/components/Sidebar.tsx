@@ -67,40 +67,6 @@ const managementItems = [
       </svg>
     ),
   },
-  {
-    label: 'Users',
-    path: '/dashboard/users',
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-        <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/>
-        <path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M16 3.13a4 4 0 010 7.75M21 21v-2a4 4 0 00-3-3.87" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'Investors',
-    path: '/dashboard/investors',
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-        <line x1="12" y1="1" x2="12" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
-  },
-];
-
-const financeItems = [
-  {
-    label: 'Accounting',
-    path: '/dashboard/accounting',
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-        <path d="M3 3v18h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M18 9l-5 5-3-3-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
-  },
 ];
 
 const operationsItems = [
@@ -472,23 +438,6 @@ const Sidebar: React.FC = () => {
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
         {renderNavItems(managementItems)}
-
-        {/* Finance section */}
-        {!collapsed ? (
-          <div style={{
-            fontSize: 10.5,
-            fontWeight: 700,
-            color: '#c0c4cc',
-            letterSpacing: '0.8px',
-            textTransform: 'uppercase',
-            padding: '16px 10px 8px',
-          }}>
-            Finance
-          </div>
-        ) : (
-          <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
-        )}
-        {renderNavItems(financeItems)}
 
         {/* Operations section */}
         {!collapsed ? (

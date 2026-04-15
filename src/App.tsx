@@ -9,10 +9,7 @@ import KGMPage from './pages/KGMPage';
 import BookingsPage from './pages/BookingsPage';
 import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
-import UsersPage from './pages/UsersPage';
-import InvestorsPage from './pages/InvestorsPage';
 import PricingPage from './pages/PricingPage';
-import AccountingPage, { InvestorReportPage } from './pages/AccountingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
 import CustomersPage from './pages/CustomersPage';
 import OperationsPage from './pages/OperationsPage';
@@ -40,11 +37,7 @@ const App: React.FC = () => {
           <Route path="bookings" element={<BookingsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="fines" element={<FinesPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="investors" element={<InvestorsPage />} />
           <Route path="pricing" element={<PricingPage />} />
-          <Route path="accounting" element={<AccountingPage />} />
-          <Route path="accounting/report" element={<InvestorReportPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="operations" element={<OperationsPage />} />
         </Route>
