@@ -725,6 +725,94 @@ const focusBlue = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HT
 const blurGray = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
   { (e.target as HTMLElement & { style: CSSStyleDeclaration }).style.borderColor = '#e5e7eb'; };
 
+// ─── Document upload field ────────────────────────────────────────────────────
+
+const DocUploadField: React.FC<{
+  label:       string;
+  existingUrl?: string | null;
+  file:        File | null;
+  onChange:    (f: File | null) => void;
+}> = ({ label, existingUrl, file, onChange }) => {
+  const [preview, setPreview] = React.useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!file || !file.type.startsWith('image/')) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const isImage = (url: string) => /\.(jpe?g|png|gif|webp)(\?|$)/i.test(url);
+
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+        {label}
+      </label>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,.pdf" style={{ display: 'none' }}
+        onChange={e => { const f = e.target.files?.[0] ?? null; onChange(f); e.target.value = ''; }} />
+
+      {/* Existing file row */}
+      {existingUrl && !file && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '6px 10px', borderRadius: 8, background: '#f8faff', border: '1px solid rgba(75,166,234,0.18)' }}>
+          {isImage(existingUrl) ? (
+            <img src={existingUrl} alt="doc" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 36, height: 36, borderRadius: 6, background: '#e0edfa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          )}
+          <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: '#4ba6ea', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            View current file
+          </a>
+          <button type="button" onClick={() => inputRef.current?.click()} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            Replace
+          </button>
+        </div>
+      )}
+
+      {/* New file preview */}
+      {file && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, border: '1.5px solid #4ba6ea', background: 'rgba(75,166,234,0.04)', marginBottom: 0 }}>
+          {preview ? (
+            <img src={preview} alt="preview" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid rgba(75,166,234,0.2)' }} />
+          ) : (
+            <div style={{ width: 44, height: 44, borderRadius: 6, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+            <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
+          </div>
+          <button type="button" onClick={() => onChange(null)}
+            style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}
+            onMouseEnter={e => { const b = e.currentTarget; b.style.color = '#ef4444'; b.style.borderColor = '#fca5a5'; }}
+            onMouseLeave={e => { const b = e.currentTarget; b.style.color = '#9ca3af'; b.style.borderColor = '#e5e7eb'; }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+      )}
+
+      {/* Upload zone — only when no new file */}
+      {!file && (
+        <button type="button" onClick={() => inputRef.current?.click()}
+          style={{ width: '100%', height: existingUrl ? 44 : 68, borderRadius: 9, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer', color: '#9ca3af', transition: 'all 140ms ease' }}
+          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.04)'; }}
+          onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fafafa'; }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="17 8 12 3 7 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          {!existingUrl && <span style={{ fontSize: 11, fontWeight: 500 }}>Upload file</span>}
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Section heading inside the form
 const SectionHeading: React.FC<{ icon: React.ReactNode; title: string }> = ({ icon, title }) => (
   <div style={{
@@ -750,19 +838,38 @@ interface FormModalProps {
   mode: 'add' | 'edit';
   initial: BookingFormData;
   editId?: number;
-  customerName?: string;
+  editCustomerId?: number;
   onClose: () => void;
   onSaved: () => void;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
-  mode, initial, editId, customerName, onClose, onSaved,
+  mode, initial, editId, editCustomerId, onClose, onSaved,
 }) => {
   const [form, setForm] = useState<BookingFormData>(initial);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [cars, setCars] = useState<CarOption[]>([]);
   const [bookingNumLoading, setBookingNumLoading] = useState(mode === 'add');
+
+  // Document uploads
+  const [docIdPhoto,        setDocIdPhoto]        = useState<File | null>(null);
+  const [docDrivingLicense, setDocDrivingLicense] = useState<File | null>(null);
+  const [docEntryStamp,     setDocEntryStamp]     = useState<File | null>(null);
+  const [existingDocUrls,   setExistingDocUrls]   = useState<{
+    id_photo_url:              string | null;
+    driving_license_photo_url: string | null;
+    entry_stamp_photo_url:     string | null;
+  }>({ id_photo_url: null, driving_license_photo_url: null, entry_stamp_photo_url: null });
+
+  const uploadDoc = async (file: File, prefix: string, fullName: string): Promise<string | null> => {
+    const ext  = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const path = `${prefix}-${fullName}.${ext}`;
+    const { error } = await supabase.storage.from('customers_doc').upload(path, file, { upsert: true });
+    if (error) { console.error(`[Booking] upload ${prefix} error:`, error); return null; }
+    const { data } = supabase.storage.from('customers_doc').getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -810,6 +917,49 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return () => { active = false; };
   }, [mode]);
 
+  // Fetch existing customer data in edit mode
+  useEffect(() => {
+    if (mode !== 'edit' || !editCustomerId) return;
+    let active = true;
+    supabase
+      .from('customers')
+      .select('*')
+      .eq('id', editCustomerId)
+      .single()
+      .then(({ data, error }) => {
+        if (!active || error || !data) return;
+        const c = data as {
+          first_name: string; last_name: string; phone: string | null;
+          nationality: string | null; id_type: string | null; id_number: string | null;
+          driving_license: string | null; driving_license_number: string | null;
+          address: string | null; birth_date: string | null; notes: string | null;
+          id_photo_url: string | null; driving_license_photo_url: string | null;
+          entry_stamp_photo_url: string | null;
+        };
+        setForm(f => ({
+          ...f,
+          cust_first_name:             c.first_name,
+          cust_last_name:              c.last_name,
+          cust_phone_dial:             '',
+          cust_phone:                  c.phone ?? '',
+          cust_nationality:            c.nationality ?? '',
+          cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
+          cust_id_number:              c.id_number ?? '',
+          cust_driving_license:        c.driving_license ?? '',
+          cust_driving_license_number: c.driving_license_number ?? '',
+          cust_address:                c.address ?? '',
+          cust_birth_date:             c.birth_date ?? '',
+          cust_notes:                  c.notes ?? '',
+        }));
+        setExistingDocUrls({
+          id_photo_url:              c.id_photo_url              ?? null,
+          driving_license_photo_url: c.driving_license_photo_url ?? null,
+          entry_stamp_photo_url:     c.entry_stamp_photo_url     ?? null,
+        });
+      });
+    return () => { active = false; };
+  }, [mode, editCustomerId]);
+
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
 
@@ -848,14 +998,32 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         return;
       }
 
-      // Step 2: create booking with the new customer id
+      // Step 2: upload documents and patch customer
+      const customerId = (custData as { id: number }).id;
+      const fullName   = `${form.cust_first_name} ${form.cust_last_name}`.trim();
+      const docUpdates: Record<string, string> = {};
+
+      const [idUrl, dlUrl, esUrl] = await Promise.all([
+        docIdPhoto        ? uploadDoc(docIdPhoto,        'ID',             fullName) : Promise.resolve(null),
+        docDrivingLicense ? uploadDoc(docDrivingLicense, 'DrivingLicense', fullName) : Promise.resolve(null),
+        docEntryStamp     ? uploadDoc(docEntryStamp,     'EntryStamp',     fullName) : Promise.resolve(null),
+      ]);
+      if (idUrl) docUpdates.id_photo_url             = idUrl;
+      if (dlUrl) docUpdates.driving_license_photo_url = dlUrl;
+      if (esUrl) docUpdates.entry_stamp_photo_url     = esUrl;
+      if (Object.keys(docUpdates).length > 0) {
+        const { error: docErr } = await supabase.from('customers').update(docUpdates).eq('id', customerId);
+        if (docErr) console.error('[Booking] customer doc update error:', docErr);
+      }
+
+      // Step 3: create booking with the new customer id
       const { error: bookingError } = await supabase
         .from('bookings')
         .insert({
           booking_number: form.booking_number,
           status:         form.status,
           car_id:         Number(form.car_id),
-          customer_id:    (custData as { id: number }).id,
+          customer_id:    customerId,
           start_date:     form.start_date,
           end_date:       form.end_date,
           kabis_reported: false,
@@ -865,8 +1033,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       setSaving(false);
       if (bookingError) { setFormError(bookingError.message); return; }
     } else {
-      // Edit: update booking fields only
-      const { error } = await supabase
+      // Edit: update booking
+      const { error: bookingErr } = await supabase
         .from('bookings')
         .update({
           booking_number: form.booking_number,
@@ -877,8 +1045,45 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         })
         .eq('id', editId!);
 
+      if (bookingErr) { setSaving(false); setFormError(bookingErr.message); return; }
+
+      // Edit: update customer + upload docs
+      if (editCustomerId) {
+        const fullName = `${form.cust_first_name} ${form.cust_last_name}`.trim();
+        const phone    = form.cust_phone
+          ? (form.cust_phone_dial ? `${form.cust_phone_dial}${form.cust_phone}` : form.cust_phone)
+          : null;
+
+        const [idUrl, dlUrl, esUrl] = await Promise.all([
+          docIdPhoto        ? uploadDoc(docIdPhoto,        'ID',             fullName) : Promise.resolve(null),
+          docDrivingLicense ? uploadDoc(docDrivingLicense, 'DrivingLicense', fullName) : Promise.resolve(null),
+          docEntryStamp     ? uploadDoc(docEntryStamp,     'EntryStamp',     fullName) : Promise.resolve(null),
+        ]);
+
+        const { error: custErr } = await supabase
+          .from('customers')
+          .update({
+            first_name:              form.cust_first_name,
+            last_name:               form.cust_last_name,
+            phone,
+            nationality:             form.cust_nationality            || null,
+            id_type:                 form.cust_id_type,
+            id_number:               form.cust_id_number              || null,
+            driving_license:         form.cust_driving_license        || null,
+            driving_license_number:  form.cust_driving_license_number || null,
+            address:                 form.cust_address                || null,
+            birth_date:              form.cust_birth_date             || null,
+            notes:                   form.cust_notes                  || null,
+            ...(idUrl && { id_photo_url:              idUrl }),
+            ...(dlUrl && { driving_license_photo_url: dlUrl }),
+            ...(esUrl && { entry_stamp_photo_url:     esUrl }),
+          })
+          .eq('id', editCustomerId);
+
+        if (custErr) console.error('[Booking] customer update error:', custErr);
+      }
+
       setSaving(false);
-      if (error) { setFormError(error.message); return; }
     }
 
     onSaved();
@@ -972,14 +1177,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               </select>
             </Field>
 
-            {/* Customer read-only in edit mode */}
-            {mode === 'edit' && customerName && (
-              <Field label="Customer">
-                <input readOnly value={customerName}
-                  style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', cursor: 'default' }} />
-              </Field>
-            )}
-
             <Field label="Start Date" required>
               <input required type="date" value={form.start_date}
                 onChange={e => set('start_date', e.target.value)}
@@ -992,13 +1189,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
             </Field>
 
-            {/* ── Customer Information (add mode only) ── */}
-            {mode === 'add' && (
-              <>
-                <SectionHeading
-                  title="Customer Information"
-                  icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
-                />
+            {/* ── Customer Information ── */}
+            <>
+              <SectionHeading
+                title="Customer Information"
+                icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+              />
 
                 <Field label="First Name" required>
                   <input required value={form.cust_first_name}
@@ -1095,8 +1291,34 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     onFocus={focusBlue} onBlur={blurGray}
                   />
                 </div>
-              </>
-            )}
+
+                {/* ── Customer Documents ── */}
+                <SectionHeading
+                  title="Customer Documents"
+                  icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+                />
+
+                <DocUploadField
+                  label="ID Photo"
+                  existingUrl={existingDocUrls.id_photo_url}
+                  file={docIdPhoto}
+                  onChange={setDocIdPhoto}
+                />
+
+                <DocUploadField
+                  label="Driving License"
+                  existingUrl={existingDocUrls.driving_license_photo_url}
+                  file={docDrivingLicense}
+                  onChange={setDocDrivingLicense}
+                />
+
+                <DocUploadField
+                  label="Entry Stamp"
+                  existingUrl={existingDocUrls.entry_stamp_photo_url}
+                  file={docEntryStamp}
+                  onChange={setDocEntryStamp}
+                />
+            </>
           </div>
 
           {formError && (
@@ -1633,7 +1855,7 @@ const BookingsPage: React.FC = () => {
           mode="edit"
           initial={editFormData(modal.booking)}
           editId={modal.booking.id}
-          customerName={modal.booking.customer_name}
+          editCustomerId={modal.booking.customer_id}
           onClose={() => setModal(null)}
           onSaved={() => {
             showToast('Booking updated', 'success');

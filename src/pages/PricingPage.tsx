@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCurrency } from '../lib/CurrencyContext';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
-import { useCurrency } from '../lib/CurrencyContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -549,14 +549,14 @@ const ModelPricingCard: React.FC<{
   tiers: PricingTier[];
   onPriceUpdate: (modelId: number, newPrice: number) => void;
 }> = ({ model, tiers, onPriceUpdate }) => {
-  const { fmt, convert, symbol: sym } = useCurrency();
+
   const [imgError, setImgError] = useState(false);
+  const { fmtUSD } = useCurrency();
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
   const [savingPrice, setSavingPrice] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const priceInputRef = useRef<HTMLInputElement>(null);
-  const baseConverted = convert(model.price);
 
   const startEdit = () => {
     setPriceInput(String(model.price));
@@ -703,7 +703,7 @@ const ModelPricingCard: React.FC<{
                 </svg>
               )}
               <span style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-                {fmt(baseConverted)}
+                {fmtUSD(model.price)}
               </span>
               <button
                 onClick={startEdit}
@@ -733,8 +733,7 @@ const ModelPricingCard: React.FC<{
               const label = TIER_LABELS_LOCAL[i] ?? String(i + 1);
               const color = TIER_COLORS[label] ?? '#6b7280';
               const discountedDaily = model.price * (1 - tier.discount_percent / 100);
-              const discountedConverted = convert(discountedDaily);
-              const totalMin = discountedConverted * tier.min_days;
+              const totalMin = discountedDaily * tier.min_days;
 
               return (
                 <div key={tier.id} style={{
@@ -772,10 +771,10 @@ const ModelPricingCard: React.FC<{
                   {/* Per day price */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#0f1117' }}>
-                      {fmt(discountedConverted)}/d
+                      {fmtUSD(discountedDaily)}/d
                     </div>
                     <div style={{ fontSize: 10, color: '#9ca3af' }}>
-                      {fmt(totalMin)} total
+                      {fmtUSD(totalMin)} total
                     </div>
                   </div>
                 </div>

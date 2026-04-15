@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -18,6 +18,9 @@ interface Customer {
   address: string | null;
   birth_date: string | null;
   notes: string | null;
+  id_photo_url:               string | null;
+  driving_license_photo_url:  string | null;
+  entry_stamp_photo_url:      string | null;
 }
 
 interface CustomerBooking {
@@ -73,6 +76,90 @@ function initials(c: Customer): string {
   return `${c.first_name.charAt(0)}${c.last_name.charAt(0)}`.toUpperCase();
 }
 
+// ─── Doc Upload Field ─────────────────────────────────────────────────────────
+
+const DocUploadField: React.FC<{
+  label:      string;
+  existingUrl: string | null;
+  file:       File | null;
+  onChange:   (f: File | null) => void;
+}> = ({ label, existingUrl, file, onChange }) => {
+  const [preview, setPreview] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!file || !file.type.startsWith('image/')) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const isImage = (url: string) => /\.(jpe?g|png|gif|webp)(\?|$)/i.test(url);
+
+  return (
+    <div>
+      <label style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: 6, display: 'block' }}>
+        {label}
+      </label>
+
+      {/* Existing file — shown when no new file selected */}
+      {existingUrl && !file && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '7px 10px', borderRadius: 8, background: '#f8faff', border: '1px solid rgba(75,166,234,0.18)' }}>
+          {isImage(existingUrl) ? (
+            <img src={existingUrl} alt="doc" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 36, height: 36, borderRadius: 6, background: '#e0edfa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          )}
+          <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#4ba6ea', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            View current file
+          </a>
+          <button type="button" onClick={() => inputRef.current?.click()} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            Replace
+          </button>
+        </div>
+      )}
+
+      {/* New file preview */}
+      {file && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '7px 10px', borderRadius: 8, border: '1.5px solid #4ba6ea', background: 'rgba(75,166,234,0.04)' }}>
+          {preview ? (
+            <img src={preview} alt="preview" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(75,166,234,0.2)', flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 36, height: 36, borderRadius: 6, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+            <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 1 }}>Ready to upload · {(file.size / 1024).toFixed(0)} KB</div>
+          </div>
+          <button type="button" onClick={() => onChange(null)} style={{ width: 22, height: 22, borderRadius: 5, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}
+            onMouseEnter={e => { const b = e.currentTarget; b.style.color = '#ef4444'; b.style.borderColor = '#fca5a5'; }}
+            onMouseLeave={e => { const b = e.currentTarget; b.style.color = '#9ca3af'; b.style.borderColor = '#e5e7eb'; }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+      )}
+
+      {/* Upload button — only when no new file selected */}
+      {!file && (
+        <button type="button" onClick={() => inputRef.current?.click()}
+          style={{ width: '100%', height: 52, borderRadius: 9, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'pointer', color: '#9ca3af', fontSize: 12, fontWeight: 500, transition: 'all 140ms ease' }}
+          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.04)'; }}
+          onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fafafa'; }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><polyline points="17 8 12 3 7 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          {existingUrl ? 'Replace file' : 'Upload file'}
+        </button>
+      )}
+
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,.pdf" style={{ display: 'none' }}
+        onChange={e => { const f = e.target.files?.[0] ?? null; onChange(f); e.target.value = ''; }} />
+    </div>
+  );
+};
+
 // ─── Edit Customer Modal ───────────────────────────────────────────────────────
 
 const EditCustomerModal: React.FC<{
@@ -81,26 +168,52 @@ const EditCustomerModal: React.FC<{
   onSaved:  (updated: Customer) => void;
 }> = ({ customer, onClose, onSaved }) => {
   const [form,   setForm]   = useState<EditForm>({
-    first_name:      customer.first_name,
-    last_name:       customer.last_name,
-    phone:           customer.phone ? customer.phone.replace(/^\+/, '') : '',
-    nationality:     customer.nationality     ?? '',
-    id_type:         customer.id_type         ?? '',
-    id_number:       customer.id_number       ?? '',
-    driving_license: customer.driving_license ?? '',
-    address:         customer.address         ?? '',
-    birth_date:      customer.birth_date      ?? '',
-    notes:           customer.notes           ?? '',
+    first_name:                   customer.first_name,
+    last_name:                    customer.last_name,
+    phone:                        customer.phone ? customer.phone.replace(/^\+/, '') : '',
+    nationality:                  customer.nationality     ?? '',
+    id_type:                      customer.id_type         ?? '',
+    id_number:                    customer.id_number       ?? '',
+    driving_license:              customer.driving_license ?? '',
+    address:                      customer.address         ?? '',
+    birth_date:                   customer.birth_date      ?? '',
+    notes:                        customer.notes           ?? '',
+    id_photo_url:                 customer.id_photo_url              ?? null,
+    driving_license_photo_url:    customer.driving_license_photo_url ?? null,
+    entry_stamp_photo_url:        customer.entry_stamp_photo_url     ?? null,
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
 
+  // Document file uploads
+  const [docIdPhoto,        setDocIdPhoto]        = useState<File | null>(null);
+  const [docDrivingLicense, setDocDrivingLicense] = useState<File | null>(null);
+  const [docEntryStamp,     setDocEntryStamp]     = useState<File | null>(null);
+
   const set = (k: keyof EditForm, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const uploadDoc = async (file: File, prefix: string): Promise<string | null> => {
+    const fullName = `${form.first_name.trim()} ${form.last_name.trim()}`;
+    const ext      = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const path     = `${prefix}-${fullName}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('customers_doc').upload(path, file, { upsert: true });
+    if (upErr) { console.error(`[Customers] upload ${prefix} error:`, upErr); return null; }
+    const { data } = supabase.storage.from('customers_doc').getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   const handleSave = async () => {
     if (!form.first_name.trim()) { setError('First name is required.'); return; }
     setSaving(true);
     setError(null);
+
+    // Upload any new document files in parallel
+    const [idUrl, dlUrl, esUrl] = await Promise.all([
+      docIdPhoto        ? uploadDoc(docIdPhoto,        'ID')             : Promise.resolve(null),
+      docDrivingLicense ? uploadDoc(docDrivingLicense, 'DrivingLicense') : Promise.resolve(null),
+      docEntryStamp     ? uploadDoc(docEntryStamp,     'EntryStamp')     : Promise.resolve(null),
+    ]);
+
     const { data, error: err } = await supabase
       .from('customers')
       .update({
@@ -114,6 +227,9 @@ const EditCustomerModal: React.FC<{
         address:         form.address?.trim()         || null,
         birth_date:      form.birth_date             || null,
         notes:           form.notes?.trim()           || null,
+        ...(idUrl && { id_photo_url:              idUrl }),
+        ...(dlUrl && { driving_license_photo_url: dlUrl }),
+        ...(esUrl && { entry_stamp_photo_url:     esUrl }),
       })
       .eq('id', customer.id)
       .select()
@@ -222,6 +338,37 @@ const EditCustomerModal: React.FC<{
             <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} rows={3}
               style={{ ...inp, resize: 'vertical', minHeight: 72 }}
               onFocus={focusBlue} onBlur={blurGray} />
+          </div>
+
+          {/* Documents section */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, marginTop: 4 }}>
+              <div style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea', flexShrink: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Customer Documents</span>
+              <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
+            </div>
+            <div style={g2}>
+              <DocUploadField
+                label="ID Photo"
+                existingUrl={customer.id_photo_url ?? null}
+                file={docIdPhoto}
+                onChange={setDocIdPhoto}
+              />
+              <DocUploadField
+                label="Driving License"
+                existingUrl={customer.driving_license_photo_url ?? null}
+                file={docDrivingLicense}
+                onChange={setDocDrivingLicense}
+              />
+              <DocUploadField
+                label="Entry Stamp"
+                existingUrl={customer.entry_stamp_photo_url ?? null}
+                file={docEntryStamp}
+                onChange={setDocEntryStamp}
+              />
+            </div>
           </div>
 
           {error && (
@@ -516,7 +663,7 @@ const CustomersPage: React.FC = () => {
           else { countMap.set(key, { name: b.name ?? 'Unknown', count: 1 }); }
         }
         const topCustomer = countMap.size > 0
-          ? [...countMap.values()].sort((a, b) => b.count - a.count)[0]
+          ? Array.from(countMap.values()).sort((a, b) => b.count - a.count)[0]
           : null;
 
         const longestRental = withDays.length > 0
@@ -577,9 +724,9 @@ const CustomersPage: React.FC = () => {
           const n = c.nationality?.trim() || null;
           if (n) natMap.set(n, (natMap.get(n) ?? 0) + 1);
         }
-        const topNat     = [...natMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const topNat     = Array.from(natMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
         const maxNatCount = topNat[0]?.[1] ?? 1;
-        const totalWithNat = [...natMap.values()].reduce((s, v) => s + v, 0);
+        const totalWithNat = Array.from(natMap.values()).reduce((s, v) => s + v, 0);
 
         const cardStyle: React.CSSProperties = {
           background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0',

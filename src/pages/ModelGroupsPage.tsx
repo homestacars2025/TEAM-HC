@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useCurrency } from '../lib/CurrencyContext';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { ModelGroup, ModelGroupFormData } from '../types';
-import { useCurrency } from '../lib/CurrencyContext';
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
@@ -17,9 +17,12 @@ const EMPTY_FORM: ModelGroupFormData = {
 
 
 const CATEGORY_STYLE: Record<string, { color: string; bg: string }> = {
-  Economy: { color: '#16a34a', bg: 'rgba(22,163,74,0.10)' },
-  Middle:  { color: '#2563eb', bg: 'rgba(37,99,235,0.10)' },
-  SUV:     { color: '#d97706', bg: 'rgba(217,119,6,0.10)'  },
+  Economy: { color: '#16a34a', bg: 'rgba(22,163,74,0.10)'   },
+  Middle:  { color: '#2563eb', bg: 'rgba(37,99,235,0.10)'   },
+  Luxury:  { color: '#7c3aed', bg: 'rgba(124,58,237,0.10)'  },
+  SUV:     { color: '#d97706', bg: 'rgba(217,119,6,0.10)'   },
+  Van:     { color: '#0891b2', bg: 'rgba(8,145,178,0.10)'   },
+  Electric:{ color: '#059669', bg: 'rgba(5,150,105,0.10)'   },
 };
 
 const categoryStyle = (cat: string) =>
@@ -63,39 +66,55 @@ interface FormModalProps {
   editId?: number;
 }
 
-const FIELD_STYLE: React.CSSProperties = {
+const F: React.CSSProperties = {
   width: '100%', height: 40, padding: '0 12px',
   fontSize: 14, color: '#0f1117',
   background: '#fff', border: '1.5px solid #e5e7eb',
   borderRadius: 8, outline: 'none', fontFamily: 'inherit',
   boxSizing: 'border-box', transition: 'border-color 150ms ease',
 };
-
-type FieldConfig =
-  | { type: 'text' | 'number'; key: keyof ModelGroupFormData; label: string; required?: boolean; span?: 1 | 2 }
-  | { type: 'select'; key: keyof ModelGroupFormData; label: string; options: string[]; required?: boolean; span?: 1 | 2 };
-
-const FIELDS: FieldConfig[] = [
-  { type: 'text',   key: 'name',        label: 'Name',           required: true,  span: 2 },
-  { type: 'text',   key: 'brand',       label: 'Brand',          required: true  },
-  { type: 'text',   key: 'model',       label: 'Model',          required: true  },
-  { type: 'select', key: 'category',    label: 'Category',       options: ['Economy', 'Middle', 'SUV'] },
-  { type: 'select', key: 'transmission',label: 'Transmission',   options: ['Automatic', 'Manual'] },
-  { type: 'select', key: 'fuel',        label: 'Fuel',           options: ['Petrol', 'Diesel'] },
-  { type: 'number', key: 'seats',       label: 'Seats' },
-  { type: 'number', key: 'luggage',     label: 'Luggage' },
-  { type: 'number', key: 'daily_km',    label: 'Daily KM' },
-  { type: 'number', key: 'monthly_km',  label: 'Monthly KM' },
-  { type: 'number', key: 'deposit',     label: 'Deposit (₺)' },
-  { type: 'number', key: 'min_age',     label: 'Min Age' },
-  { type: 'number', key: 'price',       label: 'Price (₺)',      required: true,  span: 2 },
-  { type: 'text',   key: 'image_url',   label: 'Image URL',      span: 2 },
-];
+const LBL: React.CSSProperties = {
+  display: 'block', fontSize: 12, fontWeight: 600,
+  color: '#374151', marginBottom: 5, letterSpacing: '0.1px',
+};
+const onFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) =>
+  { (e.target as HTMLElement).style.borderColor = '#4ba6ea'; };
+const onBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) =>
+  { (e.target as HTMLElement).style.borderColor = '#e5e7eb'; };
 
 const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, editId }) => {
   const [form, setForm]       = useState<ModelGroupFormData>(initial);
-  const [saving, setSaving]   = useState(false);
+  const [saving, setSaving]   = useState<'idle' | 'uploading' | 'saving'>('idle');
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Name auto-generate
+  const nameEditedRef = useRef(mode === 'edit' && !!initial.name);
+  const setField = (key: keyof ModelGroupFormData, value: string | number | null) =>
+    setForm(f => ({ ...f, [key]: value }));
+
+  const handleBrand = (val: string) => {
+    setField('brand', val);
+    if (!nameEditedRef.current) setForm(f => ({ ...f, brand: val, name: `${val} ${f.model}`.trim() }));
+  };
+  const handleModel = (val: string) => {
+    setField('model', val);
+    if (!nameEditedRef.current) setForm(f => ({ ...f, model: val, name: `${f.brand} ${val}`.trim() }));
+  };
+  const handleName = (val: string) => {
+    nameEditedRef.current = true;
+    setField('name', val);
+  };
+
+  // Image upload
+  const [imageFile, setImageFile]   = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initial.image_url ?? null);
+
+  useEffect(() => {
+    if (!imageFile) return;
+    const url = URL.createObjectURL(imageFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -105,16 +124,37 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
   }, [onClose]);
 
-  const set = (key: keyof ModelGroupFormData, value: string | number | null) =>
-    setForm(f => ({ ...f, [key]: value }));
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
-    setSaving(true);
+
+    let imageUrl = form.image_url;
+
+    // Upload image if a new file was selected
+    if (imageFile) {
+      setSaving('uploading');
+      const fileName = `model-groups/${form.brand}-${form.model}`
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9\-]/g, '') + '.jpg';
+
+      const { error: uploadError } = await supabase.storage
+        .from('model-group')
+        .upload(fileName, imageFile, { upsert: true });
+
+      if (uploadError) {
+        setSaving('idle');
+        setFormError(`Image upload failed: ${uploadError.message}`);
+        return;
+      }
+      imageUrl = supabase.storage.from('model-group').getPublicUrl(fileName).data.publicUrl;
+    }
+
+    setSaving('saving');
 
     const payload = {
       ...form,
+      image_url:  imageUrl,
       seats:      form.seats      != null ? Number(form.seats)      : null,
       luggage:    form.luggage    != null ? Number(form.luggage)    : null,
       daily_km:   form.daily_km   != null ? Number(form.daily_km)   : null,
@@ -122,18 +162,23 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
       deposit:    form.deposit    != null ? Number(form.deposit)    : null,
       min_age:    form.min_age    != null ? Number(form.min_age)    : null,
       price:      Number(form.price),
-      image_url:  form.image_url?.trim() || null,
     };
 
     const { error } = mode === 'add'
       ? await supabase.from('model_group').insert(payload)
       : await supabase.from('model_group').update(payload).eq('id', editId!);
 
-    setSaving(false);
+    setSaving('idle');
     if (error) { setFormError(error.message); return; }
     onSaved();
     onClose();
   };
+
+  const isSaving = saving !== 'idle';
+  const saveLabel = saving === 'uploading' ? 'Uploading image…'
+                  : saving === 'saving'    ? 'Saving…'
+                  : mode === 'add'         ? 'Add Model Group'
+                  : 'Save Changes';
 
   return ReactDOM.createPortal(
     <div onClick={onClose} style={{
@@ -168,35 +213,161 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
         {/* Form body */}
         <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
-            {FIELDS.map(field => (
-              <div key={field.key} style={{ gridColumn: field.span === 2 ? 'span 2' : 'span 1' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5, letterSpacing: '0.1px' }}>
-                  {field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
-                </label>
-                {field.type === 'select' ? (
-                  <select
-                    value={String(form[field.key] ?? '')}
-                    onChange={e => set(field.key, e.target.value)}
-                    style={{ ...FIELD_STYLE, cursor: 'pointer' }}
-                    onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
-                    onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#e5e7eb'; }}
-                  >
-                    {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    type={field.type}
-                    required={field.required}
-                    value={form[field.key] != null ? String(form[field.key]) : ''}
-                    onChange={e => set(field.key, field.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)}
-                    placeholder={field.label}
-                    style={FIELD_STYLE}
-                    onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
-                    onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
-                  />
-                )}
-              </div>
-            ))}
+
+            {/* Brand */}
+            <div>
+              <label style={LBL}>Brand <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="text" required value={form.brand} placeholder="e.g. Toyota"
+                onChange={e => handleBrand(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Model */}
+            <div>
+              <label style={LBL}>Model <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="text" required value={form.model} placeholder="e.g. Corolla"
+                onChange={e => handleModel(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Name — auto-generated, full width */}
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={LBL}>
+                Name <span style={{ color: '#ef4444' }}>*</span>
+                <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>(auto-generated)</span>
+              </label>
+              <input type="text" required value={form.name} placeholder="Auto generated (you can edit)"
+                onChange={e => handleName(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Category */}
+            <div>
+              <label style={LBL}>Category</label>
+              <select value={form.category} onChange={e => setField('category', e.target.value)}
+                onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
+                {['Economy', 'Middle', 'Luxury', 'SUV', 'Van', 'Electric'].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Transmission */}
+            <div>
+              <label style={LBL}>Transmission</label>
+              <select value={form.transmission} onChange={e => setField('transmission', e.target.value)}
+                onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
+                {['Automatic', 'Manual'].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Fuel */}
+            <div>
+              <label style={LBL}>Fuel</label>
+              <select value={form.fuel} onChange={e => setField('fuel', e.target.value)}
+                onFocus={onFocus} onBlur={onBlur} style={{ ...F, cursor: 'pointer' }}>
+                {['Petrol', 'Diesel', 'Hybrid', 'Electric', 'Other'].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Seats */}
+            <div>
+              <label style={LBL}>Seats</label>
+              <input type="number" min="1" placeholder="5"
+                value={form.seats != null ? String(form.seats) : ''}
+                onChange={e => setField('seats', e.target.value === '' ? null : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Luggage */}
+            <div>
+              <label style={LBL}>Luggage</label>
+              <input type="number" min="0" placeholder="e.g. 2"
+                value={form.luggage != null ? String(form.luggage) : ''}
+                onChange={e => setField('luggage', e.target.value === '' ? null : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Daily KM */}
+            <div>
+              <label style={LBL}>Daily KM</label>
+              <input type="number" min="0" placeholder="e.g. 300"
+                value={form.daily_km != null ? String(form.daily_km) : ''}
+                onChange={e => setField('daily_km', e.target.value === '' ? null : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Monthly KM */}
+            <div>
+              <label style={LBL}>Monthly KM</label>
+              <input type="number" min="0" placeholder="e.g. 6000"
+                value={form.monthly_km != null ? String(form.monthly_km) : ''}
+                onChange={e => setField('monthly_km', e.target.value === '' ? null : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Deposit */}
+            <div>
+              <label style={LBL}>Deposit (USD)</label>
+              <input type="number" min="0" step="0.01" placeholder="e.g. 500"
+                value={form.deposit != null ? String(form.deposit) : ''}
+                onChange={e => setField('deposit', e.target.value === '' ? null : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Min Age */}
+            <div>
+              <label style={LBL}>Min Age</label>
+              <input type="number" min="18" max="99" placeholder="e.g. 21"
+                value={form.min_age != null ? String(form.min_age) : ''}
+                onChange={e => setField('min_age', e.target.value === '' ? null : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Price — full width */}
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={LBL}>Price (USD $) <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="number" min="0" step="0.01" required placeholder="e.g. 49.00"
+                value={form.price != null ? String(form.price) : ''}
+                onChange={e => setField('price', e.target.value === '' ? 0 : Number(e.target.value))}
+                onFocus={onFocus} onBlur={onBlur} style={F} />
+            </div>
+
+            {/* Image upload — full width */}
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={LBL}>Car Image</label>
+
+              {/* Preview */}
+              {previewUrl && (
+                <div style={{ position: 'relative', marginBottom: 10 }}>
+                  <img src={previewUrl} alt="Preview"
+                    style={{ width: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'block' }} />
+                  <button type="button" onClick={() => { setImageFile(null); setPreviewUrl(null); setField('image_url', null); }}
+                    style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+              )}
+
+              {/* Drop zone */}
+              <label style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                padding: '14px 12px', border: '1.5px dashed #d1d5db', borderRadius: 9,
+                cursor: 'pointer', background: '#fafafa',
+                transition: 'border-color 140ms ease, background 140ms ease',
+              }}
+                onMouseEnter={e => { const l = e.currentTarget; l.style.borderColor = '#4ba6ea'; l.style.background = 'rgba(75,166,234,0.04)'; }}
+                onMouseLeave={e => { const l = e.currentTarget; l.style.borderColor = '#d1d5db'; l.style.background = '#fafafa'; }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ color: '#9ca3af' }}>
+                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.6"/>
+                  <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                  <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
+                  {previewUrl ? 'Click to replace image' : 'Click to upload image'}
+                </span>
+                <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP</span>
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) setImageFile(f); e.target.value = ''; }} />
+              </label>
+            </div>
+
           </div>
 
           {formError && (
@@ -206,21 +377,26 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
             </div>
           )}
 
-          {/* Footer inside form so submit button works */}
+          {/* Footer */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+            <button type="button" onClick={onClose} disabled={isSaving}
+              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: isSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
             >
               Cancel
             </button>
-            <button type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            <button type="submit" disabled={isSaving}
+              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: isSaving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: isSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease', display: 'flex', alignItems: 'center', gap: 7 }}
+              onMouseEnter={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { if (!isSaving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
             >
-              {saving ? 'Saving…' : mode === 'add' ? 'Add Model Group' : 'Save Changes'}
+              {isSaving && (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
+                </svg>
+              )}
+              {saveLabel}
             </button>
           </div>
         </form>
@@ -230,6 +406,7 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
         @keyframes slideUpIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes spin    { to{transform:rotate(360deg)} }
       `}</style>
     </div>,
     document.body
@@ -237,137 +414,147 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
 };
 
 // ---------------------------------------------------------------------------
-// Card skeleton
+// Row skeleton
 // ---------------------------------------------------------------------------
 
-const SkeletonCard: React.FC = () => (
-  <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-    <div style={{ height: 220, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-    <div style={{ padding: '18px 18px 14px' }}>
-      <div style={{ width: '70%', height: 18, borderRadius: 6, background: '#f3f4f6', marginBottom: 10, animation: 'pulse 1.5s ease-in-out infinite' }} />
-      <div style={{ width: '50%', height: 13, borderRadius: 5, background: '#f3f4f6', marginBottom: 16, animation: 'pulse 1.5s ease-in-out infinite' }} />
+const SkeletonRow: React.FC = () => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 20px', minHeight: 100, borderBottom: '1px solid #f5f5f5' }}>
+    <div style={{ width: 160, height: 96, borderRadius: 8, background: '#f3f4f6', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }} />
+    <div style={{ flex: '0 0 210px' }}>
+      <div style={{ width: 130, height: 14, borderRadius: 5, background: '#f3f4f6', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <div style={{ width: 90, height: 11, borderRadius: 5, background: '#f3f4f6', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <div style={{ width: 60, height: 18, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+    </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', gap: 6 }}>
-        {[60, 52, 56].map((w, i) => <div key={i} style={{ width: w, height: 22, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />)}
+        {[50, 52, 70].map((w, i) => (
+          <div key={i} style={{ width: w, height: 20, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        ))}
       </div>
+      <div style={{ width: 70, height: 13, borderRadius: 5, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ width: 62, height: 24, borderRadius: 20, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
     </div>
   </div>
 );
 
 // ---------------------------------------------------------------------------
-// Model group card
+// Model group row
 // ---------------------------------------------------------------------------
 
-interface CardProps {
+interface RowProps {
   group: ModelGroup;
   onEdit: () => void;
 }
 
-const ModelGroupCard: React.FC<CardProps> = ({ group, onEdit }) => {
-  const { fmt: formatPrice } = useCurrency();
+const ModelGroupRow: React.FC<RowProps> = ({ group, onEdit }) => {
+  const { fmtUSD } = useCurrency();
   const [hovered, setHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
   const cat = categoryStyle(group.category);
+
+  const specs = [
+    group.seats != null ? `${group.seats} seats` : null,
+    group.fuel          ? group.fuel              : null,
+    group.transmission  ? group.transmission      : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #ebebeb',
-        overflow: 'hidden',
-        boxShadow: hovered ? '0 12px 36px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)' : '0 1px 3px rgba(0,0,0,0.05)',
-        transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'box-shadow 200ms ease, transform 200ms ease',
         display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 380,
-        width: '100%',
-        position: 'relative',
+        alignItems: 'center',
+        gap: 20,
+        padding: '16px 20px',
+        minHeight: 100,
+        background: hovered ? '#fafbfc' : '#fff',
+        borderBottom: '1px solid #f5f5f5',
+        transition: 'background 120ms ease',
       }}
     >
-      {/* Edit button — appears on hover */}
-      <button
-        onClick={e => { e.stopPropagation(); onEdit(); }}
-        style={{
-          position: 'absolute', top: 12, right: 12, zIndex: 2,
-          width: 32, height: 32, borderRadius: 8,
-          border: 'none',
-          background: hovered ? 'rgba(255,255,255,0.95)' : 'transparent',
-          boxShadow: hovered ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer',
-          opacity: hovered ? 1 : 0,
-          transition: 'opacity 150ms ease, background 150ms ease, box-shadow 150ms ease',
-          pointerEvents: hovered ? 'auto' : 'none',
-        }}
-        aria-label="Edit"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#374151" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#374151" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
       {/* Image */}
-      <div style={{ height: 220, background: '#f5f5f5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {group.image_url && !imgError ? (
-          <img
-            src={group.image_url}
-            alt={group.name}
-            onError={() => setImgError(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', transition: 'transform 300ms ease', transform: hovered ? 'scale(1.03)' : 'scale(1)' }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="#d1d5db" strokeWidth="1.5"/>
-              <circle cx="12" cy="16" r="1" fill="#d1d5db"/>
-              <circle cx="20" cy="16" r="1" fill="#d1d5db"/>
-            </svg>
-          </div>
-        )}
-      </div>
-
-      {/* Body */}
-      <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', lineHeight: 1.3 }}>
-            {group.name}
-          </div>
-          <span style={{
-            flexShrink: 0, fontSize: 11, fontWeight: 700,
-            color: '#4ba6ea', background: 'rgba(75,166,234,0.10)',
-            borderRadius: 20, padding: '2px 9px', marginTop: 2,
-          }}>
-            {group.total_cars ?? 0} cars
-          </span>
+      {group.image_url && !imgError ? (
+        <img
+          src={group.image_url}
+          alt={group.name}
+          onError={() => setImgError(true)}
+          style={{ width: 160, height: 96, objectFit: 'contain', objectPosition: 'center', flexShrink: 0, display: 'block' }}
+        />
+      ) : (
+        <div style={{ width: 160, height: 96, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+            <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="9" y="11" width="14" height="10" rx="2" stroke="#d1d5db" strokeWidth="1.5"/>
+            <circle cx="12" cy="16" r="1" fill="#d1d5db"/>
+            <circle cx="20" cy="16" r="1" fill="#d1d5db"/>
+          </svg>
         </div>
-        <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 12 }}>
+      )}
+
+      {/* Identity */}
+      <div style={{ flex: '0 0 210px', minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {group.name}
+        </div>
+        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 7 }}>
           {group.brand} · {group.model}
         </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11, fontWeight: 700, color: cat.color, background: cat.bg, borderRadius: 20, padding: '3px 10px', letterSpacing: '0.2px' }}>
+        <span style={{
+          display: 'inline-block', fontSize: 10.5, fontWeight: 700,
+          color: cat.color, background: cat.bg,
+          borderRadius: 20, padding: '2px 9px', letterSpacing: '0.2px',
+        }}>
           {group.category}
         </span>
       </div>
 
-      {/* Footer */}
-      <div style={{ padding: '12px 16px 16px', marginTop: 'auto', borderTop: '1px solid #f5f5f5', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#4ba6ea', marginRight: 4 }}>
-          {formatPrice(group.price)}
+      {/* Specs + price */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {specs.map((s, i) => (
+            <span key={i} style={{ fontSize: 11, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap' }}>
+              {s}
+            </span>
+          ))}
+        </div>
+        <div>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#4ba6ea' }}>{fmtUSD(group.price)}</span>
+          <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 2 }}>/day</span>
+        </div>
+      </div>
+
+      {/* Cars count + edit */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700,
+          color: '#4ba6ea', background: 'rgba(75,166,234,0.10)',
+          borderRadius: 20, padding: '4px 12px', whiteSpace: 'nowrap',
+        }}>
+          {group.total_cars ?? 0} cars
         </span>
-        {[
-          group.seats != null   ? `${group.seats} seats`  : null,
-          group.fuel            ? group.fuel               : null,
-          group.transmission    ? group.transmission       : null,
-        ].filter(Boolean).map((label, i) => (
-          <span key={i} style={{ fontSize: 11, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', borderRadius: 20, padding: '3px 9px' }}>
-            {label}
-          </span>
-        ))}
+        <button
+          onClick={e => { e.stopPropagation(); onEdit(); }}
+          aria-label="Edit"
+          style={{
+            width: 34, height: 34, borderRadius: 9,
+            border: '1px solid #e5e7eb',
+            background: hovered ? '#fff' : '#f9fafb',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: '#6b7280',
+            transition: 'all 140ms ease', flexShrink: 0,
+          }}
+          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.06)'; }}
+          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = hovered ? '#fff' : '#f9fafb'; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -475,10 +662,10 @@ const ModelGroupsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Card grid — grouped by category */}
+      {/* Row list — grouped by category */}
       {loading && (
-        <div className="mg-grid">
-          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
         </div>
       )}
 
@@ -495,26 +682,40 @@ const ModelGroupsPage: React.FC = () => {
         if (section.length === 0) return null;
         const cat = categoryStyle(category);
         return (
-          <div key={category} style={{ marginBottom: 40 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div key={category} style={{ marginBottom: 28 }}>
+            {/* Sticky section header */}
+            <div style={{
+              position: 'sticky', top: 0, zIndex: 10,
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 0 10px',
+              background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+            }}>
               <span style={{
-                fontSize: 12, fontWeight: 700,
+                fontSize: 11.5, fontWeight: 700,
                 color: cat.color, background: cat.bg,
                 borderRadius: 20, padding: '4px 12px',
                 letterSpacing: '0.3px',
               }}>
                 {category}
               </span>
-              <span style={{ fontSize: 13, color: '#c0c4cc' }}>{section.length} model{section.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: 12.5, color: '#c0c4cc' }}>{section.length} model{section.length !== 1 ? 's' : ''}</span>
               <div style={{ flex: 1, height: 1, background: '#ebebeb' }} />
             </div>
-            <div className="mg-grid">
-              {section.map(group => (
-                <ModelGroupCard
-                  key={group.id}
-                  group={group}
-                  onEdit={() => setModal({ mode: 'edit', group })}
-                />
+            {/* Rows container */}
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #f0f0f0',
+              overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            }}>
+              {section.map((group, idx) => (
+                <div key={group.id} style={{ borderBottom: idx < section.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
+                  <ModelGroupRow
+                    group={group}
+                    onEdit={() => setModal({ mode: 'edit', group })}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -535,14 +736,6 @@ const ModelGroupsPage: React.FC = () => {
       {toast && <Toast message={toast.message} type={toast.type} />}
 
       <style>{`
-        .mg-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 20px;
-          align-items: stretch;
-        }
-        @media (max-width: 1100px) { .mg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 640px)  { .mg-grid { grid-template-columns: minmax(0, 1fr); } }
         @keyframes pulse      { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes fadeIn     { from{opacity:0} to{opacity:1} }
         @keyframes slideUp    { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }

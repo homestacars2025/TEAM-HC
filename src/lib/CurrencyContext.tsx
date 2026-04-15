@@ -28,6 +28,10 @@ interface CurrencyContextValue {
   fmt: (tryAmount: number) => string;
   /** Convert a TRY-stored amount to the selected currency (number only) */
   convert: (tryAmount: number) => number;
+  /** Format a USD-stored base price in the selected currency */
+  fmtUSD: (usdAmount: number) => string;
+  /** Convert a USD-stored base price to the selected currency (number only) */
+  convertFromUSD: (usdAmount: number) => number;
 }
 
 // ─── Default context (TRY pass-through) ──────────────────────────────────────
@@ -36,12 +40,14 @@ const defaultFmt = (n: number) =>
   '₺' + Math.abs(n).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const CurrencyContext = createContext<CurrencyContextValue>({
-  currency:    'TRY',
-  setCurrency: () => {},
-  rates:       [],
-  symbol:      '₺',
-  fmt:         defaultFmt,
-  convert:     (n) => n,
+  currency:       'TRY',
+  setCurrency:    () => {},
+  rates:          [],
+  symbol:         '₺',
+  fmt:            defaultFmt,
+  convert:        (n) => n,
+  fmtUSD:         (n) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  convertFromUSD: (n) => n,
 });
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -88,8 +94,32 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return symbol + formatted;
   };
 
+  // USD-stored price → selected currency
+  const convertFromUSD = (usdAmount: number): number => {
+    if (currency === 'USD') return usdAmount;
+    const usdRate = rates.find(r => r.currency === 'USD')?.rate_to_try;
+    if (!usdRate || usdRate === 0) return usdAmount; // rates not loaded yet
+    if (currency === 'TRY') return usdAmount * usdRate;
+    const targetRate = rates.find(r => r.currency === currency)?.rate_to_try;
+    if (!targetRate || targetRate === 0) return usdAmount;
+    return usdAmount * (usdRate / targetRate);
+  };
+
+  const fmtUSD = (usdAmount: number): string => {
+    const converted = convertFromUSD(Math.abs(usdAmount));
+    let formatted: string;
+    if (currency === 'TRY') {
+      formatted = converted.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else if (currency === 'LYD') {
+      formatted = converted.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    } else {
+      formatted = converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return symbol + formatted;
+  };
+
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, rates, symbol, fmt, convert }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, rates, symbol, fmt, convert, fmtUSD, convertFromUSD }}>
       {children}
     </CurrencyContext.Provider>
   );
