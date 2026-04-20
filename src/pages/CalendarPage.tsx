@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-// ─── Types (unchanged) ─────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 type CalendarStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
 type CellKind = CalendarStatus | 'booked';
@@ -15,6 +16,8 @@ interface BookingCustomerRaw { id: number; customers: CustomerJoin | CustomerJoi
 interface CalendarCar { id: number; plate_number: string; model_name: string; image_url: string | null; car_status: CalendarStatus; }
 interface CalendarEntry { id: number; car_id: number; start_date: string; end_date: string; block_type: string; booking_id: number | null; customer_name: string | null; }
 interface TooltipState { entry: CalendarEntry; x: number; y: number; }
+interface ToastInfo { message: string; isError?: boolean; }
+interface BlockPopupState { entry: CalendarEntry; car: CalendarCar; x: number; y: number; }
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -85,7 +88,13 @@ const STATUS_OPTIONS: Array<{ value: CalendarStatus | 'all'; label: string }> = 
 
 const LEGEND_KINDS: CalendarStatus[] = ['working', 'parking', 'maintenance', 'selling', 'replacement'];
 
-// ─── Helpers (unchanged) ───────────────────────────────────────────────────────
+const EDITABLE_BLOCK_TYPES = [
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'selling',     label: 'Selling'     },
+  { value: 'replacement', label: 'Replacement' },
+] as const;
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -138,7 +147,7 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
       position: 'fixed',
       left: flipLeft ? x - 248 : x + 14,
       top: y - 16,
-      zIndex: 9999,
+      zIndex: 9997,
       background: 'white',
       borderRadius: 12,
       padding: '14px 16px',
@@ -148,7 +157,6 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
       fontFamily: FONT,
       animation: 'ttFadeIn 0.15s ease',
     }}>
-      {/* Status badge */}
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
         background: BADGE[kind].bg, borderRadius: 20,
@@ -160,17 +168,14 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
         </span>
       </div>
 
-      {/* Customer name */}
       {entry.customer_name && (
         <div style={{ fontSize: 14, fontWeight: 700, color: TEXT_DARK, marginBottom: 10, lineHeight: 1.3 }}>
           {entry.customer_name}
         </div>
       )}
 
-      {/* Separator */}
       <div style={{ height: 1, background: BORDER_SOFT, marginBottom: 10 }} />
 
-      {/* Date range */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center' }}>
           <span style={{ fontSize: 12.5, color: TEXT_MID }}>From</span>
@@ -185,11 +190,490 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
   );
 };
 
+// ─── BlockPopup ────────────────────────────────────────────────────────────────
+
+const POPUP_W     = 284;
+const POPUP_MAX_H = 360;
+
+const BlockPopup: React.FC<{
+  state: BlockPopupState;
+  onClose: () => void;
+  onSaved: () => void;
+  onDeleted: () => void;
+  onToast: (t: ToastInfo) => void;
+}> = ({ state, onClose, onSaved, onDeleted, onToast }) => {
+  const { entry, car, x, y } = state;
+  const isBooked = entry.booking_id !== null;
+  const kind     = blockTypeToKind(entry.block_type);
+
+  type PopupMode = 'view' | 'edit' | 'confirm-delete';
+  const [mode,       setMode]       = useState<PopupMode>('view');
+  const [editType,   setEditType]   = useState(entry.block_type);
+  const [editStart,  setEditStart]  = useState(entry.start_date);
+  const [editEnd,    setEditEnd]    = useState(entry.end_date);
+  const [editError,  setEditError]  = useState<string | null>(null);
+  const [saving,     setSaving]     = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
+
+  const left = Math.min(x + 12, window.innerWidth - POPUP_W - 16);
+  const top  = y + 12 + POPUP_MAX_H > window.innerHeight ? y - POPUP_MAX_H - 8 : y + 12;
+
+  const handleSave = async () => {
+    if (editEnd <= editStart) {
+      setEditError('End date must be after start date');
+      return;
+    }
+    setEditError(null);
+    setSaving(true);
+    const { error } = await supabase
+      .from('car_calendar')
+      .update({ block_type: editType, start_date: editStart, end_date: editEnd })
+      .eq('id', entry.id);
+    setSaving(false);
+    if (error) {
+      onToast({ message: `Failed to update: ${error.message}`, isError: true });
+    } else {
+      onToast({ message: 'Block updated successfully' });
+      onSaved();
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    const { error } = await supabase.from('car_calendar').delete().eq('id', entry.id);
+    setDeleting(false);
+    if (error) {
+      onToast({ message: `Failed to delete: ${error.message}`, isError: true });
+    } else {
+      onToast({ message: 'Block deleted successfully' });
+      onDeleted();
+    }
+  };
+
+  // Shared input style
+  const inputStyle: React.CSSProperties = {
+    height: 36, padding: '0 10px',
+    borderRadius: 8, border: `1px solid ${BORDER_SOFT}`,
+    background: '#f7f7f7', fontSize: 13, color: TEXT_DARK,
+    outline: 'none', fontFamily: FONT,
+    width: '100%', boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
+    letterSpacing: '0.5px', textTransform: 'uppercase' as const,
+  };
+
+  return (
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        left, top,
+        zIndex: 9999,
+        background: 'white',
+        borderRadius: 16,
+        boxShadow: '0 8px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.06)',
+        width: POPUP_W,
+        fontFamily: FONT,
+        animation: 'ttFadeIn 0.15s ease',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Header ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 14px 0',
+      }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          background: BADGE[kind].bg, borderRadius: 20, padding: '3px 9px',
+        }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
+            {mode === 'edit' ? 'Edit Block' : STATUS_LABEL[kind]}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: TEXT_LIGHT, padding: 4, borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'color 0.12s ease',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = TEXT_DARK; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = TEXT_LIGHT; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* ── Car info ── */}
+      <div style={{ padding: '10px 14px 0' }}>
+        {entry.customer_name && (
+          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT_DARK, marginBottom: 2, lineHeight: 1.3 }}>
+            {entry.customer_name}
+          </div>
+        )}
+        <div style={{ fontSize: 12.5, color: TEXT_MID }}>
+          <span style={{ fontWeight: 600, color: TEXT_DARK }}>{car.plate_number}</span>
+          {' · '}
+          {car.model_name}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: BORDER_SOFT, margin: '12px 14px 0' }} />
+
+      {/* ── VIEW MODE ── */}
+      {mode === 'view' && (
+        <>
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12.5, color: TEXT_MID }}>From</span>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12.5, color: TEXT_MID }}>To</span>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date)}</span>
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: BORDER_SOFT, margin: '0 14px' }} />
+
+          {isBooked ? (
+            <div style={{
+              padding: '11px 14px 13px',
+              display: 'flex', alignItems: 'center', gap: 7,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: TEXT_LIGHT }}>
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+                <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: 12.5, color: TEXT_MID }}>Managed from the Bookings page</span>
+            </div>
+          ) : (
+            <div style={{ padding: '10px 10px 10px', display: 'flex', gap: 6 }}>
+              <button
+                onClick={() => setMode('edit')}
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, height: 36, borderRadius: 10,
+                  border: `1px solid ${BORDER_SOFT}`,
+                  background: 'white', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, color: TEXT_DARK,
+                  fontFamily: FONT, transition: 'background 0.12s ease',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
+              >
+                <span style={{ fontSize: 14 }}>✏️</span> Edit
+              </button>
+              <button
+                onClick={() => setMode('confirm-delete')}
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, height: 36, borderRadius: 10,
+                  border: '1px solid #fecdd3',
+                  background: '#fff5f5', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, color: '#dc2626',
+                  fontFamily: FONT, transition: 'background 0.12s ease',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fef2f2'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff5f5'; }}
+              >
+                <span style={{ fontSize: 14 }}>🗑️</span> Delete
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── EDIT MODE ── */}
+      {mode === 'edit' && (
+        <div style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+
+          {/* Block type */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={labelStyle}>Block type</label>
+            <select
+              value={editType}
+              onChange={e => setEditType(e.target.value)}
+              style={{
+                ...inputStyle,
+                paddingRight: 28, cursor: 'pointer',
+                appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aaaaaa' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' fill='none'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
+              }}
+            >
+              {EDITABLE_BLOCK_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Start date */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={labelStyle}>Start date</label>
+            <input
+              type="date"
+              value={editStart}
+              onChange={e => { setEditStart(e.target.value); setEditError(null); }}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* End date */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={labelStyle}>End date</label>
+            <input
+              type="date"
+              value={editEnd}
+              onChange={e => { setEditEnd(e.target.value); setEditError(null); }}
+              style={inputStyle}
+            />
+          </div>
+
+          {editError && (
+            <div style={{ fontSize: 12, color: '#dc2626', marginTop: -4 }}>{editError}</div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+            <button
+              onClick={() => { setMode('view'); setEditError(null); }}
+              disabled={saving}
+              style={{
+                flex: 1, height: 36, borderRadius: 10,
+                border: `1px solid ${BORDER_SOFT}`,
+                background: 'white', cursor: saving ? 'not-allowed' : 'pointer',
+                fontSize: 13, fontWeight: 600, color: TEXT_MID,
+                fontFamily: FONT, opacity: saving ? 0.6 : 1,
+                transition: 'background 0.12s ease',
+              }}
+              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                flex: 1, height: 36, borderRadius: 10, border: 'none',
+                background: '#4ba6ea', cursor: saving ? 'not-allowed' : 'pointer',
+                fontSize: 13, fontWeight: 600, color: 'white',
+                fontFamily: FONT, opacity: saving ? 0.75 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                transition: 'opacity 0.12s ease',
+              }}
+              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = saving ? '0.75' : '1'; }}
+            >
+              {saving && (
+                <div style={{
+                  width: 12, height: 12, borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.35)',
+                  borderTop: '2px solid white',
+                  animation: 'calSpin 0.75s linear infinite',
+                }} />
+              )}
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONFIRM DELETE ── */}
+      {mode === 'confirm-delete' && (
+        <div style={{ padding: '12px 14px 14px' }}>
+          <p style={{ fontSize: 13.5, color: TEXT_DARK, margin: '0 0 14px', lineHeight: 1.55 }}>
+            Are you sure you want to delete this block?
+          </p>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setMode('view')}
+              disabled={deleting}
+              style={{
+                flex: 1, height: 36, borderRadius: 10,
+                border: `1px solid ${BORDER_SOFT}`,
+                background: 'white', cursor: deleting ? 'not-allowed' : 'pointer',
+                fontSize: 13, fontWeight: 600, color: TEXT_MID,
+                fontFamily: FONT, opacity: deleting ? 0.6 : 1,
+                transition: 'background 0.12s ease',
+              }}
+              onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{
+                flex: 1, height: 36, borderRadius: 10, border: 'none',
+                background: '#ef4444', cursor: deleting ? 'not-allowed' : 'pointer',
+                fontSize: 13, fontWeight: 600, color: 'white',
+                fontFamily: FONT, opacity: deleting ? 0.75 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                transition: 'opacity 0.12s ease',
+              }}
+              onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = deleting ? '0.75' : '1'; }}
+            >
+              {deleting && (
+                <div style={{
+                  width: 12, height: 12, borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.35)',
+                  borderTop: '2px solid white',
+                  animation: 'calSpin 0.75s linear infinite',
+                }} />
+              )}
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── ActionMenu ────────────────────────────────────────────────────────────────
+
+const MENU_W = 224;
+const MENU_H = 228;
+
+const ActionMenu: React.FC<{
+  pos: { x: number; y: number };
+  onAddBooking: () => void;
+  onInsert: (type: 'maintenance' | 'selling' | 'replacement') => void;
+  inserting: boolean;
+}> = ({ pos, onAddBooking, onInsert, inserting }) => {
+  const left = Math.min(pos.x + 12, window.innerWidth - MENU_W - 16);
+  const top  = pos.y + 12 + MENU_H > window.innerHeight ? pos.y - MENU_H - 8 : pos.y + 12;
+
+  const items: Array<{ icon: string; label: string; onClick: () => void }> = [
+    { icon: '📅', label: 'Add Booking',  onClick: onAddBooking },
+    { icon: '🔧', label: 'Maintenance',  onClick: () => onInsert('maintenance') },
+    { icon: '💰', label: 'Selling',      onClick: () => onInsert('selling') },
+    { icon: '🔄', label: 'Replacement',  onClick: () => onInsert('replacement') },
+  ];
+
+  return (
+    <div style={{
+      position: 'fixed',
+      left, top,
+      zIndex: 9999,
+      background: 'white',
+      borderRadius: 14,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
+      padding: '6px',
+      width: MENU_W,
+      fontFamily: FONT,
+      animation: 'ttFadeIn 0.15s ease',
+    }}>
+      <div style={{
+        padding: '6px 12px 8px',
+        borderBottom: `1px solid ${BORDER_SOFT}`,
+        marginBottom: 4,
+      }}>
+        <span style={{
+          fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
+          letterSpacing: '0.6px', textTransform: 'uppercase',
+        }}>
+          Actions
+        </span>
+      </div>
+
+      {items.map(item => (
+        <button
+          key={item.label}
+          onClick={item.onClick}
+          disabled={inserting}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            padding: '10px 12px',
+            background: 'transparent',
+            border: 'none',
+            borderRadius: 8,
+            cursor: inserting ? 'not-allowed' : 'pointer',
+            fontSize: 13.5,
+            color: TEXT_DARK,
+            fontFamily: FONT,
+            textAlign: 'left',
+            transition: 'background 0.12s ease',
+            opacity: inserting ? 0.5 : 1,
+          }}
+          onMouseEnter={e => { if (!inserting) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+        >
+          <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
+          <span style={{ fontWeight: 500 }}>{item.label}</span>
+          {inserting && item.label !== 'Add Booking' && (
+            <div style={{
+              marginLeft: 'auto',
+              width: 14, height: 14,
+              borderRadius: '50%',
+              border: '2px solid #e5e7eb',
+              borderTop: '2px solid #4ba6ea',
+              animation: 'calSpin 0.75s linear infinite',
+              flexShrink: 0,
+            }} />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+// ─── Toast ─────────────────────────────────────────────────────────────────────
+
+const Toast: React.FC<{ info: ToastInfo }> = ({ info }) => (
+  <div style={{
+    position: 'fixed',
+    bottom: 24,
+    right: 24,
+    zIndex: 10000,
+    background: 'white',
+    borderRadius: 12,
+    padding: '13px 18px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+    border: `1px solid ${info.isError ? '#fecdd3' : '#bbf7d0'}`,
+    fontFamily: FONT,
+    animation: 'ttFadeIn 0.2s ease',
+    minWidth: 240,
+    maxWidth: 360,
+  }}>
+    <div style={{
+      width: 8, height: 8, borderRadius: '50%',
+      background: info.isError ? '#ef4444' : '#22c55e',
+      flexShrink: 0,
+    }} />
+    <span style={{
+      fontSize: 13.5,
+      fontWeight: 500,
+      color: info.isError ? '#b91c1c' : '#15803d',
+      lineHeight: 1.4,
+    }}>
+      {info.message}
+    </span>
+  </div>
+);
+
 // ─── CalendarPage ─────────────────────────────────────────────────────────────
 
 const CalendarPage: React.FC = () => {
 
-  // ── State (unchanged) ───────────────────────────────────────────────────
+  // ── State ───────────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(
     () => new Date(TODAY.getFullYear(), TODAY.getMonth(), 1)
   );
@@ -200,6 +684,17 @@ const CalendarPage: React.FC = () => {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<CalendarStatus | 'all'>('all');
   const [tooltip, setTooltip]           = useState<TooltipState | null>(null);
+
+  // ── Selection state ─────────────────────────────────────────────────────
+  const [selCarId,   setSelCarId]   = useState<number | null>(null);
+  const [selStart,   setSelStart]   = useState<string | null>(null);
+  const [selEnd,     setSelEnd]     = useState<string | null>(null);
+  const [menuPos,    setMenuPos]    = useState<{ x: number; y: number } | null>(null);
+  const [blockPopup, setBlockPopup] = useState<BlockPopupState | null>(null);
+  const [toast,      setToast]      = useState<ToastInfo | null>(null);
+  const [inserting,  setInserting]  = useState(false);
+
+  const navigate = useNavigate();
 
   const year        = currentMonth.getFullYear();
   const month       = currentMonth.getMonth();
@@ -222,11 +717,24 @@ const CalendarPage: React.FC = () => {
     [year, month, daysInMonth]
   );
 
-  // ── Data fetching (unchanged) ────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  const resetSelection = useCallback(() => {
+    setSelCarId(null);
+    setSelStart(null);
+    setSelEnd(null);
+    setMenuPos(null);
+  }, []);
+
+  // ── Data fetching ────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     setTooltip(null);
+    setSelCarId(null);
+    setSelStart(null);
+    setSelEnd(null);
+    setMenuPos(null);
+    setBlockPopup(null);
 
     const pad        = (n: number) => String(n).padStart(2, '0');
     const monthStart = `${year}-${pad(month + 1)}-01`;
@@ -294,7 +802,14 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── Filtered cars (unchanged) ────────────────────────────────────────────
+  // ── Toast auto-dismiss ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // ── Filtered cars ────────────────────────────────────────────────────────
   const filteredCars = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allCars.filter(car => {
@@ -304,9 +819,72 @@ const CalendarPage: React.FC = () => {
     });
   }, [allCars, search, statusFilter]);
 
+  // ── Event handlers ───────────────────────────────────────────────────────
   const handleHover = useCallback((entry: CalendarEntry | null, e: React.MouseEvent) => {
     setTooltip(entry ? { entry, x: e.clientX, y: e.clientY } : null);
   }, []);
+
+  // Click on an existing calendar block → open popup
+  const handleBlockClick = useCallback((entry: CalendarEntry, car: CalendarCar, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTooltip(null);
+    resetSelection();
+    setBlockPopup({ entry, car, x: e.clientX, y: e.clientY });
+  }, [resetSelection]);
+
+  // Click on an empty cell → date range selection
+  const handleDayClick = useCallback((carId: number, dayStr: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTooltip(null);
+
+    if (selCarId !== carId || selEnd !== null) {
+      setSelCarId(carId);
+      setSelStart(dayStr);
+      setSelEnd(null);
+      setMenuPos(null);
+    } else if (selStart !== null) {
+      if (dayStr > selStart) {
+        setSelEnd(dayStr);
+        setMenuPos({ x: e.clientX, y: e.clientY });
+      } else {
+        setSelStart(dayStr);
+        setSelEnd(null);
+        setMenuPos(null);
+      }
+    }
+  }, [selCarId, selEnd, selStart]);
+
+  const handleInsert = useCallback(async (blockType: 'maintenance' | 'selling' | 'replacement') => {
+    if (!selCarId || !selStart || !selEnd) return;
+    setInserting(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error: insertError } = await supabase.from('car_calendar').insert({
+      car_id: selCarId,
+      start_date: selStart,
+      end_date: selEnd,
+      block_type: blockType,
+      created_by: user?.id ?? null,
+    });
+
+    setInserting(false);
+
+    if (insertError) {
+      setToast({ message: `Failed to save: ${insertError.message}`, isError: true });
+    } else {
+      const label = blockType.charAt(0).toUpperCase() + blockType.slice(1);
+      setToast({ message: `${label} block added successfully` });
+      resetSelection();
+      loadData();
+    }
+  }, [selCarId, selStart, selEnd, resetSelection, loadData]);
+
+  const handleAddBooking = useCallback(() => {
+    if (!selCarId || !selStart || !selEnd) return;
+    navigate(`/dashboard/bookings?car_id=${selCarId}&start_date=${selStart}&end_date=${selEnd}`);
+    resetSelection();
+  }, [selCarId, selStart, selEnd, navigate, resetSelection]);
 
   const gridCols = `${LEFT_W}px repeat(${daysInMonth}, ${COL_W}px)`;
   const gridMinW = LEFT_W + COL_W * daysInMonth;
@@ -331,7 +909,7 @@ const CalendarPage: React.FC = () => {
         @keyframes calSpin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* ── Page header — Cars page style ───────────────────────────────── */}
+      {/* ── Page header ─────────────────────────────────────────────────── */}
       <div style={{ padding: '32px 32px 20px', flexShrink: 0, background: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
@@ -360,7 +938,7 @@ const CalendarPage: React.FC = () => {
         position: 'relative',
       }}>
 
-        {/* Center: month nav — truly centered via absolute positioning */}
+        {/* Center: month nav */}
         <div style={{
           position: 'absolute',
           left: '50%',
@@ -374,8 +952,7 @@ const CalendarPage: React.FC = () => {
             style={{
               width: 34, height: 34, borderRadius: '50%',
               border: `1px solid ${BORDER_SOFT}`,
-              background: 'white',
-              cursor: 'pointer',
+              background: 'white', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: TEXT_DARK,
               transition: 'background 0.15s ease, border-color 0.15s ease',
@@ -408,8 +985,7 @@ const CalendarPage: React.FC = () => {
             style={{
               width: 34, height: 34, borderRadius: '50%',
               border: `1px solid ${BORDER_SOFT}`,
-              background: 'white',
-              cursor: 'pointer',
+              background: 'white', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: TEXT_DARK,
               transition: 'background 0.15s ease, border-color 0.15s ease',
@@ -516,6 +1092,71 @@ const CalendarPage: React.FC = () => {
             <span style={{ fontSize: 12, color: TEXT_MID }}>{STATUS_LABEL[kind]}</span>
           </div>
         ))}
+
+        {/* Selection hint */}
+        {!selStart && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ color: TEXT_LIGHT }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+              <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Click a day to start selecting a range</span>
+          </div>
+        )}
+
+        {/* Active selection label */}
+        {selStart && !selEnd && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#eff6ff', borderRadius: 20, padding: '4px 12px',
+            }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ba6ea', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>
+                {formatDateShort(selStart)} — click a later day to set end date
+              </span>
+            </div>
+            <button
+              onClick={resetSelection}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: TEXT_LIGHT, padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
+              }}
+              title="Clear selection"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Range selected label */}
+        {selStart && selEnd && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#eff6ff', borderRadius: 20, padding: '4px 12px',
+            }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ba6ea', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>
+                {formatDateShort(selStart)} → {formatDateShort(selEnd)}
+              </span>
+            </div>
+            <button
+              onClick={resetSelection}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: TEXT_LIGHT, padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
+              }}
+              title="Clear selection"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Loading ───────────────────────────────────────────────────────── */}
@@ -669,20 +1310,15 @@ const CalendarPage: React.FC = () => {
                     width: LEFT_W,
                     gap: 2,
                   }}>
-                    {/* Plate */}
-                    <div style={{
-                      fontSize: 15, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2,
-                    }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2 }}>
                       {car.plate_number || '—'}
                     </div>
-                    {/* Model */}
                     <div style={{
                       fontSize: 13, color: TEXT_MID, lineHeight: 1.2,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                       {car.model_name}
                     </div>
-                    {/* Status badge — pill */}
                     <div style={{
                       marginTop: 5,
                       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -710,40 +1346,78 @@ const CalendarPage: React.FC = () => {
                     const calEntry = entries.find(e => e.start_date.slice(0, 10) <= dayStr && dayStr <= e.end_date.slice(0, 10)) ?? null;
                     const kind     = calEntry ? blockTypeToKind(calEntry.block_type) : status;
 
-                    // Circle fill — calEntry takes priority over today highlight
-                    const circleBg = calEntry
+                    // Default circle appearance
+                    let circleBg = calEntry
                       ? CELL_FILL[kind]
-                      : isToday
-                        ? '#fff1f2'
-                        : '#fecaca';
+                      : isToday ? '#fff1f2' : '#fecaca';
 
-                    const circleColor = calEntry
+                    let circleColor = calEntry
                       ? CELL_TEXT_COLOR[kind]
-                      : isToday
-                        ? AIRBNB_RED
-                        : '#dc2626';
+                      : isToday ? AIRBNB_RED : '#dc2626';
+
+                    let cellBg = rowBg;
+
+                    // ── Selection overrides (only on empty cells) ──────────
+                    const isThisCar  = selCarId === car.id;
+                    const isSelStart = isThisCar && selStart === dayStr && !calEntry;
+                    const isSelEnd   = isThisCar && selEnd === dayStr && !calEntry;
+                    const isInRange  = isThisCar && selStart !== null && selEnd !== null
+                                       && dayStr > selStart && dayStr < selEnd && !calEntry;
+                    const isPending  = isThisCar && selStart !== null && selEnd === null
+                                       && dayStr === selStart && !calEntry;
+
+                    if (isSelStart || isSelEnd) {
+                      circleBg    = '#4ba6ea';
+                      circleColor = 'white';
+                      cellBg      = '#eff6ff';
+                    } else if (isInRange) {
+                      circleBg    = '#bfdbfe';
+                      circleColor = '#2563eb';
+                      cellBg      = '#eff6ff';
+                    } else if (isPending) {
+                      circleBg    = '#4ba6ea';
+                      circleColor = 'white';
+                    }
+
+                    // Highlight the active popup block
+                    const isPopupBlock = blockPopup?.entry.id === calEntry?.id && calEntry !== null;
 
                     return (
                       <div
                         key={`${car.id}-${day}`}
                         style={{
-                          background: rowBg,
+                          background: cellBg,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: calEntry ? 'pointer' : 'default',
+                          cursor: 'pointer',
+                          userSelect: 'none',
                         }}
-                        onMouseEnter={calEntry ? e => handleHover(calEntry, e) : undefined}
-                        onMouseLeave={calEntry ? e => handleHover(null, e) : undefined}
-                        onMouseMove={calEntry ? e => handleHover(calEntry, e) : undefined}
+                        onClick={e => {
+                          if (calEntry) {
+                            handleBlockClick(calEntry, car, e);
+                          } else {
+                            handleDayClick(car.id, dayStr, e);
+                          }
+                        }}
+                        onMouseEnter={calEntry && !isPopupBlock ? e => handleHover(calEntry, e) : undefined}
+                        onMouseLeave={calEntry ? () => setTooltip(null) : undefined}
+                        onMouseMove={calEntry && !isPopupBlock ? e => handleHover(calEntry, e) : undefined}
                       >
                         <div style={{
                           width: 36, height: 36, borderRadius: '50%',
                           background: circleBg,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'transform 0.12s ease',
+                          transition: 'transform 0.12s ease, background 0.1s ease',
+                          boxShadow: (isSelStart || isSelEnd || isPending)
+                            ? '0 2px 8px rgba(75,166,234,0.35)'
+                            : isPopupBlock
+                              ? '0 0 0 2px #4ba6ea'
+                              : 'none',
+                          outline: isPopupBlock ? '2px solid #4ba6ea' : 'none',
+                          outlineOffset: 2,
                         }}>
                           <span style={{
                             fontSize: 13,
-                            fontWeight: calEntry ? 600 : isToday ? 700 : 400,
+                            fontWeight: (isSelStart || isSelEnd || isPending || isInRange || calEntry) ? 600 : isToday ? 700 : 400,
                             color: circleColor,
                             fontVariantNumeric: 'tabular-nums', lineHeight: 1,
                             userSelect: 'none',
@@ -763,7 +1437,43 @@ const CalendarPage: React.FC = () => {
         </div>
       )}
 
-      {tooltip && <Tooltip state={tooltip} />}
+      {/* Tooltip — hidden when any popup/menu is open */}
+      {tooltip && !menuPos && !blockPopup && <Tooltip state={tooltip} />}
+
+      {/* ── Action menu (new range selection) ───────────────────────────── */}
+      {menuPos && (
+        <>
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+            onClick={resetSelection}
+          />
+          <ActionMenu
+            pos={menuPos}
+            onAddBooking={handleAddBooking}
+            onInsert={handleInsert}
+            inserting={inserting}
+          />
+        </>
+      )}
+
+      {/* ── Block popup (click existing block) ──────────────────────────── */}
+      {blockPopup && (
+        <>
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+            onClick={() => setBlockPopup(null)}
+          />
+          <BlockPopup
+            state={blockPopup}
+            onClose={() => setBlockPopup(null)}
+            onSaved={() => { setBlockPopup(null); loadData(); }}
+            onDeleted={() => { setBlockPopup(null); loadData(); }}
+            onToast={setToast}
+          />
+        </>
+      )}
+
+      {toast && <Toast info={toast} />}
     </div>
   );
 };

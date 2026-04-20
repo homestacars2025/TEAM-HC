@@ -24,6 +24,7 @@ interface OperationRow {
   handled_by: string | null;
   customer_id: string | null;
   current_km: number | null;
+  fuel_level: number | null;
   cleanliness_status: boolean | null;
   location_text: string | null;
   note: string | null;
@@ -46,6 +47,7 @@ interface Operation {
   handler_name: string | null;
   customer_name: string | null;
   current_km: number | null;
+  fuel_level: number | null;
   cleanliness_status: boolean | null;
   location_text: string | null;
   note: string | null;
@@ -62,6 +64,7 @@ interface AddOpForm {
   operation_date: string;
   operation_time: string;
   current_km: string;
+  fuel_level: string;
   cleanliness_status: 'clean' | 'not_clean' | '';
   location_text: string;
   note: string;
@@ -122,6 +125,7 @@ function opToForm(op: Operation): AddOpForm {
     operation_date:     op.operation_date,
     operation_time:     op.operation_time ?? '',
     current_km:         op.current_km != null ? String(op.current_km) : '',
+    fuel_level:         op.fuel_level != null ? String(op.fuel_level) : '',
     cleanliness_status: op.cleanliness_status === true ? 'clean'
                       : op.cleanliness_status === false ? 'not_clean'
                       : '',
@@ -154,6 +158,7 @@ function resolveOperation(row: OperationRow): Operation {
     handler_name:       hdlr?.full_name ?? null,
     customer_name:      cust ? `${cust.first_name} ${cust.last_name}`.trim() : null,
     current_km:         row.current_km,
+    fuel_level:         row.fuel_level,
     cleanliness_status: row.cleanliness_status,
     location_text:      row.location_text,
     note:               row.note,
@@ -252,6 +257,7 @@ const EMPTY_FORM = (): AddOpForm => ({
   operation_date:     todayStr(),
   operation_time:     nowTimeStr(),
   current_km:         '',
+  fuel_level:         '',
   cleanliness_status: '',
   location_text:      '',
   note:               '',
@@ -407,6 +413,7 @@ const AddOperationModal: React.FC<{
     if (!form.car_id)     { setFormError('Please select a car.'); return; }
     if (!form.type)       { setFormError('Please select an operation type.'); return; }
     if (!form.handled_by) { setFormError('Please select who handled this operation.'); return; }
+    if (form.fuel_level !== '' && Number(form.fuel_level) > 2000) { setFormError('Maximum fuel level is 2000'); return; }
 
     setSaving(true);
     setSaveStep('saving');
@@ -418,6 +425,7 @@ const AddOperationModal: React.FC<{
       operation_date:     form.operation_date,
       operation_time:     form.operation_time || null,
       current_km:         form.current_km ? Number(form.current_km) : null,
+      fuel_level:         form.fuel_level !== '' ? Number(form.fuel_level) : null,
       cleanliness_status: form.cleanliness_status === 'clean'     ? true
                         : form.cleanliness_status === 'not_clean' ? false
                         : null,
@@ -645,6 +653,29 @@ const AddOperationModal: React.FC<{
             <div style={fieldStyle}>
               <label style={labelStyle}>Mileage (km)</label>
               <input type="number" min="0" placeholder="e.g. 54200" value={form.current_km} onChange={set('current_km')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
+            </div>
+
+            {/* Fuel Level */}
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Fuel Level (L) <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+              <input
+                type="number"
+                min="0"
+                max="2000"
+                placeholder="e.g. 45"
+                value={form.fuel_level}
+                onChange={e => {
+                  setForm(f => ({ ...f, fuel_level: e.target.value }));
+                  if (e.target.value !== '' && Number(e.target.value) > 2000) {
+                    setFormError('Maximum fuel level is 2000');
+                  } else {
+                    setFormError(null);
+                  }
+                }}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                style={inputStyle}
+              />
             </div>
 
             {/* Cleanliness */}
