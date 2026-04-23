@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
@@ -563,6 +564,25 @@ const COUNTRIES: Country[] = [
   { code: 'ZW', name: 'Zimbabwe',                       dial: '+263',  flag: '🇿🇼' },
 ];
 
+// ─── Phone helpers ────────────────────────────────────────────────────────────
+
+function parseStoredPhone(stored: string): { dial: string; local: string } {
+  if (!stored) return { dial: '+90', local: '' };
+  const normalized = stored.startsWith('+') ? stored : `+${stored}`;
+  try {
+    const parsed = parsePhoneNumber(normalized);
+    if (parsed) {
+      return { dial: `+${parsed.countryCallingCode}`, local: parsed.nationalNumber };
+    }
+  } catch {}
+  // Fallback: match by longest known dial code prefix
+  const match = COUNTRIES.slice()
+    .sort((a, b) => b.dial.length - a.dial.length)
+    .find(c => normalized.startsWith(c.dial));
+  if (match) return { dial: match.dial, local: normalized.slice(match.dial.length) };
+  return { dial: '+90', local: stored };
+}
+
 // ─── Searchable dial-code picker ──────────────────────────────────────────────
 
 const DialCodePicker: React.FC<{
@@ -972,8 +992,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           ...f,
           cust_first_name:             c.first_name,
           cust_last_name:              c.last_name,
-          cust_phone_dial:             '',
-          cust_phone:                  c.phone ?? '',
+          cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
+          cust_phone:                  parseStoredPhone(c.phone ?? '').local,
           cust_nationality:            c.nationality ?? '',
           cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
           cust_id_number:              c.id_number ?? '',
@@ -1076,7 +1096,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       ...f,
       cust_first_name:             c.first_name,
       cust_last_name:              c.last_name,
-      cust_phone:                  c.phone ?? '',
+      cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
+      cust_phone:                  parseStoredPhone(c.phone ?? '').local,
       cust_nationality:            c.nationality ?? '',
       cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
       cust_driving_license:        c.driving_license ?? '',
@@ -1108,7 +1129,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     if (!form.cust_id_number.trim())        errors.cust_id_number        = 'ID number is required';
     if (!form.cust_id_type)                 errors.cust_id_type          = 'ID type is required';
     if (!form.cust_nationality)             errors.cust_nationality      = 'Nationality is required';
-    if (!form.cust_phone.trim())            errors.cust_phone            = 'Phone number is required';
+    if (!form.cust_phone.trim()) {
+      errors.cust_phone = 'Phone number is required';
+    } else {
+      const fullPhone = `${form.cust_phone_dial}${form.cust_phone}`;
+      if (!isValidPhoneNumber(fullPhone)) errors.cust_phone = 'Invalid phone number for selected country';
+    }
     if (!form.cust_license_issue_date)      errors.cust_license_issue_date = 'License issue date is required';
 
     if (Object.keys(errors).length > 0) {
@@ -1235,7 +1261,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       if (editCustomerId) {
         const fullName = `${form.cust_first_name} ${form.cust_last_name}`.trim();
         const phone    = form.cust_phone
-          ? (form.cust_phone_dial ? `${form.cust_phone_dial}${form.cust_phone}` : form.cust_phone)
+          ? `${form.cust_phone_dial}${form.cust_phone}`
           : null;
 
         const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([

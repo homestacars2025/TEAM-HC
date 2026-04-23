@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 type OperationType =
   | 'DELIVERY' | 'PICKUP'
   | 'CAR_WASH' | 'MAINTENANCE' | 'OIL_CHANGE'
-  | 'SERVICE'  | 'RECEIVING'   | 'OTHER';
+  | 'OTHER';
 
 type TabKey = 'dp' | 'other';
 
@@ -21,11 +21,11 @@ interface OperationRow {
   operation_time: string | null;
   type: OperationType;
   car_id: number;
-  handled_by: string | null;
+  performed_by: string | null;
   customer_id: string | null;
   current_km: number | null;
   fuel_level: number | null;
-  cleanliness_status: boolean | null;
+  cleanliness_status: string | null;
   location_text: string | null;
   note: string | null;
   booking_id: number | null;
@@ -41,14 +41,14 @@ interface Operation {
   operation_time: string | null;
   type: OperationType;
   car_id: number;
-  handled_by: string | null;
+  performed_by: string | null;
   customer_id: string | null;
   plate_number: string;
   handler_name: string | null;
   customer_name: string | null;
   current_km: number | null;
   fuel_level: number | null;
-  cleanliness_status: boolean | null;
+  cleanliness_status: string | null;
   location_text: string | null;
   note: string | null;
   booking_id: number | null;
@@ -58,7 +58,7 @@ interface Operation {
 interface AddOpForm {
   type: OperationType;
   car_id: string;
-  handled_by: string;
+  performed_by: string;
   customer_id: string;
   booking_id: string;
   operation_date: string;
@@ -78,20 +78,19 @@ const TYPE_CONFIG: Record<OperationType, { label: string; color: string; bg: str
   CAR_WASH:    { label: 'Car Wash',    color: '#0891b2', bg: 'rgba(8,145,178,0.12)',    card: '#0891b2' },
   MAINTENANCE: { label: 'Maintenance', color: '#6b7280', bg: 'rgba(107,114,128,0.12)', card: '#6b7280' },
   OIL_CHANGE:  { label: 'Oil Change',  color: '#ea580c', bg: 'rgba(234,88,12,0.12)',   card: '#ea580c' },
-  SERVICE:     { label: 'Service',     color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',  card: '#7c3aed' },
-  RECEIVING:   { label: 'Receiving',   color: '#0f766e', bg: 'rgba(15,118,110,0.12)',  card: '#0f766e' },
+
   OTHER:       { label: 'Other',       color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', card: '#9ca3af' },
 };
 
 const ALL_OP_TYPES: OperationType[] = [
-  'DELIVERY', 'PICKUP', 'CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER',
+  'DELIVERY', 'PICKUP', 'CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER',
 ];
 
 const DP_TYPES:    OperationType[] = ['DELIVERY', 'PICKUP'];
-const OTHER_TYPES: OperationType[] = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER'];
+const OTHER_TYPES: OperationType[] = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER'];
 
 const DP_STAT_CARDS    = ['DELIVERY', 'PICKUP'] as const;
-const OTHER_STAT_CARDS = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'SERVICE', 'RECEIVING', 'OTHER'] as const;
+const OTHER_STAT_CARDS = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER'] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,15 +118,15 @@ function opToForm(op: Operation): AddOpForm {
   return {
     type:               op.type,
     car_id:             String(op.car_id),
-    handled_by:         op.handled_by ?? '',
+    performed_by:       op.performed_by ?? '',
     customer_id:        op.customer_id ?? '',
     booking_id:         op.booking_id != null ? String(op.booking_id) : '',
     operation_date:     op.operation_date,
     operation_time:     op.operation_time ?? '',
     current_km:         op.current_km != null ? String(op.current_km) : '',
     fuel_level:         op.fuel_level != null ? String(op.fuel_level) : '',
-    cleanliness_status: op.cleanliness_status === true ? 'clean'
-                      : op.cleanliness_status === false ? 'not_clean'
+    cleanliness_status: (op.cleanliness_status === 'clean' || op.cleanliness_status === 'not_clean')
+                      ? op.cleanliness_status
                       : '',
     location_text:      op.location_text ?? '',
     note:               op.note ?? '',
@@ -152,7 +151,7 @@ function resolveOperation(row: OperationRow): Operation {
     operation_time:     row.operation_time,
     type:               row.type,
     car_id:             row.car_id,
-    handled_by:         row.handled_by,
+    performed_by:       row.performed_by,
     customer_id:        row.customer_id,
     plate_number:       car?.plate_number ?? '—',
     handler_name:       hdlr?.full_name ?? null,
@@ -251,7 +250,7 @@ const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ messa
 const EMPTY_FORM = (): AddOpForm => ({
   type:               'DELIVERY',
   car_id:             '',
-  handled_by:         '',
+  performed_by:       '',
   customer_id:        '',
   booking_id:         '',
   operation_date:     todayStr(),
@@ -412,8 +411,9 @@ const AddOperationModal: React.FC<{
     e.preventDefault();
     if (!form.car_id)     { setFormError('Please select a car.'); return; }
     if (!form.type)       { setFormError('Please select an operation type.'); return; }
-    if (!form.handled_by) { setFormError('Please select who handled this operation.'); return; }
-    if (form.fuel_level !== '' && Number(form.fuel_level) > 2000) { setFormError('Maximum fuel level is 2000'); return; }
+    if (!form.performed_by) { setFormError('Please select who handled this operation.'); return; }
+    if (form.fuel_level === '')                                    { setFormError('Fuel level is required.'); return; }
+    if (Number(form.fuel_level) > 2000)                           { setFormError('Maximum fuel level is 2000'); return; }
 
     setSaving(true);
     setSaveStep('saving');
@@ -426,15 +426,15 @@ const AddOperationModal: React.FC<{
       operation_time:     form.operation_time || null,
       current_km:         form.current_km ? Number(form.current_km) : null,
       fuel_level:         form.fuel_level !== '' ? Number(form.fuel_level) : null,
-      cleanliness_status: form.cleanliness_status === 'clean'     ? true
-                        : form.cleanliness_status === 'not_clean' ? false
-                        : null,
+      cleanliness_status: form.cleanliness_status || null,
       location_text:      form.location_text || null,
       note:               form.note || null,
-      handled_by:         form.handled_by,
+      performed_by:       form.performed_by,
       customer_id:        form.customer_id || null,
       booking_id:         form.booking_id.trim() ? Number(form.booking_id) : null,
     };
+
+    console.log('[DEBUG] cleanliness_status being saved:', corePayload.cleanliness_status);
 
     // ── Edit mode ────────────────────────────────────────────────────────────
     if (isEdit) {
@@ -465,8 +465,6 @@ const AddOperationModal: React.FC<{
       ? `${supabaseUrl}/storage/v1/object/public/operations/${folderName}/`
       : null;
 
-    console.log('Uploading to folder:', folderName);
-
     const insertPayload = { ...corePayload, created_by: uid, folder_url: folderUrl };
 
     const { error: insertError } = await supabase.from('operations').insert(insertPayload);
@@ -486,7 +484,6 @@ const AddOperationModal: React.FC<{
           .from('operations')
           .upload(path, file, { cacheControl: '3600', upsert: false });
 
-        console.log('Upload result for', path, ':', uploadError ?? 'success');
         if (uploadError) failCount++;
       }
       setSaving(false);
@@ -579,7 +576,7 @@ const AddOperationModal: React.FC<{
             {/* Handled By */}
             <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Handled By <span style={{ color: '#ef4444' }}>*</span></label>
-              <select value={form.handled_by} onChange={set('handled_by')} onFocus={onFocus} onBlur={onBlur} style={selectStyle} required>
+              <select value={form.performed_by} onChange={set('performed_by')} onFocus={onFocus} onBlur={onBlur} style={selectStyle} required>
                 <option value="">{profilesLoading ? 'Loading staff…' : 'Select a person'}</option>
                 {profiles.map(p => (
                   <option key={p.id} value={p.id}>{p.full_name ?? p.id}</option>
@@ -657,7 +654,7 @@ const AddOperationModal: React.FC<{
 
             {/* Fuel Level */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Fuel Level (L) <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+              <label style={labelStyle}>Fuel Level (L) <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="number"
                 min="0"
@@ -1101,10 +1098,10 @@ const OperationsPage: React.FC = () => {
     const { data, error: fetchError } = await supabase
       .from('operations')
       .select(`
-        id, operation_date, operation_time, type, car_id, handled_by, customer_id,
-        current_km, cleanliness_status, location_text, note, booking_id, folder_url,
+        id, operation_date, operation_time, type, car_id, performed_by, customer_id,
+        current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url,
         cars!operations_car_id_fkey(plate_number),
-        handler:profiles(full_name),
+        handler:profiles!operations_performed_by_fkey(id, full_name),
         customers(first_name, last_name)
       `)
       .gte('operation_date', toDateStr(getMonthStart(month)))
@@ -1113,6 +1110,7 @@ const OperationsPage: React.FC = () => {
 
     setLoading(false);
     if (fetchError) { setError(fetchError.message); return; }
+    console.log('[DEBUG] First row cleanliness_status from DB:', (data as any)?.[0]?.cleanliness_status);
     setAllOperations(((data ?? []) as unknown as OperationRow[]).map(resolveOperation));
   }, []);
 
@@ -1158,7 +1156,7 @@ const OperationsPage: React.FC = () => {
   }, [activeOps, search, typeFilter]);
 
   const td: React.CSSProperties = { padding: '10px 12px', fontSize: 13, color: '#374151', verticalAlign: 'middle' };
-  const colCount = tab === 'dp' ? 10 : 9;
+  const colCount = tab === 'dp' ? 11 : 10;
 
   // ── Stat card definitions per tab ────────────────────────────────────────
   const dpStatCards = [
@@ -1184,19 +1182,6 @@ const OperationsPage: React.FC = () => {
           <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>Car Operations</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Deliveries, pickups, washes, maintenance and more</p>
         </div>
-
-        {/* Temp: Storage test button */}
-        <button onClick={async () => {
-          const testFile = new File(['test content'], 'test.txt', { type: 'text/plain' });
-          console.log('Testing upload to bucket: operations');
-          const { data, error } = await supabase.storage
-            .from('operations')
-            .upload(`test-folder/test-${Date.now()}.txt`, testFile);
-          console.log('Test upload result:', { data, error });
-          alert(error ? `FAILED: ${error.message}` : `SUCCESS: ${data.path}`);
-        }} style={{ height: 44, padding: '0 18px', borderRadius: 12, border: '1.5px dashed #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Test Storage Upload
-        </button>
 
         {/* Add Operation button */}
         <button
@@ -1299,6 +1284,7 @@ const OperationsPage: React.FC = () => {
                 <Th>Handled By</Th>
                 {tab === 'dp' && <Th>Customer</Th>}
                 <Th>Mileage</Th>
+                <Th>Fuel Level</Th>
                 <Th style={{ textAlign: 'center' }}>Cleanliness</Th>
                 <Th>Notes</Th>
                 <Th style={{ textAlign: 'center' }}>Photos</Th>
@@ -1345,12 +1331,18 @@ const OperationsPage: React.FC = () => {
                       : <span style={{ color: '#d1d5db' }}>—</span>}
                   </td>
 
+                  <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>
+                    {op.fuel_level != null
+                      ? op.fuel_level + ' L'
+                      : <span style={{ color: '#d1d5db' }}>—</span>}
+                  </td>
+
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {op.cleanliness_status == null
-                      ? <span style={{ color: '#d1d5db' }}>—</span>
-                      : op.cleanliness_status
-                        ? <span title="Clean" style={{ fontSize: 16 }}>✅</span>
-                        : <span title="Not clean" style={{ fontSize: 16 }}>❌</span>
+                    {op.cleanliness_status === 'clean'
+                      ? <span title="Clean" style={{ fontSize: 16 }}>✅</span>
+                      : op.cleanliness_status === 'not_clean'
+                        ? <span title="Not clean" style={{ fontSize: 16 }}>❌</span>
+                        : <span style={{ color: '#d1d5db' }}>—</span>
                     }
                   </td>
 
