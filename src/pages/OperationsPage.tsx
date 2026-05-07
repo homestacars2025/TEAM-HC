@@ -292,6 +292,7 @@ const AddOperationModal: React.FC<{
     supabase
       .from('cars')
       .select('id, plate_number, model_group:model_group_id(name)')
+      .eq('is_active', true)
       .then(({ data }) => {
         if (active && data) {
           const sorted = (data as unknown as CarOption[]).sort((a, b) => {

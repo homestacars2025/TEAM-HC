@@ -4,6 +4,7 @@ import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
+import { printBookingContract } from '../lib/printContract';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -27,6 +28,13 @@ interface BookingRow {
   end_date: string;
   kabis_reported: boolean;
   invoice_issued: boolean;
+  pickup_location: string | null;
+  dropoff_location: string | null;
+  km_at_delivery: number | null;
+  fuel_at_delivery: string | null;
+  insurance_type: string | null;
+  notes: string | null;
+  additional_services: string | null;
   cars: CarJoin | CarJoin[] | null;
   customers: CustomerJoin | CustomerJoin[] | null;
 }
@@ -89,17 +97,19 @@ function resolveBooking(row: BookingRow): Booking {
     car_id: row.car_id,
     start_date: row.start_date,
     end_date: row.end_date,
-    insurance_type: null,
-    notes: null,
-    pickup_location: null,
-    dropoff_location: null,
+    insurance_type: row.insurance_type ?? null,
+    notes: row.notes ?? null,
+    pickup_location: row.pickup_location ?? null,
+    dropoff_location: row.dropoff_location ?? null,
+    km_at_delivery: row.km_at_delivery ?? null,
+    fuel_at_delivery: row.fuel_at_delivery ?? null,
     booking_number: row.booking_number,
     additional_driver: null,
     customer_id: row.customer_id,
     kabis_reported: row.kabis_reported,
     invoice_issued: row.invoice_issued,
     status: row.status,
-    additional_service: null,
+    additional_services: row.additional_services ?? null,
     plate_number: carJoin?.plate_number ?? '—',
     car_model,
     customer_name,
@@ -295,10 +305,11 @@ interface RowProps {
   onSelect: () => void;
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
+  onPrint: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit,
+  booking, isSelected, isEven, onSelect, onToggle, onEdit, onPrint,
 }) => (
   <tr
     className="bk-row"
@@ -354,6 +365,13 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 16px 9px 8px', textAlign: 'right' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        <ActionBtn onClick={onPrint} title="Print Contract" hoverColor="#8b5cf6">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </ActionBtn>
         <ActionBtn onClick={onEdit} title="Edit" hoverColor="#4ba6ea">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -701,6 +719,14 @@ type BookingFormData = {
   car_id: string;
   start_date: string;
   end_date: string;
+  // Vehicle condition at delivery
+  pickup_location: string;
+  dropoff_location: string;
+  km_at_delivery: string;
+  fuel_at_delivery: string;
+  // Insurance & additional services
+  insurance_type: string;
+  additional_services: string;
   // Customer fields (add mode only)
   cust_id_type: 'passport' | 'national_id';
   cust_id_number: string;
@@ -725,6 +751,8 @@ type BookingFormData = {
 const EMPTY_FORM: BookingFormData = {
   booking_number: '', status: 'pending', car_id: '',
   start_date: '', end_date: '',
+  pickup_location: '', dropoff_location: '', km_at_delivery: '', fuel_at_delivery: '',
+  insurance_type: '', additional_services: '',
   cust_id_type: 'passport', cust_id_number: '',
   cust_first_name: '', cust_last_name: '',
   cust_phone_dial: '+90', cust_phone: '',
@@ -733,6 +761,27 @@ const EMPTY_FORM: BookingFormData = {
   cust_address: '', cust_birth_date: '', cust_notes: '',
   fin_currency: 'TRY', fin_rental_amount: '', fin_deposit: '', fin_paid_amount: '',
 };
+
+const LOCATION_PRESETS = [
+  'Şişli Branch',
+  'Kayaşehir Branch',
+  'Istanbul Airport (IST)',
+  'Sabiha Gökçen Airport (SAW)',
+] as const;
+
+const isLocationPreset = (val: string): boolean =>
+  (LOCATION_PRESETS as readonly string[]).includes(val);
+
+const INSURANCE_PRESETS = [
+  'Korumasız',
+  'Kısmi Koruma',
+  'Orta Koruma',
+  'Tam Koruma',
+] as const;
+const isInsurancePreset = (val: string): boolean =>
+  (INSURANCE_PRESETS as readonly string[]).includes(val);
+
+const ADDITIONAL_SERVICE_OPTS = ['Çocuk Koltuğu', 'Yedek Sürücü', 'Ek Kilometre'] as const;
 
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%', height: 40, padding: '0 12px',
@@ -875,6 +924,35 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const [bookingNumLoading, setBookingNumLoading] = useState(mode === 'add');
   const { rates } = useCurrency();
 
+  // Location dropdown "Other" mode — true when value doesn't match a preset
+  const [pickupOther,  setPickupOther]  = useState(() => !!initial.pickup_location  && !isLocationPreset(initial.pickup_location));
+  const [dropoffOther, setDropoffOther] = useState(() => !!initial.dropoff_location && !isLocationPreset(initial.dropoff_location));
+
+  // Insurance "Other" mode
+  const [insuranceOther, setInsuranceOther] = useState(() =>
+    !!initial.insurance_type && !isInsurancePreset(initial.insurance_type)
+  );
+
+  // Additional services checkboxes
+  const [additionalChecked, setAdditionalChecked] = useState<string[]>(() => {
+    if (!initial.additional_services) return [];
+    const parts = initial.additional_services.split(',').map(s => s.trim()).filter(Boolean);
+    const checked: string[] = [];
+    for (const p of parts) {
+      if ((ADDITIONAL_SERVICE_OPTS as readonly string[]).includes(p as typeof ADDITIONAL_SERVICE_OPTS[number])) {
+        checked.push(p);
+      } else {
+        checked.push('Diğer');
+      }
+    }
+    return [...new Set(checked)];
+  });
+  const [additionalOtherText, setAdditionalOtherText] = useState<string>(() => {
+    if (!initial.additional_services) return '';
+    const parts = initial.additional_services.split(',').map(s => s.trim()).filter(Boolean);
+    return parts.find(p => !(ADDITIONAL_SERVICE_OPTS as readonly string[]).includes(p as typeof ADDITIONAL_SERVICE_OPTS[number])) ?? '';
+  });
+
   // Document uploads
   const [docIdPhoto,           setDocIdPhoto]           = useState<File | null>(null);
   const [docIdPhotoBack,       setDocIdPhotoBack]       = useState<File | null>(null);
@@ -934,7 +1012,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     (async () => {
       // Cars — sorted by model name
       const { data: carsData } = await supabase
-        .from('cars').select('id, plate_number, model_group(name)');
+        .from('cars').select('id, plate_number, model_group(name)').eq('is_active', true);
       if (!active) return;
       const carOpts: CarOption[] = ((carsData ?? []) as Array<{
         id: number;
@@ -1120,6 +1198,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
 
+  const buildAdditionalServices = (): string | null => {
+    const parts = additionalChecked
+      .filter(s => s !== 'Diğer')
+      .concat(additionalChecked.includes('Diğer') && additionalOtherText.trim() ? [additionalOtherText.trim()] : []);
+    return parts.length > 0 ? parts.join(',') : null;
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
@@ -1209,14 +1294,20 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert({
-          booking_number: form.booking_number,
-          status:         form.status,
-          car_id:         Number(form.car_id),
-          customer_id:    customerId,
-          start_date:     form.start_date,
-          end_date:       form.end_date,
-          kabis_reported: false,
-          invoice_issued: false,
+          booking_number:  form.booking_number,
+          status:          form.status,
+          car_id:          Number(form.car_id),
+          customer_id:     customerId,
+          start_date:      form.start_date,
+          end_date:        form.end_date,
+          kabis_reported:  false,
+          invoice_issued:  false,
+          pickup_location:  form.pickup_location  || null,
+          dropoff_location: form.dropoff_location || null,
+          km_at_delivery:   form.km_at_delivery  !== '' ? Number(form.km_at_delivery)  : null,
+          fuel_at_delivery: form.fuel_at_delivery !== '' ? form.fuel_at_delivery : null,
+          insurance_type:   form.insurance_type   || null,
+          additional_services: buildAdditionalServices(),
         })
         .select('id')
         .single();
@@ -1247,11 +1338,17 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const { error: bookingErr } = await supabase
         .from('bookings')
         .update({
-          booking_number: form.booking_number,
-          status:         form.status,
-          car_id:         Number(form.car_id),
-          start_date:     form.start_date,
-          end_date:       form.end_date,
+          booking_number:   form.booking_number,
+          status:           form.status,
+          car_id:           Number(form.car_id),
+          start_date:       form.start_date,
+          end_date:         form.end_date,
+          pickup_location:  form.pickup_location  || null,
+          dropoff_location: form.dropoff_location || null,
+          km_at_delivery:   form.km_at_delivery  !== '' ? Number(form.km_at_delivery)  : null,
+          fuel_at_delivery: form.fuel_at_delivery !== '' ? form.fuel_at_delivery : null,
+          insurance_type:   form.insurance_type   || null,
+          additional_services: buildAdditionalServices(),
         })
         .eq('id', editId!);
 
@@ -1430,6 +1527,190 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               <input required type="date" value={form.end_date}
                 onChange={e => set('end_date', e.target.value)}
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
+            </Field>
+
+            {/* ── Vehicle Condition at Delivery ── */}
+            <SectionHeading
+              title="Vehicle Condition at Delivery"
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>}
+            />
+
+            <Field label="Pickup Location">
+              <select
+                value={pickupOther ? 'other' : form.pickup_location}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'other') {
+                    setPickupOther(true);
+                    set('pickup_location', '');
+                  } else {
+                    setPickupOther(false);
+                    set('pickup_location', val);
+                  }
+                }}
+                style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              >
+                <option value="">Select location…</option>
+                {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                <option value="other">Other</option>
+              </select>
+              {pickupOther && (
+                <input
+                  type="text"
+                  value={form.pickup_location}
+                  onChange={e => set('pickup_location', e.target.value)}
+                  placeholder="Enter custom location"
+                  style={{ ...INPUT_STYLE, marginTop: 8 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                  autoFocus
+                />
+              )}
+            </Field>
+
+            <Field label="Drop-off Location">
+              <select
+                value={dropoffOther ? 'other' : form.dropoff_location}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'other') {
+                    setDropoffOther(true);
+                    set('dropoff_location', '');
+                  } else {
+                    setDropoffOther(false);
+                    set('dropoff_location', val);
+                  }
+                }}
+                style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              >
+                <option value="">Select location…</option>
+                {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                <option value="other">Other</option>
+              </select>
+              {dropoffOther && (
+                <input
+                  type="text"
+                  value={form.dropoff_location}
+                  onChange={e => set('dropoff_location', e.target.value)}
+                  placeholder="Enter custom location"
+                  style={{ ...INPUT_STYLE, marginTop: 8 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                  autoFocus
+                />
+              )}
+            </Field>
+
+            <Field label="KM at Delivery">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={form.km_at_delivery}
+                onChange={e => set('km_at_delivery', e.target.value)}
+                placeholder="e.g. 45230"
+                style={INPUT_STYLE}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              />
+            </Field>
+
+            <Field label="Fuel at Delivery">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="100"
+                step="1"
+                value={form.fuel_at_delivery}
+                onChange={e => set('fuel_at_delivery', e.target.value)}
+                placeholder="e.g. 75"
+                style={INPUT_STYLE}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              />
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Enter percentage (0–100)</div>
+            </Field>
+
+            {/* ── Insurance & Additional Services ── */}
+            <SectionHeading
+              title="SİGORTA VE EK HİZMETLER"
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V7L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+
+            <Field label="Insurance Type">
+              <select
+                value={insuranceOther ? 'other' : form.insurance_type}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'other') {
+                    setInsuranceOther(true);
+                    set('insurance_type', '');
+                  } else {
+                    setInsuranceOther(false);
+                    set('insurance_type', val);
+                  }
+                }}
+                style={{ ...INPUT_STYLE, cursor: 'pointer' }}
+                onFocus={focusBlue}
+                onBlur={blurGray}
+              >
+                <option value="">Select insurance type…</option>
+                {INSURANCE_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
+                <option value="other" style={{ color: '#ef4444' }}>Diğer</option>
+              </select>
+              {insuranceOther && (
+                <input
+                  type="text"
+                  value={form.insurance_type}
+                  onChange={e => set('insurance_type', e.target.value)}
+                  placeholder="Specify insurance type"
+                  style={{ ...INPUT_STYLE, marginTop: 8 }}
+                  onFocus={focusBlue}
+                  onBlur={blurGray}
+                  autoFocus
+                />
+              )}
+            </Field>
+
+            <Field label="Additional Services">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+                {([...ADDITIONAL_SERVICE_OPTS, 'Diğer'] as string[]).map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', minHeight: 24 }}>
+                    <input
+                      type="checkbox"
+                      checked={additionalChecked.includes(opt)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setAdditionalChecked(prev => [...prev, opt]);
+                        } else {
+                          setAdditionalChecked(prev => prev.filter(x => x !== opt));
+                          if (opt === 'Diğer') setAdditionalOtherText('');
+                        }
+                      }}
+                      style={{ width: 16, height: 16, accentColor: '#4ba6ea', cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: 14, color: opt === 'Diğer' ? '#ef4444' : '#374151', userSelect: 'none' }}>{opt}</span>
+                  </label>
+                ))}
+                {additionalChecked.includes('Diğer') && (
+                  <input
+                    type="text"
+                    value={additionalOtherText}
+                    onChange={e => setAdditionalOtherText(e.target.value)}
+                    placeholder="Specify additional service"
+                    style={{ ...INPUT_STYLE }}
+                    onFocus={focusBlue}
+                    onBlur={blurGray}
+                    autoFocus
+                  />
+                )}
+              </div>
             </Field>
 
             {/* ── Customer Information ── */}
@@ -1839,6 +2120,8 @@ const BookingsPage: React.FC = () => {
       .select(`
         id, booking_number, status, car_id, customer_id,
         start_date, end_date, kabis_reported, invoice_issued,
+        pickup_location, dropoff_location, km_at_delivery, fuel_at_delivery,
+        insurance_type, notes, additional_services,
         cars(plate_number, model_group(name)),
         customers(first_name, last_name)
       `)
@@ -1946,11 +2229,17 @@ const BookingsPage: React.FC = () => {
 
   // ── Edit form initial data ──────────────────────────────────────────────────
   const editFormData = (b: Booking): BookingFormData => ({
-    booking_number: b.booking_number,
-    status:         b.status,
-    car_id:         String(b.car_id),
-    start_date:     b.start_date,
-    end_date:       b.end_date,
+    booking_number:      b.booking_number,
+    status:              b.status,
+    car_id:              String(b.car_id),
+    start_date:          b.start_date,
+    end_date:            b.end_date,
+    pickup_location:     b.pickup_location  ?? '',
+    dropoff_location:    b.dropoff_location ?? '',
+    km_at_delivery:      b.km_at_delivery   != null ? String(b.km_at_delivery) : '',
+    fuel_at_delivery:    b.fuel_at_delivery ?? '',
+    insurance_type:      b.insurance_type   ?? '',
+    additional_services: b.additional_services ?? '',
     // Customer fields unused in edit mode — provide empty defaults
     cust_id_type: 'passport', cust_id_number: '',
     cust_first_name: '', cust_last_name: '',
@@ -2148,6 +2437,7 @@ const BookingsPage: React.FC = () => {
                     onSelect={() => toggleSelectRow(booking.id)}
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
+                    onPrint={() => printBookingContract(booking)}
                   />
                 ))}
               </tbody>

@@ -107,6 +107,7 @@ const KGMPage: React.FC = () => {
       const { data } = await supabase
         .from('cars')
         .select('id, plate_number, model_group(name)')
+        .eq('is_active', true)
         .order('plate_number');
       if (!active || !data) return;
       const rows: CarRow[] = (

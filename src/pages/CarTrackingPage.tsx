@@ -55,7 +55,8 @@ const CarTrackingPage: React.FC = () => {
           .order('updated_at', { ascending: false }),
         supabase
           .from('cars')
-          .select('id, plate_number, model_group_id, model_group:model_group_id(name)'),
+          .select('id, plate_number, model_group_id, model_group:model_group_id(name)')
+          .eq('is_active', true),
       ]);
       if (cancelled) return;
 

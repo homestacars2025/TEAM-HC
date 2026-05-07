@@ -25,24 +25,26 @@ interface Fine {
   payment_receipt_url: string | null;
   created_at: string;
   car_id: number | null;
-  customer_id: number | null;
+  customer_id: string | null;
   violation_code: string | null;
 }
 
 interface CarOption {
   id: number;
   plate_number: string;
+  model_name: string;
 }
 
 interface CustomerOption {
-  id: number;
+  id: string;
   full_name: string;
 }
 
 interface AddFineForm {
+  violation_number: string;
   car_id: number | null;
   plate_number: string;
-  customer_id: number | null;
+  customer_id: string | null;
   amount: string;
   violation_date: string;
   violation_time: string;
@@ -61,8 +63,29 @@ function formatDateDisplay(s: string | null): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function generateViolationNumber(count: number): string {
-  return `VIO-${String(count + 1).padStart(3, '0')}`;
+async function fetchCarCustomers(carId: number): Promise<CustomerOption[]> {
+  const { data: bookingsData } = await supabase
+    .from('bookings')
+    .select('customer_id')
+    .eq('car_id', carId);
+
+  const customerIds = [...new Set(
+    (bookingsData ?? [])
+      .map(b => (b as { customer_id: string | number | null }).customer_id)
+      .filter((id): id is string | number => id !== null)
+      .map(id => String(id)),
+  )];
+
+  if (customerIds.length === 0) return [];
+
+  const { data: custData } = await supabase
+    .from('customers')
+    .select('id, first_name, last_name')
+    .in('id', customerIds)
+    .order('first_name', { ascending: true });
+
+  return (custData as Array<{ id: string | number; first_name: string; last_name: string }> ?? [])
+    .map(c => ({ id: String(c.id), full_name: `${c.first_name} ${c.last_name}`.trim() }));
 }
 
 async function getUploadSequence(plate: string): Promise<number> {
@@ -250,21 +273,21 @@ const FileUploadField: React.FC<{
 
 interface AddFineModalProps {
   cars: CarOption[];
-  customers: CustomerOption[];
-  fineCount: number;
   onClose: () => void;
   onSaved: () => void;
 }
 
-const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount, onClose, onSaved }) => {
+const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) => {
   const [form, setForm] = useState<AddFineForm>({
-    car_id: null, plate_number: '', customer_id: null,
+    violation_number: '', car_id: null, plate_number: '', customer_id: null as string | null,
     amount: '', violation_date: '', violation_time: '',
     location: '', article: '', description: '',
     fine_image: null, fine_pdf: null,
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [carCustomers, setCarCustomers] = useState<CustomerOption[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -277,15 +300,20 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
   const set = (key: keyof AddFineForm, value: AddFineForm[keyof AddFineForm]) =>
     setForm(f => ({ ...f, [key]: value }));
 
-  const handleCarChange = (carId: string) => {
+  const handleCarChange = async (carId: string) => {
     const id = parseInt(carId, 10);
     const car = cars.find(c => c.id === id);
-    setForm(f => ({ ...f, car_id: id || null, plate_number: car?.plate_number ?? '' }));
+    setForm(f => ({ ...f, car_id: id || null, plate_number: car?.plate_number ?? '', customer_id: null }));
+    if (!id) { setCarCustomers([]); return; }
+    setCustomersLoading(true);
+    const custs = await fetchCarCustomers(id);
+    setCarCustomers(custs);
+    setCustomersLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.car_id || !form.amount || !form.violation_date) {
+    if (!form.violation_number.trim() || !form.car_id || !form.amount || !form.violation_date) {
       setFormError('Please fill in all required fields.');
       return;
     }
@@ -293,7 +321,6 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
     setSaving(true);
 
     try {
-      const violationNumber = generateViolationNumber(fineCount);
       const seq = await getUploadSequence(form.plate_number);
       const plate = form.plate_number;
 
@@ -312,7 +339,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
       const payload = {
         status: 'unpaid' as FineStatus,
         plate_number: plate,
-        violation_number: violationNumber,
+        violation_number: form.violation_number.trim(),
         customer_id: form.customer_id || null,
         car_id: form.car_id,
         amount: parseFloat(form.amount),
@@ -337,8 +364,6 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
     }
   };
 
-  const violationNumber = generateViolationNumber(fineCount);
-
   return ReactDOM.createPortal(
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000,
@@ -357,7 +382,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Add Fine</div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Violation #{violationNumber}</div>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Enter the violation details below</div>
             </div>
             <button onClick={onClose} style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
@@ -396,38 +421,51 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
               >
                 <option value="">Select plate…</option>
                 {cars.map(c => (
-                  <option key={c.id} value={c.id}>{c.plate_number}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.plate_number}{c.model_name ? ` — ${c.model_name}` : ''}
+                  </option>
                 ))}
               </select>
             </div>
 
-            {/* Violation Number (read-only) */}
+            {/* Violation Number (manual input) */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Violation Number
+                Violation Number <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
-                value={violationNumber}
-                readOnly
-                style={{ ...FIELD_STYLE, background: '#f9fafb', color: '#9ca3af', cursor: 'default' }}
+                required
+                value={form.violation_number}
+                onChange={e => set('violation_number', e.target.value)}
+                placeholder="e.g. MB-94271641"
+                style={FIELD_STYLE}
               />
             </div>
 
-            {/* Customer */}
+            {/* Customer (dependent on selected car) */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
                 Customer
               </label>
               <select
                 value={form.customer_id ?? ''}
-                onChange={e => set('customer_id', parseInt(e.target.value, 10) || null)}
-                style={{ ...FIELD_STYLE, cursor: 'pointer' }}
+                onChange={e => set('customer_id', e.target.value || null)}
+                disabled={!form.car_id || customersLoading}
+                style={{ ...FIELD_STYLE, cursor: (!form.car_id || customersLoading) ? 'not-allowed' : 'pointer', opacity: 1, color: !form.car_id ? '#9ca3af' : '#0f1117' }}
               >
-                <option value="">Select customer…</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.full_name}</option>
-                ))}
+                {!form.car_id
+                  ? <option value="">Select a car first</option>
+                  : customersLoading
+                    ? <option value="">Loading…</option>
+                    : <>
+                        <option value="">— No customer (general fine) —</option>
+                        {carCustomers.length === 0
+                          ? <option disabled value="">No customers found for this car</option>
+                          : carCustomers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)
+                        }
+                      </>
+                }
               </select>
             </div>
 
@@ -571,16 +609,16 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, customers, fineCount,
 interface EditFineModalProps {
   fine: Fine;
   cars: CarOption[];
-  customers: CustomerOption[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, customers, onClose, onSaved }) => {
+const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSaved }) => {
   const [form, setForm] = useState({
+    violation_number: fine.violation_number,
     car_id: fine.car_id ?? null as number | null,
     plate_number: fine.plate_number,
-    customer_id: fine.customer_id ?? null as number | null,
+    customer_id: fine.customer_id ?? null as string | null,
     amount: String(fine.amount),
     violation_date: fine.violation_date ?? '',
     violation_time: fine.violation_time ?? '',
@@ -590,6 +628,8 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, customers, on
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [carCustomers, setCarCustomers] = useState<CustomerOption[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -599,18 +639,36 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, customers, on
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
   }, [onClose]);
 
+  // Pre-load customers for the existing car on mount
+  useEffect(() => {
+    if (!fine.car_id) return;
+    let active = true;
+    setCustomersLoading(true);
+    fetchCarCustomers(fine.car_id).then(custs => {
+      if (!active) return;
+      setCarCustomers(custs);
+      setCustomersLoading(false);
+    });
+    return () => { active = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const set = (key: keyof typeof form, value: string | number | null) =>
     setForm(f => ({ ...f, [key]: value }));
 
-  const handleCarChange = (carId: string) => {
+  const handleCarChange = async (carId: string) => {
     const id = parseInt(carId, 10);
     const car = cars.find(c => c.id === id);
-    setForm(f => ({ ...f, car_id: id || null, plate_number: car?.plate_number ?? '' }));
+    setForm(f => ({ ...f, car_id: id || null, plate_number: car?.plate_number ?? '', customer_id: null }));
+    if (!id) { setCarCustomers([]); return; }
+    setCustomersLoading(true);
+    const custs = await fetchCarCustomers(id);
+    setCarCustomers(custs);
+    setCustomersLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.amount || !form.violation_date) {
+    if (!form.violation_number.trim() || !form.amount || !form.violation_date) {
       setFormError('Please fill in all required fields.');
       return;
     }
@@ -620,6 +678,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, customers, on
     const { error } = await supabase
       .from('traffic_fines')
       .update({
+        violation_number: form.violation_number.trim(),
         car_id: form.car_id,
         plate_number: form.plate_number,
         customer_id: form.customer_id || null,
@@ -686,17 +745,50 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, customers, on
               </label>
               <select value={form.car_id ?? ''} onChange={e => handleCarChange(e.target.value)} style={{ ...FIELD_STYLE, cursor: 'pointer' }}>
                 <option value="">Select plate…</option>
-                {cars.map(c => <option key={c.id} value={c.id}>{c.plate_number}</option>)}
+                {cars.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.plate_number}{c.model_name ? ` — ${c.model_name}` : ''}
+                  </option>
+                ))}
               </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
+                Violation Number <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={form.violation_number}
+                onChange={e => set('violation_number', e.target.value)}
+                placeholder="e.g. MB-94271641"
+                style={FIELD_STYLE}
+              />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
                 Customer
               </label>
-              <select value={form.customer_id ?? ''} onChange={e => set('customer_id', parseInt(e.target.value, 10) || null)} style={{ ...FIELD_STYLE, cursor: 'pointer' }}>
-                <option value="">Select customer…</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+              <select
+                value={form.customer_id ?? ''}
+                onChange={e => set('customer_id', e.target.value || null)}
+                disabled={!form.car_id || customersLoading}
+                style={{ ...FIELD_STYLE, cursor: (!form.car_id || customersLoading) ? 'not-allowed' : 'pointer', opacity: 1, color: !form.car_id ? '#9ca3af' : '#0f1117' }}
+              >
+                {!form.car_id
+                  ? <option value="">Select a car first</option>
+                  : customersLoading
+                    ? <option value="">Loading…</option>
+                    : <>
+                        <option value="">— No customer (general fine) —</option>
+                        {carCustomers.length === 0
+                          ? <option disabled value="">No customers found for this car</option>
+                          : carCustomers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)
+                        }
+                      </>
+                }
               </select>
             </div>
 
@@ -933,11 +1025,33 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
       let payment_receipt_url: string | null = fine.payment_receipt_url;
 
       if (receiptFile) {
-        const seq = await getUploadSequence(fine.plate_number);
-        const ext = receiptFile.name.split('.').pop();
-        const url = await uploadFile('cezalar', 'CZ-F', `CZ-F-${fine.plate_number}-${seq}.${ext}`, receiptFile);
-        if (!url) throw new Error('Failed to upload receipt.');
-        payment_receipt_url = url;
+        // Determine next sequence number for this plate
+        const { data: existingFiles, error: listError } = await supabase
+          .storage
+          .from('cezalar')
+          .list('CZ-F', { limit: 1000, search: `CZ-F-${fine.plate_number}-` });
+
+        console.log('[Receipt upload] bucket=cezalar, plate=', fine.plate_number, 'existing=', existingFiles, 'listError=', listError);
+
+        if (listError) throw new Error(`Failed to list existing receipts: ${listError.message}`);
+
+        const sequence = (existingFiles?.length ?? 0) + 1;
+        const ext = receiptFile.name.split('.').pop()?.toLowerCase() ?? 'pdf';
+        const filePath = `CZ-F/CZ-F-${fine.plate_number}-${sequence}.${ext}`;
+
+        console.log('[Receipt upload] filePath=', filePath, 'fileSize=', receiptFile.size);
+
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('cezalar')
+          .upload(filePath, receiptFile, { cacheControl: '3600', upsert: false });
+
+        console.log('[Receipt upload] response=', { data: uploadData, error: uploadError });
+
+        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+        const { data: urlData } = supabase.storage.from('cezalar').getPublicUrl(filePath);
+        payment_receipt_url = urlData.publicUrl;
       }
 
       const { error: updateErr } = await supabase
@@ -1129,7 +1243,6 @@ const FinesPage: React.FC = () => {
   const { fmt: formatAmount } = useCurrency();
   const [fines, setFines] = useState<Fine[]>([]);
   const [cars, setCars] = useState<CarOption[]>([]);
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -1158,22 +1271,53 @@ const FinesPage: React.FC = () => {
       .order('created_at', { ascending: false });
 
     if (err) { setError(err.message); setLoading(false); return; }
-    setFines((data as Fine[]) ?? []);
+
+    const rawFines = (data as Fine[]) ?? [];
+
+    // Resolve customer names from customer_id (new fines don't have customer_name stored)
+    const customerIds = [...new Set(
+      rawFines.map(f => f.customer_id).filter((id): id is string => !!id),
+    )];
+
+    if (customerIds.length > 0) {
+      const { data: custData } = await supabase
+        .from('customers')
+        .select('id, first_name, last_name')
+        .in('id', customerIds);
+
+      const custMap = new Map(
+        (custData as Array<{ id: string | number; first_name: string; last_name: string }> ?? [])
+          .map(c => [String(c.id), `${c.first_name} ${c.last_name}`.trim()]),
+      );
+
+      setFines(rawFines.map(f =>
+        f.customer_id && custMap.has(f.customer_id)
+          ? { ...f, customer_name: custMap.get(f.customer_id)! }
+          : f,
+      ));
+    } else {
+      setFines(rawFines);
+    }
+
     setLoading(false);
   }, []);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const [{ data: carsData }, { data: custData }] = await Promise.all([
-        supabase.from('cars').select('id, plate_number').order('plate_number'),
-        supabase.from('customers').select('id, first_name, last_name').order('first_name'),
-      ]);
+      const { data: carsData } = await supabase
+        .from('cars')
+        .select('id, plate_number, model_group:model_group_id(name)')
+        .eq('is_active', true)
+        .order('plate_number');
       if (!active) return;
-      setCars((carsData as Array<{ id: number; plate_number: string }> ?? []).map(c => ({ id: c.id, plate_number: c.plate_number })));
-      setCustomers(
-        (custData as Array<{ id: number; first_name: string; last_name: string }> ?? [])
-          .map(c => ({ id: c.id, full_name: `${c.first_name} ${c.last_name}`.trim() }))
+      setCars(
+        (carsData as Array<{ id: number; plate_number: string; model_group: { name: string } | { name: string }[] | null }> ?? [])
+          .map(c => {
+            const mg = c.model_group;
+            const model_name = Array.isArray(mg) ? (mg[0]?.name ?? '') : (mg as { name: string } | null)?.name ?? '';
+            return { id: c.id, plate_number: c.plate_number, model_name };
+          })
       );
     })();
     return () => { active = false; };
@@ -1521,8 +1665,6 @@ const FinesPage: React.FC = () => {
       {modal?.type === 'add' && (
         <AddFineModal
           cars={cars}
-          customers={customers}
-          fineCount={totalCount}
           onClose={() => setModal(null)}
           onSaved={() => { fetchFines(); showToast('Fine added successfully.', 'success'); }}
         />
@@ -1531,7 +1673,6 @@ const FinesPage: React.FC = () => {
         <EditFineModal
           fine={modal.fine}
           cars={cars}
-          customers={customers}
           onClose={() => setModal(null)}
           onSaved={() => { fetchFines(); showToast('Fine updated successfully.', 'success'); }}
         />

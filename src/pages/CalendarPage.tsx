@@ -741,7 +741,7 @@ const CalendarPage: React.FC = () => {
     const monthEnd   = `${year}-${pad(month + 1)}-${pad(daysInMonth)}`;
 
     const [carsRes, availRes, calRes] = await Promise.all([
-      supabase.from('cars').select('id, plate_number, model_group(name, image_url)').order('plate_number'),
+      supabase.from('cars').select('id, plate_number, model_group(name, image_url)').eq('is_active', true).order('plate_number'),
       supabase.from('car_availability').select('id, status'),
       supabase.from('car_calendar')
         .select('id, car_id, start_date, end_date, block_type, booking_id')

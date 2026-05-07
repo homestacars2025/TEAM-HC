@@ -94,6 +94,7 @@ const fetchModelNames = async (
   const { data } = await supabase
     .from('cars')
     .select('plate_number, model_group(name)')
+    .eq('is_active', true)
     .in('plate_number', plates);
 
   const cars = (data ?? []) as unknown as CarWithModelGroup[];
@@ -364,8 +365,12 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
       const plateToModel = await fetchModelNames(plates);
       if (cancelled) return;
 
-      // 3 — Map final rows
+      // 3 — Map final rows (skip retired cars — only active cars appear in plateToModel)
       const mapped: AlertRow[] = raw
+        .filter(row => {
+          const plate = String(row['plate_number'] ?? row['plate'] ?? '');
+          return plate !== '' && plateToModel.has(plate);
+        })
         .map(row => {
           const plate = String(row['plate_number'] ?? row['plate'] ?? '—');
 
