@@ -735,7 +735,6 @@ type BookingFormData = {
   cust_phone_dial: string;
   cust_phone: string;
   cust_nationality: string;
-  cust_driving_license: string;
   cust_driving_license_number: string;
   cust_license_issue_date: string;
   cust_address: string;
@@ -756,7 +755,7 @@ const EMPTY_FORM: BookingFormData = {
   cust_id_type: 'passport', cust_id_number: '',
   cust_first_name: '', cust_last_name: '',
   cust_phone_dial: '+90', cust_phone: '',
-  cust_nationality: '', cust_driving_license: '',
+  cust_nationality: '',
   cust_driving_license_number: '', cust_license_issue_date: '',
   cust_address: '', cust_birth_date: '', cust_notes: '',
   fin_currency: 'TRY', fin_rental_amount: '', fin_deposit: '', fin_paid_amount: '',
@@ -1059,7 +1058,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         const c = data as {
           first_name: string; last_name: string; phone: string | null;
           nationality: string | null; id_type: string | null; id_number: string | null;
-          driving_license: string | null; driving_license_number: string | null;
+          driving_license_number: string | null;
           license_issue_date: string | null;
           address: string | null; birth_date: string | null; notes: string | null;
           id_photo_url: string | null; id_photo_back_url: string | null;
@@ -1075,7 +1074,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           cust_nationality:            c.nationality ?? '',
           cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
           cust_id_number:              c.id_number ?? '',
-          cust_driving_license:        c.driving_license ?? '',
           cust_driving_license_number: c.driving_license_number ?? '',
           cust_license_issue_date:     c.license_issue_date ?? '',
           cust_address:                c.address ?? '',
@@ -1163,7 +1161,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     const c = data as {
       first_name: string; last_name: string; phone: string | null;
       nationality: string | null; id_type: string | null; id_number: string | null;
-      driving_license: string | null; driving_license_mirror: string | null;
+      driving_license_number: string | null;
       license_issue_date: string | null;
       address: string | null; birth_date: string | null; notes: string | null;
       id_photo_url: string | null; id_photo_back_url: string | null;
@@ -1178,8 +1176,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       cust_phone:                  parseStoredPhone(c.phone ?? '').local,
       cust_nationality:            c.nationality ?? '',
       cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
-      cust_driving_license:        c.driving_license ?? '',
-      cust_driving_license_number: c.driving_license_mirror ?? '',
+      cust_driving_license_number: c.driving_license_number ?? '',
       cust_license_issue_date:     c.license_issue_date ?? '',
       cust_address:                c.address ?? '',
       cust_birth_date:             c.birth_date ?? '',
@@ -1252,7 +1249,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           last_name:           form.cust_last_name,
           phone:               phone,
           nationality:         form.cust_nationality        || null,
-          driving_license:     form.cust_driving_license    || null,
           driving_license_number: form.cust_driving_license_number || null,
           license_issue_date:  form.cust_license_issue_date || null,
           address:             form.cust_address            || null,
@@ -1378,7 +1374,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             nationality:             form.cust_nationality            || null,
             id_type:                 form.cust_id_type,
             id_number:               form.cust_id_number              || null,
-            driving_license:         form.cust_driving_license        || null,
             driving_license_number:  form.cust_driving_license_number || null,
             license_issue_date:      form.cust_license_issue_date     || null,
             address:                 form.cust_address                || null,
@@ -1809,8 +1804,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
                 {/* Row 3: Driving License | License Issue Date */}
                 <Field label="Driving License">
-                  <input value={form.cust_driving_license}
-                    onChange={e => set('cust_driving_license', e.target.value)}
+                  <input value={form.cust_driving_license_number}
+                    onChange={e => set('cust_driving_license_number', e.target.value)}
                     placeholder="License number" style={INPUT_STYLE}
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
@@ -2244,7 +2239,7 @@ const BookingsPage: React.FC = () => {
     cust_id_type: 'passport', cust_id_number: '',
     cust_first_name: '', cust_last_name: '',
     cust_phone_dial: '+90', cust_phone: '',
-    cust_nationality: '', cust_driving_license: '',
+    cust_nationality: '',
     cust_driving_license_number: '', cust_license_issue_date: '',
     cust_address: '', cust_birth_date: '', cust_notes: '',
     fin_currency: 'TRY', fin_rental_amount: '', fin_deposit: '', fin_paid_amount: '',
