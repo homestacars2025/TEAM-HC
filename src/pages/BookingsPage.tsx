@@ -1620,7 +1620,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 type="number"
                 inputMode="numeric"
                 min="0"
-                max="100"
                 step="1"
                 value={form.fuel_at_delivery}
                 onChange={e => set('fuel_at_delivery', e.target.value)}
@@ -1629,7 +1628,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 onFocus={focusBlue}
                 onBlur={blurGray}
               />
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Enter percentage (0–100)</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Enter value (0 or more)</div>
             </Field>
 
             {/* ── Insurance & Additional Services ── */}

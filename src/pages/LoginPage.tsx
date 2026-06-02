@@ -114,10 +114,8 @@ const LoginPage: React.FC = () => {
             justifyContent: 'center',
             flexShrink: 0,
           }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="white" strokeWidth="2"/>
-              <circle cx="12" cy="16" r="1" fill="white"/>
+            <svg width="22" height="22" viewBox="0 0 120 120" fill="none" stroke="white" strokeWidth="14" strokeLinecap="round">
+              <path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100"/>
             </svg>
           </div>
           <span style={{ color: 'white', fontWeight: 700, fontSize: 18, letterSpacing: '-0.3px' }}>
@@ -208,10 +206,8 @@ const LoginPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="white" strokeWidth="2"/>
-              <circle cx="12" cy="16" r="1" fill="white"/>
+            <svg width="20" height="20" viewBox="0 0 120 120" fill="none" stroke="white" strokeWidth="14" strokeLinecap="round">
+              <path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100"/>
             </svg>
           </div>
           <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.3px' }}>HomestaCars</span>

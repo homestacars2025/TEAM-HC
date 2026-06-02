@@ -9,7 +9,6 @@ import KGMPage from './pages/KGMPage';
 import BookingsPage from './pages/BookingsPage';
 import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
-import PricingPage from './pages/PricingPage';
 import CarTrackingPage from './pages/CarTrackingPage';
 import OperationsPage from './pages/OperationsPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -36,7 +35,6 @@ const App: React.FC = () => {
           <Route path="bookings" element={<BookingsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="fines" element={<FinesPage />} />
-          <Route path="pricing" element={<PricingPage />} />
           <Route path="operations" element={<OperationsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
