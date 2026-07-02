@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
+import { useAccountingAccess } from '../lib/useAccountingAccess';
 
 const mainItems = [
   {
@@ -90,6 +91,19 @@ const operationsItems = [
   },
 ];
 
+const accountingItem = {
+  label: 'Accounting',
+  path: '/dashboard/accounting',
+  icon: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="2" width="16" height="20" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M8 7h8M8 11h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M8 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <circle cx="16" cy="16" r="1.1" fill="currentColor"/>
+    </svg>
+  ),
+};
+
 interface UserProfile {
   full_name: string | null;
   avatar_url: string | null;
@@ -102,6 +116,7 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currency, setCurrency, symbol } = useCurrency();
+  const canViewAccounting = useAccountingAccess();
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
@@ -413,7 +428,7 @@ const Sidebar: React.FC = () => {
         ) : (
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
-        {renderNavItems(operationsItems)}
+        {renderNavItems(canViewAccounting ? [...operationsItems, accountingItem] : operationsItems)}
       </nav>
 
       {/* Currency selector + Profile + Sign out */}

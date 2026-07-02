@@ -11,6 +11,7 @@ import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
 import CarTrackingPage from './pages/CarTrackingPage';
 import OperationsPage from './pages/OperationsPage';
+import AccountingPage from './pages/AccountingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -36,6 +37,7 @@ const App: React.FC = () => {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="fines" element={<FinesPage />} />
           <Route path="operations" element={<OperationsPage />} />
+          <Route path="accounting" element={<AccountingPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
