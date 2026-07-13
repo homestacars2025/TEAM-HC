@@ -285,6 +285,9 @@ const CarSheetsTab: React.FC<{
   const [search, setSearch] = useState('');
   const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [editTxn, setEditTxn] = useState<CarTxn | null>(null);
+  const [deleteTxn, setDeleteTxn] = useState<CarTxn | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadTxns = useCallback(async () => {
     setLoading(true);
@@ -341,6 +344,18 @@ const CarSheetsTab: React.FC<{
     for (const t of txns) m[t.car_id] = (m[t.car_id] ?? 0) + (t.direction === 'IN' ? t.amount : -t.amount);
     return m;
   }, [txns]);
+
+  const handleDelete = async () => {
+    if (!deleteTxn || deleting) return;
+    setDeleting(true);
+    // Delete from the underlying table (the view is read-only), matched by id.
+    const { error } = await supabase.from('financial_transactions').delete().eq('id', deleteTxn.id);
+    setDeleting(false);
+    setDeleteTxn(null);
+    if (error) { notify({ message: 'Could not delete transaction', type: 'error' }); return; }
+    notify({ message: 'Transaction deleted', type: 'success' });
+    await loadTxns();
+  };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: 20, alignItems: 'start' }}>
@@ -432,7 +447,7 @@ const CarSheetsTab: React.FC<{
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
               <thead>
                 <tr>
-                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Note</Th><Th align="right">Amount</Th>
+                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Note</Th><Th align="right">Amount</Th><Th align="right">Actions</Th>
                 </tr>
               </thead>
               <tbody>
@@ -444,6 +459,20 @@ const CarSheetsTab: React.FC<{
                     <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{t.note || '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: t.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       {t.direction === 'IN' ? '+' : '−'}{fmt(t.amount)}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button onClick={() => setEditTxn(t)} title="Edit" style={rowActionBtn}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        <button onClick={() => setDeleteTxn(t)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -465,6 +494,24 @@ const CarSheetsTab: React.FC<{
             await loadTxns();
           }}
           onError={() => notify({ message: 'Could not save transaction', type: 'error' })}
+        />
+      )}
+      {editTxn && (
+        <EditCarTxnModal
+          txn={editTxn}
+          onClose={() => setEditTxn(null)}
+          onSaved={async () => { setEditTxn(null); notify({ message: 'Transaction updated', type: 'success' }); await loadTxns(); }}
+          onError={() => notify({ message: 'Could not update transaction', type: 'error' })}
+        />
+      )}
+      {deleteTxn && (
+        <ConfirmDialog
+          title="Delete transaction?"
+          message="This car transaction will be permanently removed. This cannot be undone."
+          confirmLabel="Delete"
+          busy={deleting}
+          onConfirm={handleDelete}
+          onClose={() => setDeleteTxn(null)}
         />
       )}
     </div>
@@ -582,6 +629,87 @@ const AddCarTxnModal: React.FC<{
   );
 };
 
+const EditCarTxnModal: React.FC<{
+  txn: CarTxn;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: () => void;
+}> = ({ txn, onClose, onSaved, onError }) => {
+  const [direction, setDirection] = useState<Direction>(txn.direction);
+  const [category, setCategory] = useState<string>(txn.category ?? CAR_CATEGORIES[txn.direction][0]);
+  const [amount, setAmount] = useState(String(txn.amount));
+  const [date, setDate] = useState(txn.date);
+  const [note, setNote] = useState(txn.note ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const chooseDirection = (d: Direction) => {
+    setDirection(d);
+    setCategory(CAR_CATEGORIES[d][0]);
+  };
+
+  // Keep the row's existing category selectable even if it's an older/legacy value.
+  const categoryOptions = CAR_CATEGORIES[direction].includes(category)
+    ? CAR_CATEGORIES[direction]
+    : [category, ...CAR_CATEGORIES[direction]];
+
+  const canSave = Number(amount) > 0 && !!date && !!category;
+
+  const handleSave = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    // UPDATE the underlying table by id. investor_id, sheet_type and any
+    // commission fields are intentionally left untouched.
+    const { error } = await supabase.from('financial_transactions').update({
+      direction,
+      category,
+      amount: Number(amount),
+      date,
+      month_key: date.slice(0, 7),
+      note: note.trim() || null,
+    }).eq('id', txn.id);
+    setSaving(false);
+    if (error) { onError(); return; }
+    onSaved();
+  };
+
+  return (
+    <Modal title="Edit Car Transaction" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <DirectionPicker direction={direction} onChange={chooseDirection} />
+
+        <div>
+          <label style={labelStyle}>Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
+            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Amount</label>
+            <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
+              placeholder="0.00" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Date</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Note (optional)</label>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" style={inputStyle} />
+        </div>
+
+        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
+          disabled={!canSave || saving} onClick={handleSave}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </Modal>
+  );
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 //  TAB 2 — Company & Employee Expenses
 // ════════════════════════════════════════════════════════════════════════════
@@ -624,6 +752,9 @@ const CompanyExpensesSection: React.FC<{
   const [rows, setRows] = useState<CompanyExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editRow, setEditRow] = useState<CompanyExpense | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CompanyExpense | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const monthStart = toDateStr(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
   const monthEnd = toDateStr(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
@@ -648,6 +779,17 @@ const CompanyExpensesSection: React.FC<{
     return { tin, tout, net: tin - tout };
   }, [rows]);
 
+  const handleDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    const { error } = await supabase.from('company_expenses').delete().eq('id', deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+    if (error) { notify({ message: 'Could not delete expense', type: 'error' }); return; }
+    notify({ message: 'Expense deleted', type: 'success' });
+    await load();
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -669,7 +811,7 @@ const CompanyExpensesSection: React.FC<{
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
               <thead>
                 <tr>
-                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Description</Th><Th>Receipt</Th><Th align="right">Amount</Th>
+                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Description</Th><Th>Receipt</Th><Th align="right">Amount</Th><Th align="right">Actions</Th>
                 </tr>
               </thead>
               <tbody>
@@ -684,6 +826,20 @@ const CompanyExpensesSection: React.FC<{
                       : '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button onClick={() => setEditRow(r)} title="Edit" style={rowActionBtn}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        <button onClick={() => setDeleteTarget(r)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -701,7 +857,94 @@ const CompanyExpensesSection: React.FC<{
           onError={() => notify({ message: 'Could not save expense', type: 'error' })}
         />
       )}
+      {editRow && (
+        <EditCompanyExpenseModal
+          row={editRow}
+          onClose={() => setEditRow(null)}
+          onSaved={async () => { setEditRow(null); notify({ message: 'Expense updated', type: 'success' }); await load(); }}
+          onError={() => notify({ message: 'Could not update expense', type: 'error' })}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete expense?"
+          message="This company expense will be permanently removed. This cannot be undone."
+          confirmLabel="Delete"
+          busy={deleting}
+          onConfirm={handleDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
+  );
+};
+
+const EditCompanyExpenseModal: React.FC<{
+  row: CompanyExpense;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: () => void;
+}> = ({ row, onClose, onSaved, onError }) => {
+  const [direction, setDirection] = useState<Direction>(row.direction);
+  const [category, setCategory] = useState(row.category);
+  const [amount, setAmount] = useState(String(row.amount));
+  const [description, setDescription] = useState(row.description ?? '');
+  const [date, setDate] = useState(row.expense_date);
+  const [saving, setSaving] = useState(false);
+
+  const chooseDirection = (d: Direction) => { setDirection(d); setCategory(COMPANY_CATEGORIES[d][0]); };
+
+  // Keep the row's existing category selectable even if it's an older/legacy value.
+  const categoryOptions = COMPANY_CATEGORIES[direction].includes(category)
+    ? COMPANY_CATEGORIES[direction]
+    : [category, ...COMPANY_CATEGORIES[direction]];
+
+  const canSave = Number(amount) > 0 && !!date && !!category;
+
+  const handleSave = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    const { error } = await supabase.from('company_expenses').update({
+      expense_date: date,
+      direction,
+      category,
+      amount: Number(amount),
+      description: description.trim() || null,
+    }).eq('id', row.id);
+    setSaving(false);
+    if (error) { onError(); return; }
+    onSaved();
+  };
+
+  return (
+    <Modal title="Edit Company Expense" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <DirectionPicker direction={direction} onChange={chooseDirection} />
+        <div>
+          <label style={labelStyle}>Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
+            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Amount</label>
+            <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Date</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Description (optional)</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+        </div>
+        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </Modal>
   );
 };
 
@@ -845,7 +1088,14 @@ const EmployeeWalletsSection: React.FC<{
         </div>
       )}
 
-      {openEmployee && <WalletHistoryModal employee={openEmployee} onClose={() => setOpenEmployee(null)} />}
+      {openEmployee && (
+        <WalletHistoryModal
+          employee={openEmployee}
+          notify={notify}
+          onChanged={load}
+          onClose={() => setOpenEmployee(null)}
+        />
+      )}
       {showAdd && (
         <AddWalletEntryModal
           userId={userId}
@@ -858,39 +1108,63 @@ const EmployeeWalletsSection: React.FC<{
   );
 };
 
-const WalletHistoryModal: React.FC<{ employee: WalletBalance; onClose: () => void }> = ({ employee, onClose }) => {
+const WalletHistoryModal: React.FC<{
+  employee: WalletBalance;
+  notify: (t: ToastState) => void;
+  onChanged: () => void | Promise<void>;
+  onClose: () => void;
+}> = ({ employee, notify, onChanged, onClose }) => {
   const { fmt } = useCurrency();
   const [rows, setRows] = useState<WalletTxn[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editRow, setEditRow] = useState<WalletTxn | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WalletTxn | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const { data } = await supabase
-        .from('employee_wallets')
-        .select('id, transaction_date, direction, category, amount, description, receipt_url')
-        .eq('employee_id', employee.employee_id)
-        .order('transaction_date', { ascending: false });
-      if (!active) return;
-      setRows((data ?? []) as WalletTxn[]);
-      setLoading(false);
-    })();
-    return () => { active = false; };
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('employee_wallets')
+      .select('id, transaction_date, direction, category, amount, description, receipt_url')
+      .eq('employee_id', employee.employee_id)
+      .order('transaction_date', { ascending: false });
+    setRows((data ?? []) as WalletTxn[]);
+    setLoading(false);
   }, [employee.employee_id]);
 
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    const { error } = await supabase.from('employee_wallets').delete().eq('id', deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+    if (error) { notify({ message: 'Could not delete wallet entry', type: 'error' }); return; }
+    notify({ message: 'Wallet entry deleted', type: 'success' });
+    await load();
+    await onChanged();
+  };
+
+  // Live totals so the header reflects edits/deletes without closing the modal.
+  const totals = useMemo(() => {
+    let tin = 0, tout = 0;
+    for (const r of rows) (r.direction === 'IN' ? (tin += r.amount) : (tout += r.amount));
+    return { tin, tout, balance: tin - tout };
+  }, [rows]);
+
   return (
-    <Modal title={`${employee.full_name || 'Employee'} — Wallet History`} onClose={onClose} maxWidth={640}>
+    <Modal title={`${employee.full_name || 'Employee'} — Wallet History`} onClose={onClose} maxWidth={680}>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <SummaryPill label="Balance" value={`${employee.balance >= 0 ? '+' : '−'}${fmt(employee.balance)}`} color={employee.balance >= 0 ? COLOR_IN : COLOR_OUT} />
-        <SummaryPill label="Total In" value={fmt(employee.total_in)} color={COLOR_IN} />
-        <SummaryPill label="Total Out" value={fmt(employee.total_out)} color={COLOR_OUT} />
+        <SummaryPill label="Balance" value={`${totals.balance >= 0 ? '+' : '−'}${fmt(totals.balance)}`} color={totals.balance >= 0 ? COLOR_IN : COLOR_OUT} />
+        <SummaryPill label="Total In" value={fmt(totals.tin)} color={COLOR_IN} />
+        <SummaryPill label="Total Out" value={fmt(totals.tout)} color={COLOR_OUT} />
       </div>
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label="No wallet transactions." /> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
               <thead>
-                <tr><Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Description</Th><Th align="right">Amount</Th></tr>
+                <tr><Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Description</Th><Th align="right">Amount</Th><Th align="right">Actions</Th></tr>
               </thead>
               <tbody>
                 {rows.map(r => (
@@ -905,12 +1179,114 @@ const WalletHistoryModal: React.FC<{ employee: WalletBalance; onClose: () => voi
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
                     </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button onClick={() => setEditRow(r)} title="Edit" style={rowActionBtn}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        <button onClick={() => setDeleteTarget(r)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
         </div>
+      </div>
+
+      {editRow && (
+        <EditWalletTxnModal
+          row={editRow}
+          onClose={() => setEditRow(null)}
+          onSaved={async () => { setEditRow(null); notify({ message: 'Wallet entry updated', type: 'success' }); await load(); await onChanged(); }}
+          onError={() => notify({ message: 'Could not update wallet entry', type: 'error' })}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete wallet entry?"
+          message="This wallet transaction will be permanently removed. This cannot be undone."
+          confirmLabel="Delete"
+          busy={deleting}
+          onConfirm={handleDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
+    </Modal>
+  );
+};
+
+const EditWalletTxnModal: React.FC<{
+  row: WalletTxn;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: () => void;
+}> = ({ row, onClose, onSaved, onError }) => {
+  const [direction, setDirection] = useState<Direction>(row.direction);
+  const [category, setCategory] = useState(row.category);
+  const [amount, setAmount] = useState(String(row.amount));
+  const [description, setDescription] = useState(row.description ?? '');
+  const [date, setDate] = useState(row.transaction_date);
+  const [saving, setSaving] = useState(false);
+
+  const chooseDirection = (d: Direction) => { setDirection(d); setCategory(WALLET_CATEGORIES[d][0]); };
+
+  // Keep the row's existing category selectable even if it's an older/legacy value.
+  const categoryOptions = WALLET_CATEGORIES[direction].includes(category)
+    ? WALLET_CATEGORIES[direction]
+    : [category, ...WALLET_CATEGORIES[direction]];
+
+  const canSave = Number(amount) > 0 && !!date && !!category;
+
+  const handleSave = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    const { error } = await supabase.from('employee_wallets').update({
+      transaction_date: date,
+      direction,
+      category,
+      amount: Number(amount),
+      description: description.trim() || null,
+    }).eq('id', row.id);
+    setSaving(false);
+    if (error) { onError(); return; }
+    onSaved();
+  };
+
+  return (
+    <Modal title="Edit Wallet Entry" onClose={onClose}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <DirectionPicker direction={direction} onChange={chooseDirection} />
+        <div>
+          <label style={labelStyle}>Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
+            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Amount</label>
+            <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Date</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Description (optional)</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+        </div>
+        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
       </div>
     </Modal>
   );
