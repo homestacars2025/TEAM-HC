@@ -73,8 +73,8 @@ interface WalletTxn {
   receipt_url: string | null;
 }
 
-interface StaffOption {
-  id: string;
+interface EmployeeOption {
+  employee_id: string;
   full_name: string | null;
 }
 
@@ -1301,7 +1301,7 @@ const AddWalletEntryModal: React.FC<{
   onSaved: () => void;
   onError: () => void;
 }> = ({ userId, onClose, onSaved, onError }) => {
-  const [staff, setStaff] = useState<StaffOption[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [employeeId, setEmployeeId] = useState('');
   const [direction, setDirection] = useState<Direction>('IN');
   const [category, setCategory] = useState(WALLET_CATEGORIES.IN[0]);
@@ -1314,8 +1314,9 @@ const AddWalletEntryModal: React.FC<{
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').eq('role', 'staff').order('full_name');
-      if (active) setStaff((data ?? []) as StaffOption[]);
+      // This view already covers both admin and staff — admins hold custody wallets too.
+      const { data } = await supabase.from('employee_wallet_balances').select('employee_id, full_name').order('full_name');
+      if (active) setEmployees((data ?? []) as EmployeeOption[]);
     })();
     return () => { active = false; };
   }, []);
@@ -1353,7 +1354,7 @@ const AddWalletEntryModal: React.FC<{
           <label style={labelStyle}>Employee</label>
           <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={inputStyle}>
             <option value="">Select an employee…</option>
-            {staff.map(s => <option key={s.id} value={s.id}>{s.full_name || s.id}</option>)}
+            {employees.map(e => <option key={e.employee_id} value={e.employee_id}>{e.full_name || e.employee_id}</option>)}
           </select>
         </div>
         <DirectionPicker direction={direction} onChange={chooseDirection} />
