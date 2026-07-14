@@ -1,9 +1,12 @@
+'use client';
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { useAccountingAccess } from '../lib/useAccountingAccess';
+import { printCustomerInvoice } from '../lib/printCustomerInvoice';
 
 /* ────────────────────────────────────────────────────────────────────────────
    AccountingPage — restricted view for staff accountants.
@@ -1516,6 +1519,22 @@ const CustomersTab: React.FC<{
                         {g.balance >= 0 ? '+' : '−'}{fmt(g.balance)}
                       </div>
                     </div>
+                    <button
+                      onClick={() => printCustomerInvoice(g.customerId, g.rows, {
+                        onError: (message) => notify({ message, type: 'error' }),
+                      })}
+                      title="Print invoice for this customer"
+                      style={{
+                        height: 34, padding: '0 12px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                        fontSize: 13, fontWeight: 600, color: '#4b5563', background: '#fff',
+                        border: '1px solid #e5e7eb', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Invoice
+                    </button>
                     <button
                       onClick={() => setAddFor({ customerId: g.customerId, name: g.name })}
                       title="Add transaction for this customer"
