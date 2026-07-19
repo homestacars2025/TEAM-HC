@@ -1051,12 +1051,26 @@ function formatCleanliness(v: string | null): string {
   return '—';
 }
 
+function daysBetween(fromDate: string, toDate: string): number | null {
+  const a = new Date(fromDate + 'T00:00:00');
+  const b = new Date(toDate + 'T00:00:00');
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+function formatDuration(days: number): string {
+  if (days === 0) return 'Same day';
+  if (days === 1) return '1 day';
+  return `${days} days`;
+}
+
 const MetricCard: React.FC<{
   label: string;
   value: React.ReactNode;
   raw: React.ReactNode;
   incomplete: boolean;
-}> = ({ label, value, raw, incomplete }) => (
+  warning?: string;
+}> = ({ label, value, raw, incomplete, warning }) => (
   <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
     <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
@@ -1067,6 +1081,9 @@ const MetricCard: React.FC<{
     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 7 }}>{raw}</div>
     {incomplete && (
       <div style={{ fontSize: 11, color: '#d97706', marginTop: 5, fontWeight: 600 }}>incomplete data</div>
+    )}
+    {warning && (
+      <div style={{ fontSize: 11, color: '#b45309', marginTop: 5, fontWeight: 600 }}>{warning}</div>
     )}
   </div>
 );
@@ -1133,11 +1150,19 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
   }, [pickup.booking_id, pickup.car_id, pickup.operation_date]);
 
   // ── Metrics ────────────────────────────────────────────────────────────────
+  const durationDays = delivery != null && delivery.operation_date && pickup.operation_date
+    ? daysBetween(delivery.operation_date, pickup.operation_date)
+    : null;
+
   const kmOk   = delivery != null && delivery.current_km != null && pickup.current_km != null;
   const kmUsed = kmOk ? (pickup.current_km as number) - (delivery!.current_km as number) : null;
 
   const fuelOk   = delivery != null && delivery.fuel_level != null && pickup.fuel_level != null;
   const fuelDiff = fuelOk ? (pickup.fuel_level as number) - (delivery!.fuel_level as number) : null;
+
+  // fuel_level holds mixed units in the data — flag, never convert.
+  const fuelUnitsSuspect = (delivery?.fuel_level != null && delivery.fuel_level > 100)
+    || (pickup.fuel_level != null && pickup.fuel_level > 100);
 
   const cleanOk = delivery != null && delivery.cleanliness_status != null && pickup.cleanliness_status != null;
   const washNeeded = cleanOk
@@ -1219,6 +1244,19 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
               {/* Metrics */}
               <div style={{ display: 'grid', gap: 12 }}>
                 <MetricCard
+                  label="Rental Duration"
+                  incomplete={durationDays == null}
+                  value={durationDays != null ? formatDuration(durationDays) : dash}
+                  raw={
+                    <>
+                      Delivery: {formatDate(delivery.operation_date)}
+                      {' → '}
+                      Pickup: {formatDate(pickup.operation_date)}
+                    </>
+                  }
+                />
+
+                <MetricCard
                   label="Kilometers Used"
                   incomplete={!kmOk}
                   value={kmOk ? `${Math.round(kmUsed as number).toLocaleString()} km` : dash}
@@ -1232,20 +1270,21 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                 />
 
                 <MetricCard
-                  label="Fuel Difference"
+                  label="Fuel Reading Difference"
                   incomplete={!fuelOk}
+                  warning={fuelUnitsSuspect ? 'Inconsistent fuel units detected — verify manually' : undefined}
                   value={
                     fuelOk
                       ? <span style={{ color: (fuelDiff as number) < 0 ? '#ef4444' : '#16a34a' }}>
-                          {(fuelDiff as number) < 0 ? '−' : '+'}{Math.abs(fuelDiff as number)} L
+                          {(fuelDiff as number) < 0 ? '−' : '+'}{Math.abs(fuelDiff as number)}
                         </span>
                       : dash
                   }
                   raw={
                     <>
-                      Delivery: {delivery.fuel_level != null ? `${delivery.fuel_level} L` : '—'}
+                      Delivery: {delivery.fuel_level != null ? delivery.fuel_level : '—'}
                       {' → '}
-                      Pickup: {pickup.fuel_level != null ? `${pickup.fuel_level} L` : '—'}
+                      Pickup: {pickup.fuel_level != null ? pickup.fuel_level : '—'}
                     </>
                   }
                 />
