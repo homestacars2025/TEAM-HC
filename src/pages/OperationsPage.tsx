@@ -120,20 +120,37 @@ type PhotoSlotKey =
   | 'corner_1' | 'corner_2' | 'corner_3' | 'corner_4'
   | 'trunk' | 'rear_seats' | 'front_seats' | 'odometer' | 'dashboard';
 
-const PHOTO_SLOTS: { key: PhotoSlotKey; label: string }[] = [
-  { key: 'front',       label: 'Front' },
-  { key: 'right_side',  label: 'Right side' },
-  { key: 'left_side',   label: 'Left side' },
-  { key: 'rear',        label: 'Rear' },
-  { key: 'corner_1',    label: 'Corner 1' },
-  { key: 'corner_2',    label: 'Corner 2' },
-  { key: 'corner_3',    label: 'Corner 3' },
-  { key: 'corner_4',    label: 'Corner 4' },
-  { key: 'trunk',       label: 'Trunk' },
-  { key: 'rear_seats',  label: 'Rear seats' },
-  { key: 'front_seats', label: 'Front seats' },
-  { key: 'odometer',    label: 'Odometer' },
-  { key: 'dashboard',   label: 'Dashboard' },
+/** Where a slot's target area sits on the shared top-view car (viewBox 0 0 48 84, nose at top). */
+type SlotHighlight =
+  | { shape: 'dot';  cx: number; cy: number; r: number }
+  | { shape: 'zone'; x: number; y: number; w: number; h: number; rx: number };
+
+type SlotArea = 'exterior' | 'interior';
+
+const AREA_TONE: Record<SlotArea, string> = {
+  exterior: '#ef4444',
+  interior: '#16a34a',
+};
+
+/**
+ * Single source of truth: key, English label, order, exterior/interior tone and the
+ * highlight geometry all live on one row, so a diagram can never drift from its label.
+ * Corner order is fixed: 1 front-left, 2 front-right, 3 rear-left, 4 rear-right.
+ */
+const PHOTO_SLOTS: { key: PhotoSlotKey; label: string; area: SlotArea; highlight: SlotHighlight }[] = [
+  { key: 'front',       label: 'Front',       area: 'exterior', highlight: { shape: 'dot',  cx: 24,   cy: 10.5, r: 4 } },
+  { key: 'right_side',  label: 'Right side',  area: 'exterior', highlight: { shape: 'dot',  cx: 37.5, cy: 42,   r: 4 } },
+  { key: 'left_side',   label: 'Left side',   area: 'exterior', highlight: { shape: 'dot',  cx: 10.5, cy: 42,   r: 4 } },
+  { key: 'rear',        label: 'Rear',        area: 'exterior', highlight: { shape: 'dot',  cx: 24,   cy: 71.5, r: 4 } },
+  { key: 'corner_1',    label: 'Corner 1',    area: 'exterior', highlight: { shape: 'dot',  cx: 12.8, cy: 17,   r: 3.8 } },
+  { key: 'corner_2',    label: 'Corner 2',    area: 'exterior', highlight: { shape: 'dot',  cx: 35.2, cy: 17,   r: 3.8 } },
+  { key: 'corner_3',    label: 'Corner 3',    area: 'exterior', highlight: { shape: 'dot',  cx: 12.8, cy: 69,   r: 3.8 } },
+  { key: 'corner_4',    label: 'Corner 4',    area: 'exterior', highlight: { shape: 'dot',  cx: 35.2, cy: 69,   r: 3.8 } },
+  { key: 'trunk',       label: 'Trunk',       area: 'interior', highlight: { shape: 'zone', x: 12.5, y: 65.5, w: 23, h: 10,   rx: 3.5 } },
+  { key: 'rear_seats',  label: 'Rear seats',  area: 'interior', highlight: { shape: 'zone', x: 14,   y: 45,   w: 20, h: 10.5, rx: 3.5 } },
+  { key: 'front_seats', label: 'Front seats', area: 'interior', highlight: { shape: 'zone', x: 14,   y: 34,   w: 20, h: 10.5, rx: 3.5 } },
+  { key: 'odometer',    label: 'Odometer',    area: 'interior', highlight: { shape: 'dot',  cx: 18.5, cy: 31,  r: 3.4 } },
+  { key: 'dashboard',   label: 'Dashboard',   area: 'interior', highlight: { shape: 'zone', x: 14,   y: 28.2, w: 20, h: 5.6,  rx: 2.4 } },
 ];
 
 const MAX_SCRATCH_PHOTOS = 5;
@@ -294,38 +311,96 @@ const TypeBadge: React.FC<{ type: OperationType }> = ({ type }) => {
 };
 
 /**
+ * One shared top-view car body (nose at top) drawn once. Only the highlight moves between
+ * slots — a constant silhouette is what makes the 13 tiles readable as a set.
+ * Scales to its container via preserveAspectRatio, so it never breaks the tile grid.
+ */
+const CarDiagram: React.FC<{ highlight: SlotHighlight; area: SlotArea }> = ({ highlight, area }) => {
+  const tone = AREA_TONE[area];
+  return (
+    <svg
+      viewBox="0 0 48 84"
+      preserveAspectRatio="xMidYMid meet"
+      style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* Wheels and mirrors sit under the body so only their outer half shows.
+          The mirrors are the cue that tells the nose from the tail at a glance. */}
+      <g fill="#c2c9d2">
+        <rect x="4.6" y="16" width="4.8" height="10" rx="1.9" />
+        <rect x="38.6" y="16" width="4.8" height="10" rx="1.9" />
+        <rect x="4.6" y="57" width="4.8" height="10" rx="1.9" />
+        <rect x="38.6" y="57" width="4.8" height="10" rx="1.9" />
+      </g>
+      <g fill="#aeb7c2">
+        <rect x="3.4" y="28.6" width="6.2" height="3.4" rx="1.6" />
+        <rect x="38.4" y="28.6" width="6.2" height="3.4" rx="1.6" />
+      </g>
+
+      {/* Body */}
+      <path
+        d="M24 4c7 0 10.6 3 11.6 10 3 4 4.4 10 4.4 18v26c0 10-1.4 16-4.4 19-3.5 2.6-19.7 2.6-23.2 0C9.4 74 8 68 8 58V32c0-8 1.4-14 4.4-18C13.4 7 17 4 24 4Z"
+        fill="#f4f5f7"
+        stroke="#cfd4da"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+
+      {/* Cabin: windshield (deeper, front), roof, rear window */}
+      <path d="M15.2 28.4 32.8 28.4 29.8 19.6c-2-1.7-9.6-1.7-11.6 0Z" fill="#d3d9e0" />
+      <rect x="14.6" y="28.4" width="18.8" height="27.6" rx="2.4" fill="#eef0f3" />
+      <path d="M15.8 56 32.2 56 30 62.6c-1.9 1.4-9.1 1.4-11 0Z" fill="#d3d9e0" />
+
+      {/* Target area for this slot */}
+      {highlight.shape === 'dot' ? (
+        <g>
+          <circle cx={highlight.cx} cy={highlight.cy} r={highlight.r + 3.2} fill={tone} opacity={0.16} />
+          <circle cx={highlight.cx} cy={highlight.cy} r={highlight.r} fill={tone} stroke="#fff" strokeWidth="1.3" />
+        </g>
+      ) : (
+        <g>
+          <rect x={highlight.x} y={highlight.y} width={highlight.w} height={highlight.h} rx={highlight.rx} fill={tone} opacity={0.2} />
+          <rect x={highlight.x} y={highlight.y} width={highlight.w} height={highlight.h} rx={highlight.rx} fill="none" stroke={tone} strokeWidth="1.5" />
+        </g>
+      )}
+    </svg>
+  );
+};
+
+/** Red = exterior, green = interior — matches the highlight colours on every tile. */
+const AreaLegendChip: React.FC<{ area: SlotArea; label: string }> = ({ area, label }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: '#6b7280', letterSpacing: '0.2px' }}>
+    <span style={{ width: 8, height: 8, borderRadius: '50%', background: AREA_TONE[area], flexShrink: 0 }} />
+    {label}
+  </span>
+);
+
+/**
  * One named photo position. Tapping it opens the camera / file picker for THIS slot only;
  * picking again replaces the previous shot.
  */
 const PhotoSlotCard: React.FC<{
   label: string;
   previewUrl?: string;
+  /** Mandatory positions pass their car diagram; scratch tiles omit it and fall back to a camera icon. */
+  diagram?: { area: SlotArea; highlight: SlotHighlight };
   onPick: (file: File) => void;
   onRemove?: () => void;
-}> = ({ label, previewUrl, onPick, onRemove }) => {
+}> = ({ label, previewUrl, diagram, onPick, onRemove }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [hovered, setHovered] = useState(false);
   const filled = !!previewUrl;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: filled ? '#374151' : '#6b7280', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {filled && (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="10" fill="#16a34a" />
-            <path d="M7 12l4 4 6-6" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          position: 'relative', width: '100%', aspectRatio: '1', minHeight: 88,
+          position: 'relative', width: '100%', aspectRatio: '1', minHeight: 92,
           borderRadius: 10, overflow: 'hidden', padding: 0, cursor: 'pointer',
           border: filled
             ? `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`
@@ -342,6 +417,17 @@ const PhotoSlotCard: React.FC<{
               Replace / Retake
             </span>
           </>
+        ) : diagram ? (
+          <>
+            {/* Diagram is the empty-state guide — the thumbnail takes the tile over once captured */}
+            <div style={{ position: 'absolute', top: 9, right: 9, bottom: 9, left: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CarDiagram area={diagram.area} highlight={diagram.highlight} />
+            </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', top: 7, right: 7, color: hovered ? '#4ba6ea' : '#d1d5db', transition: 'color 140ms ease' }}>
+              <path d="M4 8a2 2 0 012-2h1.6a2 2 0 001.7-.9l.6-1a1 1 0 01.9-.5h2.4a1 1 0 01.9.5l.6 1a2 2 0 001.7.9H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+              <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.9" />
+            </svg>
+          </>
         ) : (
           <>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: hovered ? '#4ba6ea' : '#9ca3af' }}>
@@ -352,6 +438,16 @@ const PhotoSlotCard: React.FC<{
           </>
         )}
       </button>
+
+      <div style={{ fontSize: 11, fontWeight: 700, color: filled ? '#374151' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 0 }}>
+        {filled && (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="10" fill="#16a34a" />
+            <path d="M7 12l4 4 6-6" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      </div>
 
       {filled && onRemove && (
         <button
@@ -1007,8 +1103,17 @@ const AddOperationModal: React.FC<{
               </div>
 
               {/* Progress bar */}
-              <div style={{ height: 5, borderRadius: 99, background: '#f0f0f0', overflow: 'hidden', marginBottom: 14 }}>
+              <div style={{ height: 5, borderRadius: 99, background: '#f0f0f0', overflow: 'hidden', marginBottom: 10 }}>
                 <div style={{ height: '100%', width: `${(capturedCount / PHOTO_SLOTS.length) * 100}%`, background: photosComplete ? '#16a34a' : '#4ba6ea', borderRadius: 99, transition: 'width 200ms ease' }} />
+              </div>
+
+              {/* Diagram legend */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
+                <AreaLegendChip area="exterior" label="Exterior" />
+                <AreaLegendChip area="interior" label="Interior" />
+                <span style={{ fontSize: 10.5, color: '#9ca3af', fontWeight: 500 }}>
+                  Tap a position to capture that photo
+                </span>
               </div>
 
               {/* 13 mandatory slots — 2 columns on phones, more on wider screens */}
@@ -1017,6 +1122,7 @@ const AddOperationModal: React.FC<{
                   <PhotoSlotCard
                     key={slot.key}
                     label={slot.label}
+                    diagram={{ area: slot.area, highlight: slot.highlight }}
                     previewUrl={slotPreviews[slot.key]}
                     onPick={file => {
                       setSlotFiles(prev => ({ ...prev, [slot.key]: file }));
