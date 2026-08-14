@@ -693,19 +693,32 @@ const CW_STYLES = `
 .cw-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; }
 .cw-tile {
   appearance:none; border:none; text-align:left; font-family:inherit; color:inherit; cursor:pointer;
-  background:var(--cw-card); border-radius:20px; box-shadow:var(--cw-shadow); padding:14px;
-  display:flex; flex-direction:column; gap:13px;
+  background:var(--cw-card); border-radius:20px; box-shadow:var(--cw-shadow); padding:18px;
+  display:flex; flex-direction:column; gap:12px;
   transition:box-shadow 160ms ease, transform 160ms ease;
 }
 .cw-tile:hover { box-shadow:var(--cw-shadow-lift); transform:translateY(-2px); }
 .cw-tile:active { transform:translateY(0); }
-.cw-media {
-  position:relative; aspect-ratio:16/10; border-radius:16px; overflow:hidden;
-  background:var(--cw-neu-bg); display:flex; align-items:center; justify-content:center; color:#B4BCC8;
+/* Plate is the first hero — the photo is a small supporting accent beside it. */
+/* Centred so the tall thumb and the single-line plate share a visual axis. */
+.cw-tile-top { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.cw-tile-plate {
+  font-size:23px; font-weight:800; letter-spacing:-.7px; line-height:1.15; color:var(--cw-ink);
+  font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; min-width:0; word-break:break-word;
 }
-.cw-media img { width:100%; height:100%; object-fit:cover; display:block; }
-.cw-tile-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:0 3px; }
-.cw-tile-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 3px 2px; }
+.cw-thumb {
+  width:56px; height:56px; border-radius:12px; overflow:hidden; flex-shrink:0;
+  background:var(--cw-neu-bg); color:#B4BCC8;
+  display:flex; align-items:center; justify-content:center;
+}
+.cw-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.cw-tile-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cw-rule { display:block; height:1px; background:var(--cw-border); }
+/* Balance is the second hero — it visually rivals the plate. */
+.cw-tile-bal { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+.cw-tile-bal-value {
+  display:block; margin-top:3px; font-size:21px; font-weight:700; letter-spacing:-.5px; line-height:1.15;
+}
 .cw-view { display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:600; color:var(--cw-accent); }
 .cw-tile:hover .cw-view svg { transform:translateX(2px); }
 .cw-view svg { transition:transform 160ms ease; }
@@ -1084,32 +1097,32 @@ const CarTile: React.FC<{
     onClick={e => onOpen(e.currentTarget)}
     aria-label={`${car.plate} — open customers and transactions`}
   >
-    <span className="cw-media">
-      <CarImage url={car.imageUrl} alt={car.modelName ? `${car.modelName}` : car.plate} glyphSize={30} />
+    <span className="cw-tile-top">
+      <span className="cw-tile-plate">{car.plate}</span>
+      <span className="cw-thumb">
+        <CarImage url={car.imageUrl} alt={car.modelName ?? car.plate} glyphSize={22} />
+      </span>
     </span>
 
-    <span className="cw-tile-row">
-      <span style={{ minWidth: 0 }}>
-        <span className="cw-plate-line">
-          <span className="cw-plate">{car.plate}</span>
-          {car.hasLive
-            ? <span className="cw-pill cw-pill--live"><i />On rent</span>
-            : <span className="cw-pill cw-pill--idle"><i />Available</span>}
-        </span>
-        <span className="cw-caption" style={{ display: 'block' }}>{car.modelName ?? 'No model group'}</span>
+    <span className="cw-tile-meta">
+      <span className="cw-caption" style={{ marginTop: 0 }}>{car.modelName ?? 'No model group'}</span>
+      {car.hasLive
+        ? <span className="cw-pill cw-pill--live"><i />On rent</span>
+        : <span className="cw-pill cw-pill--idle"><i />Available</span>}
+      <span className="cw-caption" style={{ marginTop: 0 }}>
+        · {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
       </span>
-      <span className="cw-bal-block">
+    </span>
+
+    <span className="cw-rule" />
+
+    <span className="cw-tile-bal">
+      <span style={{ minWidth: 0 }}>
         <span className="cw-bal-label" style={{ display: 'block' }}>Car balance</span>
-        <span className={`cw-bal-lg cw-num ${toneClass(car.balance)}`} style={{ display: 'block' }}>
+        <span className={`cw-tile-bal-value cw-num ${toneClass(car.balance)}`}>
           {car.approx && <Approx />}
           {formatSigned(car.balance, currency)}
         </span>
-      </span>
-    </span>
-
-    <span className="cw-tile-foot">
-      <span className="cw-caption" style={{ marginTop: 0 }}>
-        {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
       </span>
       <span className="cw-view">
         View
