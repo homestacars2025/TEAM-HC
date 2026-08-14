@@ -199,7 +199,6 @@ function bookingLabel(b: BookingOption): string {
 
 const COLOR_IN  = '#16a34a';
 const COLOR_OUT = '#ef4444';
-const COLOR_ZERO = '#6b7280';
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11.5, fontWeight: 700, color: '#6b7280',
@@ -220,36 +219,6 @@ const primaryBtn: React.CSSProperties = {
   fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center',
   justifyContent: 'center', gap: 7,
 };
-
-const cardStyle: React.CSSProperties = {
-  background: '#fff', borderRadius: 16, border: '1px solid #ebebeb',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-};
-
-const rowActionBtn: React.CSSProperties = {
-  width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff',
-  cursor: 'pointer', color: '#6b7280', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '11px 14px', fontSize: 13.5, color: '#0f1117',
-  borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap',
-};
-
-const Th: React.FC<{ children?: React.ReactNode; align?: 'left' | 'right' }> = ({ children, align = 'left' }) => (
-  <th style={{
-    padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280',
-    background: '#fafafa', borderBottom: '1px solid #ebebeb', textAlign: align,
-    textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap',
-  }}>{children}</th>
-);
-
-/** Balance colour rule: red owes us, green in credit, grey settled. */
-function balanceColor(balance: number): string {
-  if (balance < -0.005) return COLOR_OUT;
-  if (balance > 0.005) return COLOR_IN;
-  return COLOR_ZERO;
-}
 
 // ─── Reusable bits ────────────────────────────────────────────────────────────
 
@@ -303,29 +272,6 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
       document.body,
     );
 
-const EmptyState: React.FC<{ label: string }> = ({ label }) => (
-  <div style={{ padding: '52px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{label}</div>
-);
-
-const Spinner: React.FC = () => (
-  <div style={{ padding: '52px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Loading…</div>
-);
-
-const DirectionBadge: React.FC<{ direction: Direction }> = ({ direction }) => {
-  const isIn = direction === 'IN';
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
-      color: isIn ? COLOR_IN : COLOR_OUT,
-      background: isIn ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
-      borderRadius: 20, padding: '3px 10px',
-    }}>
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: isIn ? COLOR_IN : COLOR_OUT }} />
-      {direction}
-    </span>
-  );
-};
-
 const ConfirmDialog: React.FC<{
   title: string;
   message: string;
@@ -348,26 +294,6 @@ const ConfirmDialog: React.FC<{
       }}>{busy ? 'Deleting…' : confirmLabel}</button>
     </div>
   </Modal>
-);
-
-const SummaryPill: React.FC<{ label: string; value: string; color: string; hint?: string }> = ({ label, value, color, hint }) => (
-  <div style={{ ...cardStyle, padding: '10px 16px', minWidth: 150 }}>
-    <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{label}</div>
-    <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
-    {hint && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{hint}</div>}
-  </div>
-);
-
-/** Marks a USD figure that had to fall back to today's rate. */
-const ApproxMark: React.FC = () => (
-  <span title="Approximate — converted at today's rate rather than the rate stored on the entry." style={{ color: '#9ca3af', marginRight: 2 }}>≈</span>
-);
-
-const TypeChip: React.FC<{ type: string }> = ({ type }) => (
-  <span style={{
-    display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 600,
-    color: '#4b5563', background: '#f3f4f6', borderRadius: 7, padding: '3px 9px',
-  }}>{typeLabel(type)}</span>
 );
 
 // ─── Transaction form fields shared by Add and Edit ───────────────────────────
@@ -689,6 +615,215 @@ const EditTransactionModal: React.FC<{
   );
 };
 
+// ─── Visual layer ─────────────────────────────────────────────────────────────
+//
+// Hover, focus-visible, media queries and reduced-motion cannot be expressed with the
+// inline-style approach used elsewhere in the app, so this page scopes its own stylesheet
+// under `.cw-page` (the same technique Layout.tsx uses for its keyframes). Design tokens
+// live as CSS custom properties on that root.
+
+const CW_STYLES = `
+.cw-page {
+  --cw-bg:#F5F6F8; --cw-card:#FFFFFF;
+  --cw-ink:#0B0F19; --cw-muted:#667085;
+  --cw-pos:#12B76A; --cw-pos-bg:#ECFDF3;
+  --cw-neg:#F04438; --cw-neg-bg:#FEF3F2;
+  --cw-neu:#667085; --cw-neu-bg:#F2F4F7;
+  --cw-accent:#3B6EF5; --cw-accent-bg:#EFF4FF;
+  --cw-border:#EAECF0;
+  --cw-shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
+  --cw-shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 14px 34px rgba(16,24,40,.09);
+  background:var(--cw-bg); min-height:100vh; padding:30px 32px 56px; color:var(--cw-ink);
+}
+.cw-page *:focus-visible { outline:2px solid var(--cw-accent); outline-offset:2px; border-radius:6px; }
+.cw-num { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
+
+/* ── Header ── */
+.cw-head { margin-bottom:22px; }
+.cw-h1 { margin:0; font-size:28px; font-weight:800; letter-spacing:-.8px; color:var(--cw-ink); }
+.cw-sub { margin:5px 0 0; font-size:14px; color:var(--cw-muted); }
+
+/* ── Stat cards ── */
+.cw-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
+.cw-stat { background:var(--cw-card); border-radius:20px; padding:20px 22px; box-shadow:var(--cw-shadow); }
+.cw-stat-label { font-size:11px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--cw-muted); }
+.cw-stat-value { margin-top:8px; font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1.1; }
+.cw-stat-hint { margin-top:4px; font-size:12.5px; color:var(--cw-muted); }
+
+/* ── Toolbar ── */
+.cw-toolbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
+.cw-seg { display:inline-flex; background:var(--cw-neu-bg); border-radius:999px; padding:4px; gap:2px; }
+.cw-seg-btn {
+  appearance:none; border:none; background:none; cursor:pointer; font-family:inherit;
+  min-height:36px; padding:0 16px; border-radius:999px; font-size:13.5px; font-weight:600;
+  color:var(--cw-muted); transition:background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.cw-seg-btn:hover { color:var(--cw-ink); }
+.cw-seg-btn.is-on { background:var(--cw-card); color:var(--cw-ink); box-shadow:0 1px 3px rgba(16,24,40,.10); }
+.cw-search { position:relative; flex:1; min-width:200px; max-width:340px; }
+.cw-search svg { position:absolute; top:50%; left:14px; transform:translateY(-50%); color:var(--cw-muted); pointer-events:none; }
+.cw-search input {
+  width:100%; min-height:44px; padding:0 16px 0 40px; border-radius:999px;
+  border:1px solid var(--cw-border); background:var(--cw-card); color:var(--cw-ink);
+  font-size:14px; font-family:inherit; outline:none;
+  box-shadow:inset 0 1px 2px rgba(16,24,40,.04); transition:border-color 160ms ease, box-shadow 160ms ease;
+}
+.cw-search input::placeholder { color:var(--cw-muted); }
+.cw-search input:focus { border-color:var(--cw-accent); box-shadow:0 0 0 4px var(--cw-accent-bg); }
+.cw-btn-primary {
+  appearance:none; border:none; cursor:pointer; font-family:inherit;
+  min-height:44px; padding:0 18px; border-radius:12px; background:var(--cw-accent); color:#fff;
+  font-size:14px; font-weight:600; display:inline-flex; align-items:center; gap:8px;
+  box-shadow:0 1px 2px rgba(16,24,40,.10), 0 6px 16px rgba(59,110,245,.24);
+  transition:transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+.cw-btn-primary:hover { filter:brightness(1.05); box-shadow:0 2px 4px rgba(16,24,40,.12), 0 10px 22px rgba(59,110,245,.30); }
+.cw-btn-primary:active { transform:scale(.98); }
+
+/* ── Car card ── */
+.cw-cards { display:flex; flex-direction:column; gap:16px; }
+.cw-card {
+  background:var(--cw-card); border-radius:20px; box-shadow:var(--cw-shadow);
+  padding:20px 22px 14px; transition:box-shadow 160ms ease, transform 160ms ease;
+}
+.cw-card:hover { box-shadow:var(--cw-shadow-lift); transform:translateY(-1px); }
+.cw-car-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.cw-car-id { display:flex; align-items:center; gap:13px; min-width:0; }
+.cw-glyph {
+  width:42px; height:42px; border-radius:14px; background:var(--cw-neu-bg); color:var(--cw-muted);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.cw-plate-line { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.cw-plate { font-size:18px; font-weight:750; letter-spacing:-.3px; color:var(--cw-ink); }
+.cw-caption { margin-top:3px; font-size:12.5px; color:var(--cw-muted); }
+.cw-pill {
+  display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:3px 10px;
+  font-size:11px; font-weight:700; letter-spacing:.3px;
+}
+.cw-pill i { width:6px; height:6px; border-radius:50%; background:currentColor; display:block; }
+.cw-pill--live { color:var(--cw-pos); background:var(--cw-pos-bg); }
+.cw-pill--idle { color:var(--cw-neu); background:var(--cw-neu-bg); }
+.cw-bal-block { text-align:right; flex-shrink:0; }
+.cw-bal-label { font-size:11px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--cw-muted); }
+.cw-bal-lg { margin-top:3px; font-size:24px; font-weight:750; letter-spacing:-.6px; line-height:1.15; }
+.cw-bal-md { font-size:18px; font-weight:700; letter-spacing:-.4px; }
+
+/* ── Customer row ── */
+.cw-rows { display:flex; flex-direction:column; gap:10px; }
+.cw-crow { border:1px solid var(--cw-border); background:#FAFBFC; border-radius:14px; overflow:hidden; transition:border-color 160ms ease, background 160ms ease; }
+.cw-crow:hover { border-color:#DDE1E8; }
+.cw-crow-head { display:flex; align-items:center; gap:14px; padding:14px 16px; flex-wrap:wrap; }
+.cw-disclose {
+  appearance:none; border:none; background:none; cursor:pointer; font-family:inherit; text-align:left;
+  display:flex; align-items:center; gap:11px; flex:1; min-width:180px; min-height:44px; padding:0; color:inherit;
+}
+.cw-chev { color:var(--cw-muted); flex-shrink:0; transition:transform 200ms ease; }
+.cw-crow.is-open .cw-chev { transform:rotate(90deg); }
+.cw-cust-name { font-size:15px; font-weight:600; color:var(--cw-ink); }
+.cw-row-actions { display:inline-flex; gap:8px; flex-shrink:0; }
+.cw-btn-soft, .cw-btn-ghost {
+  appearance:none; cursor:pointer; font-family:inherit; min-height:40px; padding:0 13px;
+  border-radius:10px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;
+  transition:transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.cw-btn-soft { border:1px solid transparent; background:var(--cw-accent-bg); color:var(--cw-accent); }
+.cw-btn-soft:hover { background:#E4ECFF; }
+.cw-btn-ghost { border:1px solid var(--cw-border); background:var(--cw-card); color:var(--cw-muted); }
+.cw-btn-ghost:hover { border-color:#DDE1E8; color:var(--cw-ink); }
+.cw-btn-soft:active, .cw-btn-ghost:active { transform:scale(.98); }
+.cw-btn-ghost[disabled] { opacity:.6; cursor:wait; }
+
+/* ── Transaction sheet (animated disclosure) ── */
+.cw-sheet { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows 200ms ease, opacity 200ms ease; }
+.cw-crow.is-open .cw-sheet { grid-template-rows:1fr; opacity:1; }
+.cw-sheet-inner { overflow:hidden; min-height:0; visibility:hidden; transition:visibility 0s 200ms; }
+.cw-crow.is-open .cw-sheet-inner { visibility:visible; transition:visibility 0s 0s; }
+.cw-sheet-scroll { overflow-x:auto; border-top:1px solid var(--cw-border); background:var(--cw-card); padding-top:6px; }
+.cw-tx { width:100%; border-collapse:collapse; min-width:640px; }
+.cw-tx th {
+  padding:12px 16px 10px; font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
+  color:var(--cw-muted); text-align:left; white-space:nowrap; border-bottom:1px solid var(--cw-border);
+}
+.cw-tx th.r, .cw-tx td.r { text-align:right; }
+.cw-tx td { padding:12px 16px; font-size:13.5px; color:var(--cw-ink); border-bottom:1px solid #F4F5F7; white-space:nowrap; }
+.cw-tx tr:last-child td { border-bottom:none; }
+.cw-tx tbody tr { transition:background 160ms ease; }
+.cw-tx tbody tr:hover { background:#FAFBFC; }
+.cw-tx .cw-date { color:var(--cw-muted); }
+.cw-tx .cw-desc { white-space:normal; color:var(--cw-muted); max-width:280px; }
+.cw-chip {
+  display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px;
+  background:var(--cw-neu-bg); color:#475467; font-size:12px; font-weight:600;
+}
+.cw-chip i { width:6px; height:6px; border-radius:50%; display:block; }
+.cw-tx-actions { display:inline-flex; gap:6px; opacity:0; transition:opacity 160ms ease; }
+.cw-tx tbody tr:hover .cw-tx-actions, .cw-tx tbody tr:focus-within .cw-tx-actions { opacity:1; }
+.cw-icon-btn {
+  appearance:none; width:36px; height:36px; border-radius:9px; border:1px solid var(--cw-border);
+  background:var(--cw-card); color:var(--cw-muted); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; transition:color 160ms ease, border-color 160ms ease;
+}
+.cw-icon-btn:hover { color:var(--cw-ink); border-color:#DDE1E8; }
+.cw-icon-btn.danger:hover { color:var(--cw-neg); border-color:#FDA29B; }
+
+/* ── Misc ── */
+.cw-approx {
+  display:inline-block; font-size:10px; font-weight:700; color:var(--cw-muted);
+  background:var(--cw-neu-bg); border-radius:999px; padding:1px 5px; margin-right:5px;
+  vertical-align:2px; cursor:help;
+}
+.cw-empty { background:var(--cw-card); border-radius:20px; box-shadow:var(--cw-shadow); padding:64px 24px; text-align:center; }
+.cw-empty-title { font-size:15px; font-weight:650; color:var(--cw-ink); }
+.cw-empty-sub { margin-top:6px; font-size:13.5px; color:var(--cw-muted); }
+.cw-pos { color:var(--cw-pos); } .cw-neg { color:var(--cw-neg); } .cw-neu { color:var(--cw-neu); }
+
+/* ── Mobile ── */
+@media (max-width:760px) {
+  .cw-page { padding:22px 16px 44px; }
+  .cw-h1 { font-size:24px; }
+  .cw-stats { grid-template-columns:1fr; gap:12px; }
+  .cw-stat { padding:16px 18px; }
+  .cw-stat-value { font-size:26px; }
+  .cw-toolbar { gap:12px; }
+  .cw-search { max-width:none; flex-basis:100%; }
+  .cw-btn-primary { width:100%; justify-content:center; }
+  .cw-card { padding:18px 16px 12px; border-radius:18px; }
+  .cw-car-head { flex-direction:column; align-items:flex-start; gap:12px; }
+  .cw-bal-block { text-align:left; }
+  .cw-crow-head { flex-direction:column; align-items:stretch; gap:12px; }
+  .cw-row-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cw-btn-soft, .cw-btn-ghost { justify-content:center; min-height:44px; }
+}
+@media (pointer:coarse) {
+  .cw-icon-btn { width:44px; height:44px; }
+  .cw-tx-actions { opacity:1; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .cw-page *, .cw-page *::before, .cw-page *::after {
+    transition-duration:.01ms !important; animation-duration:.01ms !important;
+  }
+  .cw-card:hover { transform:none; }
+  .cw-btn-primary:active, .cw-btn-soft:active, .cw-btn-ghost:active { transform:none; }
+}
+`;
+
+/** Balance tone as a class, so colour and the text caption always agree. */
+function toneClass(balance: number): string {
+  if (balance < -0.005) return 'cw-neg';
+  if (balance > 0.005) return 'cw-pos';
+  return 'cw-neu';
+}
+
+function balanceCaption(balance: number): string {
+  if (balance < -0.005) return 'Owes us';
+  if (balance > 0.005) return 'In credit';
+  return 'Settled';
+}
+
+const Approx: React.FC = () => (
+  <span className="cw-approx" title="Approximate — converted at today's rate rather than the rate stored on the entry.">≈</span>
+);
+
 // ─── Level 3 — one customer's transaction sheet for one car ───────────────────
 
 const TransactionSheet: React.FC<{
@@ -715,49 +850,54 @@ const TransactionSheet: React.FC<{
   }, [entry.rows, currency, rates, fallbackUsdRate]);
 
   return (
-    <div style={{ overflowX: 'auto', borderTop: '1px solid #f0f0f0', background: '#fcfcfd' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+    <div className="cw-sheet-scroll">
+      <table className="cw-tx">
         <thead>
           <tr>
-            <Th>Date</Th>
-            <Th>Type</Th>
-            <Th>Direction</Th>
-            <Th>Description</Th>
-            <Th align="right">Amount</Th>
-            <Th align="right">Balance</Th>
-            <Th align="right">Actions</Th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th className="r">Amount</th>
+            <th className="r">Balance</th>
+            <th className="r"><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Actions</span></th>
           </tr>
         </thead>
         <tbody>
-          {chronological.map(({ row, value, approx, running }) => (
-            <tr key={row.id}>
-              <td style={tdStyle}>{formatDateDisplay(row.created_at)}</td>
-              <td style={tdStyle}><TypeChip type={row.type} /></td>
-              <td style={tdStyle}><DirectionBadge direction={row.direction} /></td>
-              <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{row.description || '—'}</td>
-              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: row.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                {approx && <ApproxMark />}
-                {row.direction === 'IN' ? '+' : '−'}{formatMoney(value, currency)}
-              </td>
-              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: balanceColor(running) }}>
-                {formatSigned(running, currency)}
-              </td>
-              <td style={{ ...tdStyle, textAlign: 'right' }}>
-                <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <button type="button" onClick={() => onEdit(row)} title="Edit" style={rowActionBtn}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <button type="button" onClick={() => onDelete(row)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {chronological.map(({ row, value, approx, running }) => {
+            const isIn = row.direction === 'IN';
+            return (
+              <tr key={row.id}>
+                <td className="cw-date">{formatDateDisplay(row.created_at)}</td>
+                <td>
+                  {/* The dot carries direction; the signed, coloured amount repeats it. */}
+                  <span className="cw-chip" title={isIn ? 'Money in' : 'Money out'}>
+                    <i style={{ background: isIn ? 'var(--cw-pos)' : 'var(--cw-neg)' }} />
+                    {typeLabel(row.type)}
+                  </span>
+                </td>
+                <td className="cw-desc">{row.description || '—'}</td>
+                <td className={`r cw-num ${isIn ? 'cw-pos' : 'cw-neg'}`} style={{ fontWeight: 650 }}>
+                  {approx && <Approx />}
+                  {isIn ? '+' : '−'}{formatMoney(value, currency)}
+                </td>
+                <td className="r cw-num cw-neu">{formatSigned(running, currency)}</td>
+                <td className="r">
+                  <span className="cw-tx-actions">
+                    <button type="button" className="cw-icon-btn" onClick={() => onEdit(row)} title="Edit transaction" aria-label="Edit transaction">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <button type="button" className="cw-icon-btn danger" onClick={() => onDelete(row)} title="Delete transaction" aria-label="Delete transaction">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -804,72 +944,43 @@ const CustomerRow: React.FC<{
   };
 
   return (
-    <div style={{ borderTop: '1px solid #f0f0f0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', flexWrap: 'wrap' }}>
-        <div
-          role="button"
-          onClick={onToggle}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 180 }}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-            style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 140ms', color: '#9ca3af', flexShrink: 0 }}>
-            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <div className={`cw-crow${open ? ' is-open' : ''}`}>
+      <div className="cw-crow-head">
+        <button type="button" className="cw-disclose" onClick={onToggle} aria-expanded={open}>
+          <svg className="cw-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-              {entry.live && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800,
-                  color: COLOR_IN, background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '2px 8px',
-                  textTransform: 'uppercase', letterSpacing: '0.5px',
-                }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: COLOR_IN }} />
-                  Live
-                </span>
-              )}
-              <span style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117' }}>{entry.name}</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
-              {entry.rows.length} {entry.rows.length === 1 ? 'entry' : 'entries'} · In {formatMoney(entry.totalIn, currency)} · Out {formatMoney(entry.totalOut, currency)}
-            </div>
-          </div>
-        </div>
+          <span style={{ minWidth: 0 }}>
+            <span className="cw-plate-line">
+              {/* Pill trails the name so names stay left-aligned down the card. */}
+              <span className="cw-cust-name">{entry.name}</span>
+              {entry.live && <span className="cw-pill cw-pill--live"><i />Live</span>}
+            </span>
+            <span className="cw-caption" style={{ display: 'block' }}>
+              {entry.rows.length} {entry.rows.length === 1 ? 'entry' : 'entries'}
+              {' · '}In <span className="cw-num">{formatMoney(entry.totalIn, currency)}</span>
+              {' · '}Out <span className="cw-num">{formatMoney(entry.totalOut, currency)}</span>
+            </span>
+          </span>
+        </button>
 
-        <div style={{ textAlign: 'right', minWidth: 110 }}>
-          <div style={{ fontSize: 15.5, fontWeight: 800, color: balanceColor(entry.balance) }}>
-            {entry.approx && <ApproxMark />}
+        <div className="cw-bal-block">
+          <div className={`cw-bal-md cw-num ${toneClass(entry.balance)}`}>
+            {entry.approx && <Approx />}
             {formatSigned(entry.balance, currency)}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af' }}>
-            {entry.balance < -0.005 ? 'Owes us' : entry.balance > 0.005 ? 'In credit' : 'Settled'}
-          </div>
+          <div className="cw-caption" style={{ marginTop: 1 }}>{balanceCaption(entry.balance)}</div>
         </div>
 
-        <div style={{ display: 'inline-flex', gap: 6 }}>
-          <button
-            type="button" onClick={onAdd} title="Add a transaction for this customer on this car"
-            style={{
-              height: 32, padding: '0 11px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 12.5, fontWeight: 600, color: '#2e8fd4', background: 'rgba(75,166,234,0.08)',
-              border: '1px solid rgba(75,166,234,0.35)', display: 'inline-flex', alignItems: 'center', gap: 5,
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <div className="cw-row-actions">
+          <button type="button" className="cw-btn-soft" onClick={onAdd} title="Add a transaction for this customer on this car">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
             </svg>
             Add transaction
           </button>
-          <button
-            type="button" onClick={handlePrintInvoice} disabled={printing}
-            title="Print an invoice for this customer on this car"
-            style={{
-              height: 32, padding: '0 11px', borderRadius: 9, cursor: printing ? 'wait' : 'pointer',
-              fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: '#4b5563', background: '#fff',
-              border: '1px solid #e5e7eb', display: 'inline-flex', alignItems: 'center', gap: 5,
-              opacity: printing ? 0.6 : 1,
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <button type="button" className="cw-btn-ghost" onClick={handlePrintInvoice} disabled={printing} title="Print an invoice for this customer on this car">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {printing ? 'Preparing…' : 'Print invoice'}
@@ -877,16 +988,18 @@ const CustomerRow: React.FC<{
         </div>
       </div>
 
-      {open && (
-        <TransactionSheet
-          entry={entry}
-          currency={currency}
-          rates={rates}
-          fallbackUsdRate={fallbackUsdRate}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      )}
+      <div className="cw-sheet">
+        <div className="cw-sheet-inner">
+          <TransactionSheet
+            entry={entry}
+            currency={currency}
+            rates={rates}
+            fallbackUsdRate={fallbackUsdRate}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        </div>
+      </div>
     </div>
   );
 };
@@ -905,67 +1018,57 @@ const CarCard: React.FC<{
   onDelete: (row: LedgerRow) => void;
   onError: (message: string) => void;
 }> = ({ car, currency, rates, fallbackUsdRate, isOpen, onToggle, onAdd, onEdit, onDelete, onError }) => (
-  <div style={{ ...cardStyle, overflow: 'hidden' }}>
-    {/* Car header */}
-    <div style={{ padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 9, background: '#f3f4f6', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280',
-        }}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+  <section className="cw-card">
+    <div className="cw-car-head">
+      <div className="cw-car-id">
+        <span className="cw-glyph" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
             <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             <rect x="9" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
             <circle cx="12" cy="16" r="1.2" fill="currentColor" />
             <circle cx="20" cy="16" r="1.2" fill="currentColor" />
           </svg>
-        </div>
+        </span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.2px' }}>{car.plate}</span>
-            {car.hasLive && (
-              <span style={{
-                fontSize: 10, fontWeight: 800, color: COLOR_IN, background: 'rgba(22,163,74,0.12)',
-                borderRadius: 20, padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.5px',
-              }}>
-                On rent
-              </span>
-            )}
+          <div className="cw-plate-line">
+            <span className="cw-plate">{car.plate}</span>
+            {car.hasLive
+              ? <span className="cw-pill cw-pill--live"><i />On rent</span>
+              : <span className="cw-pill cw-pill--idle"><i />Available</span>}
           </div>
-          <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
+          <div className="cw-caption">
             {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
           </div>
         </div>
       </div>
 
-      <div style={{ textAlign: 'right' }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-          Car balance
-        </div>
-        <div style={{ fontSize: 19, fontWeight: 800, color: balanceColor(car.balance) }}>
-          {car.approx && <ApproxMark />}
+      <div className="cw-bal-block">
+        <div className="cw-bal-label">Car balance</div>
+        <div className={`cw-bal-lg cw-num ${toneClass(car.balance)}`}>
+          {car.approx && <Approx />}
           {formatSigned(car.balance, currency)}
         </div>
       </div>
     </div>
 
-    {/* Customer rows */}
-    {car.customers.map(entry => (
-      <CustomerRow
-        key={entry.customerId}
-        entry={entry}
-        currency={currency}
-        rates={rates}
-        fallbackUsdRate={fallbackUsdRate}
-        open={isOpen(entry.customerId)}
-        onToggle={() => onToggle(entry.customerId)}
-        onAdd={() => onAdd(entry)}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onError={onError}
-      />
-    ))}
-  </div>
+    <div className="cw-rows">
+      {car.customers.map(entry => (
+        <CustomerRow
+          key={entry.customerId}
+          entry={entry}
+          currency={currency}
+          rates={rates}
+          fallbackUsdRate={fallbackUsdRate}
+          open={isOpen(entry.customerId)}
+          onToggle={() => onToggle(entry.customerId)}
+          onAdd={() => onAdd(entry)}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onError={onError}
+        />
+      ))}
+    </div>
+  </section>
 );
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -1143,82 +1246,92 @@ const CustomerWalletsPage: React.FC = () => {
     { key: 'ended',   label: 'Ended rentals' },
   ];
 
-  return (
-    <div style={{ padding: '24px 32px', background: '#fafafa', minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117' }}>Customer Wallets</h1>
-        <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>
-          Balances per car and customer — charges owed against payments and deposits received.
-        </p>
-      </div>
+  const emptyTitle = cars.length === 0
+    ? 'No customer ledger entries yet.'
+    : tab === 'current' ? 'No cars with current rentals.'
+    : tab === 'ended'   ? 'No cars with ended rentals.'
+    : 'No cars match this search.';
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 18, borderBottom: '1px solid #ebebeb', flexWrap: 'wrap' }}>
-        {TABS.map(t => {
-          const on = tab === t.key;
-          return (
-            <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
-              padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#2e8fd4' : '#6b7280',
-              borderBottom: on ? '2px solid #4ba6ea' : '2px solid transparent', marginBottom: -1,
-            }}>{t.label}</button>
-          );
-        })}
-      </div>
+  return (
+    <div className="cw-page">
+      <style>{CW_STYLES}</style>
+
+      <header className="cw-head">
+        <h1 className="cw-h1">Customer Wallets</h1>
+        <p className="cw-sub">Balances per car and customer — charges owed against payments and deposits received.</p>
+      </header>
 
       {/* Summary */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
-        <SummaryPill
-          label="Owed to us" color={COLOR_OUT}
-          value={formatMoney(totals.owed, currency)}
-          hint={`${totals.debtors} ${totals.debtors === 1 ? 'balance' : 'balances'}`}
-        />
-        <SummaryPill
-          label="In credit" color={COLOR_IN}
-          value={formatMoney(totals.credit, currency)}
-          hint={`${totals.inCredit} ${totals.inCredit === 1 ? 'balance' : 'balances'}`}
-        />
-        <SummaryPill
-          label="Net position" color={balanceColor(totals.net)}
-          value={formatSigned(totals.net, currency)}
-          hint={`${filtered.length} ${filtered.length === 1 ? 'car' : 'cars'}`}
-        />
+      <div className="cw-stats">
+        <div className="cw-stat">
+          <div className="cw-stat-label">Owed to us</div>
+          <div className="cw-stat-value cw-num cw-neg">{formatMoney(totals.owed, currency)}</div>
+          <div className="cw-stat-hint">{totals.debtors} {totals.debtors === 1 ? 'balance' : 'balances'}</div>
+        </div>
+        <div className="cw-stat">
+          <div className="cw-stat-label">In credit</div>
+          <div className="cw-stat-value cw-num cw-pos">{formatMoney(totals.credit, currency)}</div>
+          <div className="cw-stat-hint">{totals.inCredit} {totals.inCredit === 1 ? 'balance' : 'balances'}</div>
+        </div>
+        <div className="cw-stat">
+          <div className="cw-stat-label">Net position</div>
+          <div className={`cw-stat-value cw-num ${toneClass(totals.net)}`}>{formatSigned(totals.net, currency)}</div>
+          <div className="cw-stat-hint">{filtered.length} {filtered.length === 1 ? 'car' : 'cars'}</div>
+        </div>
       </div>
 
-      {/* Search + add */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search plate or customer…"
-          style={{ ...inputStyle, maxWidth: 320 }}
-        />
-        <div style={{ flex: 1 }} />
-        <button type="button" style={primaryBtn} onClick={() => setAddFor({ customerId: null, name: null, carId: null })}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      {/* Tabs + search + add */}
+      <div className="cw-toolbar">
+        <div className="cw-seg" role="tablist" aria-label="Rental status">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`cw-seg-btn${tab === t.key ? ' is-on' : ''}`}
+              onClick={() => setTab(t.key)}
+            >{t.label}</button>
+          ))}
+        </div>
+
+        <div className="cw-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+            <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search plate or customer…"
+            aria-label="Search by plate or customer name"
+          />
+        </div>
+
+        <button type="button" className="cw-btn-primary" onClick={() => setAddFor({ customerId: null, name: null, carId: null })}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
           Add Transaction
         </button>
       </div>
 
       {loadError ? (
-        <div style={{ ...cardStyle, padding: '16px 18px', color: COLOR_OUT, fontSize: 13.5 }}>
-          Could not load the ledger: {loadError}
+        <div className="cw-empty">
+          <div className="cw-empty-title cw-neg">Could not load the ledger</div>
+          <div className="cw-empty-sub">{loadError}</div>
         </div>
       ) : loading ? (
-        <div style={cardStyle}><Spinner /></div>
+        <div className="cw-empty">
+          <div className="cw-empty-title">Loading…</div>
+        </div>
       ) : filtered.length === 0 ? (
-        <div style={cardStyle}>
-          <EmptyState label={
-            cars.length === 0
-              ? 'No customer ledger entries yet.'
-              : 'No cars match this search or tab.'
-          } />
+        <div className="cw-empty">
+          <div className="cw-empty-title">{emptyTitle}</div>
+          <div className="cw-empty-sub">Transactions you add will appear here, grouped by car.</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="cw-cards">
           {filtered.map(car => (
             <CarCard
               key={car.key}
