@@ -91,6 +91,18 @@ const operationsItems = [
   },
 ];
 
+const customerWalletsItem = {
+  label: 'Customer Wallets',
+  path: '/dashboard/customer-wallets',
+  icon: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+      <path d="M3 7a2 2 0 012-2h12a2 2 0 012 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M16 12h5v4h-5a2 2 0 010-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+    </svg>
+  ),
+};
+
 const accountingItem = {
   label: 'Accounting',
   path: '/dashboard/accounting',
@@ -428,7 +440,9 @@ const Sidebar: React.FC = () => {
         ) : (
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
-        {renderNavItems(canViewAccounting ? [...operationsItems, accountingItem] : operationsItems)}
+        {renderNavItems(canViewAccounting
+          ? [...operationsItems, customerWalletsItem, accountingItem]
+          : [...operationsItems, customerWalletsItem])}
       </nav>
 
       {/* Currency selector + Profile + Sign out */}

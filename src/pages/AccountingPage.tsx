@@ -2,11 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
 import { useAccountingAccess } from '../lib/useAccountingAccess';
-import { printCustomerInvoice } from '../lib/printCustomerInvoice';
 
 /* ────────────────────────────────────────────────────────────────────────────
    AccountingPage — restricted view for staff accountants.
@@ -76,20 +75,6 @@ interface WalletTxn {
 interface EmployeeOption {
   employee_id: string;
   full_name: string | null;
-}
-
-interface CustomerLedgerRow {
-  id: string;
-  booking_id: number;
-  customer_id: string;
-  car_id: number;
-  type: string;
-  description: string | null;
-  amount: number;
-  direction: Direction;
-  created_at: string | null;
-  customers: { first_name: string | null; last_name: string | null } | null;
-  cars: { plate_number: string | null } | null;
 }
 
 type ToastState = { message: string; type: 'success' | 'error' } | null;
@@ -1388,455 +1373,46 @@ const AddWalletEntryModal: React.FC<{
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-//  TAB 3 — Customers
+//  TAB 3 — Customers (moved)
+//
+//  Customer ledger entry now lives on the Customer Wallets page, which is the
+//  single manual writer of `customer_accounting_ledger` and stamps
+//  `exchange_rate_at_entry` on every insert. This tab only points there — it
+//  deliberately holds no add/edit/delete code of its own.
 // ════════════════════════════════════════════════════════════════════════════
 
-const CUSTOMER_LEDGER_TYPES = ['rental', 'deposit', 'payment', 'refund', 'other'];
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
-interface CustomerGroup {
-  customerId: string;
-  name: string;
-  balance: number;
-  rows: CustomerLedgerRow[];
-}
-
-interface BookingOption {
-  id: number;
-  booking_number: string | null;
-  start_date: string;
-  end_date: string;
-  car_id: number;
-  plate_number: string | null;
-}
-
-interface CustomerOption {
-  id: string;
-  name: string;
-}
-
-function bookingLabel(b: BookingOption): string {
-  const num = b.booking_number || `#${b.id}`;
-  const plate = b.plate_number ? ` · ${b.plate_number}` : '';
-  return `${num}${plate} · ${formatDateDisplay(b.start_date)} → ${formatDateDisplay(b.end_date)}`;
-}
-
-const CustomersTab: React.FC<{
-  userId: string | null;
-  notify: (t: ToastState) => void;
-}> = ({ userId, notify }) => {
-  const { fmt } = useCurrency();
-  const [rows, setRows] = useState<CustomerLedgerRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [addFor, setAddFor] = useState<{ customerId: string | null; name: string | null } | null>(null);
-  const [editRow, setEditRow] = useState<CustomerLedgerRow | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<CustomerLedgerRow | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('customer_accounting_ledger')
-      .select('id, booking_id, customer_id, car_id, type, description, amount, direction, created_at, customers(first_name, last_name), cars(plate_number)')
-      .order('created_at', { ascending: false });
-    setRows((data ?? []) as unknown as CustomerLedgerRow[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleDelete = async () => {
-    if (!deleteTarget || deleting) return;
-    setDeleting(true);
-    const { error } = await supabase.from('customer_accounting_ledger').delete().eq('id', deleteTarget.id);
-    setDeleting(false);
-    setDeleteTarget(null);
-    if (error) { notify({ message: 'Could not delete transaction', type: 'error' }); return; }
-    notify({ message: 'Transaction deleted', type: 'success' });
-    await load();
-  };
-
-  const groups = useMemo<CustomerGroup[]>(() => {
-    const map = new Map<string, CustomerGroup>();
-    for (const r of rows) {
-      const name = [r.customers?.first_name, r.customers?.last_name].filter(Boolean).join(' ').trim() || 'Unknown customer';
-      let g = map.get(r.customer_id);
-      if (!g) { g = { customerId: r.customer_id, name, balance: 0, rows: [] }; map.set(r.customer_id, g); }
-      g.rows.push(r);
-      g.balance += r.direction === 'IN' ? r.amount : -r.amount;
-    }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return groups;
-    return groups.filter(g =>
-      g.name.toLowerCase().includes(q) ||
-      g.rows.some(r => (r.cars?.plate_number || '').toLowerCase().includes(q)));
-  }, [groups, search]);
-
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customer or plate…" style={{ ...inputStyle, maxWidth: 360 }} />
-        <div style={{ flex: 1 }} />
-        <button style={primaryBtn} onClick={() => setAddFor({ customerId: null, name: null })}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-          Add Transaction
-        </button>
-      </div>
-
-      {loading ? <div style={cardStyle}><Spinner /></div> : filtered.length === 0 ? (
-        <div style={cardStyle}><EmptyState label="No customer ledger entries." /></div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {filtered.map(g => {
-            const open = expanded[g.customerId];
-            return (
-              <div key={g.customerId} style={{ ...cardStyle, overflow: 'hidden' }}>
-                <div style={{
-                  padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                }}>
-                  <div
-                    role="button"
-                    onClick={() => setExpanded(p => ({ ...p, [g.customerId]: !p[g.customerId] }))}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 0 }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 140ms', color: '#9ca3af', flexShrink: 0 }}>
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</span>
-                    <span style={{ fontSize: 12, color: '#9ca3af', flexShrink: 0 }}>{g.rows.length} {g.rows.length === 1 ? 'entry' : 'entries'}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Balance</div>
-                      <div style={{ fontSize: 17, fontWeight: 800, color: g.balance >= 0 ? COLOR_IN : COLOR_OUT }}>
-                        {g.balance >= 0 ? '+' : '−'}{fmt(g.balance)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => printCustomerInvoice(g.customerId, g.rows, {
-                        onError: (message) => notify({ message, type: 'error' }),
-                      })}
-                      title="Print invoice for this customer"
-                      style={{
-                        height: 34, padding: '0 12px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-                        fontSize: 13, fontWeight: 600, color: '#4b5563', background: '#fff',
-                        border: '1px solid #e5e7eb', display: 'inline-flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                        <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      Invoice
-                    </button>
-                    <button
-                      onClick={() => setAddFor({ customerId: g.customerId, name: g.name })}
-                      title="Add transaction for this customer"
-                      style={{
-                        height: 34, padding: '0 12px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-                        fontSize: 13, fontWeight: 600, color: '#2e8fd4', background: 'rgba(75,166,234,0.08)',
-                        border: '1px solid rgba(75,166,234,0.35)', display: 'inline-flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-                      </svg>
-                      Add
-                    </button>
-                  </div>
-                </div>
-                {open && (
-                  <div style={{ overflowX: 'auto', borderTop: '1px solid #f0f0f0' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-                      <thead>
-                        <tr><Th>Date</Th><Th>Plate</Th><Th>Type</Th><Th>Description</Th><Th>Direction</Th><Th align="right">Amount</Th><Th align="right">Actions</Th></tr>
-                      </thead>
-                      <tbody>
-                        {g.rows.map(r => (
-                          <tr key={r.id}>
-                            <td style={tdStyle}>{formatDateDisplay(r.created_at ? r.created_at.slice(0, 10) : null)}</td>
-                            <td style={tdStyle}>{r.cars?.plate_number || '—'}</td>
-                            <td style={tdStyle}>{cap(r.type)}</td>
-                            <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{r.description || '—'}</td>
-                            <td style={tdStyle}><DirectionBadge direction={r.direction} /></td>
-                            <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                              {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
-                            </td>
-                            <td style={{ ...tdStyle, textAlign: 'right' }}>
-                              <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                                <button onClick={() => setEditRow(r)} title="Edit" style={rowActionBtn}>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </button>
-                                <button onClick={() => setDeleteTarget(r)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {addFor && (
-        <AddCustomerTxnModal
-          userId={userId}
-          presetCustomerId={addFor.customerId}
-          presetName={addFor.name}
-          onClose={() => setAddFor(null)}
-          onSaved={async () => { setAddFor(null); notify({ message: 'Transaction added', type: 'success' }); await load(); }}
-          onError={() => notify({ message: 'Could not save transaction', type: 'error' })}
-        />
-      )}
-      {editRow && (
-        <EditCustomerTxnModal
-          row={editRow}
-          onClose={() => setEditRow(null)}
-          onSaved={async () => { setEditRow(null); notify({ message: 'Transaction updated', type: 'success' }); await load(); }}
-          onError={() => notify({ message: 'Could not update transaction', type: 'error' })}
-        />
-      )}
-      {deleteTarget && (
-        <ConfirmDialog
-          title="Delete transaction?"
-          message="This customer ledger entry will be permanently removed. This cannot be undone."
-          confirmLabel="Delete"
-          busy={deleting}
-          onConfirm={handleDelete}
-          onClose={() => setDeleteTarget(null)}
-        />
-      )}
+const CustomersMovedPanel: React.FC = () => (
+  <div style={{ ...cardStyle, padding: '48px 28px', textAlign: 'center' }}>
+    <div style={{
+      width: 52, height: 52, borderRadius: 14, background: 'rgba(75,166,234,0.1)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+      color: '#2e8fd4',
+    }}>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M3 7a2 2 0 012-2h12a2 2 0 012 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M16 12h5v4h-5a2 2 0 010-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
     </div>
-  );
-};
+    <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#0f1117' }}>
+      Customer balances moved to Customer Wallets
+    </h3>
+    <p style={{ margin: '0 auto 22px', fontSize: 14, color: '#6b7280', lineHeight: 1.6, maxWidth: 460 }}>
+      Balances, the full ledger, invoices and transaction entry now live on one page — with a
+      TRY / USD view that converts each entry at the rate stored when it was recorded.
+    </p>
+    <Link to="/dashboard/customer-wallets" style={{ ...primaryBtn, textDecoration: 'none' }}>
+      Open Customer Wallets
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </Link>
+  </div>
+);
 
 const rowActionBtn: React.CSSProperties = {
   width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff',
   cursor: 'pointer', color: '#6b7280', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-};
-
-const AddCustomerTxnModal: React.FC<{
-  userId: string | null;
-  presetCustomerId: string | null;
-  presetName: string | null;
-  onClose: () => void;
-  onSaved: () => void;
-  onError: () => void;
-}> = ({ userId, presetCustomerId, presetName, onClose, onSaved, onError }) => {
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [customerId, setCustomerId] = useState<string>(presetCustomerId ?? '');
-  const [bookings, setBookings] = useState<BookingOption[]>([]);
-  const [bookingId, setBookingId] = useState<number | ''>('');
-  const [loadingBookings, setLoadingBookings] = useState(false);
-  const [direction, setDirection] = useState<Direction>('IN');
-  const [type, setType] = useState('rental');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  // Customer picker only needed for the global "Add" (no preset).
-  useEffect(() => {
-    if (presetCustomerId) return;
-    let active = true;
-    (async () => {
-      const { data } = await supabase.from('customers').select('id, first_name, last_name').order('first_name');
-      if (!active) return;
-      setCustomers((data ?? []).map((c: any) => ({
-        id: c.id,
-        name: [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || 'Unknown customer',
-      })));
-    })();
-    return () => { active = false; };
-  }, [presetCustomerId]);
-
-  // A ledger row requires a booking (which supplies car_id). Load the chosen customer's bookings.
-  useEffect(() => {
-    if (!customerId) { setBookings([]); setBookingId(''); return; }
-    let active = true;
-    setLoadingBookings(true);
-    (async () => {
-      const { data } = await supabase
-        .from('bookings')
-        .select('id, booking_number, start_date, end_date, car_id, cars(plate_number)')
-        .eq('customer_id', customerId)
-        .order('start_date', { ascending: false });
-      if (!active) return;
-      const opts: BookingOption[] = (data ?? []).map((b: any) => ({
-        id: b.id,
-        booking_number: b.booking_number,
-        start_date: b.start_date,
-        end_date: b.end_date,
-        car_id: b.car_id,
-        plate_number: b.cars?.plate_number ?? null,
-      }));
-      setBookings(opts);
-      setBookingId(opts.length === 1 ? opts[0].id : '');
-      setLoadingBookings(false);
-    })();
-    return () => { active = false; };
-  }, [customerId]);
-
-  const selectedBooking = useMemo(() => bookings.find(b => b.id === bookingId) ?? null, [bookings, bookingId]);
-  const canSave = !!customerId && !!selectedBooking && Number(amount) > 0 && !!type;
-
-  const handleSave = async () => {
-    if (!canSave || saving || !selectedBooking) return;
-    setSaving(true);
-    // All three FKs are NOT NULL — booking supplies both booking_id and car_id.
-    const { error } = await supabase.from('customer_accounting_ledger').insert({
-      booking_id: selectedBooking.id,
-      customer_id: customerId,
-      car_id: selectedBooking.car_id,
-      type,
-      description: description.trim() || null,
-      amount: Number(amount),
-      direction,
-      created_by: userId,
-    });
-    setSaving(false);
-    if (error) { onError(); return; }
-    onSaved();
-  };
-
-  return (
-    <Modal title="Add Customer Transaction" onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label style={labelStyle}>Customer</label>
-          {presetCustomerId ? (
-            <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', color: '#0f1117' }}>{presetName || 'Customer'}</div>
-          ) : (
-            <select value={customerId} onChange={e => setCustomerId(e.target.value)} style={inputStyle}>
-              <option value="">Select a customer…</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
-        </div>
-
-        <div>
-          <label style={labelStyle}>Booking</label>
-          <select
-            value={bookingId}
-            onChange={e => setBookingId(e.target.value ? Number(e.target.value) : '')}
-            style={inputStyle}
-            disabled={!customerId || loadingBookings || bookings.length === 0}
-          >
-            <option value="">
-              {!customerId ? 'Select a customer first…'
-                : loadingBookings ? 'Loading bookings…'
-                : bookings.length === 0 ? 'No bookings for this customer'
-                : 'Select a booking…'}
-            </option>
-            {bookings.map(b => <option key={b.id} value={b.id}>{bookingLabel(b)}</option>)}
-          </select>
-          {customerId && !loadingBookings && bookings.length === 0 && (
-            <div style={{ fontSize: 12, color: COLOR_OUT, marginTop: 6 }}>
-              This customer has no bookings — a transaction must be linked to one.
-            </div>
-          )}
-        </div>
-
-        <DirectionPicker direction={direction} onChange={setDirection} />
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Type</label>
-            <select value={type} onChange={e => setType(e.target.value)} style={inputStyle}>
-              {CUSTOMER_LEDGER_TYPES.map(t => <option key={t} value={t}>{cap(t)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Amount</label>
-            <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
-          </div>
-        </div>
-
-        <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
-        </div>
-
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Transaction'}
-        </button>
-      </div>
-    </Modal>
-  );
-};
-
-const EditCustomerTxnModal: React.FC<{
-  row: CustomerLedgerRow;
-  onClose: () => void;
-  onSaved: () => void;
-  onError: () => void;
-}> = ({ row, onClose, onSaved, onError }) => {
-  const [direction, setDirection] = useState<Direction>(row.direction);
-  const [type, setType] = useState(row.type);
-  const [description, setDescription] = useState(row.description ?? '');
-  const [amount, setAmount] = useState(String(row.amount));
-  const [saving, setSaving] = useState(false);
-
-  // Keep the row's existing type selectable even if it's an older/legacy value.
-  const typeOptions = CUSTOMER_LEDGER_TYPES.includes(row.type) ? CUSTOMER_LEDGER_TYPES : [row.type, ...CUSTOMER_LEDGER_TYPES];
-  const canSave = Number(amount) > 0 && !!type;
-
-  const handleSave = async () => {
-    if (!canSave || saving) return;
-    setSaving(true);
-    const { error } = await supabase.from('customer_accounting_ledger').update({
-      direction,
-      type,
-      description: description.trim() || null,
-      amount: Number(amount),
-    }).eq('id', row.id);
-    setSaving(false);
-    if (error) { onError(); return; }
-    onSaved();
-  };
-
-  return (
-    <Modal title="Edit Transaction" onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <DirectionPicker direction={direction} onChange={setDirection} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Type</label>
-            <select value={type} onChange={e => setType(e.target.value)} style={inputStyle}>
-              {typeOptions.map(t => <option key={t} value={t}>{cap(t)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Amount</label>
-            <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
-        </div>
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Changes'}
-        </button>
-      </div>
-    </Modal>
-  );
 };
 
 const ConfirmDialog: React.FC<{
@@ -1986,7 +1562,7 @@ const AccountingPage: React.FC = () => {
 
       {tab === 'cars' && <CarSheetsTab monthDate={monthDate} notify={notify} />}
       {tab === 'expenses' && <ExpensesTab monthDate={monthDate} userId={userId} notify={notify} />}
-      {tab === 'customers' && <CustomersTab userId={userId} notify={notify} />}
+      {tab === 'customers' && <CustomersMovedPanel />}
 
       <Toast toast={toast} />
     </div>

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
 import { printBookingContract } from '../lib/printContract';
+import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -1315,14 +1316,18 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const carIdNum  = Number(form.car_id);
       const usdRate   = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
       const toTRY     = (v: number) => form.fin_currency === 'USD' ? v * usdRate : v;
-      type LedgerRow = { booking_id: number; customer_id: number; car_id: number; type: string; amount: number; direction: string; description: string };
+      type LedgerRow = { booking_id: number; customer_id: number; car_id: number; type: string; amount: number; direction: string; description: string; exchange_rate_at_entry?: number };
+      // Stamp the rate that applies right now, exactly as the Customer Wallets page does.
+      // Read once per save; if it cannot be read the field is omitted rather than blocking the booking.
+      const entryRate = await fetchCurrentUsdRate();
+      const rateStamp = entryRate != null ? { exchange_rate_at_entry: entryRate } : {};
       const ledgerRows: LedgerRow[] = [];
       const rentalAmt    = parseFloat(form.fin_rental_amount);
       const depositAmt = parseFloat(form.fin_deposit);
       const paidAmt      = parseFloat(form.fin_paid_amount);
-      if (rentalAmt > 0)    ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'rental',    amount: toTRY(rentalAmt),    direction: 'OUT', description: 'Rental fee' });
-      if (depositAmt > 0) ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'deposit', amount: toTRY(depositAmt), direction: 'IN',  description: 'Deposit fee' });
-      if (paidAmt > 0)      ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'payment',   amount: toTRY(paidAmt),      direction: 'IN',  description: 'Customer payment' });
+      if (rentalAmt > 0)    ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'rental',    amount: toTRY(rentalAmt),    direction: 'OUT', description: 'Rental fee', ...rateStamp });
+      if (depositAmt > 0) ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'deposit', amount: toTRY(depositAmt), direction: 'IN',  description: 'Deposit fee', ...rateStamp });
+      if (paidAmt > 0)      ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'payment',   amount: toTRY(paidAmt),      direction: 'IN',  description: 'Customer payment', ...rateStamp });
       if (ledgerRows.length > 0) {
         const { error: ledgerError } = await supabase.from('customer_accounting_ledger').insert(ledgerRows);
         if (ledgerError) console.error('[Booking] ledger insert error:', ledgerError.message);
@@ -1399,19 +1404,24 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         { key: 'deposit',   amtField: form.fin_deposit,     direction: 'IN',  description: 'Deposit fee'      },
         { key: 'payment',   amtField: form.fin_paid_amount,   direction: 'IN',  description: 'Customer payment' },
       ];
+      // Stamp the rate that applies right now, exactly as the Customer Wallets page does.
+      // Read once per save; if it cannot be read the field is omitted rather than blocking the booking.
+      const entryRate = await fetchCurrentUsdRate();
+      const rateStamp = entryRate != null ? { exchange_rate_at_entry: entryRate } : {};
       await Promise.all(ledgerDefs.map(async ({ key, amtField, direction, description }) => {
         const amt        = parseFloat(amtField);
         const existingId = existingLedgerIds[key];
         if (existingId) {
           if (amt > 0) {
-            await supabase.from('customer_accounting_ledger').update({ amount: toTRY(amt) }).eq('id', existingId);
+            // The amount is being rewritten, so the stored rate is re-stamped to match it.
+            await supabase.from('customer_accounting_ledger').update({ amount: toTRY(amt), ...rateStamp }).eq('id', existingId);
           } else {
             await supabase.from('customer_accounting_ledger').delete().eq('id', existingId);
           }
         } else if (amt > 0) {
           await supabase.from('customer_accounting_ledger').insert({
             booking_id: editId!, customer_id: editCustomerId!, car_id: carIdNum,
-            type: key, amount: toTRY(amt), direction, description,
+            type: key, amount: toTRY(amt), direction, description, ...rateStamp,
           });
         }
       }));
