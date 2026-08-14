@@ -3,15 +3,17 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { printCustomerInvoice } from '../lib/printCustomerInvoice';
+import { useCurrency, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Direction = 'IN' | 'OUT';
 
-/** This page converts per-entry, so it deliberately does not use the global 4-currency context. */
-type WalletCurrency = 'TRY' | 'USD';
+/** Which car cards the top tabs show. */
+type RentalTab = 'all' | 'current' | 'ended';
 
-type BalanceFilter = 'all' | 'debtors' | 'credit';
+/** Minimal shape of the exchange-rate list handed over by the currency context. */
+interface RateRow { currency: string; rate_to_try: number; }
 
 type ToastState = { message: string; type: 'success' | 'error' } | null;
 
@@ -30,16 +32,35 @@ interface LedgerRow {
   cars: { plate_number: string | null } | { plate_number: string | null }[] | null;
 }
 
-interface CustomerWallet {
+/** Level 2 — one customer's ledger on ONE car. Balances are scoped to that car only. */
+interface CustomerOnCar {
   customerId: string;
   name: string;
+  /** This customer's entries on this car, newest first (the order printCustomerInvoice expects). */
   rows: LedgerRow[];
   totalIn: number;
   totalOut: number;
   balance: number;
-  /** True when at least one entry fell back to today's rate instead of its own stored rate. */
+  /** True when at least one entry could not be converted at its own stored rate. */
   approx: boolean;
+  /** True when this customer holds a currently-active booking on THIS car. */
+  live: boolean;
 }
+
+/** Level 1 — one car plate and every customer who has ledger entries against it. */
+interface CarGroup {
+  key: string;
+  carId: number | null;
+  plate: string;
+  customers: CustomerOnCar[];
+  totalIn: number;
+  totalOut: number;
+  balance: number;
+  approx: boolean;
+  hasLive: boolean;
+}
+
+const UNLINKED_KEY = '__unlinked__';
 
 interface CustomerOption { id: string; name: string; }
 
@@ -107,19 +128,26 @@ function typeLabel(t: string): string {
 
 // ─── Money & dates ────────────────────────────────────────────────────────────
 
-const CURRENCY_SYMBOL: Record<WalletCurrency, string> = { TRY: '₺', USD: '$' };
-
-/** Always 2 decimals with thousands separators — never a raw float. */
-function formatMoney(value: number, currency: WalletCurrency): string {
-  const locale = currency === 'TRY' ? 'tr-TR' : 'en-US';
-  const abs = Math.abs(value).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return CURRENCY_SYMBOL[currency] + abs;
+/**
+ * Thousands separators, never a raw float. Decimals follow the app-wide convention
+ * in CurrencyContext: 3 for LYD, 2 everywhere else.
+ */
+function formatMoney(value: number, currency: Currency): string {
+  const locale   = currency === 'TRY' ? 'tr-TR' : 'en-US';
+  const decimals = currency === 'LYD' ? 3 : 2;
+  const abs = Math.abs(value).toLocaleString(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return (CURRENCY_SYMBOLS[currency] ?? '₺') + abs;
 }
 
 /** Signed figure using a true minus sign, matching the Accounting page. */
-function formatSigned(value: number, currency: WalletCurrency): string {
+function formatSigned(value: number, currency: Currency): string {
   const sign = value < -0.005 ? '−' : value > 0.005 ? '+' : '';
   return sign + formatMoney(value, currency);
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatDateDisplay(s: string | null): string {
@@ -130,20 +158,30 @@ function formatDateDisplay(s: string | null): string {
 }
 
 /**
- * Converts one entry into the selected currency.
- * USD uses the entry's OWN stored rate; when that is missing or zero it falls back to
- * today's rate and flags the result as approximate.
+ * Converts one TRY-stored entry into the app's selected currency.
+ *
+ * USD uses the entry's OWN `exchange_rate_at_entry`, so historical rows keep the value they
+ * had when recorded; a missing rate falls back to today's and is flagged approximate.
+ * EUR/LYD have no per-entry rate stored, so they convert at today's rate — always approximate.
  */
 function convertEntry(
   row: LedgerRow,
-  currency: WalletCurrency,
-  fallbackRate: number | null,
+  currency: Currency,
+  rates: RateRow[],
+  fallbackUsdRate: number | null,
 ): { value: number; approx: boolean } {
   if (currency === 'TRY') return { value: row.amount, approx: false };
-  const stored = row.exchange_rate_at_entry;
-  if (stored != null && stored > 0) return { value: row.amount / stored, approx: false };
-  if (fallbackRate != null && fallbackRate > 0) return { value: row.amount / fallbackRate, approx: true };
-  return { value: 0, approx: true };
+
+  if (currency === 'USD') {
+    const stored = row.exchange_rate_at_entry;
+    if (stored != null && stored > 0) return { value: row.amount / stored, approx: false };
+    if (fallbackUsdRate != null && fallbackUsdRate > 0) return { value: row.amount / fallbackUsdRate, approx: true };
+    return { value: 0, approx: true };
+  }
+
+  const rate = rates.find(r => r.currency === currency)?.rate_to_try;
+  if (rate != null && rate > 0) return { value: row.amount / rate, approx: true };
+  return { value: row.amount, approx: true };
 }
 
 function customerNameOf(row: LedgerRow): string {
@@ -322,7 +360,7 @@ const SummaryPill: React.FC<{ label: string; value: string; color: string; hint?
 
 /** Marks a USD figure that had to fall back to today's rate. */
 const ApproxMark: React.FC = () => (
-  <span title="Approximate — this entry has no stored exchange rate, so today's rate was used." style={{ color: '#9ca3af', marginRight: 2 }}>≈</span>
+  <span title="Approximate — converted at today's rate rather than the rate stored on the entry." style={{ color: '#9ca3af', marginRight: 2 }}>≈</span>
 );
 
 const TypeChip: React.FC<{ type: string }> = ({ type }) => (
@@ -400,11 +438,13 @@ const AddTransactionModal: React.FC<{
   userId: string | null;
   presetCustomerId: string | null;
   presetName: string | null;
+  /** When adding from inside a car card, the booking for that car is preselected. */
+  presetCarId: number | null;
   fallbackUsdRate: number | null;
   onClose: () => void;
   onSaved: () => void;
   onError: (message: string) => void;
-}> = ({ userId, presetCustomerId, presetName, fallbackUsdRate, onClose, onSaved, onError }) => {
+}> = ({ userId, presetCustomerId, presetName, presetCarId, fallbackUsdRate, onClose, onSaved, onError }) => {
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = useState<string>(presetCustomerId ?? '');
   const [bookings, setBookings] = useState<BookingOption[]>([]);
@@ -452,11 +492,13 @@ const AddTransactionModal: React.FC<{
         plate_number: firstOf(b.cars)?.plate_number ?? null,
       }));
       setBookings(opts);
-      setBookingId(opts.length === 1 ? opts[0].id : '');
+      // Prefer this customer's booking on the car the card belongs to; otherwise the only one.
+      const onPresetCar = presetCarId != null ? opts.find(o => o.car_id === presetCarId) : undefined;
+      setBookingId(onPresetCar ? onPresetCar.id : opts.length === 1 ? opts[0].id : '');
       setLoadingBookings(false);
     })();
     return () => { active = false; };
-  }, [customerId]);
+  }, [customerId, presetCarId]);
 
   const selectedBooking = useMemo(() => bookings.find(b => b.id === bookingId) ?? null, [bookings, bookingId]);
   const canSave = !!customerId && !!selectedBooking && Number(amount) > 0 && !!type;
@@ -647,67 +689,108 @@ const EditTransactionModal: React.FC<{
   );
 };
 
-// ─── Currency toggle ──────────────────────────────────────────────────────────
+// ─── Level 3 — one customer's transaction sheet for one car ───────────────────
 
-const CurrencyToggle: React.FC<{
-  currency: WalletCurrency;
-  usdAvailable: boolean;
-  onChange: (c: WalletCurrency) => void;
-}> = ({ currency, usdAvailable, onChange }) => (
-  <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: 10, padding: 3, gap: 3 }}>
-    {(['TRY', 'USD'] as WalletCurrency[]).map(c => {
-      const on = currency === c;
-      const disabled = c === 'USD' && !usdAvailable;
-      return (
-        <button
-          key={c}
-          type="button"
-          onClick={() => !disabled && onChange(c)}
-          disabled={disabled}
-          title={disabled ? 'USD view unavailable — exchange rate not loaded' : `Show amounts in ${c}`}
-          style={{
-            height: 32, padding: '0 16px', borderRadius: 8, border: 'none',
-            background: on ? '#fff' : 'transparent',
-            color: disabled ? '#c0c4cc' : on ? '#0f1117' : '#6b7280',
-            fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            boxShadow: on ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-          }}
-        >
-          <span style={{ fontSize: 14 }}>{CURRENCY_SYMBOL[c]}</span>
-          {c}
-        </button>
-      );
-    })}
-  </div>
-);
+const TransactionSheet: React.FC<{
+  entry: CustomerOnCar;
+  currency: Currency;
+  rates: RateRow[];
+  fallbackUsdRate: number | null;
+  onEdit: (row: LedgerRow) => void;
+  onDelete: (row: LedgerRow) => void;
+}> = ({ entry, currency, rates, fallbackUsdRate, onEdit, onDelete }) => {
+  // Oldest first so the running balance reads top-to-bottom.
+  const chronological = useMemo(() => {
+    const sorted = [...entry.rows].sort((a, b) => {
+      const ta = a.created_at ? Date.parse(a.created_at) : 0;
+      const tb = b.created_at ? Date.parse(b.created_at) : 0;
+      return ta - tb;
+    });
+    let running = 0;
+    return sorted.map(row => {
+      const { value, approx } = convertEntry(row, currency, rates, fallbackUsdRate);
+      running += row.direction === 'IN' ? value : -value;
+      return { row, value, approx, running };
+    });
+  }, [entry.rows, currency, rates, fallbackUsdRate]);
 
-// ─── Customer detail ──────────────────────────────────────────────────────────
+  return (
+    <div style={{ overflowX: 'auto', borderTop: '1px solid #f0f0f0', background: '#fcfcfd' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+        <thead>
+          <tr>
+            <Th>Date</Th>
+            <Th>Type</Th>
+            <Th>Direction</Th>
+            <Th>Description</Th>
+            <Th align="right">Amount</Th>
+            <Th align="right">Balance</Th>
+            <Th align="right">Actions</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {chronological.map(({ row, value, approx, running }) => (
+            <tr key={row.id}>
+              <td style={tdStyle}>{formatDateDisplay(row.created_at)}</td>
+              <td style={tdStyle}><TypeChip type={row.type} /></td>
+              <td style={tdStyle}><DirectionBadge direction={row.direction} /></td>
+              <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{row.description || '—'}</td>
+              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: row.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
+                {approx && <ApproxMark />}
+                {row.direction === 'IN' ? '+' : '−'}{formatMoney(value, currency)}
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: balanceColor(running) }}>
+                {formatSigned(running, currency)}
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'right' }}>
+                <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button type="button" onClick={() => onEdit(row)} title="Edit" style={rowActionBtn}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <button type="button" onClick={() => onDelete(row)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
-const CustomerDetail: React.FC<{
-  wallet: CustomerWallet;
-  currency: WalletCurrency;
-  usdRate: number | null;
-  onBack: () => void;
+// ─── Level 2 — a customer row inside a car card ───────────────────────────────
+
+const CustomerRow: React.FC<{
+  entry: CustomerOnCar;
+  currency: Currency;
+  rates: RateRow[];
+  fallbackUsdRate: number | null;
+  open: boolean;
+  onToggle: () => void;
   onAdd: () => void;
   onEdit: (row: LedgerRow) => void;
   onDelete: (row: LedgerRow) => void;
   onError: (message: string) => void;
-}> = ({ wallet, currency, usdRate, onBack, onAdd, onEdit, onDelete, onError }) => {
+}> = ({ entry, currency, rates, fallbackUsdRate, open, onToggle, onAdd, onEdit, onDelete, onError }) => {
   const [printing, setPrinting] = useState(false);
 
   /**
-   * The invoice lib resolves the customer and vehicle itself and applies its own
-   * ADMIN-matching sign convention (balance = charged − paid). It expects entries in
-   * created_at DESC order, which is how `wallet.rows` arrives from the query.
+   * The invoice lib resolves customer and vehicle itself and applies its own ADMIN-matching
+   * sign convention. It expects entries newest-first, which is how `entry.rows` is built —
+   * and because those rows are already scoped to this car, the invoice covers this car only.
    */
   const handlePrintInvoice = async () => {
     if (printing) return;
     setPrinting(true);
     await printCustomerInvoice(
-      wallet.customerId,
-      wallet.rows.map(row => ({
+      entry.customerId,
+      entry.rows.map(row => ({
         created_at:  row.created_at,
         type:        row.type,
         description: row.description,
@@ -720,165 +803,189 @@ const CustomerDetail: React.FC<{
     setPrinting(false);
   };
 
-  // Oldest first so the running balance reads top-to-bottom.
-  const chronological = useMemo(() => {
-    const sorted = [...wallet.rows].sort((a, b) => {
-      const ta = a.created_at ? Date.parse(a.created_at) : 0;
-      const tb = b.created_at ? Date.parse(b.created_at) : 0;
-      return ta - tb;
-    });
-    let running = 0;
-    return sorted.map(row => {
-      const { value, approx } = convertEntry(row, currency, usdRate);
-      const signedValue = row.direction === 'IN' ? value : -value;
-      running += signedValue;
-      return { row, value, approx, running };
-    });
-  }, [wallet.rows, currency, usdRate]);
-
   return (
-    <div>
-      <button
-        type="button"
-        onClick={onBack}
-        style={{
-          height: 34, padding: '0 12px 0 8px', borderRadius: 9, border: '1px solid #e5e7eb',
-          background: '#fff', color: '#4b5563', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 16,
-        }}
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        All wallets
-      </button>
+    <div style={{ borderTop: '1px solid #f0f0f0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', flexWrap: 'wrap' }}>
+        <div
+          role="button"
+          onClick={onToggle}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 180 }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 140ms', color: '#9ca3af', flexShrink: 0 }}>
+            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+              {entry.live && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800,
+                  color: COLOR_IN, background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '2px 8px',
+                  textTransform: 'uppercase', letterSpacing: '0.5px',
+                }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: COLOR_IN }} />
+                  Live
+                </span>
+              )}
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117' }}>{entry.name}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
+              {entry.rows.length} {entry.rows.length === 1 ? 'entry' : 'entries'} · In {formatMoney(entry.totalIn, currency)} · Out {formatMoney(entry.totalOut, currency)}
+            </div>
+          </div>
+        </div>
 
-      {/* Balance header */}
-      <div style={{ ...cardStyle, padding: '20px 22px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 19, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{wallet.name}</div>
-          <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3 }}>
-            {wallet.rows.length} {wallet.rows.length === 1 ? 'entry' : 'entries'} · In {formatMoney(wallet.totalIn, currency)} · Out {formatMoney(wallet.totalOut, currency)}
+        <div style={{ textAlign: 'right', minWidth: 110 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 800, color: balanceColor(entry.balance) }}>
+            {entry.approx && <ApproxMark />}
+            {formatSigned(entry.balance, currency)}
+          </div>
+          <div style={{ fontSize: 11, color: '#9ca3af' }}>
+            {entry.balance < -0.005 ? 'Owes us' : entry.balance > 0.005 ? 'In credit' : 'Settled'}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-            Balance
-          </div>
-          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: balanceColor(wallet.balance), lineHeight: 1.15 }}>
-            {wallet.approx && <ApproxMark />}
-            {formatSigned(wallet.balance, currency)}
-          </div>
-          <div style={{ fontSize: 12, color: '#9ca3af' }}>
-            {wallet.balance < -0.005 ? 'Owes us' : wallet.balance > 0.005 ? 'In credit' : 'Settled'}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+
+        <div style={{ display: 'inline-flex', gap: 6 }}>
           <button
-            type="button"
-            onClick={handlePrintInvoice}
-            disabled={printing}
-            title="Print an invoice for this customer"
+            type="button" onClick={onAdd} title="Add a transaction for this customer on this car"
             style={{
-              height: 42, padding: '0 16px', borderRadius: 10, cursor: printing ? 'wait' : 'pointer',
-              fontFamily: 'inherit', fontSize: 14, fontWeight: 600, color: '#4b5563',
-              background: '#fff', border: '1px solid #e5e7eb',
-              display: 'inline-flex', alignItems: 'center', gap: 7, opacity: printing ? 0.6 : 1,
+              height: 32, padding: '0 11px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 12.5, fontWeight: 600, color: '#2e8fd4', background: 'rgba(75,166,234,0.08)',
+              border: '1px solid rgba(75,166,234,0.35)', display: 'inline-flex', alignItems: 'center', gap: 5,
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+            Add transaction
+          </button>
+          <button
+            type="button" onClick={handlePrintInvoice} disabled={printing}
+            title="Print an invoice for this customer on this car"
+            style={{
+              height: 32, padding: '0 11px', borderRadius: 9, cursor: printing ? 'wait' : 'pointer',
+              fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: '#4b5563', background: '#fff',
+              border: '1px solid #e5e7eb', display: 'inline-flex', alignItems: 'center', gap: 5,
+              opacity: printing ? 0.6 : 1,
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
               <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {printing ? 'Preparing…' : 'Print Invoice'}
-          </button>
-          <button type="button" style={primaryBtn} onClick={onAdd}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-            Add Transaction
+            {printing ? 'Preparing…' : 'Print invoice'}
           </button>
         </div>
       </div>
 
-      {/* Ledger */}
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
-            <thead>
-              <tr>
-                <Th>Date</Th>
-                <Th>Type</Th>
-                <Th>Direction</Th>
-                <Th>Description</Th>
-                <Th>Booking</Th>
-                <Th align="right">Amount</Th>
-                <Th align="right">Balance</Th>
-                <Th align="right">Actions</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {chronological.map(({ row, value, approx, running }) => (
-                <tr key={row.id}>
-                  <td style={tdStyle}>{formatDateDisplay(row.created_at)}</td>
-                  <td style={tdStyle}><TypeChip type={row.type} /></td>
-                  <td style={tdStyle}><DirectionBadge direction={row.direction} /></td>
-                  <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{row.description || '—'}</td>
-                  <td style={tdStyle}>
-                    {row.booking_id != null ? (
-                      <span style={{ color: '#4b5563' }}>
-                        #{row.booking_id}
-                        {firstOf(row.cars)?.plate_number
-                          ? <span style={{ color: '#9ca3af' }}> · {firstOf(row.cars)?.plate_number}</span>
-                          : null}
-                      </span>
-                    ) : <span style={{ color: '#d1d5db' }}>—</span>}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: row.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                    {approx && <ApproxMark />}
-                    {row.direction === 'IN' ? '+' : '−'}{formatMoney(value, currency)}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: balanceColor(running) }}>
-                    {formatSigned(running, currency)}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                      <button type="button" onClick={() => onEdit(row)} title="Edit" style={rowActionBtn}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                      <button type="button" onClick={() => onDelete(row)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                          <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {open && (
+        <TransactionSheet
+          entry={entry}
+          currency={currency}
+          rates={rates}
+          fallbackUsdRate={fallbackUsdRate}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      )}
     </div>
   );
 };
 
+// ─── Level 1 — a car card ─────────────────────────────────────────────────────
+
+const CarCard: React.FC<{
+  car: CarGroup;
+  currency: Currency;
+  rates: RateRow[];
+  fallbackUsdRate: number | null;
+  isOpen: (customerId: string) => boolean;
+  onToggle: (customerId: string) => void;
+  onAdd: (customer: CustomerOnCar) => void;
+  onEdit: (row: LedgerRow) => void;
+  onDelete: (row: LedgerRow) => void;
+  onError: (message: string) => void;
+}> = ({ car, currency, rates, fallbackUsdRate, isOpen, onToggle, onAdd, onEdit, onDelete, onError }) => (
+  <div style={{ ...cardStyle, overflow: 'hidden' }}>
+    {/* Car header */}
+    <div style={{ padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 9, background: '#f3f4f6', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280',
+        }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <rect x="9" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
+            <circle cx="12" cy="16" r="1.2" fill="currentColor" />
+            <circle cx="20" cy="16" r="1.2" fill="currentColor" />
+          </svg>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.2px' }}>{car.plate}</span>
+            {car.hasLive && (
+              <span style={{
+                fontSize: 10, fontWeight: 800, color: COLOR_IN, background: 'rgba(22,163,74,0.12)',
+                borderRadius: 20, padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.5px',
+              }}>
+                On rent
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
+            {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+          Car balance
+        </div>
+        <div style={{ fontSize: 19, fontWeight: 800, color: balanceColor(car.balance) }}>
+          {car.approx && <ApproxMark />}
+          {formatSigned(car.balance, currency)}
+        </div>
+      </div>
+    </div>
+
+    {/* Customer rows */}
+    {car.customers.map(entry => (
+      <CustomerRow
+        key={entry.customerId}
+        entry={entry}
+        currency={currency}
+        rates={rates}
+        fallbackUsdRate={fallbackUsdRate}
+        open={isOpen(entry.customerId)}
+        onToggle={() => onToggle(entry.customerId)}
+        onAdd={() => onAdd(entry)}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onError={onError}
+      />
+    ))}
+  </div>
+);
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const CustomerWalletsPage: React.FC = () => {
+  const { currency, rates } = useCurrency();
+
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  /** `${car_id}:${customer_id}` for every currently-active booking. */
+  const [liveKeys, setLiveKeys] = useState<Set<string>>(new Set());
 
-  const [currency, setCurrency] = useState<WalletCurrency>('TRY');
+  const [tab, setTab] = useState<RentalTab>('all');
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<BalanceFilter>('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const [addFor, setAddFor] = useState<{ customerId: string | null; name: string | null } | null>(null);
+  const [addFor, setAddFor] = useState<{ customerId: string | null; name: string | null; carId: number | null } | null>(null);
   const [editRow, setEditRow] = useState<LedgerRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LedgerRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -915,51 +1022,109 @@ const CustomerWalletsPage: React.FC = () => {
     return () => { active = false; };
   }, []);
 
-  // Group into wallets and convert into the selected currency.
-  const wallets = useMemo<CustomerWallet[]>(() => {
-    const map = new Map<string, CustomerWallet>();
+  // A rental is live when a confirmed booking spans today — matched on car AND customer,
+  // so a customer is only "live" on the specific car they currently hold.
+  useEffect(() => {
+    let active = true;
+    const today = todayStr();
+    supabase
+      .from('bookings')
+      .select('car_id, customer_id')
+      .eq('status', 'confirmed')
+      .lte('start_date', today)
+      .gte('end_date', today)
+      .then(({ data }) => {
+        if (!active || !data) return;
+        const keys = new Set<string>();
+        for (const b of data as { car_id: number | null; customer_id: string | null }[]) {
+          if (b.car_id != null && b.customer_id) keys.add(`${b.car_id}:${b.customer_id}`);
+        }
+        setLiveKeys(keys);
+      });
+    return () => { active = false; };
+  }, []);
+
+  // Group: car → customer → entries. Balances are scoped to the (car, customer) pair.
+  const cars = useMemo<CarGroup[]>(() => {
+    const byCar = new Map<string, CarGroup>();
+
     for (const row of rows) {
-      let wallet = map.get(row.customer_id);
-      if (!wallet) {
-        wallet = { customerId: row.customer_id, name: customerNameOf(row), rows: [], totalIn: 0, totalOut: 0, balance: 0, approx: false };
-        map.set(row.customer_id, wallet);
+      const plate = firstOf(row.cars)?.plate_number ?? null;
+      const linked = row.car_id != null && !!plate;
+      const key = linked ? String(row.car_id) : UNLINKED_KEY;
+
+      let car = byCar.get(key);
+      if (!car) {
+        car = {
+          key,
+          carId: linked ? row.car_id : null,
+          plate: linked ? plate! : 'Unlinked to a car',
+          customers: [], totalIn: 0, totalOut: 0, balance: 0, approx: false, hasLive: false,
+        };
+        byCar.set(key, car);
       }
-      wallet.rows.push(row);
-      const { value, approx } = convertEntry(row, currency, usdRate);
-      if (row.direction === 'IN') wallet.totalIn += value; else wallet.totalOut += value;
-      if (approx) wallet.approx = true;
+
+      let entry = car.customers.find(c => c.customerId === row.customer_id);
+      if (!entry) {
+        entry = {
+          customerId: row.customer_id,
+          name: customerNameOf(row),
+          rows: [], totalIn: 0, totalOut: 0, balance: 0, approx: false,
+          live: linked && liveKeys.has(`${row.car_id}:${row.customer_id}`),
+        };
+        car.customers.push(entry);
+      }
+
+      entry.rows.push(row);
+      const { value, approx } = convertEntry(row, currency, rates, usdRate);
+      if (row.direction === 'IN') entry.totalIn += value; else entry.totalOut += value;
+      if (approx) entry.approx = true;
     }
-    const list = Array.from(map.values());
-    for (const wallet of list) wallet.balance = wallet.totalIn - wallet.totalOut;
-    // Biggest debtors first — this page exists to surface who owes money.
-    return list.sort((a, b) => a.balance - b.balance || a.name.localeCompare(b.name));
-  }, [rows, currency, usdRate]);
+
+    const list = Array.from(byCar.values());
+    for (const car of list) {
+      for (const entry of car.customers) {
+        entry.balance = entry.totalIn - entry.totalOut;
+        car.totalIn += entry.totalIn;
+        car.totalOut += entry.totalOut;
+        if (entry.approx) car.approx = true;
+        if (entry.live) car.hasLive = true;
+      }
+      car.balance = car.totalIn - car.totalOut;
+      // Live customers first, then biggest debtor.
+      car.customers.sort((a, b) => Number(b.live) - Number(a.live) || a.balance - b.balance || a.name.localeCompare(b.name));
+    }
+
+    // Live cars first, then by plate; the unlinked bucket always sits last.
+    return list.sort((a, b) => {
+      if (a.key === UNLINKED_KEY) return 1;
+      if (b.key === UNLINKED_KEY) return -1;
+      return Number(b.hasLive) - Number(a.hasLive) || a.plate.localeCompare(b.plate);
+    });
+  }, [rows, currency, rates, usdRate, liveKeys]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return wallets.filter(w => {
-      if (filter === 'debtors' && !(w.balance < -0.005)) return false;
-      if (filter === 'credit' && !(w.balance > 0.005)) return false;
+    return cars.filter(car => {
+      if (tab === 'current' && !car.hasLive) return false;
+      if (tab === 'ended' && car.hasLive) return false;
       if (!q) return true;
-      // Name, or any plate appearing on one of this customer's entries (same as the old tab).
-      return w.name.toLowerCase().includes(q)
-        || w.rows.some(r => (firstOf(r.cars)?.plate_number || '').toLowerCase().includes(q));
+      return car.plate.toLowerCase().includes(q)
+        || car.customers.some(c => c.name.toLowerCase().includes(q));
     });
-  }, [wallets, search, filter]);
+  }, [cars, search, tab]);
 
+  // Pills reflect what is on screen, and count per (customer, car) since that is the balance unit.
   const totals = useMemo(() => {
     let owed = 0, credit = 0, debtors = 0, inCredit = 0;
-    for (const w of wallets) {
-      if (w.balance < -0.005) { owed += -w.balance; debtors++; }
-      else if (w.balance > 0.005) { credit += w.balance; inCredit++; }
+    for (const car of filtered) {
+      for (const entry of car.customers) {
+        if (entry.balance < -0.005) { owed += -entry.balance; debtors++; }
+        else if (entry.balance > 0.005) { credit += entry.balance; inCredit++; }
+      }
     }
     return { owed, credit, debtors, inCredit, net: credit - owed };
-  }, [wallets]);
-
-  const selected = useMemo(
-    () => (selectedId ? wallets.find(w => w.customerId === selectedId) ?? null : null),
-    [wallets, selectedId],
-  );
+  }, [filtered]);
 
   const handleDelete = async () => {
     if (!deleteTarget || deleting) return;
@@ -972,49 +1137,70 @@ const CustomerWalletsPage: React.FC = () => {
     await load();
   };
 
-  const FILTERS: { key: BalanceFilter; label: string }[] = [
+  const TABS: { key: RentalTab; label: string }[] = [
     { key: 'all',     label: 'All' },
-    { key: 'debtors', label: 'Debtors only' },
-    { key: 'credit',  label: 'In credit' },
+    { key: 'current', label: 'Current rentals' },
+    { key: 'ended',   label: 'Ended rentals' },
   ];
 
   return (
     <div style={{ padding: '24px 32px', background: '#fafafa', minHeight: '100vh' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117' }}>Customer Wallets</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>
-            Every customer&apos;s balance — charges owed against payments and deposits received.
-          </p>
-        </div>
-        <CurrencyToggle currency={currency} usdAvailable={usdRate != null} onChange={setCurrency} />
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117' }}>Customer Wallets</h1>
+        <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>
+          Balances per car and customer — charges owed against payments and deposits received.
+        </p>
       </div>
 
-      {currency === 'USD' && (
-        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14, marginTop: -6 }}>
-          Each entry is converted with the rate stored on it. {' '}
-          <span style={{ color: '#6b7280' }}>≈</span> marks entries converted at today&apos;s rate because none was stored.
-        </div>
-      )}
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 18, borderBottom: '1px solid #ebebeb', flexWrap: 'wrap' }}>
+        {TABS.map(t => {
+          const on = tab === t.key;
+          return (
+            <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
+              padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#2e8fd4' : '#6b7280',
+              borderBottom: on ? '2px solid #4ba6ea' : '2px solid transparent', marginBottom: -1,
+            }}>{t.label}</button>
+          );
+        })}
+      </div>
 
       {/* Summary */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <SummaryPill
           label="Owed to us" color={COLOR_OUT}
           value={formatMoney(totals.owed, currency)}
-          hint={`${totals.debtors} ${totals.debtors === 1 ? 'debtor' : 'debtors'}`}
+          hint={`${totals.debtors} ${totals.debtors === 1 ? 'balance' : 'balances'}`}
         />
         <SummaryPill
           label="In credit" color={COLOR_IN}
           value={formatMoney(totals.credit, currency)}
-          hint={`${totals.inCredit} ${totals.inCredit === 1 ? 'customer' : 'customers'}`}
+          hint={`${totals.inCredit} ${totals.inCredit === 1 ? 'balance' : 'balances'}`}
         />
         <SummaryPill
           label="Net position" color={balanceColor(totals.net)}
           value={formatSigned(totals.net, currency)}
-          hint={`${wallets.length} ${wallets.length === 1 ? 'wallet' : 'wallets'}`}
+          hint={`${filtered.length} ${filtered.length === 1 ? 'car' : 'cars'}`}
         />
+      </div>
+
+      {/* Search + add */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search plate or customer…"
+          style={{ ...inputStyle, maxWidth: 320 }}
+        />
+        <div style={{ flex: 1 }} />
+        <button type="button" style={primaryBtn} onClick={() => setAddFor({ customerId: null, name: null, carId: null })}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+          Add Transaction
+        </button>
       </div>
 
       {loadError ? (
@@ -1023,105 +1209,35 @@ const CustomerWalletsPage: React.FC = () => {
         </div>
       ) : loading ? (
         <div style={cardStyle}><Spinner /></div>
-      ) : selected ? (
-        <CustomerDetail
-          wallet={selected}
-          currency={currency}
-          usdRate={usdRate}
-          onBack={() => setSelectedId(null)}
-          onAdd={() => setAddFor({ customerId: selected.customerId, name: selected.name })}
-          onEdit={setEditRow}
-          onDelete={setDeleteTarget}
-          onError={message => notify({ message, type: 'error' })}
-        />
+      ) : filtered.length === 0 ? (
+        <div style={cardStyle}>
+          <EmptyState label={
+            cars.length === 0
+              ? 'No customer ledger entries yet.'
+              : 'No cars match this search or tab.'
+          } />
+        </div>
       ) : (
-        <>
-          {/* Search + filter + add */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search customer or plate…"
-              style={{ ...inputStyle, maxWidth: 320 }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {filtered.map(car => (
+            <CarCard
+              key={car.key}
+              car={car}
+              currency={currency}
+              rates={rates}
+              fallbackUsdRate={usdRate}
+              isOpen={customerId => !!expanded[`${car.key}:${customerId}`]}
+              onToggle={customerId => setExpanded(prev => ({
+                ...prev,
+                [`${car.key}:${customerId}`]: !prev[`${car.key}:${customerId}`],
+              }))}
+              onAdd={entry => setAddFor({ customerId: entry.customerId, name: entry.name, carId: car.carId })}
+              onEdit={setEditRow}
+              onDelete={setDeleteTarget}
+              onError={message => notify({ message, type: 'error' })}
             />
-            <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: 10, padding: 3, gap: 3 }}>
-              {FILTERS.map(f => {
-                const on = filter === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => setFilter(f.key)}
-                    style={{
-                      height: 32, padding: '0 14px', borderRadius: 8, border: 'none',
-                      background: on ? '#fff' : 'transparent',
-                      color: on ? '#0f1117' : '#6b7280',
-                      fontSize: 13, fontWeight: on ? 700 : 500, fontFamily: 'inherit', cursor: 'pointer',
-                      boxShadow: on ? '0 1px 3px rgba(0,0,0,0.09)' : 'none',
-                    }}
-                  >{f.label}</button>
-                );
-              })}
-            </div>
-            <div style={{ flex: 1 }} />
-            <button type="button" style={primaryBtn} onClick={() => setAddFor({ customerId: null, name: null })}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
-              Add Transaction
-            </button>
-          </div>
-
-          {filtered.length === 0 ? (
-            <div style={cardStyle}>
-              <EmptyState label={
-                wallets.length === 0
-                  ? 'No customer ledger entries yet.'
-                  : 'No customers match this search or filter.'
-              } />
-            </div>
-          ) : (
-            <div style={{ ...cardStyle, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-                  <thead>
-                    <tr>
-                      <Th>Customer</Th>
-                      <Th align="right">Entries</Th>
-                      <Th align="right">Total in</Th>
-                      <Th align="right">Total out</Th>
-                      <Th align="right">Balance</Th>
-                      <Th align="right">Status</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(w => (
-                      <tr
-                        key={w.customerId}
-                        onClick={() => setSelectedId(w.customerId)}
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = '#fafafa'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'; }}
-                      >
-                        <td style={{ ...tdStyle, fontWeight: 600 }}>{w.name}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: '#9ca3af' }}>{w.rows.length}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: COLOR_IN }}>{formatMoney(w.totalIn, currency)}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: COLOR_OUT }}>{formatMoney(w.totalOut, currency)}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 800, fontSize: 14, color: balanceColor(w.balance) }}>
-                          {w.approx && <ApproxMark />}
-                          {formatSigned(w.balance, currency)}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: '#9ca3af', fontSize: 12.5 }}>
-                          {w.balance < -0.005 ? 'Owes us' : w.balance > 0.005 ? 'In credit' : 'Settled'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
       {addFor && (
@@ -1129,6 +1245,7 @@ const CustomerWalletsPage: React.FC = () => {
           userId={userId}
           presetCustomerId={addFor.customerId}
           presetName={addFor.name}
+          presetCarId={addFor.carId}
           fallbackUsdRate={usdRate}
           onClose={() => setAddFor(null)}
           onSaved={async () => { setAddFor(null); notify({ message: 'Transaction added', type: 'success' }); await load(); }}
@@ -1148,7 +1265,7 @@ const CustomerWalletsPage: React.FC = () => {
       {deleteTarget && (
         <ConfirmDialog
           title="Delete transaction?"
-          message="This ledger entry will be permanently removed and the customer's balance will be recalculated. This cannot be undone."
+          message="This ledger entry will be permanently removed and the balance will be recalculated. This cannot be undone."
           confirmLabel="Delete"
           busy={deleting}
           onConfirm={handleDelete}
