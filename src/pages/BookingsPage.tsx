@@ -730,6 +730,7 @@ type BookingFormData = {
   additional_services: string;
   // Customer fields (add mode only)
   cust_id_type: 'passport' | 'national_id';
+  cust_language: CustomerLanguage;
   cust_id_number: string;
   cust_first_name: string;
   cust_last_name: string;
@@ -748,12 +749,26 @@ type BookingFormData = {
   fin_paid_amount: string;
 };
 
+/** Mirrors the customers_language_check constraint: only these three values are accepted. */
+type CustomerLanguage = 'ar' | 'tr' | 'en';
+
+const CUSTOMER_LANGUAGES: { value: CustomerLanguage; label: string }[] = [
+  { value: 'ar', label: 'Arabic' },
+  { value: 'tr', label: 'Turkish' },
+  { value: 'en', label: 'English' },
+];
+
+/** Falls back to the column default for anything unrecognised. */
+const toCustomerLanguage = (v: unknown): CustomerLanguage =>
+  (v === 'tr' || v === 'en' || v === 'ar') ? v : 'ar';
+
 const EMPTY_FORM: BookingFormData = {
   booking_number: '', status: 'pending', car_id: '',
   start_date: '', end_date: '',
   pickup_location: '', dropoff_location: '', km_at_delivery: '', fuel_at_delivery: '',
   insurance_type: '', additional_services: '',
   cust_id_type: 'passport', cust_id_number: '',
+  cust_language: 'ar',
   cust_first_name: '', cust_last_name: '',
   cust_phone_dial: '+90', cust_phone: '',
   cust_nationality: '',
@@ -1065,6 +1080,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           id_photo_url: string | null; id_photo_back_url: string | null;
           driving_license_photo_url: string | null; driving_license_back_url: string | null;
           entry_stamp_photo_url: string | null;
+          language: string | null;
         };
         setForm(f => ({
           ...f,
@@ -1073,6 +1089,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
           cust_phone:                  parseStoredPhone(c.phone ?? '').local,
           cust_nationality:            c.nationality ?? '',
+          cust_language:               toCustomerLanguage(c.language),
           cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
           cust_id_number:              c.id_number ?? '',
           cust_driving_license_number: c.driving_license_number ?? '',
@@ -1168,6 +1185,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       id_photo_url: string | null; id_photo_back_url: string | null;
       driving_license_photo_url: string | null; driving_license_back_url: string | null;
       entry_stamp_photo_url: string | null;
+      language: string | null;
     };
     setForm(f => ({
       ...f,
@@ -1176,6 +1194,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
       cust_phone:                  parseStoredPhone(c.phone ?? '').local,
       cust_nationality:            c.nationality ?? '',
+      cust_language:               toCustomerLanguage(c.language),
       cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
       cust_driving_license_number: c.driving_license_number ?? '',
       cust_license_issue_date:     c.license_issue_date ?? '',
@@ -1250,6 +1269,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           last_name:           form.cust_last_name,
           phone:               phone,
           nationality:         form.cust_nationality        || null,
+          language:            form.cust_language,
           driving_license_number: form.cust_driving_license_number || null,
           license_issue_date:  form.cust_license_issue_date || null,
           address:             form.cust_address            || null,
@@ -1377,6 +1397,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             last_name:               form.cust_last_name,
             phone,
             nationality:             form.cust_nationality            || null,
+            language:                form.cust_language,
             id_type:                 form.cust_id_type,
             id_number:               form.cust_id_number              || null,
             driving_license_number:  form.cust_driving_license_number || null,
@@ -1877,6 +1898,19 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 </Field>
                 </div>
 
+                <Field label="Language">
+                  <select value={form.cust_language}
+                    onChange={e => set('cust_language', e.target.value as CustomerLanguage)}
+                    style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
+                    {CUSTOMER_LANGUAGES.map(l => (
+                      <option key={l.value} value={l.value}>{l.label}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                    Used for WhatsApp messages sent to this customer.
+                  </div>
+                </Field>
+
                 {/* Row 5: Birth Date | Address */}
                 <Field label="Birth Date">
                   <input type="date" value={form.cust_birth_date}
@@ -2246,6 +2280,7 @@ const BookingsPage: React.FC = () => {
     additional_services: b.additional_services ?? '',
     // Customer fields unused in edit mode — provide empty defaults
     cust_id_type: 'passport', cust_id_number: '',
+    cust_language: 'ar',
     cust_first_name: '', cust_last_name: '',
     cust_phone_dial: '+90', cust_phone: '',
     cust_nationality: '',
