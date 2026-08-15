@@ -1,13 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { Outlet } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import Sidebar from './Sidebar';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
 
-const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
-  ReactDOM.createPortal(
+const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) => {
+  const { t } = useTranslation('common');
+  return ReactDOM.createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(15,17,23,0.5)', backdropFilter: 'blur(4px)',
@@ -35,10 +37,15 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
         </div>
 
         <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>
-          Still there?
+          {t('inactivity.title')}
         </div>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-          You will be logged out in <strong style={{ color: '#0f1117' }}>30 seconds</strong> due to inactivity.
+          <Trans
+            t={t}
+            i18nKey="inactivity.message"
+            values={{ seconds: 30 }}
+            components={{ b: <strong style={{ color: '#0f1117' }} /> }}
+          />
         </div>
 
         <button
@@ -52,7 +59,7 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3b96da'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
         >
-          Stay logged in
+          {t('inactivity.stay')}
         </button>
       </div>
 
@@ -63,6 +70,7 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) =>
     </div>,
     document.body,
   );
+};
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 

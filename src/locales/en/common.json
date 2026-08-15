@@ -1,0 +1,19 @@
+{
+  "inactivity": {
+    "title": "Still there?",
+    "message": "You will be logged out in <b>{{seconds}} seconds</b> due to inactivity.",
+    "stay": "Stay logged in"
+  },
+  "alerts": {
+    "total": "{{count}} total",
+    "upcoming": "{{count}} upcoming",
+    "empty": "No upcoming items",
+    "viewAll": "View all {{count}}",
+    "showingAll": "Showing all",
+    "today": "Today",
+    "daysShort": "{{count}}d"
+  },
+  "actions": {
+    "close": "Close"
+  }
+}

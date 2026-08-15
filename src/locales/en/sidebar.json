@@ -1,0 +1,34 @@
+{
+  "sections": {
+    "main": "Main",
+    "fleet": "Fleet",
+    "operations": "Operations"
+  },
+  "nav": {
+    "bookings": "Bookings",
+    "calendar": "Calendar",
+    "cars": "Cars",
+    "carTracking": "Car Tracking",
+    "modelGroups": "Model Groups",
+    "operations": "Operations",
+    "kgm": "KGM Tolls",
+    "fines": "Fines",
+    "customerWallets": "Customer Wallets",
+    "accounting": "Accounting"
+  },
+  "currency": {
+    "label": "Currency",
+    "switchHint": "Currency: {{currency}} — click to switch"
+  },
+  "language": {
+    "label": "Language",
+    "switchHint": "Language: {{language}} — click to switch",
+    "en": "English",
+    "ar": "العربية",
+    "enShort": "EN",
+    "arShort": "AR"
+  },
+  "collapse": "Collapse sidebar",
+  "expand": "Expand sidebar",
+  "signOut": "Sign out"
+}

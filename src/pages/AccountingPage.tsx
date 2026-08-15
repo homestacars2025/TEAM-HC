@@ -40,6 +40,7 @@ interface CarTxn {
   month_key: string;
   note: string | null;
   created_at: string;
+  receipt_url: string | null;
 }
 
 interface CompanyExpense {
@@ -128,6 +129,44 @@ async function uploadReceipt(bucket: string, file: File): Promise<string | null>
   const { error } = await supabase.storage.from(bucket).upload(fileName, file, { upsert: true });
   if (error) return null;
   const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+  return data.publicUrl;
+}
+
+// ─── Car transaction receipts ────────────────────────────────────────────────
+
+const RECEIPT_BUCKET = 'transaction-receipts';
+const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
+const RECEIPT_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+
+function isPdfUrl(url: string): boolean {
+  return url.split('?')[0].toLowerCase().endsWith('.pdf');
+}
+
+/** Lowercase, no spaces — safe as a storage folder name. */
+function slugForPath(s: string): string {
+  const slug = (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug || 'unknown';
+}
+
+function randomId(): string {
+  const c = globalThis.crypto as Crypto | undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Uploads to `transaction-receipts` and returns the public URL. Throws on failure. */
+async function uploadTransactionReceipt(carKey: string, file: File): Promise<string> {
+  const nameExt = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : '';
+  const ext = /^[a-z0-9]{1,5}$/.test(nameExt)
+    ? nameExt
+    : (file.type === 'application/pdf' ? 'pdf' : 'jpg');
+  const path = `${slugForPath(carKey)}/${randomId()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(RECEIPT_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (error) throw new Error(error.message);
+  const { data } = supabase.storage.from(RECEIPT_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -275,6 +314,13 @@ const CarSheetsTab: React.FC<{
   const [editTxn, setEditTxn] = useState<CarTxn | null>(null);
   const [deleteTxn, setDeleteTxn] = useState<CarTxn | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewReceipt, setViewReceipt] = useState<string | null>(null);
+
+  // PDFs open in a new tab; images open in the lightbox.
+  const openReceipt = (url: string) => {
+    if (isPdfUrl(url)) window.open(url, '_blank', 'noopener,noreferrer');
+    else setViewReceipt(url);
+  };
 
   const loadTxns = useCallback(async () => {
     setLoading(true);
@@ -283,7 +329,23 @@ const CarSheetsTab: React.FC<{
       .select('id, car_id, plate_number, model_name, category, amount, direction, date, month_key, note, created_at')
       .eq('month_key', monthKey)
       .order('date', { ascending: false });
-    setTxns((data ?? []) as CarTxn[]);
+    const rows = (data ?? []).map((r: any) => ({ ...r, receipt_url: null })) as CarTxn[];
+
+    // The view doesn't carry receipt_url, so pull just (id, receipt_url) from the
+    // underlying table for the rows we already have. No investor/commission field
+    // is ever requested, and no row outside the view is ever fetched.
+    if (rows.length > 0) {
+      const { data: receipts } = await supabase
+        .from('financial_transactions')
+        .select('id, receipt_url')
+        .in('id', rows.map(r => r.id));
+      if (receipts) {
+        const byId = new Map<number, string | null>(receipts.map((r: any) => [r.id, r.receipt_url ?? null]));
+        for (const row of rows) row.receipt_url = byId.get(row.id) ?? null;
+      }
+    }
+
+    setTxns(rows);
     setLoading(false);
   }, [monthKey]);
 
@@ -431,10 +493,10 @@ const CarSheetsTab: React.FC<{
           ) : carTxns.length === 0 ? (
             <EmptyState label="No transactions for this car this month." />
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
               <thead>
                 <tr>
-                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Note</Th><Th align="right">Amount</Th><Th align="right">Actions</Th>
+                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Note</Th><Th>Receipt</Th><Th align="right">Amount</Th><Th align="right">Actions</Th>
                 </tr>
               </thead>
               <tbody>
@@ -444,6 +506,11 @@ const CarSheetsTab: React.FC<{
                     <td style={tdStyle}><DirectionBadge direction={t.direction} /></td>
                     <td style={tdStyle}>{t.category || '—'}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{t.note || '—'}</td>
+                    <td style={tdStyle}>
+                      {t.receipt_url
+                        ? <ReceiptChip url={t.receipt_url} onOpen={() => openReceipt(t.receipt_url!)} />
+                        : <span style={{ color: '#d1d5db' }}>—</span>}
+                    </td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: t.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       {t.direction === 'IN' ? '+' : '−'}{fmt(t.amount)}
                     </td>
@@ -474,10 +541,12 @@ const CarSheetsTab: React.FC<{
           cars={cars}
           defaultCarId={selectedCarId}
           onClose={() => setShowAdd(false)}
-          onSaved={async (carId) => {
+          onSaved={async (carId, warning) => {
             setShowAdd(false);
             setSelectedCarId(carId);
-            notify({ message: 'Transaction added', type: 'success' });
+            notify(warning
+              ? { message: warning, type: 'error' }
+              : { message: 'Transaction added', type: 'success' });
             await loadTxns();
           }}
           onError={() => notify({ message: 'Could not save transaction', type: 'error' })}
@@ -487,10 +556,17 @@ const CarSheetsTab: React.FC<{
         <EditCarTxnModal
           txn={editTxn}
           onClose={() => setEditTxn(null)}
-          onSaved={async () => { setEditTxn(null); notify({ message: 'Transaction updated', type: 'success' }); await loadTxns(); }}
+          onSaved={async (warning) => {
+            setEditTxn(null);
+            notify(warning
+              ? { message: warning, type: 'error' }
+              : { message: 'Transaction updated', type: 'success' });
+            await loadTxns();
+          }}
           onError={() => notify({ message: 'Could not update transaction', type: 'error' })}
         />
       )}
+      {viewReceipt && <ReceiptLightbox url={viewReceipt} onClose={() => setViewReceipt(null)} />}
       {deleteTxn && (
         <ConfirmDialog
           title="Delete transaction?"
@@ -509,7 +585,7 @@ const AddCarTxnModal: React.FC<{
   cars: CarOption[];
   defaultCarId: number | null;
   onClose: () => void;
-  onSaved: (carId: number) => void;
+  onSaved: (carId: number, warning?: string) => void;
   onError: () => void;
 }> = ({ cars, defaultCarId, onClose, onSaved, onError }) => {
   const [carId, setCarId] = useState<number | ''>(defaultCarId ?? '');
@@ -518,6 +594,8 @@ const AddCarTxnModal: React.FC<{
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(toDateStr(new Date()));
   const [note, setNote] = useState('');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const chooseDirection = (d: Direction) => {
@@ -532,6 +610,21 @@ const AddCarTxnModal: React.FC<{
     setSaving(true);
     const car = cars.find(c => c.id === carId);
     if (!car) { setSaving(false); onError(); return; }
+
+    // The receipt is optional: a failed upload never blocks the transaction,
+    // it only downgrades the success toast to a clear warning.
+    let receipt_url: string | null = null;
+    let warning: string | undefined;
+    if (receiptFile) {
+      setUploading(true);
+      try {
+        receipt_url = await uploadTransactionReceipt(car.plate_number || String(car.id), receiptFile);
+      } catch (e) {
+        warning = `Transaction saved, but the receipt could not be uploaded: ${(e as Error).message}`;
+      }
+      setUploading(false);
+    }
+
     // Silent investor_id — required NOT NULL, never shown to the accountant.
     const { error } = await supabase.from('financial_transactions').insert({
       sheet_type: 'car',
@@ -543,10 +636,11 @@ const AddCarTxnModal: React.FC<{
       date,
       month_key: date.slice(0, 7),
       note: note.trim() || null,
+      receipt_url,
     });
     setSaving(false);
     if (error) { onError(); return; }
-    onSaved(car.id);
+    onSaved(car.id, warning);
   };
 
   return (
@@ -607,9 +701,17 @@ const AddCarTxnModal: React.FC<{
           <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" style={inputStyle} />
         </div>
 
+        <ReceiptField
+          file={receiptFile}
+          existingUrl={null}
+          onFileChange={setReceiptFile}
+          onRemoveExisting={() => {}}
+          disabled={saving}
+        />
+
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
           disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Transaction'}
+          {uploading ? 'Uploading receipt…' : saving ? 'Saving…' : 'Save Transaction'}
         </button>
       </div>
     </Modal>
@@ -619,7 +721,7 @@ const AddCarTxnModal: React.FC<{
 const EditCarTxnModal: React.FC<{
   txn: CarTxn;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (warning?: string) => void;
   onError: () => void;
 }> = ({ txn, onClose, onSaved, onError }) => {
   const [direction, setDirection] = useState<Direction>(txn.direction);
@@ -627,6 +729,9 @@ const EditCarTxnModal: React.FC<{
   const [amount, setAmount] = useState(String(txn.amount));
   const [date, setDate] = useState(txn.date);
   const [note, setNote] = useState(txn.note ?? '');
+  const [existingReceipt, setExistingReceipt] = useState<string | null>(txn.receipt_url);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const chooseDirection = (d: Direction) => {
@@ -644,6 +749,21 @@ const EditCarTxnModal: React.FC<{
   const handleSave = async () => {
     if (!canSave || saving) return;
     setSaving(true);
+
+    // Receipt stays optional: a new file replaces the old URL, clearing it sets
+    // NULL, and an upload failure falls back to whatever was already stored.
+    let receipt_url: string | null = existingReceipt;
+    let warning: string | undefined;
+    if (receiptFile) {
+      setUploading(true);
+      try {
+        receipt_url = await uploadTransactionReceipt(txn.plate_number || String(txn.car_id), receiptFile);
+      } catch (e) {
+        warning = `Transaction updated, but the receipt could not be uploaded: ${(e as Error).message}`;
+      }
+      setUploading(false);
+    }
+
     // UPDATE the underlying table by id. investor_id, sheet_type and any
     // commission fields are intentionally left untouched.
     const { error } = await supabase.from('financial_transactions').update({
@@ -653,10 +773,11 @@ const EditCarTxnModal: React.FC<{
       date,
       month_key: date.slice(0, 7),
       note: note.trim() || null,
+      receipt_url,
     }).eq('id', txn.id);
     setSaving(false);
     if (error) { onError(); return; }
-    onSaved();
+    onSaved(warning);
   };
 
   return (
@@ -688,9 +809,17 @@ const EditCarTxnModal: React.FC<{
           <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" style={inputStyle} />
         </div>
 
+        <ReceiptField
+          file={receiptFile}
+          existingUrl={existingReceipt}
+          onFileChange={setReceiptFile}
+          onRemoveExisting={() => setExistingReceipt(null)}
+          disabled={saving}
+        />
+
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
           disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Changes'}
+          {uploading ? 'Uploading receipt…' : saving ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
     </Modal>
@@ -1485,6 +1614,196 @@ const FileField: React.FC<{ file: File | null; onChange: (f: File | null) => voi
     </label>
   </div>
 );
+
+// ─── Car transaction receipt widgets ─────────────────────────────────────────
+
+const receiptThumb: React.CSSProperties = {
+  width: 54, height: 54, borderRadius: 10, objectFit: 'cover', display: 'block',
+  border: '1px solid #e5e7eb', background: '#fafafa', flexShrink: 0,
+};
+
+const receiptSmallBtn: React.CSSProperties = {
+  height: 28, padding: '0 10px', borderRadius: 8, border: '1px solid #e5e7eb',
+  background: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+  fontSize: 12, fontWeight: 600, color: '#6b7280',
+  display: 'inline-flex', alignItems: 'center',
+};
+
+const DocTile: React.FC = () => (
+  <div style={{ ...receiptThumb, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  </div>
+);
+
+/** Row indicator — only rendered for transactions that have a receipt. */
+const ReceiptChip: React.FC<{ url: string; onOpen: () => void }> = ({ url, onOpen }) => (
+  <button onClick={onOpen} title="View receipt" style={{
+    ...receiptSmallBtn, gap: 5, color: '#2e8fd4', borderColor: 'rgba(75,166,234,0.35)',
+    background: 'rgba(75,166,234,0.08)',
+  }}>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+      <path d="M4 4a2 2 0 012-2h8l6 6v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+    {isPdfUrl(url) ? 'PDF' : 'View'}
+  </button>
+);
+
+const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(15,17,23,0.72)',
+      backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24,
+    }}>
+      <img
+        src={url}
+        alt="Receipt"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: '100%', maxHeight: '78vh', borderRadius: 14,
+          background: '#fff', boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+        }}
+      />
+      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 8 }}>
+        <a href={url} target="_blank" rel="noreferrer" style={{
+          ...receiptSmallBtn, height: 34, padding: '0 14px', textDecoration: 'none', color: '#0f1117',
+        }}>Open in new tab</a>
+        <button onClick={onClose} style={{ ...receiptSmallBtn, height: 34, padding: '0 14px' }}>Close</button>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+/**
+ * Optional receipt picker for car transactions. Handles a freshly picked file,
+ * an already-stored receipt_url, and removing either of them.
+ */
+const ReceiptField: React.FC<{
+  file: File | null;
+  existingUrl: string | null;
+  onFileChange: (f: File | null) => void;
+  onRemoveExisting: () => void;
+  disabled?: boolean;
+}> = ({ file, existingUrl, onFileChange, onRemoveExisting, disabled }) => {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || !file.type.startsWith('image/')) { setPreview(null); return; }
+    const objectUrl = URL.createObjectURL(file);
+    setPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  const pick = (picked: File | null) => {
+    if (!picked) return;
+    if (!RECEIPT_TYPES.includes(picked.type)) {
+      setError('Unsupported file — use JPG, PNG, WEBP or PDF.');
+      return;
+    }
+    if (picked.size > RECEIPT_MAX_BYTES) {
+      setError('File is too large — the maximum size is 10 MB.');
+      return;
+    }
+    setError(null);
+    onFileChange(picked);
+  };
+
+  const hiddenInput = (
+    <input
+      type="file"
+      accept={RECEIPT_ACCEPT}
+      disabled={disabled}
+      style={{ display: 'none' }}
+      onChange={e => { pick(e.target.files?.[0] ?? null); e.target.value = ''; }}
+    />
+  );
+
+  const frame = (children: React.ReactNode) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: 10,
+      border: '1px solid #e5e7eb', borderRadius: 12, background: '#fff',
+    }}>{children}</div>
+  );
+
+  let body: React.ReactNode;
+
+  if (file) {
+    body = frame(<>
+      {preview
+        ? <img src={preview} alt="Receipt preview" style={receiptThumb} />
+        : <DocTile />}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {file.name}
+        </div>
+        <div style={{ fontSize: 11.5, color: '#9ca3af' }}>
+          {(file.size / 1024).toFixed(0)} KB · uploads when you save
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <label style={{ ...receiptSmallBtn, cursor: disabled ? 'default' : 'pointer' }}>
+          Replace{hiddenInput}
+        </label>
+        <button type="button" disabled={disabled} onClick={() => onFileChange(null)}
+          style={{ ...receiptSmallBtn, color: COLOR_OUT }}>Remove</button>
+      </div>
+    </>);
+  } else if (existingUrl) {
+    const pdf = isPdfUrl(existingUrl);
+    body = frame(<>
+      {pdf
+        ? <DocTile />
+        : <img src={existingUrl} alt="Current receipt" style={receiptThumb} />}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>Current receipt</div>
+        <a href={existingUrl} target="_blank" rel="noreferrer"
+          style={{ fontSize: 11.5, color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>
+          View {pdf ? 'PDF' : 'image'}
+        </a>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <label style={{ ...receiptSmallBtn, cursor: disabled ? 'default' : 'pointer' }}>
+          Replace{hiddenInput}
+        </label>
+        <button type="button" disabled={disabled} onClick={onRemoveExisting}
+          style={{ ...receiptSmallBtn, color: COLOR_OUT }}>Remove</button>
+      </div>
+    </>);
+  } else {
+    body = (
+      <label style={{
+        ...inputStyle, display: 'flex', alignItems: 'center', gap: 8,
+        cursor: disabled ? 'default' : 'pointer', color: '#9ca3af', overflow: 'hidden',
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Attach a receipt — JPG, PNG, WEBP or PDF
+        </span>
+        {hiddenInput}
+      </label>
+    );
+  }
+
+  return (
+    <div>
+      <label style={labelStyle}>Receipt (optional)</label>
+      {body}
+      {error && <div style={{ marginTop: 6, fontSize: 12, color: COLOR_OUT }}>{error}</div>}
+    </div>
+  );
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Page shell

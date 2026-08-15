@@ -498,7 +498,7 @@ const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, 
 const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ message, kind }) =>
   ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
+      position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 2000,
       display: 'flex', alignItems: 'center', gap: 10,
       background: kind === 'success' ? '#0f1117' : '#fff1f2',
       color: kind === 'success' ? '#fff' : '#ef4444',

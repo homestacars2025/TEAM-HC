@@ -1,0 +1,19 @@
+{
+  "inactivity": {
+    "title": "هل ما زلت هنا؟",
+    "message": "سيتم تسجيل خروجك خلال <b>{{seconds}} ثانية</b> بسبب عدم النشاط.",
+    "stay": "البقاء متصلاً"
+  },
+  "alerts": {
+    "total": "{{count}} بالإجمالي",
+    "upcoming": "{{count}} قادمة",
+    "empty": "لا توجد عناصر قادمة",
+    "viewAll": "عرض الكل ({{count}})",
+    "showingAll": "عرض الكل",
+    "today": "اليوم",
+    "daysShort": "{{count}} يوم"
+  },
+  "actions": {
+    "close": "إغلاق"
+  }
+}

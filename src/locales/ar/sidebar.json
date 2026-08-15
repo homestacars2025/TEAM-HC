@@ -1,0 +1,34 @@
+{
+  "sections": {
+    "main": "الرئيسية",
+    "fleet": "الأسطول",
+    "operations": "العمليات"
+  },
+  "nav": {
+    "bookings": "الحجوزات",
+    "calendar": "التقويم",
+    "cars": "السيارات",
+    "carTracking": "تتبع السيارات",
+    "modelGroups": "فئات السيارات",
+    "operations": "العمليات",
+    "kgm": "رسوم الطرق",
+    "fines": "المخالفات",
+    "customerWallets": "محافظ العملاء",
+    "accounting": "المحاسبة"
+  },
+  "currency": {
+    "label": "العملة",
+    "switchHint": "العملة: {{currency}} — اضغط للتبديل"
+  },
+  "language": {
+    "label": "اللغة",
+    "switchHint": "اللغة: {{language}} — اضغط للتبديل",
+    "en": "English",
+    "ar": "العربية",
+    "enShort": "EN",
+    "arShort": "ع"
+  },
+  "collapse": "طي القائمة",
+  "expand": "توسيع القائمة",
+  "signOut": "تسجيل الخروج"
+}

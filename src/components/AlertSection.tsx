@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import type { AlertRow } from '../types';
 
@@ -69,11 +70,11 @@ const extractDateInfo = (row: Record<string, unknown>): { days_left: number; dat
 // Badge
 // ---------------------------------------------------------------------------
 
-const daysBadge = (days: number): { label: string; color: string; bg: string } => {
-  if (days <= 0) return { label: 'Today',    color: '#ef4444', bg: 'rgba(239,68,68,0.10)'  };
-  if (days <= 2) return { label: `${days}d`, color: '#ef4444', bg: 'rgba(239,68,68,0.10)'  };
-  if (days <= 7) return { label: `${days}d`, color: '#f97316', bg: 'rgba(249,115,22,0.10)' };
-  return          { label: `${days}d`, color: '#22c55e', bg: 'rgba(34,197,94,0.10)'  };
+const daysBadge = (days: number): { today: boolean; color: string; bg: string } => {
+  if (days <= 0) return { today: true,  color: '#ef4444', bg: 'rgba(239,68,68,0.10)'  };
+  if (days <= 2) return { today: false, color: '#ef4444', bg: 'rgba(239,68,68,0.10)'  };
+  if (days <= 7) return { today: false, color: '#f97316', bg: 'rgba(249,115,22,0.10)' };
+  return          { today: false, color: '#22c55e', bg: 'rgba(34,197,94,0.10)'  };
 };
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,7 @@ const SkeletonRow: React.FC = () => (
 );
 
 const RowItem: React.FC<{ row: AlertRow; divider: boolean }> = ({ row, divider }) => {
+  const { t } = useTranslation('common');
   const badge = daysBadge(row.days_left);
   return (
     <div style={{
@@ -150,7 +152,7 @@ const RowItem: React.FC<{ row: AlertRow; divider: boolean }> = ({ row, divider }
           color: badge.color, background: badge.bg,
           borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
         }}>
-          {badge.label}
+          {badge.today ? t('alerts.today') : t('alerts.daysShort', { count: row.days_left })}
         </span>
         <span style={{ fontSize: 11, color: '#c0c4cc', letterSpacing: '0.1px' }}>
           {row.date_label}
@@ -177,6 +179,7 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }) => {
+  const { t } = useTranslation('common');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape
@@ -237,7 +240,7 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
             <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.2px' }}>
               {title}
             </div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{rows.length} total</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{t('alerts.total', { count: rows.length })}</div>
           </div>
           <button
             onClick={onClose}
@@ -249,7 +252,7 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
-            aria-label="Close"
+            aria-label={t('actions.close')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
@@ -291,7 +294,7 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
               b.style.color = '#6b7280';
             }}
           >
-            Close
+            {t('actions.close')}
           </button>
         </div>
       </div>
@@ -323,6 +326,7 @@ const debugModelGroupShape = async () => {
 // ---------------------------------------------------------------------------
 
 const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, accentColor }) => {
+  const { t } = useTranslation('common');
   const [rows, setRows]         = useState<AlertRow[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
@@ -436,7 +440,7 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
             {title}
           </div>
           {!loading && !error && (
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{rows.length} upcoming</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{t('alerts.upcoming', { count: rows.length })}</div>
           )}
         </div>
         <div style={{
@@ -465,7 +469,7 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
 
         {!loading && !error && rows.length === 0 && (
           <div style={{ padding: '20px 0', textAlign: 'center', color: '#c0c4cc', fontSize: 13 }}>
-            No upcoming items
+            {t('alerts.empty')}
           </div>
         )}
 
@@ -493,14 +497,14 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.75'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
             >
-              View all {rows.length}
+              {t('alerts.viewAll', { count: rows.length })}
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12h14M13 6l6 6-6 6" stroke={accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path className="hc-flip-path" d="M5 12h14M13 6l6 6-6 6" stroke={accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
           ) : (
             <span style={{ fontSize: 12, color: '#d1d5db' }}>
-              {rows.length > 0 ? 'Showing all' : ''}
+              {rows.length > 0 ? t('alerts.showingAll') : ''}
             </span>
           )}
         </div>

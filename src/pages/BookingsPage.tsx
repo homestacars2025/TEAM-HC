@@ -207,7 +207,7 @@ interface ToastState { message: string; type: 'success' | 'error'; }
 const Toast: React.FC<ToastState> = ({ message, type }) =>
   ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
+      position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 2000,
       display: 'flex', alignItems: 'center', gap: 10,
       background: type === 'success' ? '#0f1117' : '#ef4444',
       color: '#fff', borderRadius: 12, padding: '12px 20px',
