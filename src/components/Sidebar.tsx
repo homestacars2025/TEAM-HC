@@ -2,9 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
-import { useAccountingAccess } from '../lib/useAccountingAccess';
+import { useSectionAccess } from '../lib/SectionAccessContext';
 
-const mainItems = [
+/**
+ * `sectionKey` ties a nav item to a row in `restricted_sections`. Items without one are
+ * public and always render. Add `sectionKey: 'media'` to the Media item when that page lands.
+ */
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+  sectionKey?: string;
+}
+
+const mainItems: NavItem[] = [
   {
     label: 'Bookings',
     path: '/dashboard/bookings',
@@ -30,7 +41,7 @@ const mainItems = [
   },
 ];
 
-const fleetItems = [
+const fleetItems: NavItem[] = [
   {
     label: 'Cars',
     path: '/dashboard/cars',
@@ -57,7 +68,7 @@ const fleetItems = [
   },
 ];
 
-const operationsItems = [
+const operationsItems: NavItem[] = [
   {
     label: 'Operations',
     path: '/dashboard/operations',
@@ -91,7 +102,7 @@ const operationsItems = [
   },
 ];
 
-const customerWalletsItem = {
+const customerWalletsItem: NavItem = {
   label: 'Customer Wallets',
   path: '/dashboard/customer-wallets',
   icon: (
@@ -103,9 +114,10 @@ const customerWalletsItem = {
   ),
 };
 
-const accountingItem = {
+const accountingItem: NavItem = {
   label: 'Accounting',
   path: '/dashboard/accounting',
+  sectionKey: 'accounting',
   icon: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
       <rect x="4" y="2" width="16" height="20" rx="2" stroke="currentColor" strokeWidth="1.8"/>
@@ -128,7 +140,7 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currency, setCurrency, symbol } = useCurrency();
-  const canViewAccounting = useAccountingAccess();
+  const { canAccess } = useSectionAccess();
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
@@ -168,8 +180,10 @@ const Sidebar: React.FC = () => {
 
   const W = collapsed ? COLLAPSED_W : EXPANDED_W;
 
-  const renderNavItems = (items: typeof mainItems) =>
-    items.map(item => (
+  const renderNavItems = (items: NavItem[]) =>
+    items
+      .filter(item => !item.sectionKey || canAccess(item.sectionKey))
+      .map(item => (
       <NavLink
         key={item.path}
         to={item.path}
@@ -440,9 +454,7 @@ const Sidebar: React.FC = () => {
         ) : (
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
-        {renderNavItems(canViewAccounting
-          ? [...operationsItems, customerWalletsItem, accountingItem]
-          : [...operationsItems, customerWalletsItem])}
+        {renderNavItems([...operationsItems, customerWalletsItem, accountingItem])}
       </nav>
 
       {/* Currency selector + Profile + Sign out */}

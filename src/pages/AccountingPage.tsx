@@ -2,10 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency } from '../lib/CurrencyContext';
-import { useAccountingAccess } from '../lib/useAccountingAccess';
 
 /* ────────────────────────────────────────────────────────────────────────────
    AccountingPage — restricted view for staff accountants.
@@ -1498,7 +1497,6 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 const AccountingPage: React.FC = () => {
-  const allowed = useAccountingAccess();
   const [tab, setTab] = useState<Tab>('cars');
   const [monthDate, setMonthDate] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState<ToastState>(null);
@@ -1515,12 +1513,7 @@ const AccountingPage: React.FC = () => {
     if (t) window.setTimeout(() => setToast(null), 2600);
   }, []);
 
-  if (allowed === null) {
-    return <div style={{ padding: '24px 32px', color: '#9ca3af', fontSize: 14 }}>Loading…</div>;
-  }
-  if (!allowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Access is enforced by <RequireSection section="accounting"> on the route.
 
   const monthNavDisabled = tab === 'customers'; // customers ledger is not month-scoped
 

@@ -14,6 +14,8 @@ import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import RequireSection from './components/RequireSection';
+import { SectionAccessProvider } from './lib/SectionAccessContext';
 
 const App: React.FC = () => {
   return (
@@ -25,7 +27,9 @@ const App: React.FC = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Layout />
+              <SectionAccessProvider>
+                <Layout />
+              </SectionAccessProvider>
             </ProtectedRoute>
           }
         >
@@ -39,7 +43,10 @@ const App: React.FC = () => {
           <Route path="fines" element={<FinesPage />} />
           <Route path="operations" element={<OperationsPage />} />
           <Route path="customer-wallets" element={<CustomerWalletsPage />} />
-          <Route path="accounting" element={<AccountingPage />} />
+          <Route
+            path="accounting"
+            element={<RequireSection section="accounting"><AccountingPage /></RequireSection>}
+          />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
