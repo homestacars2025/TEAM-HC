@@ -37,27 +37,27 @@ export interface ContractBooking {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(s: string | null | undefined): string {
+export function fmt(s: string | null | undefined): string {
   return s?.trim() ? s.trim() : '—';
 }
 
-function fmtKm(n: number | null | undefined): string {
+export function fmtKm(n: number | null | undefined): string {
   if (n == null) return '—';
   return n.toLocaleString('en-US') + ' km';
 }
 
-function fmtFuel(s: string | null | undefined): string {
+export function fmtFuel(s: string | null | undefined): string {
   if (!s?.trim()) return '—';
   return s.trim();
 }
 
-function fmtDate(s: string | null | undefined): string {
+export function fmtDate(s: string | null | undefined): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
   return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function infoRow(trLabel: string, enLabel: string, arLabel: string, value: string): string {
+export function infoRow(trLabel: string, enLabel: string, arLabel: string, value: string): string {
   return `
     <tr>
       <td class="info-label">
@@ -69,7 +69,7 @@ function infoRow(trLabel: string, enLabel: string, arLabel: string, value: strin
     </tr>`;
 }
 
-function infoRowPair(
+export function infoRowPair(
   trL: string, enL: string, arL: string, valL: string,
   trR: string, enR: string, arR: string, valR: string
 ): string {

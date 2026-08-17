@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
 import { printBookingContract } from '../lib/printContract';
+import { printReplacementSheet } from '../lib/printReplacementSheet';
+import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
@@ -2099,6 +2101,652 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 
 // ─── Delete confirm modal ─────────────────────────────────────────────────────
 
+// ─── Replacement sheets ───────────────────────────────────────────────────────
+
+/** The real statuses car_availability can return. Nothing else is ever rendered. */
+type AvailabilityStatus = 'working' | 'parking' | 'maintenance' | 'replacement' | 'selling' | 'pending';
+
+const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
+  working:     'Working',
+  parking:     'Parking',
+  maintenance: 'Maintenance',
+  replacement: 'Replacement',
+  selling:     'Selling',
+  pending:     'Pending',
+};
+
+/**
+ * car_availability LEFT JOINs car_calendar on today, so a car carrying two overlapping
+ * blocks can surface twice. Collapse to the most restrictive status rather than letting
+ * row order decide.
+ */
+const STATUS_PRIORITY: AvailabilityStatus[] = ['selling', 'maintenance', 'replacement', 'working', 'pending', 'parking'];
+
+const toAvailabilityStatus = (v: string | null | undefined): AvailabilityStatus | null => {
+  const s = (v ?? '').toLowerCase();
+  return (STATUS_PRIORITY as string[]).includes(s) ? (s as AvailabilityStatus) : null;
+};
+
+interface ReplacementCarOption {
+  id: number;
+  plate_number: string;
+  model: string | null;
+  status: AvailabilityStatus | null;
+}
+
+interface CarBookingOption {
+  id: number;
+  booking_number: string | null;
+  /** customers.id is a uuid. */
+  customer_id: string | null;
+  customer_name: string;
+  start_date: string;
+  end_date: string;
+}
+
+/** A stored sheet, plus the identity fields the reprint list needs. */
+type ReplacementSheetRecord = ReplacementSheet & { id: number; created_at: string };
+
+/**
+ * replacement_sheets has two FKs to cars, so both embeds are disambiguated by constraint
+ * name — a bare `cars(...)` embed returns a 400.
+ */
+const SHEET_SELECT = `
+  id, created_at, sheet_number, customer_id, original_booking_id,
+  start_date, end_date, km_at_handover, fuel_at_handover, notes,
+  customers(first_name, last_name),
+  original_booking:bookings(booking_number),
+  original_car:cars!replacement_sheets_original_car_id_fkey(plate_number, model_group(name)),
+  replacement_car:cars!replacement_sheets_replacement_car_id_fkey(plate_number, model_group(name))
+`;
+
+interface SheetCarJoin { plate_number: string; model_group: { name: string } | { name: string }[] | null }
+
+interface SheetRowRaw {
+  id: number;
+  created_at: string;
+  sheet_number: string | null;
+  customer_id: string | null;
+  original_booking_id: number | null;
+  start_date: string;
+  end_date: string;
+  km_at_handover: number | string | null;
+  fuel_at_handover: string | null;
+  notes: string | null;
+  customers: CustomerJoin | CustomerJoin[] | null;
+  original_booking: { booking_number: string | null } | { booking_number: string | null }[] | null;
+  original_car: SheetCarJoin | SheetCarJoin[] | null;
+  replacement_car: SheetCarJoin | SheetCarJoin[] | null;
+}
+
+const firstOf = <T,>(v: T | T[] | null | undefined): T | null =>
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+
+const carModelName = (c: SheetCarJoin | null): string | null =>
+  firstOf(c?.model_group)?.name ?? null;
+
+/** The single mapper behind both create and reprint, so a sheet always prints identically. */
+function mapSheetRow(row: SheetRowRaw): ReplacementSheetRecord {
+  const cust        = firstOf(row.customers);
+  const booking     = firstOf(row.original_booking);
+  const originalCar = firstOf(row.original_car);
+  const replCar     = firstOf(row.replacement_car);
+  const km          = row.km_at_handover;
+
+  return {
+    id:                      row.id,
+    created_at:              row.created_at,
+    sheet_number:            row.sheet_number ?? '—',
+    customer_id:             row.customer_id ?? '',
+    customer_name:           cust ? `${cust.first_name} ${cust.last_name}`.trim() : '',
+    original_booking_number: booking?.booking_number ?? null,
+    original_plate:          originalCar?.plate_number ?? null,
+    original_model:          carModelName(originalCar),
+    replacement_plate:       replCar?.plate_number ?? '—',
+    replacement_model:       carModelName(replCar),
+    start_date:              row.start_date,
+    end_date:                row.end_date,
+    km_at_handover:          km == null ? null : Number(km),
+    fuel_at_handover:        row.fuel_at_handover,
+    notes:                   row.notes,
+  };
+}
+
+const todayStr = (): string => toDateStr(new Date());
+
+// ─── Searchable car picker (original car, by plate or model) ──────────────────
+
+const CarSearchSelect: React.FC<{
+  cars: ReplacementCarOption[];
+  value: string;
+  onChange: (carId: string) => void;
+  loading: boolean;
+}> = ({ cars, value, onChange, loading }) => {
+  const [open, setOpen]     = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = cars.find(c => String(c.id) === value) ?? null;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cars;
+    return cars.filter(c =>
+      c.plate_number.toLowerCase().includes(q) ||
+      (c.model ?? '').toLowerCase().includes(q)
+    );
+  }, [cars, search]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setSearch(''); }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setSearch(''); }}
+        style={{
+          ...INPUT_STYLE, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 8, cursor: 'pointer', textAlign: 'left',
+          color: selected ? '#0f1117' : '#9ca3af',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {loading
+            ? 'Loading cars…'
+            : selected
+              ? `${selected.plate_number}${selected.model ? ` — ${selected.model}` : ''}`
+              : 'Search plate or model…'}
+        </span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M6 9l6 6 6-6" stroke="#9ca3af" strokeWidth="2.2" strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 44, left: 0, right: 0, zIndex: 300,
+          background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.13)', overflow: 'hidden',
+        }}>
+          <div style={{ padding: '8px 8px 6px' }}>
+            <input
+              autoFocus type="text" value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search plate or model…"
+              style={{
+                width: '100%', height: 36, padding: '0 10px', fontSize: 13,
+                border: '1.5px solid #e5e7eb', borderRadius: 7, outline: 'none',
+                fontFamily: 'inherit', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            {filtered.map(c => (
+              <button
+                key={c.id} type="button"
+                onClick={() => { onChange(String(c.id)); setOpen(false); setSearch(''); }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+                  padding: '11px 12px', minHeight: 44, border: 'none', background: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
+                  textAlign: 'left', color: '#374151',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+              >
+                <span style={{ fontWeight: 700, flexShrink: 0 }}>{c.plate_number}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>
+                  {c.model ?? ''}
+                </span>
+                {c.status && (
+                  <span style={{ color: '#9ca3af', fontSize: 11, flexShrink: 0 }}>
+                    {AVAILABILITY_LABEL[c.status]}
+                  </span>
+                )}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div style={{ padding: '12px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                No results
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Replacement form modal ───────────────────────────────────────────────────
+
+const WARN_STYLE: React.CSSProperties = {
+  display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 6,
+  padding: '7px 10px', background: '#fffbeb', borderRadius: 7,
+  border: '1px solid rgba(245,158,11,0.28)', fontSize: 12, color: '#b45309', lineHeight: 1.45,
+};
+
+const ReplacementFormModal: React.FC<{
+  onClose: () => void;
+  onSaved: (sheet: ReplacementSheetRecord) => void;
+}> = ({ onClose, onSaved }) => {
+  const [cars, setCars]               = useState<ReplacementCarOption[]>([]);
+  const [carsLoading, setCarsLoading] = useState(true);
+
+  const [originalCarId, setOriginalCarId] = useState('');
+  const [carBookings, setCarBookings]         = useState<CarBookingOption[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingId, setBookingId]             = useState('');
+
+  const [replacementCarId, setReplacementCarId] = useState('');
+  const [startDate, setStartDate] = useState(todayStr());
+  const [endDate,   setEndDate]   = useState('');
+  const [km,        setKm]        = useState('');
+  const [fuel,      setFuel]      = useState('');
+  const [notes,     setNotes]     = useState('');
+
+  const [saving, setSaving]       = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // ── All cars (no is_active filter — a car being replaced may already be parked up) ──
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [carsRes, availRes] = await Promise.all([
+        supabase.from('cars').select('id, plate_number, model_group(name)').order('plate_number'),
+        supabase.from('car_availability').select('id, status'),
+      ]);
+      if (!active) return;
+
+      const statusById = new Map<number, AvailabilityStatus>();
+      for (const row of (availRes.data ?? []) as Array<{ id: number; status: string | null }>) {
+        const next = toAvailabilityStatus(row.status);
+        if (!next) continue;
+        const prev = statusById.get(row.id);
+        if (!prev || STATUS_PRIORITY.indexOf(next) < STATUS_PRIORITY.indexOf(prev)) {
+          statusById.set(row.id, next);
+        }
+      }
+
+      setCars(((carsRes.data ?? []) as unknown as Array<{ id: number; plate_number: string; model_group: { name: string } | { name: string }[] | null }>)
+        .map(c => ({
+          id: c.id,
+          plate_number: c.plate_number,
+          model: firstOf(c.model_group)?.name ?? null,
+          status: statusById.get(c.id) ?? null,
+        })));
+      setCarsLoading(false);
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // ── Bookings for the chosen plate — every booking, newest first, no status filter ──
+  useEffect(() => {
+    setBookingId('');
+    setCarBookings([]);
+    if (!originalCarId) return;
+
+    let active = true;
+    setBookingsLoading(true);
+    (async () => {
+      const { data } = await supabase
+        .from('bookings')
+        .select('id, booking_number, customer_id, start_date, end_date, customers(first_name, last_name)')
+        .eq('car_id', Number(originalCarId))
+        .order('start_date', { ascending: false });
+      if (!active) return;
+
+      setCarBookings(((data ?? []) as unknown as Array<{
+        id: number; booking_number: string | null; customer_id: string | null;
+        start_date: string; end_date: string; customers: CustomerJoin | CustomerJoin[] | null;
+      }>).map(b => {
+        const c = firstOf(b.customers);
+        return {
+          id: b.id,
+          booking_number: b.booking_number,
+          customer_id: b.customer_id,
+          customer_name: c ? `${c.first_name} ${c.last_name}`.trim() : 'Unknown customer',
+          start_date: b.start_date,
+          end_date: b.end_date,
+        };
+      }));
+      setBookingsLoading(false);
+    })();
+    return () => { active = false; };
+  }, [originalCarId]);
+
+  const selectedBooking = carBookings.find(b => String(b.id) === bookingId) ?? null;
+
+  // Return date defaults to the original booking's end date, and stays editable after.
+  useEffect(() => {
+    if (selectedBooking) setEndDate(selectedBooking.end_date);
+  }, [selectedBooking]);
+
+  const originalCar    = cars.find(c => String(c.id) === originalCarId) ?? null;
+  const replacementCar = cars.find(c => String(c.id) === replacementCarId) ?? null;
+
+  const noBookings   = !!originalCarId && !bookingsLoading && carBookings.length === 0;
+  const sameCarWarn  = !!replacementCarId && replacementCarId === originalCarId;
+  const nonParkWarn  = !!replacementCar && replacementCar.status !== null && replacementCar.status !== 'parking';
+
+  // Parking cars first — they are the ones genuinely free to hand over.
+  const { parkingCars, otherCars } = useMemo(() => ({
+    parkingCars: cars.filter(c => c.status === 'parking'),
+    otherCars:   cars.filter(c => c.status !== 'parking'),
+  }), [cars]);
+
+  const carLabel = (c: ReplacementCarOption) =>
+    `${c.plate_number}${c.model ? ` — ${c.model}` : ''}${c.status ? ` · ${AVAILABILITY_LABEL[c.status]}` : ''}`;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!originalCarId)                  { setFormError('Select the original car.'); return; }
+    if (!selectedBooking)                { setFormError('Select the booking this replacement belongs to.'); return; }
+    if (!selectedBooking.customer_id)    { setFormError('That booking has no customer attached — pick another booking.'); return; }
+    if (!replacementCarId)               { setFormError('Select the replacement car.'); return; }
+    if (!startDate || !endDate)          { setFormError('Handover and return dates are both required.'); return; }
+    if (endDate < startDate)             { setFormError('Return date cannot be before the handover date.'); return; }
+
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const blockNote = `Replacement for ${originalCar?.plate_number ?? '—'} · ${selectedBooking.customer_name}`;
+
+    // 1 — block the replacement car's calendar. booking_id stays null: the column is UNIQUE
+    // and a replacement block is not a booking.
+    const { data: blockData, error: blockError } = await supabase
+      .from('car_calendar')
+      .insert({
+        car_id:      Number(replacementCarId),
+        start_date:  startDate,
+        end_date:    endDate,
+        block_type:  'replacement',
+        booking_id:  null,
+        created_by:  user?.id ?? null,
+        notes:       blockNote,
+      })
+      .select('id')
+      .single();
+
+    if (blockError || !blockData) {
+      setSaving(false);
+      setFormError(blockError?.message ?? 'Could not block the replacement car calendar.');
+      return;
+    }
+
+    const blockId = (blockData as { id: number }).id;
+
+    // 2 — the sheet itself. sheet_number is filled by the trigger.
+    const { data: sheetData, error: sheetError } = await supabase
+      .from('replacement_sheets')
+      .insert({
+        created_by:          user?.id ?? null,
+        original_booking_id: selectedBooking.id,
+        customer_id:         selectedBooking.customer_id, // uuid — never cast
+        original_car_id:     Number(originalCarId),
+        replacement_car_id:  Number(replacementCarId),
+        start_date:          startDate,
+        end_date:            endDate,
+        km_at_handover:      km.trim()   !== '' ? Number(km)   : null,
+        fuel_at_handover:    fuel.trim() !== '' ? fuel.trim()  : null,
+        notes:               notes.trim() !== '' ? notes.trim() : null,
+        calendar_block_id:   blockId,
+      })
+      .select(SHEET_SELECT)
+      .single();
+
+    if (sheetError || !sheetData) {
+      // Roll the block back so a failed sheet never leaves an orphan on the calendar.
+      await supabase.from('car_calendar').delete().eq('id', blockId);
+      setSaving(false);
+      setFormError(sheetError?.message ?? 'Could not save the replacement sheet.');
+      return;
+    }
+
+    setSaving(false);
+    onSaved(mapSheetRow(sheetData as unknown as SheetRowRaw));
+  };
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '24px 16px', overflowY: 'auto',
+        animation: 'fadeIn 150ms ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 640,
+          marginTop: 'auto', marginBottom: 'auto',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+          animation: 'slideUp 180ms ease',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
+              Replacement Car
+            </div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+              Hand a substitute vehicle to a customer and block its calendar
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
+          <div className="rp-grid">
+
+            {/* ── Original vehicle ── */}
+            <SectionHeading
+              title="Original Vehicle"
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>}
+            />
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Original Car (Plate)" required>
+                <CarSearchSelect
+                  cars={cars}
+                  value={originalCarId}
+                  onChange={setOriginalCarId}
+                  loading={carsLoading}
+                />
+              </Field>
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Original Booking / Customer" required>
+                <select
+                  value={bookingId}
+                  onChange={e => setBookingId(e.target.value)}
+                  disabled={!originalCarId || bookingsLoading || carBookings.length === 0}
+                  style={{
+                    ...INPUT_STYLE, cursor: originalCarId && carBookings.length > 0 ? 'pointer' : 'not-allowed',
+                    background: originalCarId && carBookings.length > 0 ? '#fff' : '#f9fafb',
+                    color: bookingId ? '#0f1117' : '#9ca3af',
+                  }}
+                  onFocus={focusBlue} onBlur={blurGray}
+                >
+                  <option value="">
+                    {!originalCarId    ? 'Select a plate first…'
+                      : bookingsLoading ? 'Loading bookings…'
+                      : carBookings.length === 0 ? 'No bookings found for this car'
+                      : 'Select booking…'}
+                  </option>
+                  {carBookings.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.customer_name} · {b.booking_number ?? `#${b.id}`} · {b.start_date} → {b.end_date}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {noBookings && (
+                <div style={WARN_STYLE}>
+                  <span>
+                    No bookings found for this car. A replacement sheet needs a customer, so pick a
+                    different plate.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Replacement vehicle ── */}
+            <SectionHeading
+              title="Replacement Vehicle"
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Replacement Car" required>
+                <select
+                  value={replacementCarId}
+                  onChange={e => setReplacementCarId(e.target.value)}
+                  style={{ ...INPUT_STYLE, cursor: 'pointer', color: replacementCarId ? '#0f1117' : '#9ca3af' }}
+                  onFocus={focusBlue} onBlur={blurGray}
+                >
+                  <option value="">{carsLoading ? 'Loading cars…' : 'Select car…'}</option>
+                  {parkingCars.length > 0 && (
+                    <optgroup label="Parking — free to hand over">
+                      {parkingCars.map(c => <option key={c.id} value={c.id}>{carLabel(c)}</option>)}
+                    </optgroup>
+                  )}
+                  {otherCars.length > 0 && (
+                    <optgroup label="Other vehicles">
+                      {otherCars.map(c => <option key={c.id} value={c.id}>{carLabel(c)}</option>)}
+                    </optgroup>
+                  )}
+                </select>
+              </Field>
+              {sameCarWarn && (
+                <div style={WARN_STYLE}>
+                  <span>This is the same car as the original. Double-check before saving.</span>
+                </div>
+              )}
+              {nonParkWarn && !sameCarWarn && replacementCar?.status && (
+                <div style={WARN_STYLE}>
+                  <span>
+                    This car is currently <strong>{AVAILABILITY_LABEL[replacementCar.status]}</strong>, not Parking.
+                    You can still hand it over, but its calendar may overlap.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <Field label="Handover Date" required>
+              <input
+                required type="date" value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
+              />
+            </Field>
+
+            <Field label="Return Date" required>
+              <input
+                required type="date" value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
+              />
+            </Field>
+
+            <Field label="KM at Handover">
+              <input
+                type="number" min="0" step="1" placeholder="e.g. 45000"
+                value={km} onChange={e => setKm(e.target.value)}
+                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
+              />
+            </Field>
+
+            <Field label="Fuel at Handover">
+              <input
+                type="text" placeholder="e.g. 3/4"
+                value={fuel} onChange={e => setFuel(e.target.value)}
+                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
+              />
+            </Field>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Field label="Notes">
+                <textarea
+                  rows={2} placeholder="Anything worth recording on the sheet…"
+                  value={notes} onChange={e => setNotes(e.target.value)}
+                  style={{ ...INPUT_STYLE, height: 'auto', padding: '9px 12px', resize: 'vertical' }}
+                  onFocus={focusBlue} onBlur={blurGray}
+                />
+              </Field>
+            </div>
+          </div>
+
+          {formError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
+                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontSize: 13, color: '#ef4444' }}>{formError}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
+            <button type="button" onClick={onClose}
+              style={{ padding: '11px 18px', minHeight: 44, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            >
+              Cancel
+            </button>
+            <button type="submit" disabled={saving || noBookings}
+              style={{
+                padding: '11px 22px', minHeight: 44, borderRadius: 9, border: 'none',
+                background: saving || noBookings ? '#a8d4f5' : '#4ba6ea', color: '#fff',
+                fontSize: 14, fontWeight: 600, cursor: saving || noBookings ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', transition: 'background 150ms ease',
+              }}
+              onMouseEnter={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            >
+              {saving ? 'Saving…' : 'Create & Print'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes slideUp { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        .rp-grid { display: grid; grid-template-columns: 1fr; gap: 14px 16px; }
+        @media (min-width: 640px) { .rp-grid { grid-template-columns: 1fr 1fr; } }
+      `}</style>
+    </div>,
+    document.body,
+  );
+};
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const BookingsPage: React.FC = () => {
@@ -2113,6 +2761,9 @@ const BookingsPage: React.FC = () => {
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking }>(null);
+  const [replacementOpen, setReplacementOpen] = useState(false);
+  const [sheets, setSheets]               = useState<ReplacementSheetRecord[]>([]);
+  const [sheetsLoading, setSheetsLoading] = useState(true);
   const [toast, setToast]                 = useState<ToastState | null>(null);
   const toastTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2170,6 +2821,21 @@ const BookingsPage: React.FC = () => {
     fetchStats(selectedMonth);
     fetchBookings(selectedMonth);
   }, [selectedMonth, fetchStats, fetchBookings]);
+
+  // ── Fetch replacement sheets (not month-scoped — this is a running log) ──────
+  const fetchSheets = useCallback(async () => {
+    setSheetsLoading(true);
+    const { data, error: sheetsError } = await supabase
+      .from('replacement_sheets')
+      .select(SHEET_SELECT)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+    setSheetsLoading(false);
+    if (sheetsError) return;
+    setSheets(((data ?? []) as unknown as SheetRowRaw[]).map(mapSheetRow));
+  }, []);
+
+  useEffect(() => { fetchSheets(); }, [fetchSheets]);
 
   // ── Filter + sort ───────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -2305,25 +2971,53 @@ const BookingsPage: React.FC = () => {
             <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Monthly bookings control center</p>
           </div>
 
-          <button
-            onClick={() => setModal('add')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              height: 40, padding: '0 18px',
-              background: '#4ba6ea', color: '#fff', border: 'none',
-              borderRadius: 10, fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-              boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-              transition: 'background 150ms ease',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
-            Add New Booking
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setReplacementOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 44, padding: '0 16px',
+                background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb',
+                borderRadius: 10, fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                transition: 'border-color 150ms ease, color 150ms ease',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
+                (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
+                (e.currentTarget as HTMLButtonElement).style.color = '#374151';
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Replacement Car
+            </button>
+
+            <button
+              onClick={() => setModal('add')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 44, padding: '0 18px',
+                background: '#4ba6ea', color: '#fff', border: 'none',
+                borderRadius: 10, fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
+                transition: 'background 150ms ease',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+              </svg>
+              Add New Booking
+            </button>
+          </div>
         </div>
 
         {/* ── Month navigation ── */}
@@ -2495,9 +3189,130 @@ const BookingsPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* ── Replacement sheets ── */}
+        <div style={{
+          background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+          marginTop: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '14px 16px', borderBottom: '1px solid #f3f4f6',
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8, background: 'rgba(75,166,234,0.10)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea', flexShrink: 0,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12"
+                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+              Replacement Sheets
+            </span>
+            {!sheetsLoading && sheets.length > 0 && (
+              <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 'auto' }}>
+                {sheets.length} sheet{sheets.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {sheetsLoading ? (
+            <div style={{ padding: '28px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+              Loading replacement sheets…
+            </div>
+          ) : sheets.length === 0 ? (
+            <div style={{ padding: '28px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+              No replacement sheets yet.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                <thead>
+                  <tr>
+                    {['Sheet No', 'Customer', 'Original → Replacement', 'Period', ''].map((h, i) => (
+                      <th key={h || i} style={{
+                        textAlign: i === 4 ? 'right' : 'left',
+                        padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
+                        textTransform: 'uppercase', letterSpacing: '0.5px',
+                        borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap',
+                      }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sheets.map(s => (
+                    <tr key={s.id} className="bk-row">
+                      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 700, color: '#0f1117', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
+                        {s.sheet_number}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb' }}>
+                        {s.customer_name || '—'}
+                        {s.original_booking_number && (
+                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                            {s.original_booking_number}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 600 }}>{s.original_plate ?? '—'}</span>
+                        <span style={{ color: '#4ba6ea', margin: '0 7px', fontWeight: 700 }}>→</span>
+                        <span style={{ fontWeight: 600 }}>{s.replacement_plate}</span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
+                        {s.start_date} → {s.end_date}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', borderBottom: '1px solid #f9fafb' }}>
+                        <button
+                          onClick={() => printReplacementSheet(s)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            minHeight: 44, padding: '0 14px', borderRadius: 9,
+                            border: '1px solid #e5e7eb', background: '#fff',
+                            fontSize: 13, fontWeight: 600, color: '#374151',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'border-color 150ms ease, color 150ms ease',
+                          }}
+                          onMouseEnter={e => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea';
+                          }}
+                          onMouseLeave={e => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#374151';
+                          }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                            <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"
+                              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Reprint
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Modals ── */}
+      {replacementOpen && (
+        <ReplacementFormModal
+          onClose={() => setReplacementOpen(false)}
+          onSaved={sheet => {
+            showToast(`Replacement sheet ${sheet.sheet_number} created`, 'success');
+            setReplacementOpen(false);
+            fetchSheets();
+            printReplacementSheet(sheet);
+          }}
+        />
+      )}
       {modal === 'add' && (
         <BookingFormModal
           mode="add"
