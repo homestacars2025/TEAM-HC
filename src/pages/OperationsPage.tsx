@@ -31,6 +31,10 @@ interface OperationRow {
   booking_id: number | null;
   folder_url: string | null;
   photos: OperationPhotos | null;
+  checklist_license_present: boolean | null;
+  checklist_tutanak_present: boolean | null;
+  checklist_air_freshener:   boolean | null;
+  checklist_customer_card:   boolean | null;
   cars: { plate_number: string } | { plate_number: string }[] | null;
   handler: { full_name: string | null } | { full_name: string | null }[] | null;
   customers: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
@@ -75,6 +79,10 @@ interface Operation {
   booking_id: number | null;
   folder_url: string | null;
   photos: OperationPhotos | null;
+  checklist_license_present: boolean | null;
+  checklist_tutanak_present: boolean | null;
+  checklist_air_freshener:   boolean | null;
+  checklist_customer_card:   boolean | null;
 }
 
 interface AddOpForm {
@@ -90,6 +98,10 @@ interface AddOpForm {
   cleanliness_status: 'clean' | 'not_clean' | '';
   location_text: string;
   note: string;
+  checklist_license_present: ChecklistAnswer;
+  checklist_tutanak_present: ChecklistAnswer;
+  checklist_air_freshener:   ChecklistAnswer;
+  checklist_customer_card:   ChecklistAnswer;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -110,6 +122,24 @@ const ALL_OP_TYPES: OperationType[] = [
 
 const DP_TYPES:    OperationType[] = ['DELIVERY', 'PICKUP'];
 const OTHER_TYPES: OperationType[] = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER'];
+
+/** Delivery checklist — four yes/no items captured on every new DELIVERY. */
+type ChecklistKey =
+  | 'checklist_license_present' | 'checklist_tutanak_present'
+  | 'checklist_air_freshener'   | 'checklist_customer_card';
+
+type ChecklistAnswer = 'yes' | 'no' | '';
+
+const CHECKLIST_ITEMS: { key: ChecklistKey; label: string }[] = [
+  { key: 'checklist_license_present', label: 'Vehicle license present?' },
+  { key: 'checklist_tutanak_present', label: 'Tutanak present?' },
+  { key: 'checklist_air_freshener',   label: 'Branded air freshener present?' },
+  { key: 'checklist_customer_card',   label: 'Customer number card present?' },
+];
+
+/** null means "never asked" (pre-checklist operation), not "No". */
+const boolToAnswer = (v: boolean | null | undefined): ChecklistAnswer =>
+  v === true ? 'yes' : v === false ? 'no' : '';
 
 const DP_STAT_CARDS    = ['DELIVERY', 'PICKUP'] as const;
 const OTHER_STAT_CARDS = ['CAR_WASH', 'MAINTENANCE', 'OIL_CHANGE', 'OTHER'] as const;
@@ -194,6 +224,10 @@ function opToForm(op: Operation): AddOpForm {
                       : '',
     location_text:      op.location_text ?? '',
     note:               op.note ?? '',
+    checklist_license_present: boolToAnswer(op.checklist_license_present),
+    checklist_tutanak_present: boolToAnswer(op.checklist_tutanak_present),
+    checklist_air_freshener:   boolToAnswer(op.checklist_air_freshener),
+    checklist_customer_card:   boolToAnswer(op.checklist_customer_card),
   };
 }
 
@@ -268,7 +302,16 @@ function resolveOperation(row: OperationRow): Operation {
     booking_id:         row.booking_id,
     folder_url:         row.folder_url,
     photos:             row.photos ?? null,
+    checklist_license_present: row.checklist_license_present ?? null,
+    checklist_tutanak_present: row.checklist_tutanak_present ?? null,
+    checklist_air_freshener:   row.checklist_air_freshener   ?? null,
+    checklist_customer_card:   row.checklist_customer_card   ?? null,
   };
+}
+
+/** True when at least one checklist answer was recorded. */
+function hasChecklist(op: Operation): boolean {
+  return CHECKLIST_ITEMS.some(i => op[i.key] !== null);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -519,6 +562,48 @@ const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ messa
 
 // ─── Add Operation Modal ──────────────────────────────────────────────────────
 
+const ChecklistRow: React.FC<{
+  label: string;
+  value: ChecklistAnswer;
+  onChange: (v: ChecklistAnswer) => void;
+  last: boolean;
+}> = ({ label, value, onChange, last }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+    padding: '9px 12px',
+    borderBottom: last ? 'none' : '1px solid #f0f0f0',
+    background: value === 'no' ? 'rgba(239,68,68,0.05)' : '#fff',
+    transition: 'background 140ms ease',
+  }}>
+    <span style={{ fontSize: 13, color: '#374151', flex: '1 1 180px', minWidth: 0 }}>{label}</span>
+    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+      {(['yes', 'no'] as const).map(opt => {
+        const active = value === opt;
+        const tone   = opt === 'yes' ? '#16a34a' : '#ef4444';
+        return (
+          <button
+            key={opt}
+            type="button"
+            aria-pressed={active}
+            /* Tapping the active answer clears it, so a mis-tap is recoverable. */
+            onClick={() => onChange(active ? '' : opt)}
+            style={{
+              minHeight: 44, minWidth: 66, padding: '0 16px', borderRadius: 9,
+              border: `1.5px solid ${active ? tone : '#e5e7eb'}`,
+              background: active ? tone : '#fff',
+              color: active ? '#fff' : '#6b7280',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'inherit', transition: 'all 140ms ease',
+            }}
+          >
+            {opt === 'yes' ? 'Yes' : 'No'}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
 const EMPTY_FORM = (): AddOpForm => ({
   type:               'DELIVERY',
   car_id:             '',
@@ -532,6 +617,10 @@ const EMPTY_FORM = (): AddOpForm => ({
   cleanliness_status: '',
   location_text:      '',
   note:               '',
+  checklist_license_present: '',
+  checklist_tutanak_present: '',
+  checklist_air_freshener:   '',
+  checklist_customer_card:   '',
 });
 
 const AddOperationModal: React.FC<{
@@ -564,6 +653,7 @@ const AddOperationModal: React.FC<{
 
   // Structured capture replaces the free uploader for new DELIVERY / PICKUP operations only
   const isStructured   = !isEdit && (DP_TYPES as string[]).includes(form.type);
+  const checklistAnswered = CHECKLIST_ITEMS.filter(i => form[i.key] !== '').length;
   const capturedCount  = PHOTO_SLOTS.filter(s => !!slotFiles[s.key]).length;
   const missingCount   = PHOTO_SLOTS.length - capturedCount;
   const photosComplete = missingCount === 0;
@@ -761,6 +851,17 @@ const AddOperationModal: React.FC<{
     if (!form.performed_by) { setFormError('Please select who handled this operation.'); return; }
     if (form.fuel_level === '')                                    { setFormError('Fuel level is required.'); return; }
     if (Number(form.fuel_level) > 2000)                           { setFormError('Maximum fuel level is 2000'); return; }
+    // Required on NEW deliveries only: 169 legacy deliveries predate the checklist,
+    // so editing one must never be blocked by it.
+    if (!isEdit && form.type === 'DELIVERY') {
+      const unanswered = CHECKLIST_ITEMS.filter(i => form[i.key] === '');
+      if (unanswered.length > 0) {
+        setFormError(
+          `Delivery checklist incomplete — ${unanswered.length} of 4 unanswered: ${unanswered.map(i => i.label).join(', ')}`
+        );
+        return;
+      }
+    }
     if (isStructured) {
       if (!form.operation_date) { setFormError('Operation date is required.'); return; }
       if (!photosComplete) {
@@ -788,6 +889,15 @@ const AddOperationModal: React.FC<{
       customer_id:        form.customer_id || null,
       booking_id:         form.booking_id.trim() ? Number(form.booking_id) : null,
     };
+
+    // An unanswered item saves as null, never false: editing a pre-checklist delivery
+    // must not silently record four "No" answers. Non-DELIVERY types clear all four.
+    for (const item of CHECKLIST_ITEMS) {
+      const answer = form[item.key];
+      corePayload[item.key] = (form.type === 'DELIVERY' && answer !== '')
+        ? (answer === 'yes')
+        : null;
+    }
 
     console.log('[DEBUG] cleanliness_status being saved:', corePayload.cleanliness_status);
 
@@ -1090,6 +1200,44 @@ const AddOperationModal: React.FC<{
             />
           </div>
 
+          {/* Delivery checklist — DELIVERY only; required on new, optional on edit */}
+          {form.type === 'DELIVERY' && (
+            <div style={{ ...fieldStyle, marginBottom: 20 }}>
+              <div style={{
+                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                gap: 10, marginBottom: 10, flexWrap: 'wrap',
+              }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>
+                  Delivery Checklist {!isEdit && <span style={{ color: '#ef4444' }}>*</span>}
+                </label>
+                <span style={{
+                  fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                  color: checklistAnswered === CHECKLIST_ITEMS.length ? '#16a34a' : '#4ba6ea',
+                }}>
+                  {checklistAnswered}/{CHECKLIST_ITEMS.length} answered
+                </span>
+              </div>
+
+              <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                {CHECKLIST_ITEMS.map((item, idx) => (
+                  <ChecklistRow
+                    key={item.key}
+                    label={item.label}
+                    value={form[item.key]}
+                    last={idx === CHECKLIST_ITEMS.length - 1}
+                    onChange={v => setForm(f => ({ ...f, [item.key]: v } as AddOpForm))}
+                  />
+                ))}
+              </div>
+
+              {isEdit && (
+                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6, lineHeight: 1.5 }}>
+                  Optional when editing — deliveries recorded before this checklist existed stay unanswered.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Structured photo slots — new DELIVERY / PICKUP operations only */}
           {isStructured && (
             <div style={fieldStyle}>
@@ -1337,8 +1485,9 @@ const ConfirmDeleteDialog: React.FC<{
 // ─── Photos Modal ─────────────────────────────────────────────────────────────
 
 const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ operation, onClose }) => {
-  const structured = hasStructuredPhotos(operation.photos);
-  const folderUrl  = operation.folder_url;
+  const structured    = hasStructuredPhotos(operation.photos);
+  const folderUrl     = operation.folder_url;
+  const showChecklist = operation.type === 'DELIVERY' && hasChecklist(operation);
 
   const [listed, setListed]     = useState<string[]>([]);
   const [fetching, setFetching] = useState(!structured && !!folderUrl);
@@ -1426,6 +1575,43 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
 
           {/* Body */}
           <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+            {showChecklist && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: '#374151',
+                  textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
+                }}>
+                  Delivery Checklist
+                </div>
+                <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                  {CHECKLIST_ITEMS.map((item, idx) => {
+                    const v = operation[item.key];
+                    return (
+                      <div
+                        key={item.key}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          gap: 12, padding: '9px 12px', flexWrap: 'wrap',
+                          borderBottom: idx === CHECKLIST_ITEMS.length - 1 ? 'none' : '1px solid #f0f0f0',
+                          background: v === false ? 'rgba(239,68,68,0.06)' : '#fff',
+                        }}
+                      >
+                        <span style={{ fontSize: 13, color: '#374151', flex: '1 1 180px', minWidth: 0 }}>
+                          {item.label}
+                        </span>
+                        <span style={{
+                          fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
+                          color: v === true ? '#16a34a' : v === false ? '#ef4444' : '#9ca3af',
+                        }}>
+                          {v === true ? '\u2713 Yes' : v === false ? '\u2717 No' : '\u2014'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {fetching && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -1441,7 +1627,7 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
               </div>
             )}
 
-            {!fetching && !fetchErr && photos.length === 0 && (
+            {!fetching && !fetchErr && photos.length === 0 && !showChecklist && (
               <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ margin: '0 auto 12px', display: 'block', color: '#d1d5db' }}>
                   <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -1894,6 +2080,7 @@ const OperationsPage: React.FC = () => {
       .select(`
         id, operation_date, operation_time, type, car_id, performed_by, customer_id,
         current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
+        checklist_license_present, checklist_tutanak_present, checklist_air_freshener, checklist_customer_card,
         cars!operations_car_id_fkey(plate_number),
         handler:profiles!operations_performed_by_fkey(id, full_name),
         customers(first_name, last_name)
@@ -2145,10 +2332,10 @@ const OperationsPage: React.FC = () => {
                   </td>
 
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {(op.folder_url || hasStructuredPhotos(op.photos)) ? (
+                    {(op.folder_url || hasStructuredPhotos(op.photos) || (op.type === 'DELIVERY' && hasChecklist(op))) ? (
                       <button
                         onClick={() => setPhotosOp(op)}
-                        title="View photos"
+                        title={op.folder_url || hasStructuredPhotos(op.photos) ? 'View photos' : 'View delivery checklist'}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
                         onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
