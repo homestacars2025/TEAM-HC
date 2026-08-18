@@ -10,6 +10,7 @@ import BookingsPage from './pages/BookingsPage';
 import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
 import CarTrackingPage from './pages/CarTrackingPage';
+import CarIssuesPage from './pages/CarIssuesPage';
 import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
@@ -36,6 +37,7 @@ const App: React.FC = () => {
           <Route index element={<Navigate to="cars" replace />} />
           <Route path="cars" element={<CarsPage />} />
           <Route path="cars/tracking" element={<CarTrackingPage />} />
+          <Route path="car-issues" element={<CarIssuesPage />} />
           <Route path="model-groups" element={<ModelGroupsPage />} />
           <Route path="kgm" element={<KGMPage />} />
           <Route path="bookings" element={<BookingsPage />} />
