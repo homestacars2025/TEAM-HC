@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import { useSectionAccess } from '../lib/SectionAccessContext';
+import NotificationBell from './NotificationBell';
 
 /**
  * `sectionKey` ties a nav item to a row in `restricted_sections`. Items without one are
@@ -120,6 +121,19 @@ const customerWalletsItem: NavItem = {
       <path d="M3 7a2 2 0 012-2h12a2 2 0 012 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
       <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/>
       <path d="M16 12h5v4h-5a2 2 0 010-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+    </svg>
+  ),
+};
+
+const kabisItem: NavItem = {
+  label: 'KABIS',
+  path: '/dashboard/kabis',
+  sectionKey: 'kabis',
+  icon: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+      <path d="M5 3h9l5 5v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      <path d="M8.5 14.5l2 2 4.5-4.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
 };
@@ -380,6 +394,26 @@ const Sidebar: React.FC = () => {
         </div>
       )}
 
+      {/* Notifications — its own row so it never collides with the collapse button */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        justifyContent: collapsed ? 'center' : 'space-between',
+        gap: 8,
+        padding: collapsed ? '10px 8px' : '10px 22px',
+        borderBottom: '1px solid #ebebeb',
+        flexShrink: 0,
+      }}>
+        {!collapsed && (
+          <span style={{
+            fontSize: 10.5, fontWeight: 700, color: '#c0c4cc',
+            letterSpacing: '0.8px', textTransform: 'uppercase',
+          }}>
+            Notifications
+          </span>
+        )}
+        <NotificationBell collapsed={collapsed} />
+      </div>
+
       {/* Nav */}
       <nav style={{ flex: 1, padding: collapsed ? '12px 8px' : '16px 12px', overflowY: 'auto' }}>
 
@@ -464,7 +498,7 @@ const Sidebar: React.FC = () => {
         ) : (
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
-        {renderNavItems([...operationsItems, customerWalletsItem, accountingItem])}
+        {renderNavItems([...operationsItems, customerWalletsItem, kabisItem, accountingItem])}
       </nav>
 
       {/* Currency selector + Profile + Sign out */}

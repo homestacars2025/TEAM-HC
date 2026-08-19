@@ -11,6 +11,7 @@ import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
 import CarTrackingPage from './pages/CarTrackingPage';
 import CarIssuesPage from './pages/CarIssuesPage';
+import KabisPage from './pages/KabisPage';
 import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
@@ -48,6 +49,10 @@ const App: React.FC = () => {
           <Route
             path="accounting"
             element={<RequireSection section="accounting"><AccountingPage /></RequireSection>}
+          />
+          <Route
+            path="kabis"
+            element={<RequireSection section="kabis"><KabisPage /></RequireSection>}
           />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
