@@ -15,8 +15,11 @@ interface KabisRow {
   booking_id: number | null;
   car_id: number | null;
   customer_name: string | null;
+  customer_id_number: string | null;
   booking_number: string | null;
   plate_number: string | null;
+  /** numeric arrives from PostgREST as a string, so accept both. */
+  km: number | string | null;
   operation_date: string | null;
   action_type: string;
   status: string;
@@ -35,7 +38,7 @@ interface ToastState { message: string; kind: 'success' | 'error' }
 /** Who marked the entry, resolved through an explicitly named foreign key. */
 const KABIS_SELECT = `
   id, created_at, operation_id, booking_id, car_id,
-  customer_name, booking_number, plate_number, operation_date,
+  customer_name, customer_id_number, booking_number, plate_number, km, operation_date,
   action_type, status, entered_by, entered_at, note,
   entered_by_profile:profiles!kabis_entries_entered_by_fkey(full_name)
 `;
@@ -50,9 +53,10 @@ const STATUS_CONFIG: Record<KabisStatus, { label: string; color: string; bg: str
   entered: { label: 'Entered', color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
 };
 
+/** KABIS mirrors the government system: a delivery is a check-in, a pickup a check-out. */
 const ACTION_CONFIG: Record<KabisAction, { label: string; color: string; bg: string }> = {
-  delivery: { label: 'Delivery', color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)' },
-  pickup:   { label: 'Pickup',   color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+  delivery: { label: 'Check-in',  color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)' },
+  pickup:   { label: 'Check-out', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
 };
 
 const asStatus = (v: string): KabisStatus => (v === 'entered' ? 'entered' : 'pending');
@@ -82,13 +86,22 @@ function formatDate(s: string | null): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/** `entered_at` arrives as an ISO string; null and unparseable both render as an em dash. */
 function formatDateTime(s: string | null): string {
   if (!s) return '—';
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
   });
+}
+
+/** numeric may arrive as a string; render with thousands separators or an em dash. */
+function formatKm(v: number | string | null): string {
+  if (v === null || v === '') return '—';
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? `${n.toLocaleString('en-US')} km` : '—';
 }
 
 const todayStr = (): string => {
@@ -192,7 +205,7 @@ const ConfirmModal: React.FC<{
       }}>
         <div style={{ padding: '20px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-            Mark as entered
+            Mark {ACTION_CONFIG[asAction(entry.action_type)].label.toLowerCase()} entered
           </div>
           <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3, lineHeight: 1.6 }}>
             Confirm you have registered this operation in the KABIS system.
@@ -205,11 +218,13 @@ const ConfirmModal: React.FC<{
             marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 7,
           }}>
             {[
-              { k: 'Plate',    v: dash(entry.plate_number),   num: true  },
-              { k: 'Customer', v: dash(entry.customer_name),  num: false },
-              { k: 'Booking',  v: dash(entry.booking_number), num: true  },
-              { k: 'Type',     v: ACTION_CONFIG[asAction(entry.action_type)].label, num: false },
-              { k: 'Date',     v: formatDate(entry.operation_date), num: true },
+              { k: 'Plate',     v: dash(entry.plate_number),      num: true  },
+              { k: 'Customer',  v: dash(entry.customer_name),     num: false },
+              { k: 'ID Number', v: dash(entry.customer_id_number), num: true  },
+              { k: 'KM',        v: formatKm(entry.km),            num: true  },
+              { k: 'Booking',   v: dash(entry.booking_number),    num: true  },
+              { k: 'Type',      v: ACTION_CONFIG[asAction(entry.action_type)].label, num: false },
+              { k: 'Date',      v: formatDate(entry.operation_date), num: true },
             ].map(item => (
               <div key={item.k} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
                 <span style={{ color: '#9ca3af' }}>{item.k}</span>
@@ -350,9 +365,10 @@ const KabisPage: React.FC = () => {
       if (actionFilter !== 'all' && asAction(e.action_type) !== actionFilter) return false;
       if (!q) return true;
       return (
-        (e.customer_name  ?? '').toLowerCase().includes(q) ||
-        (e.booking_number ?? '').toLowerCase().includes(q) ||
-        (e.plate_number   ?? '').toLowerCase().includes(q)
+        (e.customer_name      ?? '').toLowerCase().includes(q) ||
+        (e.customer_id_number ?? '').toLowerCase().includes(q) ||
+        (e.booking_number     ?? '').toLowerCase().includes(q) ||
+        (e.plate_number       ?? '').toLowerCase().includes(q)
       );
     });
   }, [entries, statusFilter, actionFilter, search]);
@@ -444,7 +460,7 @@ const KabisPage: React.FC = () => {
         <div style={{ flex: '1 1 240px', minWidth: 0 }}>
           <input
             type="text"
-            placeholder="Search customer, booking, plate…"
+            placeholder="Search customer, ID number, booking, plate…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={INPUT_STYLE}
@@ -471,8 +487,8 @@ const KabisPage: React.FC = () => {
           onFocus={onFocus} onBlur={onBlur}
         >
           <option value="all">All types</option>
-          <option value="delivery">Delivery</option>
-          <option value="pickup">Pickup</option>
+          <option value="delivery">Check-in</option>
+          <option value="pickup">Check-out</option>
         </select>
       </div>
 
@@ -552,15 +568,18 @@ const KabisPage: React.FC = () => {
             overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
                 <thead>
                   <tr>
                     <th style={th}>Plate</th>
+                    <th style={th}>KM</th>
                     <th style={th}>Customer</th>
+                    <th style={th}>ID Number</th>
                     <th style={th}>Booking</th>
                     <th style={th}>Type</th>
                     <th style={th}>Date</th>
                     <th style={th}>Status</th>
+                    <th style={th}>Registered At</th>
                     <th style={{ ...th, textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
@@ -581,7 +600,9 @@ const KabisPage: React.FC = () => {
                         <td style={{ ...td, ...NUM, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
                           {dash(entry.plate_number)}
                         </td>
+                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatKm(entry.km)}</td>
                         <td style={{ ...td, maxWidth: 200 }}>{dash(entry.customer_name)}</td>
+                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{dash(entry.customer_id_number)}</td>
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{dash(entry.booking_number)}</td>
                         <td style={td}><ActionBadge action={entry.action_type} /></td>
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatDate(entry.operation_date)}</td>
@@ -590,8 +611,6 @@ const KabisPage: React.FC = () => {
                           {status === 'entered' && (
                             <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 5, lineHeight: 1.6 }}>
                               By {dash(entry.entered_by_name)}
-                              <br />
-                              <span style={NUM}>{formatDateTime(entry.entered_at)}</span>
                             </div>
                           )}
                           {entry.note && (
@@ -602,6 +621,14 @@ const KabisPage: React.FC = () => {
                               Note: {entry.note}
                             </div>
                           )}
+                        </td>
+
+                        {/* Check-in row stamps the entry time, check-out row the exit time. */}
+                        <td style={{
+                          ...td, ...NUM, whiteSpace: 'nowrap',
+                          color: status === 'entered' ? '#374151' : '#d1d5db',
+                        }}>
+                          {status === 'entered' ? formatDateTime(entry.entered_at) : '—'}
                         </td>
                         <td style={{ ...td, textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {status === 'pending' ? (
@@ -616,7 +643,7 @@ const KabisPage: React.FC = () => {
                               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; }}
                             >
-                              Mark as entered
+                              Mark {ACTION_CONFIG[asAction(entry.action_type)].label.toLowerCase()} entered
                             </button>
                           ) : (
                             <button
