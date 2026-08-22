@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type KabisStatus = 'pending' | 'entered';
+type KabisStatus = 'pending' | 'checked_in' | 'checked_out';
 type KabisAction = 'delivery' | 'pickup';
 
 interface KabisRow {
@@ -49,17 +49,34 @@ const KABIS_SELECT = `
 const NUM: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
 const STATUS_CONFIG: Record<KabisStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Pending', color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
-  entered: { label: 'Entered', color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
+  pending:     { label: 'Pending',     color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
+  checked_in:  { label: 'Checked in',  color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
+  checked_out: { label: 'Checked out', color: '#2563eb', bg: 'rgba(37,99,235,0.12)'  },
 };
 
-/** KABIS mirrors the government system: a delivery is a check-in, a pickup a check-out. */
-const ACTION_CONFIG: Record<KabisAction, { label: string; color: string; bg: string }> = {
-  delivery: { label: 'Check-in',  color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)' },
-  pickup:   { label: 'Check-out', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+/**
+ * KABIS mirrors the government system: a delivery is registered as a check-in, a
+ * pickup as a check-out. Each row therefore has exactly one target status — a
+ * delivery can only ever become `checked_in`, a pickup only ever `checked_out`.
+ */
+const ACTION_CONFIG: Record<KabisAction, {
+  label: string; color: string; bg: string; target: KabisStatus; cta: string;
+  ctaBg: string; ctaBgHover: string;
+}> = {
+  delivery: {
+    label: 'Check-in',  color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)',
+    target: 'checked_in',  cta: 'Mark checked-in',
+    ctaBg: '#16a34a', ctaBgHover: '#15803d',
+  },
+  pickup: {
+    label: 'Check-out', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',
+    target: 'checked_out', cta: 'Mark checked-out',
+    ctaBg: '#2563eb', ctaBgHover: '#1d4ed8',
+  },
 };
 
-const asStatus = (v: string): KabisStatus => (v === 'entered' ? 'entered' : 'pending');
+const asStatus = (v: string): KabisStatus =>
+  v === 'checked_in' || v === 'checked_out' ? v : 'pending';
 const asAction = (v: string): KabisAction => (v === 'pickup' ? 'pickup' : 'delivery');
 
 const INPUT_STYLE: React.CSSProperties = {
@@ -103,12 +120,6 @@ function formatKm(v: number | string | null): string {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? `${n.toLocaleString('en-US')} km` : '—';
 }
-
-const todayStr = (): string => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
 
 function resolveRow(row: KabisRow): KabisEntry {
   const p = Array.isArray(row.entered_by_profile) ? row.entered_by_profile[0] : row.entered_by_profile;
@@ -205,7 +216,7 @@ const ConfirmModal: React.FC<{
       }}>
         <div style={{ padding: '20px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-            Mark {ACTION_CONFIG[asAction(entry.action_type)].label.toLowerCase()} entered
+            {ACTION_CONFIG[asAction(entry.action_type)].cta}
           </div>
           <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3, lineHeight: 1.6 }}>
             Confirm you have registered this operation in the KABIS system.
@@ -262,9 +273,10 @@ const ConfirmModal: React.FC<{
               disabled={saving}
               style={{
                 flex: 1, minHeight: 44, minWidth: 130, borderRadius: 9, border: 'none',
-                background: saving ? '#a7d8bd' : '#16a34a', color: '#fff',
+                background: ACTION_CONFIG[asAction(entry.action_type)].ctaBg, color: '#fff',
+                opacity: saving ? 0.6 : 1,
                 fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', transition: 'background 140ms ease',
+                fontFamily: 'inherit', transition: 'opacity 140ms ease',
               }}
             >
               {saving ? 'Saving…' : 'Confirm'}
@@ -347,16 +359,11 @@ const KabisPage: React.FC = () => {
     if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightId, loading, entries]);
 
-  const stats = useMemo(() => {
-    const today = todayStr();
-    return {
-      pending: entries.filter(e => asStatus(e.status) === 'pending').length,
-      enteredToday: entries.filter(e =>
-        asStatus(e.status) === 'entered' && (e.entered_at ?? '').slice(0, 10) === today
-      ).length,
-      enteredAll: entries.filter(e => asStatus(e.status) === 'entered').length,
-    };
-  }, [entries]);
+  const stats = useMemo(() => ({
+    pending:    entries.filter(e => asStatus(e.status) === 'pending').length,
+    checkedIn:  entries.filter(e => asStatus(e.status) === 'checked_in').length,
+    checkedOut: entries.filter(e => asStatus(e.status) === 'checked_out').length,
+  }), [entries]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -373,22 +380,26 @@ const KabisPage: React.FC = () => {
     });
   }, [entries, statusFilter, actionFilter, search]);
 
-  /** Only status and note are written — the trigger stamps entered_by / entered_at. */
+  /**
+   * The target status follows the row's own action type — never the other one.
+   * Only status and note are written; the trigger stamps entered_by / entered_at.
+   */
   const handleConfirm = useCallback(async (note: string) => {
     if (!confirmEntry) return;
     setSaving(true);
     setModalError(null);
 
+    const target = ACTION_CONFIG[asAction(confirmEntry.action_type)].target;
     const { error: updateError } = await supabase
       .from('kabis_entries')
-      .update({ status: 'entered', note: note.trim() || null })
+      .update({ status: target, note: note.trim() || null })
       .eq('id', confirmEntry.id);
 
     setSaving(false);
     if (updateError) { setModalError(updateError.message); return; }
 
     setConfirmEntry(null);
-    showToast('Marked as entered in KABIS', 'success');
+    showToast(`Marked ${STATUS_CONFIG[target].label.toLowerCase()} in KABIS`, 'success');
     fetchEntries();
   }, [confirmEntry, showToast, fetchEntries]);
 
@@ -439,15 +450,15 @@ const KabisPage: React.FC = () => {
           KABIS
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.6, margin: 0, maxWidth: 640 }}>
-          KABIS ledger — register delivery and pickup operations in the KABIS system, then mark them as entered.
+          KABIS ledger — register deliveries as check-ins and pickups as check-outs in the KABIS system, then mark them here.
         </p>
       </div>
 
       {/* ── Stat cards ── */}
       <div className="kb-stats">
-        <StatCard label="Pending"       value={stats.pending}      bg="#ea580c" loading={loading} />
-        <StatCard label="Entered today" value={stats.enteredToday} bg="#16a34a" loading={loading} />
-        <StatCard label="Entered (all)" value={stats.enteredAll}   bg="#4ba6ea" loading={loading} />
+        <StatCard label="Pending"     value={stats.pending}    bg="#ea580c" loading={loading} />
+        <StatCard label="Checked in"  value={stats.checkedIn}  bg="#16a34a" loading={loading} />
+        <StatCard label="Checked out" value={stats.checkedOut} bg="#2563eb" loading={loading} />
       </div>
 
       {/* ── Filters ── */}
@@ -477,7 +488,8 @@ const KabisPage: React.FC = () => {
         >
           <option value="all">All statuses</option>
           <option value="pending">Pending</option>
-          <option value="entered">Entered</option>
+          <option value="checked_in">Checked in</option>
+          <option value="checked_out">Checked out</option>
         </select>
 
         <select
@@ -608,7 +620,7 @@ const KabisPage: React.FC = () => {
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatDate(entry.operation_date)}</td>
                         <td style={td}>
                           <StatusBadge status={entry.status} />
-                          {status === 'entered' && (
+                          {status !== 'pending' && (
                             <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 5, lineHeight: 1.6 }}>
                               By {dash(entry.entered_by_name)}
                             </div>
@@ -626,9 +638,9 @@ const KabisPage: React.FC = () => {
                         {/* Check-in row stamps the entry time, check-out row the exit time. */}
                         <td style={{
                           ...td, ...NUM, whiteSpace: 'nowrap',
-                          color: status === 'entered' ? '#374151' : '#d1d5db',
+                          color: status === 'pending' ? '#d1d5db' : '#374151',
                         }}>
-                          {status === 'entered' ? formatDateTime(entry.entered_at) : '—'}
+                          {status === 'pending' ? '—' : formatDateTime(entry.entered_at)}
                         </td>
                         <td style={{ ...td, textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {status === 'pending' ? (
@@ -636,14 +648,20 @@ const KabisPage: React.FC = () => {
                               onClick={() => { setModalError(null); setConfirmEntry(entry); }}
                               style={{
                                 minHeight: 44, padding: '0 16px', borderRadius: 9, border: 'none',
-                                background: '#16a34a', color: '#fff',
+                                background: ACTION_CONFIG[asAction(entry.action_type)].ctaBg, color: '#fff',
                                 fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
                                 fontFamily: 'inherit', transition: 'background 140ms ease',
                               }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#16a34a'; }}
+                              onMouseEnter={e => {
+                                (e.currentTarget as HTMLButtonElement).style.background =
+                                  ACTION_CONFIG[asAction(entry.action_type)].ctaBgHover;
+                              }}
+                              onMouseLeave={e => {
+                                (e.currentTarget as HTMLButtonElement).style.background =
+                                  ACTION_CONFIG[asAction(entry.action_type)].ctaBg;
+                              }}
                             >
-                              Mark {ACTION_CONFIG[asAction(entry.action_type)].label.toLowerCase()} entered
+                              {ACTION_CONFIG[asAction(entry.action_type)].cta}
                             </button>
                           ) : (
                             <button
