@@ -1127,7 +1127,7 @@ const CarIssuesPage: React.FC = () => {
   }, [showToast, fetchIssues]);
 
   return (
-    <div className="ci-page" style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+    <div className="ci-page" style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)' }}>
 
       {/* ── Page header ── */}
       <div style={{

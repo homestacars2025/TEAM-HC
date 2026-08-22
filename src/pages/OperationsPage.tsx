@@ -2151,7 +2151,7 @@ const OperationsPage: React.FC = () => {
   const activeStatCards = tab === 'dp' ? dpStatCards : otherStatCards;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
 
       {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>

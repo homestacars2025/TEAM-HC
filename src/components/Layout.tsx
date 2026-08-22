@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { Outlet } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
@@ -80,10 +81,41 @@ const Layout: React.FC = () => {
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-secondary)' }}>
       <Sidebar />
-      <main style={{ flex: 1, overflowY: 'auto' }}>
-        <Outlet />
-      </main>
+
+      {/*
+        Content column. The top bar reserves its own strip of height rather than
+        floating over the pages: several pages put an action button or a month
+        switcher in their own top-right corner, and an overlaid bell would sit on
+        top of them. `main` scrolls beneath it, so the bell stays put.
+      */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <header className="app-topbar">
+          <NotificationBell />
+        </header>
+        <main style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <Outlet />
+        </main>
+      </div>
+
       {showWarning && <InactivityWarning onStay={stayLoggedIn} />}
+
+      <style>{`
+        .app-topbar {
+          height: 52px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          padding: 0 16px;
+          background: #fff;
+          border-bottom: 1px solid #ebebeb;
+          position: relative;
+          z-index: 300;
+        }
+        /* Right padding tracks the page padding so the bell lines up with page content. */
+        @media (min-width: 640px)  { .app-topbar { height: 56px; padding: 0 24px; } }
+        @media (min-width: 1024px) { .app-topbar { padding: 0 40px; } }
+      `}</style>
     </div>
   );
 };

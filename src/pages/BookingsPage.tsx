@@ -2950,7 +2950,7 @@ const BookingsPage: React.FC = () => {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
       <div>
 
         {/* ── Page header ── */}

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useSectionAccess } from '../lib/SectionAccessContext';
 
 /**
- * Notification bell for the team sidebar.
+ * Notification bell for the dashboard top bar.
  *
  * `notifications` is published to `supabase_realtime`, so new rows arrive over a
  * subscription rather than a poll. A single fetch on mount seeds the list; the
@@ -49,7 +49,7 @@ function entryIdOf(n: NotificationRow): number | null {
   return null;
 }
 
-const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
+const NotificationBell: React.FC = () => {
   const [items, setItems]     = useState<NotificationRow[]>([]);
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(true);
@@ -210,9 +210,9 @@ const NotificationBell: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
       {open && (
         <div style={{
           position: 'absolute',
-          top: 44,
-          left: collapsed ? 0 : 'auto',
-          right: collapsed ? 'auto' : 0,
+          // Clears the bottom border of the top bar the button sits in.
+          top: 48,
+          right: 0,
           zIndex: 400,
           width: 320, maxWidth: 'calc(100vw - 32px)',
           background: '#fff', border: '1px solid #ebebeb', borderRadius: 14,

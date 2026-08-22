@@ -134,7 +134,7 @@ const CarTrackingPage: React.FC = () => {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      minHeight: '100%',
       background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
       padding: '44px 40px',
     }}>

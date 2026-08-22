@@ -3,7 +3,6 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import { useSectionAccess } from '../lib/SectionAccessContext';
-import NotificationBell from './NotificationBell';
 
 /**
  * `sectionKey` ties a nav item to a row in `restricted_sections`. Items without one are
@@ -393,26 +392,6 @@ const Sidebar: React.FC = () => {
           </button>
         </div>
       )}
-
-      {/* Notifications — its own row so it never collides with the collapse button */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        gap: 8,
-        padding: collapsed ? '10px 8px' : '10px 22px',
-        borderBottom: '1px solid #ebebeb',
-        flexShrink: 0,
-      }}>
-        {!collapsed && (
-          <span style={{
-            fontSize: 10.5, fontWeight: 700, color: '#c0c4cc',
-            letterSpacing: '0.8px', textTransform: 'uppercase',
-          }}>
-            Notifications
-          </span>
-        )}
-        <NotificationBell collapsed={collapsed} />
-      </div>
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: collapsed ? '12px 8px' : '16px 12px', overflowY: 'auto' }}>

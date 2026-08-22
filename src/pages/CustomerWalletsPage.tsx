@@ -643,7 +643,7 @@ const CW_STYLES = `
   --cw-shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
   --cw-shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 14px 34px rgba(16,24,40,.09);
 }
-.cw-page { background:var(--cw-bg); min-height:100vh; padding:30px 32px 56px; color:var(--cw-ink); }
+.cw-page { background:var(--cw-bg); min-height:100%; padding:30px 32px 56px; color:var(--cw-ink); }
 .cw-page *:focus-visible, .cw-overlay *:focus-visible { outline:2px solid var(--cw-accent); outline-offset:2px; border-radius:6px; }
 .cw-num { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
 

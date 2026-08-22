@@ -1837,7 +1837,7 @@ const AccountingPage: React.FC = () => {
   const monthNavDisabled = tab === 'customers'; // customers ledger is not month-scoped
 
   return (
-    <div style={{ padding: '24px 32px', background: '#fafafa', minHeight: '100vh' }}>
+    <div style={{ padding: '24px 32px', background: '#fafafa', minHeight: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
