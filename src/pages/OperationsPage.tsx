@@ -536,26 +536,108 @@ const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, 
   </th>
 );
 
+// ─── Pickup charges ───────────────────────────────────────────────────────────
+
+/** Payload returned by `preview_pickup_charges` and `apply_pickup_charges` (jsonb). */
+interface PickupCharges {
+  booking_id:  number | null;
+  customer_id: string | null;
+  car_id:      number | null;
+  rental_days: number;
+  km: {
+    delivery_km: number; pickup_km: number; used: number; allowed: number;
+    over: number; price_per_km: number; charge: number;
+  };
+  fuel: {
+    delivery_level: number | null; pickup_level: number | null; drop: number;
+    tolerance: number; liters: number; price_per_liter: number; charge: number;
+  };
+  wash: { delivery_clean: string; return_clean: string; charge: number };
+  total_charge: number;
+  applied?: boolean;
+}
+
+/** `apply_pickup_charges` raises this when the pickup was already billed — not a failure. */
+const ALREADY_APPLIED = /already applied/i;
+
+/** Every ledger row written by `apply_pickup_charges` carries this description prefix. */
+const chargeTag = (pickupId: number) => `pickup_charge:op=${pickupId}`;
+
+const formatTry = (n: number): string =>
+  `${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })} \u20ba`;
+
+const formatKm = (n: number): string =>
+  Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 });
+
+/** One-line billing summary — only the lines that actually cost something. */
+function summarizeCharges(c: PickupCharges): string {
+  const parts: string[] = [];
+  if (Number(c.km.charge)   > 0) parts.push(`extra km ${formatTry(c.km.charge)}`);
+  if (Number(c.fuel.charge) > 0) parts.push(`fuel ${formatTry(c.fuel.charge)}`);
+  if (Number(c.wash.charge) > 0) parts.push(`wash ${formatTry(c.wash.charge)}`);
+  const breakdown = parts.length > 1
+    ? `${parts.join(' + ')} = ${formatTry(c.total_charge)}`
+    : parts[0];
+  return `Charged to the customer wallet: ${breakdown}`;
+}
+
+/**
+ * Bills the customer wallet for a freshly created pickup. Called exactly once, right
+ * after the pickup row is inserted — the report modal only ever previews. Never throws:
+ * the operation is already saved, and an unapplied charge can be recorded later.
+ */
+async function applyPickupCharges(pickupId: number, uid: string | null): Promise<SaveNotice> {
+  const { data, error } = await supabase.rpc('apply_pickup_charges', {
+    p_pickup_operation_id: pickupId,
+    p_created_by: uid,
+  });
+
+  if (error) {
+    return ALREADY_APPLIED.test(error.message)
+      ? { message: 'Pickup saved \u2014 charges were already recorded.', kind: 'muted' }
+      : { message: `Pickup saved, but charges could not be applied: ${error.message}`, kind: 'error' };
+  }
+
+  const charges = data as PickupCharges | null;
+  if (!charges || Number(charges.total_charge) <= 0) {
+    return { message: 'Pickup saved \u2014 no extra charges.', kind: 'muted' };
+  }
+  return { message: summarizeCharges(charges), kind: 'success' };
+}
+
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-const Toast: React.FC<{ message: string; kind: 'success' | 'error' }> = ({ message, kind }) =>
+type ToastKind = 'success' | 'error' | 'muted';
+
+/** What a save wants the page to announce, instead of the generic success toast. */
+interface SaveNotice { message: string; kind: ToastKind }
+
+const TOAST_SKIN: Record<ToastKind, { bg: string; color: string; border: string }> = {
+  success: { bg: '#0f1117', color: '#ffffff', border: 'none' },
+  error:   { bg: '#fff1f2', color: '#ef4444', border: '1px solid #fecaca' },
+  muted:   { bg: '#f9fafb', color: '#4b5563', border: '1px solid #e5e7eb' },
+};
+
+const Toast: React.FC<{ message: string; kind: ToastKind }> = ({ message, kind }) =>
   ReactDOM.createPortal(
     <div style={{
       position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 2000,
-      display: 'flex', alignItems: 'center', gap: 10,
-      background: kind === 'success' ? '#0f1117' : '#fff1f2',
-      color: kind === 'success' ? '#fff' : '#ef4444',
-      border: kind === 'error' ? '1px solid #fecaca' : 'none',
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      background: TOAST_SKIN[kind].bg,
+      color: TOAST_SKIN[kind].color,
+      border: TOAST_SKIN[kind].border,
       borderRadius: 12, padding: '12px 18px',
-      fontSize: 13, fontWeight: 500,
+      maxWidth: 'min(440px, calc(100vw - 40px))',
+      fontSize: 13, fontWeight: 500, lineHeight: 1.5,
       boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
       animation: 'slideUp 200ms ease',
     }}>
-      {kind === 'success'
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#16a34a"/><path d="M7 12l4 4 6-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v5M12 16h.01" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/></svg>
-      }
-      {message}
+      <span style={{ flexShrink: 0, marginTop: 1, display: 'inline-flex' }}>
+        {kind === 'success' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#16a34a"/><path d="M7 12l4 4 6-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        {kind === 'error'   && <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v5M12 16h.01" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/></svg>}
+        {kind === 'muted'   && <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#9ca3af" strokeWidth="1.8"/><path d="M12 11v5M12 8h.01" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"/></svg>}
+      </span>
+      <span>{message}</span>
     </div>,
     document.body,
   );
@@ -625,7 +707,7 @@ const EMPTY_FORM = (): AddOpForm => ({
 
 const AddOperationModal: React.FC<{
   onClose: () => void;
-  onSaved: (warning?: string) => void;
+  onSaved: (notice?: SaveNotice) => void;
   editOp?: Operation;
 }> = ({ onClose, onSaved, editOp }) => {
   const isEdit = !!editOp;
@@ -849,8 +931,8 @@ const AddOperationModal: React.FC<{
     if (!form.car_id)     { setFormError('Please select a car.'); return; }
     if (!form.type)       { setFormError('Please select an operation type.'); return; }
     if (!form.performed_by) { setFormError('Please select who handled this operation.'); return; }
-    if (form.fuel_level === '')                                    { setFormError('Fuel level is required.'); return; }
-    if (Number(form.fuel_level) > 2000)                           { setFormError('Maximum fuel level is 2000'); return; }
+    if (form.fuel_level === '')          { setFormError('Fuel range is required.'); return; }
+    if (Number(form.fuel_level) > 2000)  { setFormError('Maximum fuel range is 2000 km'); return; }
     // Required on NEW deliveries only: 169 legacy deliveries predate the checklist,
     // so editing one must never be blocked by it.
     if (!isEdit && form.type === 'DELIVERY') {
@@ -899,8 +981,6 @@ const AddOperationModal: React.FC<{
         : null;
     }
 
-    console.log('[DEBUG] cleanliness_status being saved:', corePayload.cleanliness_status);
-
     // ── Edit mode ────────────────────────────────────────────────────────────
     if (isEdit) {
       const { error: updateError } = await supabase
@@ -936,13 +1016,21 @@ const AddOperationModal: React.FC<{
       }
 
       setSaveStep('saving');
-      const { error: structuredInsertError } = await supabase
+      const { data: structuredRow, error: structuredInsertError } = await supabase
         .from('operations')
-        .insert({ ...corePayload, created_by: uid, photos: photosPayload });
+        .insert({ ...corePayload, created_by: uid, photos: photosPayload })
+        .select('id')
+        .single();
+
+      if (structuredInsertError) { setSaving(false); setFormError(structuredInsertError.message); return; }
+
+      // Charges are applied here and nowhere else — one pickup, one billing.
+      const structuredNotice = form.type === 'PICKUP' && structuredRow
+        ? await applyPickupCharges(structuredRow.id, uid)
+        : undefined;
 
       setSaving(false);
-      if (structuredInsertError) { setFormError(structuredInsertError.message); return; }
-      onSaved();
+      onSaved(structuredNotice);
       return;
     }
 
@@ -961,13 +1049,17 @@ const AddOperationModal: React.FC<{
 
     const insertPayload = { ...corePayload, created_by: uid, folder_url: folderUrl };
 
-    const { error: insertError } = await supabase.from('operations').insert(insertPayload);
+    const { data: insertedRow, error: insertError } = await supabase
+      .from('operations')
+      .insert(insertPayload)
+      .select('id')
+      .single();
     if (insertError) { setSaving(false); setFormError(insertError.message); return; }
 
     // Upload photos if any
+    let failCount = 0;
     if (photos.length > 0) {
       setSaveStep('uploading');
-      let failCount = 0;
       for (const file of photos) {
         const ext      = file.name.includes('.') ? file.name.split('.').pop() : '';
         const baseName = sanitizePath(file.name.replace(/\.[^.]+$/, ''));
@@ -980,15 +1072,21 @@ const AddOperationModal: React.FC<{
 
         if (uploadError) failCount++;
       }
-      setSaving(false);
-      if (failCount > 0) {
-        onSaved(`${failCount} photo(s) failed to upload. Operation was saved.`);
-      } else {
-        onSaved();
-      }
+    }
+
+    const chargeNotice = form.type === 'PICKUP' && insertedRow
+      ? await applyPickupCharges(insertedRow.id, uid)
+      : undefined;
+
+    setSaving(false);
+    if (failCount > 0) {
+      const photoWarning = `${failCount} photo(s) failed to upload. Operation was saved.`;
+      onSaved({
+        message: chargeNotice ? `${photoWarning} ${chargeNotice.message}` : photoWarning,
+        kind: 'error',
+      });
     } else {
-      setSaving(false);
-      onSaved();
+      onSaved(chargeNotice);
     }
   };
 
@@ -1148,17 +1246,17 @@ const AddOperationModal: React.FC<{
 
             {/* Fuel Level */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Fuel Level (L) <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>Fuel Range (km) <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="number"
                 min="0"
                 max="2000"
-                placeholder="e.g. 45"
+                placeholder="e.g. 420"
                 value={form.fuel_level}
                 onChange={e => {
                   setForm(f => ({ ...f, fuel_level: e.target.value }));
                   if (e.target.value !== '' && Number(e.target.value) > 2000) {
-                    setFormError('Maximum fuel level is 2000');
+                    setFormError('Maximum fuel range is 2000 km');
                   } else {
                     setFormError(null);
                   }
@@ -1771,11 +1869,43 @@ const MetricCard: React.FC<{
   </div>
 );
 
+const ChargeRow: React.FC<{
+  label: string;
+  detail: React.ReactNode;
+  amount: number;
+  isTotal?: boolean;
+}> = ({ label, detail, amount, isTotal = false }) => (
+  <div style={{
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+    gap: 14, padding: '12px 0',
+    borderTop: isTotal ? '1px solid #e5e7eb' : 'none',
+    borderBottom: isTotal ? 'none' : '1px solid #f0f0f0',
+  }}>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: isTotal ? 13 : 13, fontWeight: isTotal ? 800 : 600, color: '#0f1117' }}>{label}</div>
+      {detail && <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 3, lineHeight: 1.45 }}>{detail}</div>}
+    </div>
+    <div style={{
+      fontSize: isTotal ? 16 : 14, fontWeight: isTotal ? 800 : 700,
+      fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+      letterSpacing: isTotal ? '-0.3px' : undefined,
+      color: amount > 0 ? '#0f1117' : '#d1d5db',
+    }}>
+      {amount > 0 ? formatTry(amount) : '\u2014'}
+    </div>
+  </div>
+);
+
 const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = ({ pickup, onClose }) => {
   const [delivery, setDelivery]   = useState<DeliveryMatch | null>(null);
   const [method, setMethod]       = useState<MatchMethod | null>(null);
   const [fetching, setFetching]   = useState(true);
   const [fetchErr, setFetchErr]   = useState<string | null>(null);
+
+  const [charges, setCharges]               = useState<PickupCharges | null>(null);
+  const [chargesLoading, setChargesLoading] = useState(true);
+  const [chargesErr, setChargesErr]         = useState<string | null>(null);
+  const [chargesApplied, setChargesApplied] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -1832,6 +1962,34 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
     return () => { active = false; };
   }, [pickup.booking_id, pickup.car_id, pickup.operation_date]);
 
+  // ── Charges ────────────────────────────────────────────────────────────────
+  // Preview only. Billing runs once, at pickup save time — never on modal open.
+  useEffect(() => {
+    let active = true;
+    setChargesLoading(true);
+    setChargesErr(null);
+    setCharges(null);
+    setChargesApplied(false);
+
+    (async () => {
+      const [preview, ledger] = await Promise.all([
+        supabase.rpc('preview_pickup_charges', { p_pickup_operation_id: pickup.id }),
+        supabase
+          .from('customer_accounting_ledger')
+          .select('id')
+          .like('description', `${chargeTag(pickup.id)}%`)
+          .limit(1),
+      ]);
+      if (!active) return;
+      setChargesLoading(false);
+      if (preview.error) { setChargesErr(preview.error.message); return; }
+      setCharges(preview.data as PickupCharges);
+      setChargesApplied(!ledger.error && (ledger.data?.length ?? 0) > 0);
+    })();
+
+    return () => { active = false; };
+  }, [pickup.id]);
+
   // ── Metrics ────────────────────────────────────────────────────────────────
   const durationDays = delivery != null && delivery.operation_date && pickup.operation_date
     ? daysBetween(delivery.operation_date, pickup.operation_date)
@@ -1843,9 +2001,10 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
   const fuelOk   = delivery != null && delivery.fuel_level != null && pickup.fuel_level != null;
   const fuelDiff = fuelOk ? (pickup.fuel_level as number) - (delivery!.fuel_level as number) : null;
 
-  // fuel_level holds mixed units in the data — flag, never convert.
-  const fuelUnitsSuspect = (delivery?.fuel_level != null && delivery.fuel_level > 100)
-    || (pickup.fuel_level != null && pickup.fuel_level > 100);
+  // Legacy rows stored fuel as a 0–100 percentage; new rows store range in km.
+  // Flag only when the two readings sit in different magnitudes — never convert.
+  const fuelUnitsSuspect = fuelOk
+    && ((delivery!.fuel_level as number) <= 100) !== ((pickup.fuel_level as number) <= 100);
 
   const cleanOk = delivery != null && delivery.cleanliness_status != null && pickup.cleanliness_status != null;
   const washNeeded = cleanOk
@@ -1953,21 +2112,21 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                 />
 
                 <MetricCard
-                  label="Fuel Reading Difference"
+                  label="Fuel Range Difference"
                   incomplete={!fuelOk}
                   warning={fuelUnitsSuspect ? 'Inconsistent fuel units detected — verify manually' : undefined}
                   value={
                     fuelOk
                       ? <span style={{ color: (fuelDiff as number) < 0 ? '#ef4444' : '#16a34a' }}>
-                          {(fuelDiff as number) < 0 ? '−' : '+'}{Math.abs(fuelDiff as number)}
+                          {(fuelDiff as number) < 0 ? '−' : '+'}{Math.abs(fuelDiff as number).toLocaleString()} km
                         </span>
                       : dash
                   }
                   raw={
                     <>
-                      Delivery: {delivery.fuel_level != null ? delivery.fuel_level : '—'}
+                      Delivery: {delivery.fuel_level != null ? `${delivery.fuel_level.toLocaleString()} km` : '—'}
                       {' → '}
-                      Pickup: {pickup.fuel_level != null ? pickup.fuel_level : '—'}
+                      Pickup: {pickup.fuel_level != null ? `${pickup.fuel_level.toLocaleString()} km` : '—'}
                     </>
                   }
                 />
@@ -1992,17 +2151,96 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                 />
               </div>
 
-              {/* Damage Inspection placeholder */}
-              <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
-                  Damage Inspection
-                </div>
-                <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '26px 16px', textAlign: 'center', fontSize: 13, color: '#9ca3af', background: '#fafafa' }}>
-                  Photo comparison coming soon
-                </div>
-              </div>
             </>
           )}
+
+          {/* Charges due — read-only preview; billing happens once, at pickup save time */}
+          {!fetching && (
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+                  Charges Due
+                </div>
+                {chargesApplied && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '4px 10px' }}>
+                    ✓ Applied to wallet
+                  </span>
+                )}
+              </div>
+
+              {chargesLoading && (
+                <div style={{ height: 180, borderRadius: 12, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              )}
+
+              {!chargesLoading && chargesErr && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, fontSize: 13, color: '#ef4444' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                  {chargesErr}
+                </div>
+              )}
+
+              {!chargesLoading && !chargesErr && charges && (
+                <>
+                  {Number(charges.km.delivery_km) === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '11px 14px', marginBottom: 12, background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 10, fontSize: 12, color: '#b45309', lineHeight: 1.45 }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3l9 16H3l9-16z" stroke="#b45309" strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 10v4M12 17h.01" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                      No reference delivery operation to compare against — these figures may be incomplete.
+                    </div>
+                  )}
+
+                  <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, background: '#fafafa', padding: '2px 16px' }}>
+                    <ChargeRow
+                      label="Extra kilometers"
+                      amount={Number(charges.km.charge)}
+                      detail={
+                        <>
+                          {formatKm(charges.km.used)} km used · {formatKm(charges.km.allowed)} km allowed
+                          {Number(charges.km.over) > 0 && <> · {formatKm(charges.km.over)} km over × {formatTry(charges.km.price_per_km)}</>}
+                        </>
+                      }
+                    />
+                    <ChargeRow
+                      label="Fuel"
+                      amount={Number(charges.fuel.charge)}
+                      detail={
+                        <>
+                          Range drop {formatKm(charges.fuel.drop)} km · tolerance {formatKm(charges.fuel.tolerance)} km
+                          {Number(charges.fuel.charge) > 0 && <> · ≈ {formatKm(charges.fuel.liters)} L to refill × {formatTry(charges.fuel.price_per_liter)}</>}
+                        </>
+                      }
+                    />
+                    <ChargeRow
+                      label="Car wash"
+                      amount={Number(charges.wash.charge)}
+                      detail={<>Delivered {formatCleanliness(charges.wash.delivery_clean || null)} → returned {formatCleanliness(charges.wash.return_clean || null)}</>}
+                    />
+                    <ChargeRow
+                      label="Total"
+                      amount={Number(charges.total_charge)}
+                      detail={null}
+                      isTotal
+                    />
+                  </div>
+
+                  <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 9, lineHeight: 1.5 }}>
+                    {chargesApplied
+                      ? 'Recorded on the customer wallet when this pickup was saved.'
+                      : 'Preview only — not recorded on the customer wallet.'}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Damage Inspection placeholder */}
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
+              Damage Inspection
+            </div>
+            <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '26px 16px', textAlign: 'center', fontSize: 13, color: '#9ca3af', background: '#fafafa' }}>
+              Photo comparison coming soon
+            </div>
+          </div>
         </div>
       </div>
     </div>,
@@ -2032,12 +2270,16 @@ const OperationsPage: React.FC = () => {
   const [deleting, setDeleting]     = useState(false);
   const [photosOp, setPhotosOp]     = useState<Operation | null>(null);
   const [reportOp, setReportOp]     = useState<Operation | null>(null);
-  const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = (message: string, kind: 'success' | 'error') => {
+  const showToast = (message: string, kind: ToastKind, durationMs = 3500) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ message, kind });
-    setTimeout(() => setToast(null), 3500);
+    toastTimer.current = setTimeout(() => setToast(null), durationMs);
   };
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const handleTabChange = (t: TabKey) => {
     setTab(t);
@@ -2265,7 +2507,7 @@ const OperationsPage: React.FC = () => {
                 <Th>Handled By</Th>
                 {tab === 'dp' && <Th>Customer</Th>}
                 <Th>Mileage</Th>
-                <Th>Fuel Level</Th>
+                <Th>Fuel Range</Th>
                 <Th style={{ textAlign: 'center' }}>Cleanliness</Th>
                 <Th>Notes</Th>
                 <Th style={{ textAlign: 'center' }}>Photos</Th>
@@ -2314,7 +2556,7 @@ const OperationsPage: React.FC = () => {
 
                   <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>
                     {op.fuel_level != null
-                      ? op.fuel_level + ' L'
+                      ? op.fuel_level.toLocaleString() + ' km'
                       : <span style={{ color: '#d1d5db' }}>—</span>}
                   </td>
 
@@ -2444,14 +2686,12 @@ const OperationsPage: React.FC = () => {
       {showAddModal && (
         <AddOperationModal
           onClose={() => setShowAddModal(false)}
-          onSaved={(warning) => {
+          onSaved={(notice) => {
             setShowAddModal(false);
             fetchOperations(selectedMonth);
-            if (warning) {
-              showToast(warning, 'error');
-            } else {
-              showToast('Operation saved successfully.', 'success');
-            }
+            // Charge summaries carry money figures — hold them long enough to read.
+            if (notice) showToast(notice.message, notice.kind, 8000);
+            else        showToast('Operation saved successfully.', 'success');
           }}
         />
       )}
