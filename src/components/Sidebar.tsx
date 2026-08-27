@@ -148,21 +148,20 @@ const mediaItems: NavItem[] = [
     sectionKey: 'media',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M15 14c.2-1 .7-1.7 1.5-2.5A5.7 5.7 0 0018 8 6 6 0 006 8c0 1 .2 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         <path d="M9 18h6M10 22h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        <path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
       </svg>
     ),
   },
   {
-    label: 'Content Calendar',
+    label: 'Calendar',
     path: '/dashboard/media/calendar',
     sectionKey: 'media',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
         <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
         <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        <circle cx="8.5" cy="15.5" r="1.3" fill="currentColor" opacity="0.65"/>
-        <circle cx="13" cy="15.5" r="1.3" fill="currentColor" opacity="0.65"/>
+        <path d="M17 14h-6M13 18H7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -172,9 +171,8 @@ const mediaItems: NavItem[] = [
     sectionKey: 'media',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-        <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8"/>
-        <path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        <path d="M16.2 5.4a3 3 0 010 5.2M17.5 14.4A5.6 5.6 0 0121 19.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M3 11l18-5v12L3 14v-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+        <path d="M11.6 16.8a3 3 0 11-5.8-1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
   },

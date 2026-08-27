@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CurrencyProvider } from './lib/CurrencyContext';
 import LoginPage from './pages/LoginPage';
@@ -15,9 +15,25 @@ import KabisPage from './pages/KabisPage';
 import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
-import MediaIdeasPage from './pages/media/MediaIdeasPage';
-import MediaCalendarPage from './pages/media/MediaCalendarPage';
-import MediaInfluencersPage from './pages/media/MediaInfluencersPage';
+/*
+ * Media is a restricted section with its own UI stack (Base UI, dnd-kit, motion,
+ * date-fns, lucide). Loading it lazily keeps roughly 170 kB out of the initial
+ * bundle for everyone who never opens it.
+ */
+const MediaLayout = lazy(() => import('./pages/media/media-layout'));
+const MediaIdeasPage = lazy(() => import('./pages/media/ideas/page'));
+const MediaCalendarPage = lazy(() => import('./pages/media/calendar/page'));
+const MediaInfluencersPage = lazy(() => import('./pages/media/influencers/page'));
+
+/** Shown only for the moment the Media chunk is in flight. */
+const MediaChunkFallback: React.FC = () => (
+  <div style={{
+    minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#9ca3af', fontSize: 14,
+  }}>
+    Loading…
+  </div>
+);
 import ProtectedRoute from './components/ProtectedRoute';
 import RequireSection from './components/RequireSection';
 import { SectionAccessProvider } from './lib/SectionAccessContext';
@@ -57,18 +73,23 @@ const App: React.FC = () => {
             path="kabis"
             element={<RequireSection section="kabis"><KabisPage /></RequireSection>}
           />
+          {/* One guard on the parent covers the whole Media subtree, including
+              any page added to it later. */}
           <Route
-            path="media/ideas"
-            element={<RequireSection section="media"><MediaIdeasPage /></RequireSection>}
-          />
-          <Route
-            path="media/calendar"
-            element={<RequireSection section="media"><MediaCalendarPage /></RequireSection>}
-          />
-          <Route
-            path="media/influencers"
-            element={<RequireSection section="media"><MediaInfluencersPage /></RequireSection>}
-          />
+            path="media"
+            element={
+              <RequireSection section="media">
+                <Suspense fallback={<MediaChunkFallback />}>
+                  <MediaLayout />
+                </Suspense>
+              </RequireSection>
+            }
+          >
+            <Route index element={<Navigate to="ideas" replace />} />
+            <Route path="ideas" element={<MediaIdeasPage />} />
+            <Route path="calendar" element={<MediaCalendarPage />} />
+            <Route path="influencers" element={<MediaInfluencersPage />} />
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

@@ -1,0 +1,225 @@
+import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
+import { Lightbulb, Plus, Search, SearchX } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '../../../../components/ui/button';
+import { Input } from '../../../../components/ui/input';
+import { MediaEmptyState } from '../../_components/media-empty-state';
+import { IDEA_CATEGORIES, type MediaFormat, type MediaGoal, type MediaIdea } from '../../../../lib/types/media';
+import { cn } from '../../../../lib/utils';
+import { convertIdeaToPost } from '../../_actions';
+import { IdeaCard } from './idea-card';
+import { IdeaFormSheet } from './idea-form-sheet';
+
+const ALL = '__all__';
+
+interface IdeasClientProps {
+  ideas: MediaIdea[];
+  goals: MediaGoal[];
+  formats: MediaFormat[];
+}
+
+export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
+  const navigate = useNavigate();
+
+  const [category, setCategory] = React.useState<string>(ALL);
+  const [search, setSearch] = React.useState('');
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<MediaIdea | null>(null);
+  const [convertingId, setConvertingId] = React.useState<string | null>(null);
+  const [isConverting, startConvert] = React.useTransition();
+
+  // O(1) lookups per card instead of a scan.
+  const goalMap = React.useMemo(() => new Map(goals.map((g) => [g.key, g])), [goals]);
+  const formatMap = React.useMemo(() => new Map(formats.map((f) => [f.key, f])), [formats]);
+
+  /**
+   * The six known categories plus any other value already present in the data —
+   * a category an admin typed by hand must never make its ideas unreachable.
+   */
+  const categories = React.useMemo(() => {
+    const known = new Set<string>(IDEA_CATEGORIES);
+    const extra = ideas
+      .map((i) => i.category)
+      .filter((c): c is string => typeof c === 'string' && c.length > 0 && !known.has(c));
+    return [...IDEA_CATEGORIES, ...Array.from(new Set(extra))];
+  }, [ideas]);
+
+  const counts = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const idea of ideas) {
+      if (!idea.category) continue;
+      map.set(idea.category, (map.get(idea.category) ?? 0) + 1);
+    }
+    return map;
+  }, [ideas]);
+
+  const visible = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return ideas.filter((idea) => {
+      if (category !== ALL && idea.category !== category) return false;
+      if (!q) return true;
+      return (
+        idea.title.toLowerCase().includes(q) ||
+        (idea.content ?? '').toLowerCase().includes(q) ||
+        (idea.note ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [ideas, category, search]);
+
+  const isFiltered = category !== ALL || search.trim() !== '';
+
+  const openCreate = React.useCallback(() => {
+    setEditing(null);
+    setSheetOpen(true);
+  }, []);
+
+  const openEdit = React.useCallback((idea: MediaIdea) => {
+    setEditing(idea);
+    setSheetOpen(true);
+  }, []);
+
+  const handleConvert = React.useCallback((idea: MediaIdea) => {
+    setConvertingId(idea.id);
+    startConvert(async () => {
+      const result = await convertIdeaToPost(idea.id);
+      setConvertingId(null);
+      if (!result.ok) {
+        toast.error(result.error ?? "Couldn't convert this idea");
+        return;
+      }
+      if (result.warning) toast.warning(result.warning);
+      else toast.success('Post created from idea');
+      // Land on the calendar with the new post's panel already open.
+      navigate(`/dashboard/media/calendar?post=${result.postId}`);
+    });
+  }, [navigate]);
+
+  const tabs: { key: string; label: string; count: number }[] = [
+    { key: ALL, label: 'All', count: ideas.length },
+    ...categories.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Controls */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-xs">
+          <Search
+            size={14}
+            strokeWidth={1.75}
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/30"
+          />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search ideas…"
+            aria-label="Search ideas"
+            className="h-9 pl-8 text-[13px]"
+          />
+        </div>
+        <Button size="lg" onClick={openCreate} className="shrink-0">
+          <Plus size={15} strokeWidth={2} data-icon="inline-start" />
+          New idea
+        </Button>
+      </div>
+
+      {/* Category tabs */}
+      <div role="tablist" aria-label="Idea categories" className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1">
+        {tabs.map(({ key, label, count }) => {
+          const isActive = category === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setCategory(key)}
+              className={cn(
+                'relative inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] transition-colors duration-150',
+                isActive
+                  ? 'font-semibold text-white'
+                  : 'font-medium text-black/55 hover:bg-black/[0.04] hover:text-black/80',
+              )}
+            >
+              {isActive && (
+                <motion.span
+                  layoutId="idea-category-pill"
+                  aria-hidden
+                  className="absolute inset-0 rounded-full bg-[#6ea4e7]"
+                  transition={{ type: 'spring', stiffness: 480, damping: 38 }}
+                />
+              )}
+              <span className="relative">{label}</span>
+              <span
+                className={cn(
+                  'relative rounded-full px-1.5 text-[11px] font-semibold tabular-nums',
+                  isActive ? 'bg-white/20 text-white' : 'bg-black/[0.05] text-black/45',
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Board */}
+      {visible.length === 0 ? (
+        isFiltered ? (
+          <MediaEmptyState
+            icon={SearchX}
+            title="Nothing matches that filter"
+            description="No ideas in this category match your search. Try a different category or clear the search box."
+            action={
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => { setSearch(''); setCategory(ALL); }}
+              >
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <MediaEmptyState
+            icon={Lightbulb}
+            title="No ideas yet"
+            description="This is the backlog for everything you might shoot or design. Capture the first concept and turn it into a scheduled post when it's ready."
+            action={
+              <Button size="lg" onClick={openCreate}>
+                <Plus size={15} strokeWidth={2} data-icon="inline-start" />
+                Add the first idea
+              </Button>
+            }
+          />
+        )
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((idea) => (
+            <IdeaCard
+              key={idea.id}
+              idea={idea}
+              goal={idea.goal_key ? goalMap.get(idea.goal_key) : undefined}
+              format={idea.format_key ? formatMap.get(idea.format_key) : undefined}
+              isConverting={isConverting && convertingId === idea.id}
+              onEdit={openEdit}
+              onConvert={handleConvert}
+            />
+          ))}
+        </div>
+      )}
+
+      <IdeaFormSheet
+        open={sheetOpen}
+        onClose={() => { setSheetOpen(false); setEditing(null); }}
+        idea={editing}
+        goals={goals}
+        formats={formats}
+        defaultCategory={category === ALL ? undefined : category}
+      />
+    </div>
+  );
+}
