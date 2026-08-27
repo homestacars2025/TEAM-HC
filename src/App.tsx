@@ -15,6 +15,9 @@ import KabisPage from './pages/KabisPage';
 import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
+import MediaIdeasPage from './pages/media/MediaIdeasPage';
+import MediaCalendarPage from './pages/media/MediaCalendarPage';
+import MediaInfluencersPage from './pages/media/MediaInfluencersPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import RequireSection from './components/RequireSection';
 import { SectionAccessProvider } from './lib/SectionAccessContext';
@@ -53,6 +56,18 @@ const App: React.FC = () => {
           <Route
             path="kabis"
             element={<RequireSection section="kabis"><KabisPage /></RequireSection>}
+          />
+          <Route
+            path="media/ideas"
+            element={<RequireSection section="media"><MediaIdeasPage /></RequireSection>}
+          />
+          <Route
+            path="media/calendar"
+            element={<RequireSection section="media"><MediaCalendarPage /></RequireSection>}
+          />
+          <Route
+            path="media/influencers"
+            element={<RequireSection section="media"><MediaInfluencersPage /></RequireSection>}
           />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />

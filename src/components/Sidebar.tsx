@@ -6,7 +6,7 @@ import { useSectionAccess } from '../lib/SectionAccessContext';
 
 /**
  * `sectionKey` ties a nav item to a row in `restricted_sections`. Items without one are
- * public and always render. Add `sectionKey: 'media'` to the Media item when that page lands.
+ * public and always render.
  */
 interface NavItem {
   label: string;
@@ -136,6 +136,49 @@ const kabisItem: NavItem = {
     </svg>
   ),
 };
+
+/**
+ * Every Media item is restricted, so the group header is rendered behind the same
+ * `media` grant — otherwise an ungranted user would see an empty MEDIA heading.
+ */
+const mediaItems: NavItem[] = [
+  {
+    label: 'Ideas',
+    path: '/dashboard/media/ideas',
+    sectionKey: 'media',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <path d="M9 18h6M10 22h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Content Calendar',
+    path: '/dashboard/media/calendar',
+    sectionKey: 'media',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="8.5" cy="15.5" r="1.3" fill="currentColor" opacity="0.65"/>
+        <circle cx="13" cy="15.5" r="1.3" fill="currentColor" opacity="0.65"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Influencers',
+    path: '/dashboard/media/influencers',
+    sectionKey: 'media',
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M3 20a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M16.2 5.4a3 3 0 010 5.2M17.5 14.4A5.6 5.6 0 0121 19.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+];
 
 const accountingItem: NavItem = {
   label: 'Accounting',
@@ -478,6 +521,27 @@ const Sidebar: React.FC = () => {
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
         )}
         {renderNavItems([...operationsItems, customerWalletsItem, kabisItem, accountingItem])}
+
+        {/* Media section — only for users granted the `media` section */}
+        {canAccess('media') && (
+          <>
+            {!collapsed ? (
+              <div style={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: '#c0c4cc',
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                padding: '16px 10px 8px',
+              }}>
+                Media
+              </div>
+            ) : (
+              <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
+            )}
+            {renderNavItems(mediaItems)}
+          </>
+        )}
       </nav>
 
       {/* Currency selector + Profile + Sign out */}
