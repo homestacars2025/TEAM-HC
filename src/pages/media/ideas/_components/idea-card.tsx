@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, Pencil, Sparkles, StickyNote } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import { ApprovedBadge, FormatBadge, GoalBadge, PostedBadge } from '../../_components/media-badges';
+import { ReferenceChip } from '../../_components/reference-link';
 import type { MediaFormat, MediaGoal, MediaIdea } from '../../../../lib/types/media';
 
 interface IdeaCardProps {
@@ -15,7 +16,9 @@ interface IdeaCardProps {
 }
 
 export function IdeaCard({ idea, goal, format, isConverting, onEdit, onConvert }: IdeaCardProps) {
-  const hasTaxonomy = Boolean(goal || idea.goal_key || format || idea.format_key);
+  // The reference chip shares the badge row, so the row survives an idea that has
+  // a link but no goal or format.
+  const hasTaxonomy = Boolean(goal || idea.goal_key || format || idea.format_key || idea.reference_url);
 
   return (
     <article className="group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-black/[0.1] hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.16)]">
@@ -42,6 +45,7 @@ export function IdeaCard({ idea, goal, format, isConverting, onEdit, onConvert }
         <div className="flex flex-wrap items-center gap-1.5">
           <GoalBadge goal={goal} fallback={idea.goal_key} />
           <FormatBadge format={format} fallback={idea.format_key} />
+          <ReferenceChip url={idea.reference_url} />
         </div>
       )}
 

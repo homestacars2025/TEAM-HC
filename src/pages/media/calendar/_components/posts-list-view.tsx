@@ -3,7 +3,9 @@ import { format, parseISO } from 'date-fns';
 import { ExternalLink, Maximize2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import type { EditablePostField, MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
+import { normalizeReferenceUrl } from '../../../../lib/media/reference-url';
 import { PostedBadge } from '../../_components/media-badges';
+import { ReferenceIconLink } from '../../_components/reference-link';
 import { InlineDate, InlineSelect, InlineText } from './inline-fields';
 
 const day = (value: string | null | undefined) => value?.slice(0, 10) ?? '';
@@ -75,7 +77,7 @@ export function PostsListView({ posts, goals, formats, onSaveField, onOpen }: Po
   return (
     <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] border-collapse text-left">
+        <table className="w-full min-w-[1320px] border-collapse text-left">
           <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm">
             <tr className="border-b border-black/[0.07]">
               <th scope="col" className={TH}>Date</th>
@@ -87,6 +89,7 @@ export function PostsListView({ posts, goals, formats, onSaveField, onOpen }: Po
               <th scope="col" className={TH}>Caption</th>
               <th scope="col" className={TH}>CTA</th>
               <th scope="col" className={TH}>Media Link</th>
+              <th scope="col" className={TH}>Reference</th>
               <th scope="col" className={TH}>Posted</th>
               <th scope="col" className={TH} />
             </tr>
@@ -98,7 +101,7 @@ export function PostsListView({ posts, goals, formats, onSaveField, onOpen }: Po
                 <tr>
                   <th
                     scope="colgroup"
-                    colSpan={11}
+                    colSpan={12}
                     className="border-y border-black/[0.05] bg-black/[0.018] px-3 py-2 text-left"
                   >
                     <span className="flex items-center gap-2">
@@ -211,6 +214,21 @@ export function PostsListView({ posts, goals, formats, onSaveField, onOpen }: Po
                               <ExternalLink size={12} />
                             </a>
                           )}
+                        </div>
+                      </td>
+
+                      <td className="px-1 py-2">
+                        <div className="flex items-start gap-1">
+                          <InlineText
+                            className="truncate"
+                            value={post.reference_url}
+                            placeholder="Add reference"
+                            ariaLabel="Reference link"
+                            // Normalised here too, so the optimistic value in the
+                            // grid is exactly what the server ends up storing.
+                            onSave={(v) => onSaveField(post.id, 'reference_url', normalizeReferenceUrl(v))}
+                          />
+                          <ReferenceIconLink url={post.reference_url} className="mt-1.5" />
                         </div>
                       </td>
 

@@ -16,6 +16,7 @@ import { dotStyle } from '../../../../lib/media/badge-color';
 import type { MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
 import { PostedBadge } from '../../_components/media-badges';
+import { ReferenceField } from '../../_components/reference-link';
 import { savePost } from '../../_actions';
 
 const NONE = '_none';
@@ -41,6 +42,7 @@ interface FormState {
   caption: string;
   cta: string;
   media_link: string;
+  reference_url: string;
 }
 
 export function PostDetailSheet({
@@ -80,6 +82,7 @@ function PostForm({
     caption: post?.caption ?? '',
     cta: post?.cta ?? '',
     media_link: post?.media_link ?? '',
+    reference_url: post?.reference_url ?? '',
   }));
   const [isPending, startTransition] = React.useTransition();
 
@@ -104,6 +107,7 @@ function PostForm({
         caption: form.caption || null,
         cta: form.cta || null,
         media_link: form.media_link || null,
+        reference_url: form.reference_url || null,
       });
       if (!result.ok) {
         toast.error(result.error ?? "Couldn't save the post");
@@ -246,6 +250,18 @@ function PostForm({
             placeholder="The caption as it will be published."
             className="resize-none text-[13px] leading-relaxed"
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="post-reference" className="text-[13px]">Reference</Label>
+          <ReferenceField
+            id="post-reference"
+            value={form.reference_url}
+            onChange={(v) => set('reference_url', v)}
+          />
+          <p className="text-[11.5px] text-black/35">
+            Optional — the trend or example this is based on. Opens in a new tab.
+          </p>
         </div>
 
         <div className="flex flex-col gap-1.5">

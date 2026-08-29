@@ -1,5 +1,6 @@
 import { getCurrentProfile } from '../../lib/auth/get-current-profile';
 import { mediaDb } from '../../lib/queries/media';
+import { normalizeReferenceUrl } from '../../lib/media/reference-url';
 import type {
   ActionResult, ConvertResult, EditablePostField,
   IdeaInput, InfluencerInput, PostInput, SaveResult,
@@ -81,6 +82,7 @@ export async function saveIdea(input: IdeaInput): Promise<SaveResult> {
     goal_key: trimmed(input.goal_key),
     format_key: trimmed(input.format_key),
     note: trimmed(input.note),
+    reference_url: normalizeReferenceUrl(input.reference_url),
   };
 
   if (input.id) {
@@ -117,7 +119,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
 
   const { data: idea, error: readError } = await mediaDb
     .from('ideas')
-    .select('id, title, content, goal_key, format_key, converted_post_id')
+    .select('id, title, content, goal_key, format_key, reference_url, converted_post_id')
     .eq('id', ideaId)
     .single();
 
@@ -126,7 +128,8 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
 
   const source = idea as unknown as {
     id: string; title: string | null; content: string | null;
-    goal_key: string | null; format_key: string | null; converted_post_id: string | null;
+    goal_key: string | null; format_key: string | null;
+    reference_url: string | null; converted_post_id: string | null;
   };
 
   if (source.converted_post_id) return { ok: true, postId: source.converted_post_id };
@@ -139,6 +142,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
       format_key: source.format_key,
       objective: source.title,   // title   → objective
       caption: source.content,   // content → caption
+      reference_url: source.reference_url,
       source_idea_id: source.id,
       created_by: profile.id,
     })
@@ -172,7 +176,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
  */
 const EDITABLE_POST_FIELDS: readonly EditablePostField[] = [
   'post_date', 'week_label', 'goal_key', 'format_key',
-  'objective', 'visual_script', 'caption', 'cta', 'media_link',
+  'objective', 'visual_script', 'caption', 'cta', 'media_link', 'reference_url',
 ];
 
 export async function savePost(input: PostInput): Promise<SaveResult> {
@@ -189,6 +193,7 @@ export async function savePost(input: PostInput): Promise<SaveResult> {
     caption: trimmed(input.caption),
     cta: trimmed(input.cta),
     media_link: trimmed(input.media_link),
+    reference_url: normalizeReferenceUrl(input.reference_url),
   };
 
   if (input.id) {
@@ -228,9 +233,11 @@ export async function updatePostField(
     return { ok: false, error: 'That field is managed by an admin.' };
   }
 
+  const next = field === 'reference_url' ? normalizeReferenceUrl(value) : trimmed(value);
+
   const { error } = await mediaDb
     .from('posts')
-    .update({ [field]: trimmed(value), updated_at: new Date().toISOString() })
+    .update({ [field]: next, updated_at: new Date().toISOString() })
     .eq('id', postId);
 
   if (error) return { ok: false, error: friendlyError(error) };

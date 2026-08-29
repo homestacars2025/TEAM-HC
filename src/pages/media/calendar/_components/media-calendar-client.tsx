@@ -127,7 +127,8 @@ export function MediaCalendarClient({
       id: undefined,
       post_date: date,
       week_label: null, goal_key: null, format_key: null,
-      objective: null, visual_script: null, caption: null, cta: null, media_link: null,
+      objective: null, visual_script: null, caption: null, cta: null,
+      media_link: null, reference_url: null,
     });
     if (!result.ok || !result.id) {
       toast.error(result.error ?? "Couldn't create the post");

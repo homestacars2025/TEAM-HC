@@ -7,9 +7,11 @@ import { PageHeader } from '../../components/layout/page-header';
 import { MediaNav } from './_components/media-nav';
 import { MediaEmptyState } from './_components/media-empty-state';
 import { ApprovedBadge, GoalBadge, PostedBadge, ToneBadge } from './_components/media-badges';
+import { ReferenceChip, ReferenceIconLink } from './_components/reference-link';
 import { StatusSelect } from './influencers/_components/status-select';
 import { MESSAGING_STATUSES } from '../../lib/types/media';
 import { chipStyle, tintedStyle, toneFor } from '../../lib/media/badge-color';
+import { normalizeReferenceUrl, referenceLabel } from '../../lib/media/reference-url';
 import { formatCountry } from '../../lib/countries';
 
 const wrap = (ui: React.ReactNode) => (
@@ -87,4 +89,39 @@ test('country formatting resolves a code and passes free text through', () => {
   expect(formatCountry('TR')).toMatch(/^🇹🇷 /);
   expect(formatCountry('Istanbul')).toBe('Istanbul');
   expect(formatCountry(null)).toBe('');
+});
+
+test('reference chip opens the link in a new tab, safely', () => {
+  render(wrap(<ReferenceChip url="https://instagram.com/reel/abc" />));
+  const link = screen.getByRole('link');
+  expect(link).toHaveAttribute('href', 'https://instagram.com/reel/abc');
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(screen.getByText('Reference')).toBeInTheDocument();
+});
+
+test('an unset reference renders nothing at all — never a disabled control', () => {
+  const { container } = render(wrap(<><ReferenceChip url={null} /><ReferenceIconLink url="   " /></>));
+  expect(container).toBeEmptyDOMElement();
+});
+
+test('a schemeless reference is still a usable link', () => {
+  render(wrap(<ReferenceChip url="instagram.com/p/xyz" />));
+  expect(screen.getByRole('link')).toHaveAttribute('href', 'https://instagram.com/p/xyz');
+});
+
+test('reference URLs normalise to one canonical form', () => {
+  expect(normalizeReferenceUrl('  https://a.com/x  ')).toBe('https://a.com/x');
+  expect(normalizeReferenceUrl('a.com/x')).toBe('https://a.com/x');
+  expect(normalizeReferenceUrl('http://a.com')).toBe('http://a.com');
+  // Blank in every guise means "unset", so an emptied field clears the column.
+  expect(normalizeReferenceUrl('')).toBeNull();
+  expect(normalizeReferenceUrl('   ')).toBeNull();
+  expect(normalizeReferenceUrl(null)).toBeNull();
+});
+
+test('reference label drops the scheme and www, and survives junk', () => {
+  expect(referenceLabel('https://www.instagram.com/reel/abc')).toBe('instagram.com/reel/abc');
+  expect(referenceLabel('https://instagram.com/')).toBe('instagram.com');
+  expect(referenceLabel('not a url')).toBe('not a url');
 });

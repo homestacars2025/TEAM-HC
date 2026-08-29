@@ -18,10 +18,10 @@ const mediaDb = supabase.schema('media');
 const LOOKUP_SELECT = 'key, label, color, is_active, sort_order';
 
 const IDEA_SELECT =
-  'id, title, content, category, format_key, goal_key, posted, is_approved, note, converted_post_id, created_by, created_at, updated_at';
+  'id, title, content, category, format_key, goal_key, reference_url, posted, is_approved, note, converted_post_id, created_by, created_at, updated_at';
 
 const POST_SELECT =
-  'id, post_date, week_no, week_label, goal_key, format_key, objective, visual_script, caption, cta, media_link, posted, source_idea_id, created_by, created_at, updated_at';
+  'id, post_date, week_no, week_label, goal_key, format_key, objective, visual_script, caption, cta, media_link, reference_url, posted, source_idea_id, created_by, created_at, updated_at';
 
 const INFLUENCER_SELECT =
   'id, name, followers_count, url, email_contact, type, country, notes, messaging_status, final_decision, created_by, created_at, updated_at';

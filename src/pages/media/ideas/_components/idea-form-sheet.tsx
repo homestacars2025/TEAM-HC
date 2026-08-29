@@ -13,6 +13,7 @@ import { Textarea } from '../../../../components/ui/textarea';
 import { dotStyle } from '../../../../lib/media/badge-color';
 import { IDEA_CATEGORIES, type MediaFormat, type MediaGoal, type MediaIdea } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
+import { ReferenceField } from '../../_components/reference-link';
 import { saveIdea } from '../../_actions';
 
 /** A Select cannot hold `""`, so "no choice" is a sentinel mapped back to null. */
@@ -36,6 +37,7 @@ interface FormState {
   goal_key: string;
   format_key: string;
   note: string;
+  reference_url: string;
 }
 
 export function IdeaFormSheet({
@@ -71,6 +73,7 @@ function IdeaForm({
     goal_key: idea?.goal_key ?? '',
     format_key: idea?.format_key ?? '',
     note: idea?.note ?? '',
+    reference_url: idea?.reference_url ?? '',
   }));
   const [isPending, startTransition] = React.useTransition();
 
@@ -94,6 +97,7 @@ function IdeaForm({
         goal_key: form.goal_key || null,
         format_key: form.format_key || null,
         note: form.note || null,
+        reference_url: form.reference_url || null,
       });
       if (!result.ok) {
         toast.error(result.error ?? "Couldn't save the idea");
@@ -140,6 +144,18 @@ function IdeaForm({
             placeholder="What is the piece about? This becomes the first draft of the caption."
             className="resize-none text-[13px] leading-relaxed"
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="idea-reference" className="text-[13px]">Reference</Label>
+          <ReferenceField
+            id="idea-reference"
+            value={form.reference_url}
+            onChange={(v) => set('reference_url', v)}
+          />
+          <p className="text-[11.5px] text-black/35">
+            Optional — the trend or example this is based on. Opens in a new tab.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

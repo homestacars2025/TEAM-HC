@@ -10,6 +10,7 @@ import { Plus } from 'lucide-react';
 import { chipStyle } from '../../../../lib/media/badge-color';
 import type { MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
+import { ReferenceIconLink } from '../../_components/reference-link';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -213,27 +214,37 @@ function PostChip({
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: post.id });
 
   return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      onClick={() => onOpen(post)}
-      title={`${postTitle(post)}${formatRow ? ` — ${formatRow.label}` : ''}`}
-      className={cn(
-        'relative z-[1] block w-full rounded-md text-left focus-visible:outline-none',
-        'focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 focus-visible:ring-offset-1',
-        isDragging && 'opacity-30',
-      )}
-      {...listeners}
-      {...attributes}
-    >
-      <ChipBody post={post} goal={goal} />
-    </button>
+    // The reference link sits *beside* the draggable button, never inside it: an
+    // anchor nested in a button is invalid markup, and the drag sensor would eat
+    // the tap before the browser ever followed the href.
+    <div className={cn('relative z-[1]', isDragging && 'opacity-30')}>
+      <button
+        ref={setNodeRef}
+        type="button"
+        onClick={() => onOpen(post)}
+        title={`${postTitle(post)}${formatRow ? ` — ${formatRow.label}` : ''}`}
+        className={cn(
+          'block w-full rounded-md text-left focus-visible:outline-none',
+          'focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 focus-visible:ring-offset-1',
+        )}
+        {...listeners}
+        {...attributes}
+      >
+        <ChipBody post={post} goal={goal} hasReference={Boolean(post.reference_url)} />
+      </button>
+
+      <ReferenceIconLink
+        url={post.reference_url}
+        ariaLabel={`Open the reference link for ${postTitle(post)} in a new tab`}
+        className="absolute right-0.5 top-0.5 z-[2] bg-white/70 backdrop-blur-[2px]"
+      />
+    </div>
   );
 }
 
 function ChipBody({
-  post, goal, className,
-}: { post: MediaPost; goal?: MediaGoal; className?: string }) {
+  post, goal, hasReference, className,
+}: { post: MediaPost; goal?: MediaGoal; hasReference?: boolean; className?: string }) {
   return (
     <div
       style={chipStyle(goal?.color)}
@@ -244,7 +255,9 @@ function ChipBody({
         className,
       )}
     >
-      <p className="line-clamp-2 text-[11.5px] font-medium leading-tight">{postTitle(post)}</p>
+      <p className={cn('line-clamp-2 text-[11.5px] font-medium leading-tight', hasReference && 'pe-4')}>
+        {postTitle(post)}
+      </p>
       <div className="mt-1 flex items-center gap-1">
         {post.posted && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-1.5 text-[9.5px] font-semibold uppercase tracking-wide text-emerald-700">

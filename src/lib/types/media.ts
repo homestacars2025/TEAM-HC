@@ -34,6 +34,8 @@ export interface MediaIdea {
   category: string | null;
   format_key: string | null;
   goal_key: string | null;
+  /** Instagram link to the trend or example this is modelled on. */
+  reference_url: string | null;
   /** Admin-only. Read-only here — a server trigger rejects staff writes. */
   posted: boolean;
   /** Admin-only. Read-only here — a server trigger rejects staff writes. */
@@ -58,6 +60,7 @@ export type IdeaInput = {
   goal_key: string | null;
   format_key: string | null;
   note: string | null;
+  reference_url: string | null;
 };
 
 // ─── Posts ────────────────────────────────────────────────────────────────────
@@ -76,6 +79,8 @@ export interface MediaPost {
   caption: string | null;
   cta: string | null;
   media_link: string | null;
+  /** Instagram link to the trend or example this is modelled on. */
+  reference_url: string | null;
   /** Admin-only. Read-only here — a server trigger rejects staff writes. */
   posted: boolean;
   /** Written only by `convertIdeaToPost`. */
@@ -96,6 +101,7 @@ export type PostInput = {
   caption: string | null;
   cta: string | null;
   media_link: string | null;
+  reference_url: string | null;
 };
 
 export type EditablePostField = Exclude<keyof PostInput, 'id'>;
