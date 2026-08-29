@@ -5,9 +5,10 @@ import { Lightbulb, Plus, Search, SearchX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
-import { MediaEmptyState } from '../../_components/media-empty-state';
 import { IDEA_CATEGORIES, type MediaFormat, type MediaGoal, type MediaIdea } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
+import { ColorModeToggle, useColorMode } from '../../_components/color-mode-toggle';
+import { MediaEmptyState } from '../../_components/media-empty-state';
 import { convertIdeaToPost } from '../../_actions';
 import { IdeaCard } from './idea-card';
 import { IdeaFormSheet } from './idea-form-sheet';
@@ -24,6 +25,9 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
   const navigate = useNavigate();
 
   const [category, setCategory] = React.useState<string>(ALL);
+  // Its own key: the board and the calendar are read at different moments, and
+  // a shared preference would surprise whichever page you did not just change.
+  const [colorMode, setColorMode] = useColorMode('media_ideas_color_mode');
   const [search, setSearch] = React.useState('');
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<MediaIdea | null>(null);
@@ -120,10 +124,17 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
             className="h-9 pl-8 text-[13px]"
           />
         </div>
-        <Button size="lg" onClick={openCreate} className="shrink-0">
-          <Plus size={15} strokeWidth={2} data-icon="inline-start" />
-          New idea
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <ColorModeToggle
+            value={colorMode}
+            onChange={setColorMode}
+            layoutId="media-ideas-color-mode"
+          />
+          <Button size="lg" onClick={openCreate} className="shrink-0">
+            <Plus size={15} strokeWidth={2} data-icon="inline-start" />
+            New idea
+          </Button>
+        </div>
       </div>
 
       {/* Category tabs */}
@@ -204,6 +215,7 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
               idea={idea}
               goal={idea.goal_key ? goalMap.get(idea.goal_key) : undefined}
               format={idea.format_key ? formatMap.get(idea.format_key) : undefined}
+              colorMode={colorMode}
               isConverting={isConverting && convertingId === idea.id}
               onEdit={openEdit}
               onConvert={handleConvert}

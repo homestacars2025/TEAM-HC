@@ -3,6 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { ExternalLink, Maximize2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import type { EditablePostField, MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
+import { dotStyle } from '../../../../lib/media/badge-color';
+import { accentFor, type ColorMode } from '../../../../lib/media/color-mode';
 import { normalizeReferenceUrl } from '../../../../lib/media/reference-url';
 import { PostedBadge } from '../../_components/media-badges';
 import { ReferenceIconLink } from '../../_components/reference-link';
@@ -56,14 +58,18 @@ interface PostsListViewProps {
   posts: MediaPost[];
   goals: MediaGoal[];
   formats: MediaFormat[];
+  colorMode: ColorMode;
   onSaveField: (postId: string, field: EditablePostField, value: string | null) => Promise<boolean>;
   onOpen: (post: MediaPost) => void;
 }
 
 const TH = 'whitespace-nowrap px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-black/40';
 
-export function PostsListView({ posts, goals, formats, onSaveField, onOpen }: PostsListViewProps) {
+export function PostsListView({ posts, goals, formats, colorMode, onSaveField, onOpen }: PostsListViewProps) {
   const groups = React.useMemo(() => groupByWeek(posts), [posts]);
+
+  const goalMap = React.useMemo(() => new Map(goals.map((g) => [g.key, g])), [goals]);
+  const formatMap = React.useMemo(() => new Map(formats.map((f) => [f.key, f])), [formats]);
 
   const goalOptions = React.useMemo(
     () => goals.map((g) => ({ key: g.key, label: g.label, color: g.color })),
@@ -118,17 +124,31 @@ export function PostsListView({ posts, goals, formats, onSaveField, onOpen }: Po
 
                 {group.posts.map((post) => {
                   const date = day(post.post_date);
+                  const accent = accentFor(
+                    colorMode,
+                    post.goal_key ? goalMap.get(post.goal_key) : undefined,
+                    post.format_key ? formatMap.get(post.format_key) : undefined,
+                  );
                   return (
                     <tr
                       key={post.id}
                       className="group/row border-b border-black/[0.04] align-top transition-colors duration-150 last:border-b-0 hover:bg-black/[0.015]"
                     >
                       <td className="px-1 py-2">
-                        <InlineDate
-                          value={date || null}
-                          ariaLabel="Post date"
-                          onSave={(v) => onSaveField(post.id, 'post_date', v)}
-                        />
+                        <div className="flex items-center gap-1.5">
+                          {/* Reads as a rail, not a bullet: it belongs to the row. */}
+                          <span
+                            aria-hidden
+                            title={accent?.label}
+                            className="h-6 w-[3px] shrink-0 rounded-full"
+                            style={dotStyle(accent?.color)}
+                          />
+                          <InlineDate
+                            value={date || null}
+                            ariaLabel="Post date"
+                            onSave={(v) => onSaveField(post.id, 'post_date', v)}
+                          />
+                        </div>
                       </td>
 
                       <td className="whitespace-nowrap px-3 py-3.5 text-[12.5px] text-black/45">

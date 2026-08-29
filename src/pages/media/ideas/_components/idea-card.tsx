@@ -2,26 +2,43 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Pencil, Sparkles, StickyNote } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
+import { chipStyle } from '../../../../lib/media/badge-color';
+import { accentFor, type ColorMode } from '../../../../lib/media/color-mode';
+import type { MediaFormat, MediaGoal, MediaIdea } from '../../../../lib/types/media';
+import { cn } from '../../../../lib/utils';
 import { ApprovedBadge, FormatBadge, GoalBadge, PostedBadge } from '../../_components/media-badges';
 import { ReferenceChip } from '../../_components/reference-link';
-import type { MediaFormat, MediaGoal, MediaIdea } from '../../../../lib/types/media';
 
 interface IdeaCardProps {
   idea: MediaIdea;
   goal?: MediaGoal;
   format?: MediaFormat;
+  colorMode: ColorMode;
   isConverting: boolean;
   onEdit: (idea: MediaIdea) => void;
   onConvert: (idea: MediaIdea) => void;
 }
 
-export function IdeaCard({ idea, goal, format, isConverting, onEdit, onConvert }: IdeaCardProps) {
+export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, onConvert }: IdeaCardProps) {
+  const accent = accentFor(colorMode, goal, format);
+  // Only the leading rail is taken from the accent — the card stays white, so a
+  // wall of cards never turns into a wall of tinted rectangles.
+  const rail = { borderInlineStartColor: chipStyle(accent?.color).borderInlineStartColor };
   // The reference chip shares the badge row, so the row survives an idea that has
   // a link but no goal or format.
   const hasTaxonomy = Boolean(goal || idea.goal_key || format || idea.format_key || idea.reference_url);
 
   return (
-    <article className="group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-black/[0.1] hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.16)]">
+    <article
+      style={rail}
+      title={accent ? `${colorMode === 'format' ? 'Format' : 'Goal'}: ${accent.label}` : undefined}
+      className={cn(
+        'group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5',
+        // `bg-clip-padding` keeps the white surface from bleeding under the rail.
+        'border-s-[3px] bg-clip-padding',
+        'transition-all duration-200 hover:-translate-y-0.5 hover:border-black/[0.1] hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.16)]',
+      )}
+    >
       <div className="flex items-start gap-2">
         <h3 className="min-w-0 flex-1 text-[14.5px] font-semibold leading-snug tracking-[-0.012em] text-black/88">
           {idea.title}

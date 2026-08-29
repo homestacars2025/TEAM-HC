@@ -8,7 +8,8 @@ import {
 } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { chipStyle } from '../../../../lib/media/badge-color';
-import type { MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
+import { accentFor, type ColorMode } from '../../../../lib/media/color-mode';
+import type { MediaFormat, MediaGoal, MediaLookup, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
 import { ReferenceIconLink } from '../../_components/reference-link';
 
@@ -27,13 +28,14 @@ interface PostsMonthViewProps {
   posts: MediaPost[];
   goals: MediaGoal[];
   formats: MediaFormat[];
+  colorMode: ColorMode;
   onOpen: (post: MediaPost) => void;
   onCreateAt: (date: string) => void;
   onMovePost: (postId: string, date: string) => void;
 }
 
 export function PostsMonthView({
-  month, posts, goals, formats, onOpen, onCreateAt, onMovePost,
+  month, posts, goals, formats, colorMode, onOpen, onCreateAt, onMovePost,
 }: PostsMonthViewProps) {
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
 
@@ -108,6 +110,7 @@ export function PostsMonthView({
               posts={byDay.get(format(date, 'yyyy-MM-dd')) ?? []}
               goalMap={goalMap}
               formatMap={formatMap}
+              colorMode={colorMode}
               onOpen={onOpen}
               onCreateAt={onCreateAt}
             />
@@ -121,7 +124,11 @@ export function PostsMonthView({
           <div className="pointer-events-none w-[168px] rotate-2">
             <ChipBody
               post={dragging}
-              goal={dragging.goal_key ? goalMap.get(dragging.goal_key) : undefined}
+              accent={accentFor(
+                colorMode,
+                dragging.goal_key ? goalMap.get(dragging.goal_key) : undefined,
+                dragging.format_key ? formatMap.get(dragging.format_key) : undefined,
+              )}
               className="shadow-[0_10px_28px_-10px_rgb(0_0_0/0.35)]"
             />
           </div>
@@ -134,7 +141,7 @@ export function PostsMonthView({
 // ─── Day cell ─────────────────────────────────────────────────────────────────
 
 function DayCell({
-  date, inMonth, isToday, posts, goalMap, formatMap, onOpen, onCreateAt,
+  date, inMonth, isToday, posts, goalMap, formatMap, colorMode, onOpen, onCreateAt,
 }: {
   date: Date;
   inMonth: boolean;
@@ -142,6 +149,7 @@ function DayCell({
   posts: MediaPost[];
   goalMap: Map<string, MediaGoal>;
   formatMap: Map<string, MediaFormat>;
+  colorMode: ColorMode;
   onOpen: (post: MediaPost) => void;
   onCreateAt: (date: string) => void;
 }) {
@@ -192,7 +200,11 @@ function DayCell({
         <PostChip
           key={post.id}
           post={post}
-          goal={post.goal_key ? goalMap.get(post.goal_key) : undefined}
+          accent={accentFor(
+            colorMode,
+            post.goal_key ? goalMap.get(post.goal_key) : undefined,
+            post.format_key ? formatMap.get(post.format_key) : undefined,
+          )}
           format={post.format_key ? formatMap.get(post.format_key) : undefined}
           onOpen={onOpen}
         />
@@ -204,10 +216,11 @@ function DayCell({
 // ─── Chip ─────────────────────────────────────────────────────────────────────
 
 function PostChip({
-  post, goal, format: formatRow, onOpen,
+  post, accent, format: formatRow, onOpen,
 }: {
   post: MediaPost;
-  goal?: MediaGoal;
+  /** The row driving the colour — a goal or a format, per the Color by switch. */
+  accent?: MediaLookup;
   format?: MediaFormat;
   onOpen: (post: MediaPost) => void;
 }) {
@@ -230,7 +243,7 @@ function PostChip({
         {...listeners}
         {...attributes}
       >
-        <ChipBody post={post} goal={goal} hasReference={Boolean(post.reference_url)} />
+        <ChipBody post={post} accent={accent} hasReference={Boolean(post.reference_url)} />
       </button>
 
       <ReferenceIconLink
@@ -243,11 +256,11 @@ function PostChip({
 }
 
 function ChipBody({
-  post, goal, hasReference, className,
-}: { post: MediaPost; goal?: MediaGoal; hasReference?: boolean; className?: string }) {
+  post, accent, hasReference, className,
+}: { post: MediaPost; accent?: MediaLookup; hasReference?: boolean; className?: string }) {
   return (
     <div
-      style={chipStyle(goal?.color)}
+      style={chipStyle(accent?.color)}
       className={cn(
         // `bg-clip-padding` keeps the tint from bleeding under the 3px goal rail.
         'rounded-md border-s-[3px] bg-clip-padding px-2 py-1.5',
@@ -264,7 +277,7 @@ function ChipBody({
             Posted
           </span>
         )}
-        {goal && <span className="truncate text-[10px] font-medium opacity-70">{goal.label}</span>}
+        {accent && <span className="truncate text-[10px] font-medium opacity-70">{accent.label}</span>}
       </div>
     </div>
   );

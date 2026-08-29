@@ -8,8 +8,9 @@ import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, List, Plus } fro
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
 import { dotStyle } from '../../../../lib/media/badge-color';
-import type { EditablePostField, MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
+import type { EditablePostField, MediaFormat, MediaGoal, MediaLookup, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
+import { ColorModeToggle, useColorMode } from '../../_components/color-mode-toggle';
 import { MediaEmptyState } from '../../_components/media-empty-state';
 import { savePost, updatePostField } from '../../_actions';
 import { PostDetailSheet } from './post-detail-sheet';
@@ -43,6 +44,7 @@ export function MediaCalendarClient({
 
   const [posts, setPosts] = React.useState(initialPosts);
   const [view, setView] = React.useState<ViewMode>('month');
+  const [colorMode, setColorMode] = useColorMode('media_calendar_color_mode');
   const [month, setMonth] = React.useState(() =>
     startOfMonth(arrivalTarget?.post_date ? parseISO(day(arrivalTarget.post_date)) : new Date()),
   );
@@ -73,9 +75,15 @@ export function MediaCalendarClient({
   const undatedPosts = React.useMemo(() => posts.filter((p) => !p.post_date), [posts]);
   const listPosts = React.useMemo(() => [...monthPosts, ...undatedPosts], [monthPosts, undatedPosts]);
 
-  const activeGoals = React.useMemo(
-    () => goals.filter((g) => monthPosts.some((p) => p.goal_key === g.key)),
-    [goals, monthPosts],
+  /**
+   * The legend follows the toggle, and still lists only what the visible month
+   * actually uses — a palette of twenty unused formats explains nothing.
+   */
+  const legend = React.useMemo<MediaLookup[]>(
+    () => (colorMode === 'format'
+      ? formats.filter((f) => monthPosts.some((p) => p.format_key === f.key))
+      : goals.filter((g) => monthPosts.some((p) => p.goal_key === g.key))),
+    [colorMode, goals, formats, monthPosts],
   );
 
   const saveField = React.useCallback(
@@ -183,7 +191,13 @@ export function MediaCalendarClient({
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ColorModeToggle
+            value={colorMode}
+            onChange={setColorMode}
+            layoutId="media-calendar-color-mode"
+          />
+
           <div
             role="group"
             aria-label="Calendar view"
@@ -225,13 +239,13 @@ export function MediaCalendarClient({
         </div>
       </div>
 
-      {/* Goal legend — month view only, and only for goals actually in use. */}
-      {view === 'month' && activeGoals.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {activeGoals.map((g) => (
-            <span key={g.key} className="inline-flex items-center gap-1.5 text-[11.5px] text-black/45">
-              <span aria-hidden className="size-2 rounded-full" style={dotStyle(g.color)} />
-              {g.label}
+      {/* Month view only — the List view says the same thing in its own columns. */}
+      {view === 'month' && legend.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2" aria-label={`${colorMode === 'format' ? 'Format' : 'Goal'} legend`}>
+          {legend.map((row) => (
+            <span key={row.key} className="inline-flex items-center gap-1.5 text-[11.5px] text-black/45">
+              <span aria-hidden className="size-2 rounded-full" style={dotStyle(row.color)} />
+              {row.label}
             </span>
           ))}
         </div>
@@ -255,6 +269,7 @@ export function MediaCalendarClient({
             posts={listPosts}
             goals={goals}
             formats={formats}
+            colorMode={colorMode}
             onSaveField={saveField}
             onOpen={openPost}
           />
@@ -267,6 +282,7 @@ export function MediaCalendarClient({
           posts={posts}
           goals={goals}
           formats={formats}
+          colorMode={colorMode}
           onOpen={openPost}
           onCreateAt={createAt}
           onMovePost={movePost}

@@ -8,10 +8,12 @@ import { MediaNav } from './_components/media-nav';
 import { MediaEmptyState } from './_components/media-empty-state';
 import { ApprovedBadge, GoalBadge, PostedBadge, ToneBadge } from './_components/media-badges';
 import { ReferenceChip, ReferenceIconLink } from './_components/reference-link';
+import { ColorModeToggle } from './_components/color-mode-toggle';
 import { StatusSelect } from './influencers/_components/status-select';
 import { MESSAGING_STATUSES } from '../../lib/types/media';
 import { chipStyle, tintedStyle, toneFor } from '../../lib/media/badge-color';
 import { normalizeReferenceUrl, referenceLabel } from '../../lib/media/reference-url';
+import { accentFor, isColorMode, DEFAULT_COLOR_MODE } from '../../lib/media/color-mode';
 import { formatCountry } from '../../lib/countries';
 
 const wrap = (ui: React.ReactNode) => (
@@ -124,4 +126,43 @@ test('reference label drops the scheme and www, and survives junk', () => {
   expect(referenceLabel('https://www.instagram.com/reel/abc')).toBe('instagram.com/reel/abc');
   expect(referenceLabel('https://instagram.com/')).toBe('instagram.com');
   expect(referenceLabel('not a url')).toBe('not a url');
+});
+
+const GOAL = { key: 'growth', label: 'Growth', color: '#3b82f6', is_active: true, sort_order: 1 };
+const FORMAT = { key: 'reel', label: 'Reel', color: '#a855f7', is_active: true, sort_order: 1 };
+
+test('goal is the default colouring, preserving the original behaviour', () => {
+  expect(DEFAULT_COLOR_MODE).toBe('goal');
+  expect(accentFor('goal', GOAL, FORMAT)).toBe(GOAL);
+});
+
+test('format mode colours from the format row instead', () => {
+  expect(accentFor('format', GOAL, FORMAT)).toBe(FORMAT);
+});
+
+test('a record unclassified in the active dimension gets no accent, not a wrong one', () => {
+  // It must never silently fall back to the other taxonomy — that would show a
+  // colour the legend does not explain.
+  expect(accentFor('format', GOAL, undefined)).toBeUndefined();
+  expect(accentFor('goal', undefined, FORMAT)).toBeUndefined();
+});
+
+test('a junk stored preference falls back to the default rather than breaking', () => {
+  expect(isColorMode('goal')).toBe(true);
+  expect(isColorMode('format')).toBe(true);
+  expect(isColorMode('rainbow')).toBe(false);
+  expect(isColorMode(null)).toBe(false);
+});
+
+test('the colour toggle exposes its state and reports a change', () => {
+  const onChange = jest.fn();
+  render(wrap(<ColorModeToggle value="goal" onChange={onChange} layoutId="t" />));
+
+  const goal = screen.getByRole('button', { name: 'Goal' });
+  const format = screen.getByRole('button', { name: 'Format' });
+  expect(goal).toHaveAttribute('aria-pressed', 'true');
+  expect(format).toHaveAttribute('aria-pressed', 'false');
+
+  format.click();
+  expect(onChange).toHaveBeenCalledWith('format');
 });
