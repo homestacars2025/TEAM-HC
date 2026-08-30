@@ -1216,7 +1216,7 @@ const CalendarPage: React.FC = () => {
 
             {/* Corner cell */}
             <div style={{
-              position: 'sticky', top: 0, left: 0, zIndex: 20,
+              position: 'sticky', top: 0, insetInlineStart: 0, zIndex: 20,
               background: 'white',
               borderBottom: `1px solid ${BORDER_SOFT}`,
               display: 'flex', alignItems: 'center',
@@ -1301,9 +1301,9 @@ const CalendarPage: React.FC = () => {
 
                   {/* Left panel */}
                   <div style={{
-                    position: 'sticky', left: 0, zIndex: 5,
+                    position: 'sticky', insetInlineStart: 0, zIndex: 5,
                     background: rowBg,
-                    borderRight: `1px solid ${BORDER_SOFT}`,
+                    borderInlineEnd: `1px solid ${BORDER_SOFT}`,
                     display: 'flex', flexDirection: 'column',
                     justifyContent: 'center',
                     padding: '0 20px',
