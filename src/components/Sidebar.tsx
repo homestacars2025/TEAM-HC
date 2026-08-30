@@ -299,12 +299,17 @@ const Sidebar: React.FC = () => {
             {isActive && (
               <div style={{
                 position: 'absolute',
-                left: 0,
+                insetInlineStart: 0,
                 top: '50%',
                 transform: 'translateY(-50%)',
                 width: 3,
                 height: 18,
-                borderRadius: '0 3px 3px 0',
+                // Logical radii: the rail is square against the wall it sits on
+                // and rounded on the exposed side, whichever side that becomes.
+                borderStartStartRadius: 0,
+                borderStartEndRadius: 3,
+                borderEndEndRadius: 3,
+                borderEndStartRadius: 0,
                 background: '#4ba6ea',
               }} />
             )}
@@ -316,7 +321,7 @@ const Sidebar: React.FC = () => {
                 <span
                   aria-hidden
                   style={{
-                    position: 'absolute', top: -3, right: -3,
+                    position: 'absolute', top: -3, insetInlineEnd: -3,
                     width: 8, height: 8, borderRadius: '50%',
                     background: '#ef4444', boxShadow: '0 0 0 2px #fafafa',
                   }}
@@ -349,7 +354,7 @@ const Sidebar: React.FC = () => {
       minWidth: W,
       height: '100vh',
       background: '#fafafa',
-      borderRight: '1px solid #ebebeb',
+      borderInlineEnd: '1px solid #ebebeb',
       display: 'flex',
       flexDirection: 'column',
       position: 'sticky',
@@ -412,7 +417,7 @@ const Sidebar: React.FC = () => {
             title="Collapse sidebar"
             style={{
               position: 'absolute',
-              right: 12,
+              insetInlineEnd: 12,
               top: '50%',
               transform: 'translateY(-50%)',
               width: 26,
@@ -437,7 +442,7 @@ const Sidebar: React.FC = () => {
             }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path className="hc-flip-path" d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         )}
@@ -476,7 +481,7 @@ const Sidebar: React.FC = () => {
             }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path className="hc-flip-path" d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>
@@ -537,8 +542,10 @@ const Sidebar: React.FC = () => {
             >
               {isActive && (
                 <div style={{
-                  position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
-                  width: 3, height: 14, borderRadius: '0 3px 3px 0', background: '#4ba6ea',
+                  position: 'absolute', insetInlineStart: 0, top: '50%', transform: 'translateY(-50%)',
+                  width: 3, height: 14, background: '#4ba6ea',
+                  borderStartStartRadius: 0, borderStartEndRadius: 3,
+                  borderEndEndRadius: 3, borderEndStartRadius: 0,
                 }} />
               )}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: isActive ? '#4ba6ea' : '#9ca3af' }}>
@@ -599,7 +606,7 @@ const Sidebar: React.FC = () => {
             <div style={{
               fontSize: 10, fontWeight: 700, color: '#c0c4cc',
               textTransform: 'uppercase', letterSpacing: '0.7px',
-              marginBottom: 6, paddingLeft: 2,
+              marginBottom: 6, paddingInlineStart: 2,
             }}>
               Currency
             </div>
@@ -798,7 +805,7 @@ const Sidebar: React.FC = () => {
             fontWeight: 450,
             color: '#9ca3af',
             cursor: 'pointer',
-            textAlign: 'left',
+            textAlign: 'start',
             fontFamily: 'inherit',
             transition: 'all 140ms ease',
             whiteSpace: 'nowrap',
@@ -814,7 +821,7 @@ const Sidebar: React.FC = () => {
           }}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path className="hc-flip-path" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           {!collapsed && 'Sign out'}
         </button>

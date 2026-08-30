@@ -198,7 +198,7 @@ const TasksBell: React.FC = () => {
         </svg>
         {unreadCount > 0 && (
           <span style={{
-            position: 'absolute', top: -5, right: -5,
+            position: 'absolute', top: -5, insetInlineEnd: -5,
             minWidth: 18, height: 18, padding: '0 5px',
             borderRadius: 9, background: '#ef4444', color: '#fff',
             fontSize: 10.5, fontWeight: 800, lineHeight: '18px',
@@ -216,7 +216,7 @@ const TasksBell: React.FC = () => {
           dir={dir}
           style={{
             position: 'absolute',
-            top: 48, right: 0, zIndex: 400,
+            top: 48, insetInlineEnd: 0, zIndex: 400,
             width: 336, maxWidth: 'calc(100vw - 32px)',
             background: '#fff', border: '1px solid #ebebeb', borderRadius: 14,
             boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
