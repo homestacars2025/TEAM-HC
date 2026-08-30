@@ -69,3 +69,48 @@ export const COUNTRIES: Country[] = ALPHA2.split(/\s+/)
   .filter(Boolean)
   .map((cca2) => ({ cca2, name: nameOf(cca2), flag: flagOf(cca2) }))
   .sort((a, b) => a.name.localeCompare(b.name));
+
+
+// ─── Localised region names ───────────────────────────────────────────────────
+
+/**
+ * A country's name in the reader's language.
+ *
+ * Arabic comes from `Intl.DisplayNames` rather than a translated list — the
+ * browser already ships every region name, so there is no 200-entry file to
+ * write or keep current.
+ *
+ * English deliberately does *not* go through Intl. The picker in Bookings
+ * carries its own English names, and Intl disagrees with several of them
+ * ("Congo - Kinshasa" for "Congo (DRC)"), so routing English through here would
+ * quietly reword the list. `fallback` is that existing English name, used
+ * whenever the locale is English or the lookup fails.
+ */
+const localisedCache = new Map<string, Intl.DisplayNames | null>();
+
+function displayNamesFor(locale: string): Intl.DisplayNames | null {
+  const cached = localisedCache.get(locale);
+  if (cached !== undefined) return cached;
+  let made: Intl.DisplayNames | null = null;
+  try {
+    made = new Intl.DisplayNames([locale], { type: 'region' });
+  } catch {
+    made = null;
+  }
+  localisedCache.set(locale, made);
+  return made;
+}
+
+export function localisedCountryName(
+  locale: string,
+  code: string,
+  fallback: string,
+): string {
+  if (!locale.startsWith('ar')) return fallback;
+  if (!/^[A-Za-z]{2}$/.test(code)) return fallback;
+  try {
+    return displayNamesFor(locale)?.of(code.toUpperCase()) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}

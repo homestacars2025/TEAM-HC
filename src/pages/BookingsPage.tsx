@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { sortCarsByModel } from '../lib/car-picker';
+import { localisedCountryName } from '../lib/countries';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
 import { printBookingContract } from '../lib/printContract';
@@ -64,8 +67,8 @@ function getMonthStart(d: Date): Date {
 function getMonthEnd(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
-function formatMonthLabel(d: Date): string {
-  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+function formatMonthLabel(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 }
 function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
@@ -76,10 +79,36 @@ function toDateStr(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-function formatDateDisplay(s: string): string {
+function formatDateDisplay(s: string, locale: string): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Western digits in Arabic, matching Cars and Car Issues. Amounts are formatted
+ * elsewhere and deliberately untouched: their shape reaches printed contracts
+ * and invoices, which are outside this work.
+ */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
+}
+
+/**
+ * `(country) => name in the reader's language`.
+ *
+ * Only ever used for what is shown. The nationality select stores `c.name`, the
+ * English name, because that column already holds English across every existing
+ * customer row.
+ */
+function useCountryName(): (c: { code: string; name: string }) => string {
+  const { i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? i18n.language ?? 'en';
+  return React.useCallback(
+    (c: { code: string; name: string }) => localisedCountryName(lang, c.code, c.name),
+    [lang],
+  );
 }
 
 function resolveBooking(row: BookingRow): Booking {
@@ -121,11 +150,11 @@ function resolveBooking(row: BookingRow): Booking {
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<BookingStatus, { label: string; color: string; bg: string }> = {
-  confirmed: { label: 'Confirmed', color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
-  pending:   { label: 'Pending',   color: '#f97316', bg: 'rgba(249,115,22,0.12)'  },
-  cancelled: { label: 'Cancelled', color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
-  completed: { label: 'Completed', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
+const STATUS_CONFIG: Record<BookingStatus, { color: string; bg: string }> = {
+  confirmed: { color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
+  pending:   { color: '#f97316', bg: 'rgba(249,115,22,0.12)'  },
+  cancelled: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+  completed: { color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -179,6 +208,7 @@ const ToggleSwitch: React.FC<{
 
 // Status badge
 const StatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
+  const { t } = useTranslation('bookings');
   const cfg = STATUS_CONFIG[status];
   return (
     <span style={{
@@ -188,7 +218,7 @@ const StatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-      {cfg.label}
+      {t(`status.${status}`)}
     </span>
   );
 };
@@ -244,7 +274,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
         transition: 'all 140ms ease', flexShrink: 0,
       }}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="hc-flip">
         {direction === 'left'
           ? <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
           : <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -260,7 +290,7 @@ const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, 
     style={{
       padding: '9px 12px', fontSize: 11, fontWeight: 700,
       color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
-      textAlign: 'left', background: '#fff',
+      textAlign: 'start', background: '#fff',
       borderBottom: '1.5px solid #f0f0f0',
       position: 'sticky', top: 0, zIndex: 1,
       whiteSpace: 'nowrap', userSelect: 'none',
@@ -313,7 +343,10 @@ interface RowProps {
 
 const BookingTableRow: React.FC<RowProps> = ({
   booking, isSelected, isEven, onSelect, onToggle, onEdit, onPrint,
-}) => (
+}) => {
+  const { t } = useTranslation('bookings');
+  const dateLocale = useDateLocale();
+  return (
   <tr
     className="bk-row"
     style={{ background: isSelected ? 'rgba(75,166,234,0.05)' : isEven ? '#fafafa' : '#fff' }}
@@ -346,12 +379,12 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
-        {formatDateDisplay(booking.start_date)}
+        {formatDateDisplay(booking.start_date, dateLocale)}
       </span>
     </td>
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
-        {formatDateDisplay(booking.end_date)}
+        {formatDateDisplay(booking.end_date, dateLocale)}
       </span>
     </td>
     <td style={{ padding: '9px 12px', textAlign: 'center' }}>
@@ -366,16 +399,16 @@ const BookingTableRow: React.FC<RowProps> = ({
         onChange={() => onToggle(booking.id, 'invoice_issued', booking.invoice_issued)}
       />
     </td>
-    <td style={{ padding: '9px 16px 9px 8px', textAlign: 'right' }}>
+    <td style={{ padding: '9px 16px 9px 8px', textAlign: 'end' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-        <ActionBtn onClick={onPrint} title="Print Contract" hoverColor="#8b5cf6">
+        <ActionBtn onClick={onPrint} title={t('table.printContract')} hoverColor="#8b5cf6">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </ActionBtn>
-        <ActionBtn onClick={onEdit} title="Edit" hoverColor="#4ba6ea">
+        <ActionBtn onClick={onEdit} title={t('table.edit')} hoverColor="#4ba6ea">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -384,7 +417,8 @@ const BookingTableRow: React.FC<RowProps> = ({
       </div>
     </td>
   </tr>
-);
+  );
+};
 
 // ─── Country / dial-code data ─────────────────────────────────────────────────
 
@@ -610,6 +644,8 @@ const DialCodePicker: React.FC<{
   value: string;
   onChange: (dial: string) => void;
 }> = ({ value, onChange }) => {
+  const { t } = useTranslation('bookings');
+  const countryName = useCountryName();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -621,6 +657,7 @@ const DialCodePicker: React.FC<{
   const filtered = search.trim()
     ? COUNTRIES.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
+        countryName(c).toLowerCase().includes(search.toLowerCase()) ||
         c.dial.includes(search.replace(/^\+/, ''))
       )
     : COUNTRIES;
@@ -660,7 +697,7 @@ const DialCodePicker: React.FC<{
 
       {open && (
         <div style={{
-          position: 'absolute', top: 44, left: 0, zIndex: 300,
+          position: 'absolute', top: 44, insetInlineStart: 0, zIndex: 300,
           background: '#fff', border: '1.5px solid #e5e7eb',
           borderRadius: 10, width: 272,
           boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
@@ -672,7 +709,7 @@ const DialCodePicker: React.FC<{
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search country or code…"
+              placeholder={t('form.searchCountry')}
               style={{
                 width: '100%', height: 34, padding: '0 10px',
                 fontSize: 13, border: '1.5px solid #e5e7eb',
@@ -691,19 +728,19 @@ const DialCodePicker: React.FC<{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 9,
                   padding: '7px 12px', border: 'none', background: 'none',
                   cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                  textAlign: 'left', color: '#374151',
+                  textAlign: 'start', color: '#374151',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
                 <span style={{ fontSize: 17, lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{countryName(c)}</span>
                 <span style={{ color: '#9ca3af', fontSize: 12, flexShrink: 0 }}>{c.dial}</span>
               </button>
             ))}
             {filtered.length === 0 && (
               <div style={{ padding: '12px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                No results
+                {t('noResults')}
               </div>
             )}
           </div>
@@ -754,10 +791,10 @@ type BookingFormData = {
 /** Mirrors the customers_language_check constraint: only these three values are accepted. */
 type CustomerLanguage = 'ar' | 'tr' | 'en';
 
-const CUSTOMER_LANGUAGES: { value: CustomerLanguage; label: string }[] = [
-  { value: 'ar', label: 'Arabic' },
-  { value: 'tr', label: 'Turkish' },
-  { value: 'en', label: 'English' },
+const CUSTOMER_LANGUAGES: { value: CustomerLanguage; labelKey: string }[] = [
+  { value: 'ar', labelKey: 'customerLanguages.ar' },
+  { value: 'tr', labelKey: 'customerLanguages.tr' },
+  { value: 'en', labelKey: 'customerLanguages.en' },
 ];
 
 /** Falls back to the column default for anything unrecognised. */
@@ -821,6 +858,8 @@ const DocUploadField: React.FC<{
   file:        File | null;
   onChange:    (f: File | null) => void;
 }> = ({ label, existingUrl, file, onChange }) => {
+  const { t: tc } = useTranslation('common');
+  const { t: tc2 } = useTranslation('bookings');
   const [preview, setPreview] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -852,10 +891,10 @@ const DocUploadField: React.FC<{
             </div>
           )}
           <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: '#4ba6ea', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            View current file
+            {tc2('viewCurrentFile')}
           </a>
           <button type="button" onClick={() => inputRef.current?.click()} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-            Replace
+            {tc2('replaceFile')}
           </button>
         </div>
       )}
@@ -894,7 +933,7 @@ const DocUploadField: React.FC<{
             <polyline points="17 8 12 3 7 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
-          {!existingUrl && <span style={{ fontSize: 11, fontWeight: 500 }}>Upload file</span>}
+          {!existingUrl && <span style={{ fontSize: 11, fontWeight: 500 }}>{tc('actions.uploadFile')}</span>}
         </button>
       )}
     </div>
@@ -934,6 +973,10 @@ interface FormModalProps {
 const BookingFormModal: React.FC<FormModalProps> = ({
   mode, initial, editId, editCustomerId, onClose, onSaved,
 }) => {
+  const { t } = useTranslation('bookings');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
+  const countryName = useCountryName();
   const [form, setForm] = useState<BookingFormData>(initial);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -1036,8 +1079,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         const model = Array.isArray(mg) ? (mg[0]?.name ?? '') : (mg as { name: string } | null)?.name ?? '';
         return { id: c.id, plate_number: c.plate_number, model };
       });
-      carOpts.sort((a, b) => a.model.localeCompare(b.model));
-      setCars(carOpts);
+      setCars(sortCarsByModel(carOpts));
 
       // Auto-generate booking number (add mode only)
       if (mode === 'add') {
@@ -1226,16 +1268,16 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
     // Validate required customer fields
     const errors: typeof fieldErrors = {};
-    if (!form.cust_id_number.trim())        errors.cust_id_number        = 'ID number is required';
+    if (!form.cust_id_number.trim())        errors.cust_id_number        = t('errors.idRequired');
     if (!form.cust_id_type)                 errors.cust_id_type          = 'ID type is required';
-    if (!form.cust_nationality)             errors.cust_nationality      = 'Nationality is required';
+    if (!form.cust_nationality)             errors.cust_nationality      = t('errors.nationalityRequired');
     if (!form.cust_phone.trim()) {
-      errors.cust_phone = 'Phone number is required';
+      errors.cust_phone = t('errors.phoneRequired');
     } else {
       const fullPhone = `${form.cust_phone_dial}${form.cust_phone}`;
-      if (!isValidPhoneNumber(fullPhone)) errors.cust_phone = 'Invalid phone number for selected country';
+      if (!isValidPhoneNumber(fullPhone)) errors.cust_phone = t('errors.phoneInvalid');
     }
-    if (!form.cust_license_issue_date)      errors.cust_license_issue_date = 'License issue date is required';
+    if (!form.cust_license_issue_date)      errors.cust_license_issue_date = t('errors.licenseDateRequired');
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -1477,10 +1519,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              {mode === 'add' ? 'New Booking' : 'Edit Booking'}
+              {mode === 'add' ? t('form.newTitle') : t('form.editTitle')}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {mode === 'add' ? 'Create a new customer and booking' : 'Update booking details'}
+              {mode === 'add' ? t('form.newSubtitle') : t('form.editSubtitle')}
             </div>
           </div>
           <button
@@ -1501,11 +1543,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
             {/* ── Booking Details ── */}
             <SectionHeading
-              title="Booking Details"
+              title={t('form.bookingDetails')}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
             />
 
-            <Field label="Booking Number">
+            <Field label={t('form.bookingNumber')}>
               <div style={{
                 ...INPUT_STYLE, display: 'flex', alignItems: 'center',
                 background: '#f9fafb', color: bookingNumLoading ? '#9ca3af' : '#0f1117',
@@ -1516,17 +1558,17 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               </div>
             </Field>
 
-            <Field label="Status">
+            <Field label={tc('fields.status')}>
               <select value={form.status} onChange={e => set('status', e.target.value as BookingStatus)}
                 style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="pending">{t('status.pending')}</option>
+                <option value="confirmed">{t('status.confirmed')}</option>
+                <option value="cancelled">{t('status.cancelled')}</option>
               </select>
             </Field>
 
             <div style={{ gridColumn: 'span 2' }}>
-              <Field label="Car" required>
+              <Field label={tc('fields.car')} required>
                 <select required value={form.car_id} onChange={e => set('car_id', e.target.value)}
                   style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
                   <option value="">Select car…</option>
@@ -1539,13 +1581,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               </Field>
             </div>
 
-            <Field label="Start Date" required>
+            <Field label={tc('fields.startDate')} required>
               <input required type="date" value={form.start_date}
                 onChange={e => set('start_date', e.target.value)}
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
             </Field>
 
-            <Field label="End Date" required>
+            <Field label={tc('fields.endDate')} required>
               <input required type="date" value={form.end_date}
                 onChange={e => set('end_date', e.target.value)}
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
@@ -1553,11 +1595,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
             {/* ── Vehicle Condition at Delivery ── */}
             <SectionHeading
-              title="Vehicle Condition at Delivery"
+              title={t('form.vehicleCondition')}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>}
             />
 
-            <Field label="Pickup Location">
+            <Field label={t('form.pickupLocation')}>
               <select
                 value={pickupOther ? 'other' : form.pickup_location}
                 onChange={e => {
@@ -1574,16 +1616,16 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 onFocus={focusBlue}
                 onBlur={blurGray}
               >
-                <option value="">Select location…</option>
+                <option value="">{t('form.selectLocation')}</option>
                 {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
-                <option value="other">Other</option>
+                <option value="other">{tc('actions.other')}</option>
               </select>
               {pickupOther && (
                 <input
                   type="text"
                   value={form.pickup_location}
                   onChange={e => set('pickup_location', e.target.value)}
-                  placeholder="Enter custom location"
+                  placeholder={t('form.customLocation')}
                   style={{ ...INPUT_STYLE, marginTop: 8 }}
                   onFocus={focusBlue}
                   onBlur={blurGray}
@@ -1592,7 +1634,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               )}
             </Field>
 
-            <Field label="Drop-off Location">
+            <Field label={t('form.dropoffLocation')}>
               <select
                 value={dropoffOther ? 'other' : form.dropoff_location}
                 onChange={e => {
@@ -1609,16 +1651,16 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 onFocus={focusBlue}
                 onBlur={blurGray}
               >
-                <option value="">Select location…</option>
+                <option value="">{t('form.selectLocation')}</option>
                 {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
-                <option value="other">Other</option>
+                <option value="other">{tc('actions.other')}</option>
               </select>
               {dropoffOther && (
                 <input
                   type="text"
                   value={form.dropoff_location}
                   onChange={e => set('dropoff_location', e.target.value)}
-                  placeholder="Enter custom location"
+                  placeholder={t('form.customLocation')}
                   style={{ ...INPUT_STYLE, marginTop: 8 }}
                   onFocus={focusBlue}
                   onBlur={blurGray}
@@ -1627,7 +1669,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               )}
             </Field>
 
-            <Field label="KM at Delivery">
+            <Field label={t('form.kmAtDelivery')}>
               <input
                 type="number"
                 inputMode="numeric"
@@ -1635,14 +1677,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 step="1"
                 value={form.km_at_delivery}
                 onChange={e => set('km_at_delivery', e.target.value)}
-                placeholder="e.g. 45230"
+                placeholder={t('form.kmPlaceholder')}
                 style={INPUT_STYLE}
                 onFocus={focusBlue}
                 onBlur={blurGray}
               />
             </Field>
 
-            <Field label="Fuel at Delivery">
+            <Field label={t('form.fuelAtDelivery')}>
               <input
                 type="number"
                 inputMode="numeric"
@@ -1650,12 +1692,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 step="1"
                 value={form.fuel_at_delivery}
                 onChange={e => set('fuel_at_delivery', e.target.value)}
-                placeholder="e.g. 75"
+                placeholder={t('form.fuelPlaceholder')}
                 style={INPUT_STYLE}
                 onFocus={focusBlue}
                 onBlur={blurGray}
               />
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Enter value (0 or more)</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{t('form.fuelHint')}</div>
             </Field>
 
             {/* ── Insurance & Additional Services ── */}
@@ -1664,7 +1706,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V7L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             />
 
-            <Field label="Insurance Type">
+            <Field label={t('form.insuranceType')}>
               <select
                 value={insuranceOther ? 'other' : form.insurance_type}
                 onChange={e => {
@@ -1681,7 +1723,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 onFocus={focusBlue}
                 onBlur={blurGray}
               >
-                <option value="">Select insurance type…</option>
+                <option value="">{t('form.selectInsurance')}</option>
                 {INSURANCE_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
                 <option value="other" style={{ color: '#ef4444' }}>Diğer</option>
               </select>
@@ -1690,7 +1732,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   type="text"
                   value={form.insurance_type}
                   onChange={e => set('insurance_type', e.target.value)}
-                  placeholder="Specify insurance type"
+                  placeholder={t('form.specifyInsurance')}
                   style={{ ...INPUT_STYLE, marginTop: 8 }}
                   onFocus={focusBlue}
                   onBlur={blurGray}
@@ -1699,7 +1741,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               )}
             </Field>
 
-            <Field label="Additional Services">
+            <Field label={t('form.additionalServices')}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
                 {([...ADDITIONAL_SERVICE_OPTS, 'Diğer'] as string[]).map(opt => (
                   <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', minHeight: 24 }}>
@@ -1724,7 +1766,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     type="text"
                     value={additionalOtherText}
                     onChange={e => setAdditionalOtherText(e.target.value)}
-                    placeholder="Specify additional service"
+                    placeholder={t('form.specifyService')}
                     style={{ ...INPUT_STYLE }}
                     onFocus={focusBlue}
                     onBlur={blurGray}
@@ -1737,13 +1779,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             {/* ── Customer Information ── */}
             <>
               <SectionHeading
-                title="Customer Information"
+                title={t('form.customerInfo')}
                 icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
               />
 
                 {/* ── ID Number first — with auto-lookup in add mode ── */}
                 <div ref={refIdNumber}>
-                <Field label="ID Number" required>
+                <Field label={t('form.idNumber')} required>
                   <input value={form.cust_id_number}
                     onChange={e => {
                       set('cust_id_number', e.target.value);
@@ -1756,7 +1798,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                         }
                       }
                     }}
-                    placeholder="Document number"
+                    placeholder={t('form.documentNumber')}
                     style={{ ...INPUT_STYLE, borderColor: fieldErrors.cust_id_number ? '#ef4444' : '#e5e7eb' }}
                     onFocus={focusBlue}
                     onBlur={e => {
@@ -1774,12 +1816,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 </div>
 
                 <div ref={refIdType}>
-                <Field label="ID Type" required>
+                <Field label={t('form.idType')} required>
                   <select value={form.cust_id_type}
                     onChange={e => { set('cust_id_type', e.target.value as 'passport' | 'national_id'); if (fieldErrors.cust_id_type) setFieldErrors(fe => ({ ...fe, cust_id_type: undefined })); }}
                     style={{ ...INPUT_STYLE, cursor: 'pointer', borderColor: fieldErrors.cust_id_type ? '#ef4444' : '#e5e7eb' }} onFocus={focusBlue} onBlur={blurGray}>
-                    <option value="passport">Passport</option>
-                    <option value="national_id">National ID</option>
+                    <option value="passport">{t('form.passport')}</option>
+                    <option value="national_id">{t('form.nationalId')}</option>
                   </select>
                   {fieldErrors.cust_id_type && (
                     <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_id_type}</div>
@@ -1807,37 +1849,37 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     )}
                     {idLookupStatus === 'not-found' && (
                       <span style={{ fontSize: 12, color: '#9ca3af' }}>
-                        New customer — fill in details
+                        {t('newCustomerHint')}
                       </span>
                     )}
                   </div>
                 )}
 
                 {/* Row 2: First Name | Last Name */}
-                <Field label="First Name" required>
+                <Field label={tc('fields.firstName')} required>
                   <input required value={form.cust_first_name}
                     onChange={e => set('cust_first_name', e.target.value)}
-                    placeholder="First name" style={INPUT_STYLE}
+                    placeholder={t('form.firstNamePlaceholder')} style={INPUT_STYLE}
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
-                <Field label="Last Name" required>
+                <Field label={tc('fields.lastName')} required>
                   <input required value={form.cust_last_name}
                     onChange={e => set('cust_last_name', e.target.value)}
-                    placeholder="Last name" style={INPUT_STYLE}
+                    placeholder={t('form.lastNamePlaceholder')} style={INPUT_STYLE}
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
                 {/* Row 3: Driving License | License Issue Date */}
-                <Field label="Driving License">
+                <Field label={t('form.drivingLicense')}>
                   <input value={form.cust_driving_license_number}
                     onChange={e => set('cust_driving_license_number', e.target.value)}
-                    placeholder="License number" style={INPUT_STYLE}
+                    placeholder={t('form.licenseNumber')} style={INPUT_STYLE}
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
                 <div ref={refLicenseIssueDate}>
-                <Field label="License Issue Date" required>
+                <Field label={t('form.licenseIssueDate')} required>
                   <input type="date" value={form.cust_license_issue_date}
                     onChange={e => { set('cust_license_issue_date', e.target.value); if (fieldErrors.cust_license_issue_date) setFieldErrors(fe => ({ ...fe, cust_license_issue_date: undefined })); }}
                     style={{ ...INPUT_STYLE, borderColor: fieldErrors.cust_license_issue_date ? '#ef4444' : '#e5e7eb' }}
@@ -1859,7 +1901,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
                 {/* Row 4: Phone | Nationality */}
                 <div ref={refPhone}>
-                <Field label="Phone" required>
+                <Field label={tc('fields.phone')} required>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <DialCodePicker
                       value={form.cust_phone_dial}
@@ -1867,7 +1909,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     />
                     <input value={form.cust_phone}
                       onChange={e => { set('cust_phone', e.target.value); if (fieldErrors.cust_phone) setFieldErrors(fe => ({ ...fe, cust_phone: undefined })); }}
-                      placeholder="Phone number" type="tel"
+                      placeholder={t('form.phonePlaceholder')} type="tel"
                       style={{ ...INPUT_STYLE, flex: 1, borderColor: fieldErrors.cust_phone ? '#ef4444' : '#e5e7eb' }}
                       onFocus={focusBlue}
                       onBlur={e => { if (!fieldErrors.cust_phone) blurGray(e); }} />
@@ -1879,13 +1921,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 </div>
 
                 <div ref={refNationality}>
-                <Field label="Nationality" required>
+                <Field label={tc('fields.nationality')} required>
                   <select value={form.cust_nationality}
                     onChange={e => { set('cust_nationality', e.target.value); if (fieldErrors.cust_nationality) setFieldErrors(fe => ({ ...fe, cust_nationality: undefined })); }}
                     style={{ ...INPUT_STYLE, cursor: 'pointer', borderColor: fieldErrors.cust_nationality ? '#ef4444' : '#e5e7eb' }} onFocus={focusBlue} onBlur={blurGray}>
-                    <option value="">Select country…</option>
+                    <option value="">{t('form.selectCountry')}</option>
                     {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                      <option key={c.code} value={c.name}>{c.flag} {countryName(c)}</option>
                     ))}
                   </select>
                   {fieldErrors.cust_nationality && (
@@ -1894,21 +1936,21 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 </Field>
                 </div>
 
-                <Field label="Language">
+                <Field label={tc('fields.language')}>
                   <select value={form.cust_language}
                     onChange={e => set('cust_language', e.target.value as CustomerLanguage)}
                     style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
                     {CUSTOMER_LANGUAGES.map(l => (
-                      <option key={l.value} value={l.value}>{l.label}</option>
+                      <option key={l.value} value={l.value}>{t(l.labelKey)}</option>
                     ))}
                   </select>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    Used for WhatsApp messages sent to this customer.
+                    {t('whatsappHint')}
                   </div>
                 </Field>
 
                 {/* Row 5: Birth Date | Address */}
-                <Field label="Birth Date">
+                <Field label={t('form.birthDate')}>
                   <input type="date" value={form.cust_birth_date}
                     onChange={e => set('cust_birth_date', e.target.value)}
                     style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
@@ -1922,10 +1964,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   })()}
                 </Field>
 
-                <Field label="Address">
+                <Field label={tc('fields.address')}>
                   <input value={form.cust_address}
                     onChange={e => set('cust_address', e.target.value)}
-                    placeholder="Home address" style={INPUT_STYLE}
+                    placeholder={t('form.addressPlaceholder')} style={INPUT_STYLE}
                     onFocus={focusBlue} onBlur={blurGray} />
                 </Field>
 
@@ -1936,7 +1978,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   <textarea
                     value={form.cust_notes}
                     onChange={e => set('cust_notes', e.target.value)}
-                    placeholder="Any notes about this customer…"
+                    placeholder={t('form.notesPlaceholder')}
                     rows={2}
                     style={{ ...INPUT_STYLE, height: 'auto', padding: '10px 12px', resize: 'vertical' }}
                     onFocus={focusBlue} onBlur={blurGray}
@@ -1945,40 +1987,40 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
                 {/* ── Customer Documents ── */}
                 <SectionHeading
-                  title="Customer Documents"
+                  title={t('form.customerDocuments')}
                   icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
                 />
 
                 <DocUploadField
-                  label="ID Photo"
+                  label={t('form.idPhoto')}
                   existingUrl={existingDocUrls.id_photo_url}
                   file={docIdPhoto}
                   onChange={setDocIdPhoto}
                 />
 
                 <DocUploadField
-                  label="ID Photo (Back)"
+                  label={t('form.idPhotoBack')}
                   existingUrl={existingDocUrls.id_photo_back_url}
                   file={docIdPhotoBack}
                   onChange={setDocIdPhotoBack}
                 />
 
                 <DocUploadField
-                  label="Driving License"
+                  label={t('form.drivingLicense')}
                   existingUrl={existingDocUrls.driving_license_photo_url}
                   file={docDrivingLicense}
                   onChange={setDocDrivingLicense}
                 />
 
                 <DocUploadField
-                  label="Driving License (Back)"
+                  label={t('form.licenseBack')}
                   existingUrl={existingDocUrls.driving_license_back_url}
                   file={docDrivingLicenseBack}
                   onChange={setDocDrivingLicenseBack}
                 />
 
                 <DocUploadField
-                  label="Entry Stamp"
+                  label={t('form.entryStamp')}
                   existingUrl={existingDocUrls.entry_stamp_photo_url}
                   file={docEntryStamp}
                   onChange={setDocEntryStamp}
@@ -1987,13 +2029,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 {/* ── Financial Information ── */}
                 <>
                   <SectionHeading
-                    title="Financial Information"
+                    title={t('form.financialInfo')}
                     icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v1m0 8v1M9.5 9.5A2.5 2.5 0 0112 8a2.5 2.5 0 012.5 2.5c0 1.5-1.5 2-2.5 2.5s-2.5 1-2.5 2.5A2.5 2.5 0 0012 18a2.5 2.5 0 002.5-2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
                   />
 
                   {/* Currency toggle */}
                   <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Currency</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{tc('fields.currency')}</span>
                     <div style={{ display: 'flex', borderRadius: 8, border: '1.5px solid #e5e7eb', overflow: 'hidden' }}>
                       {(['TRY', 'USD'] as const).map(c => (
                         <button
@@ -2013,12 +2055,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     </div>
                     {form.fin_currency === 'USD' && (
                       <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                        Values will be converted to TRY before saving
+                        {t('convertHint')}
                       </span>
                     )}
                   </div>
 
-                  <Field label={`Rental Amount (${form.fin_currency})`}>
+                  <Field label={`${t('form.rentalAmount')} (${form.fin_currency})`}>
                     <input
                       type="number" min="0" step="0.01" placeholder="0.00"
                       value={form.fin_rental_amount}
@@ -2027,7 +2069,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     />
                   </Field>
 
-                  <Field label={`Deposit (${form.fin_currency})`}>
+                  <Field label={`${t('form.deposit')} (${form.fin_currency})`}>
                     <input
                       type="number" min="0" step="0.01" placeholder="0.00"
                       value={form.fin_deposit}
@@ -2036,7 +2078,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                     />
                   </Field>
 
-                  <Field label={`Paid Amount (${form.fin_currency})`}>
+                  <Field label={`${t('form.paidAmount')} (${form.fin_currency})`}>
                     <input
                       type="number" min="0" step="0.01" placeholder="0.00"
                       value={form.fin_paid_amount}
@@ -2071,7 +2113,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
               onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
             >
-              {saving ? 'Saving…' : mode === 'add' ? 'Add Booking' : 'Save Changes'}
+              {saving ? 'Saving…' : mode === 'add' ? t('form.submitAdd') : t('form.submitSave')}
             </button>
           </div>
         </form>
@@ -2093,7 +2135,7 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 }) => (
   <div>
     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-      {label}{required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
+      {label}{required && <span style={{ color: '#ef4444', marginInlineStart: 3 }}>*</span>}
     </label>
     {children}
   </div>
@@ -2106,13 +2148,14 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 /** The real statuses car_availability can return. Nothing else is ever rendered. */
 type AvailabilityStatus = 'working' | 'parking' | 'maintenance' | 'replacement' | 'selling' | 'pending';
 
-const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
-  working:     'Working',
-  parking:     'Parking',
-  maintenance: 'Maintenance',
-  replacement: 'Replacement',
-  selling:     'Selling',
-  pending:     'Pending',
+/** Keys into `bookings:availability`; the wording lives in the locale files. */
+const AVAILABILITY_LABEL_KEY: Record<AvailabilityStatus, string> = {
+  working:     'availability.working',
+  parking:     'availability.parking',
+  maintenance: 'availability.maintenance',
+  replacement: 'availability.replacement',
+  selling:     'availability.selling',
+  pending:     'availability.pending',
 };
 
 /**
@@ -2222,6 +2265,7 @@ const CarSearchSelect: React.FC<{
   onChange: (carId: string) => void;
   loading: boolean;
 }> = ({ cars, value, onChange, loading }) => {
+  const { t } = useTranslation('bookings');
   const [open, setOpen]     = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -2253,7 +2297,7 @@ const CarSearchSelect: React.FC<{
         onClick={() => { setOpen(o => !o); setSearch(''); }}
         style={{
           ...INPUT_STYLE, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 8, cursor: 'pointer', textAlign: 'left',
+          gap: 8, cursor: 'pointer', textAlign: 'start',
           color: selected ? '#0f1117' : '#9ca3af',
         }}
       >
@@ -2271,7 +2315,7 @@ const CarSearchSelect: React.FC<{
 
       {open && (
         <div style={{
-          position: 'absolute', top: 44, left: 0, right: 0, zIndex: 300,
+          position: 'absolute', top: 44, insetInlineStart: 0, insetInlineEnd: 0, zIndex: 300,
           background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
           boxShadow: '0 8px 32px rgba(0,0,0,0.13)', overflow: 'hidden',
         }}>
@@ -2279,7 +2323,7 @@ const CarSearchSelect: React.FC<{
             <input
               autoFocus type="text" value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search plate or model…"
+              placeholder={t('form.searchCar')}
               style={{
                 width: '100%', height: 36, padding: '0 10px', fontSize: 13,
                 border: '1.5px solid #e5e7eb', borderRadius: 7, outline: 'none',
@@ -2296,7 +2340,7 @@ const CarSearchSelect: React.FC<{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 9,
                   padding: '11px 12px', minHeight: 44, border: 'none', background: 'none',
                   cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                  textAlign: 'left', color: '#374151',
+                  textAlign: 'start', color: '#374151',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
@@ -2307,14 +2351,14 @@ const CarSearchSelect: React.FC<{
                 </span>
                 {c.status && (
                   <span style={{ color: '#9ca3af', fontSize: 11, flexShrink: 0 }}>
-                    {AVAILABILITY_LABEL[c.status]}
+                    {t(AVAILABILITY_LABEL_KEY[c.status])}
                   </span>
                 )}
               </button>
             ))}
             {filtered.length === 0 && (
               <div style={{ padding: '12px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                No results
+                {t('noResults')}
               </div>
             )}
           </div>
@@ -2336,6 +2380,8 @@ const ReplacementFormModal: React.FC<{
   onClose: () => void;
   onSaved: (sheet: ReplacementSheetRecord) => void;
 }> = ({ onClose, onSaved }) => {
+  const { t } = useTranslation('bookings');
+  const { t: tc } = useTranslation('common');
   const [cars, setCars]               = useState<ReplacementCarOption[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
 
@@ -2411,7 +2457,7 @@ const ReplacementFormModal: React.FC<{
           id: b.id,
           booking_number: b.booking_number,
           customer_id: b.customer_id,
-          customer_name: c ? `${c.first_name} ${c.last_name}`.trim() : 'Unknown customer',
+          customer_name: c ? `${c.first_name} ${c.last_name}`.trim() : t('replacement.unknownCustomer'),
           start_date: b.start_date,
           end_date: b.end_date,
         };
@@ -2442,18 +2488,18 @@ const ReplacementFormModal: React.FC<{
   }), [cars]);
 
   const carLabel = (c: ReplacementCarOption) =>
-    `${c.plate_number}${c.model ? ` — ${c.model}` : ''}${c.status ? ` · ${AVAILABILITY_LABEL[c.status]}` : ''}`;
+    `${c.plate_number}${c.model ? ` — ${c.model}` : ''}${c.status ? ` · ${t(AVAILABILITY_LABEL_KEY[c.status])}` : ''}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (!originalCarId)                  { setFormError('Select the original car.'); return; }
-    if (!selectedBooking)                { setFormError('Select the booking this replacement belongs to.'); return; }
-    if (!selectedBooking.customer_id)    { setFormError('That booking has no customer attached — pick another booking.'); return; }
-    if (!replacementCarId)               { setFormError('Select the replacement car.'); return; }
-    if (!startDate || !endDate)          { setFormError('Handover and return dates are both required.'); return; }
-    if (endDate < startDate)             { setFormError('Return date cannot be before the handover date.'); return; }
+    if (!originalCarId)                  { setFormError(t('replacement.errors.originalCar')); return; }
+    if (!selectedBooking)                { setFormError(t('replacement.errors.booking')); return; }
+    if (!selectedBooking.customer_id)    { setFormError(t('replacement.errors.noCustomer')); return; }
+    if (!replacementCarId)               { setFormError(t('replacement.errors.replacementCar')); return; }
+    if (!startDate || !endDate)          { setFormError(t('replacement.errors.datesRequired')); return; }
+    if (endDate < startDate)             { setFormError(t('replacement.errors.returnBeforeHandover')); return; }
 
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -2478,7 +2524,7 @@ const ReplacementFormModal: React.FC<{
 
     if (blockError || !blockData) {
       setSaving(false);
-      setFormError(blockError?.message ?? 'Could not block the replacement car calendar.');
+      setFormError(blockError?.message ?? t('replacement.errors.blockCalendar'));
       return;
     }
 
@@ -2507,7 +2553,7 @@ const ReplacementFormModal: React.FC<{
       // Roll the block back so a failed sheet never leaves an orphan on the calendar.
       await supabase.from('car_calendar').delete().eq('id', blockId);
       setSaving(false);
-      setFormError(sheetError?.message ?? 'Could not save the replacement sheet.');
+      setFormError(sheetError?.message ?? t('replacement.errors.saveSheet'));
       return;
     }
 
@@ -2545,7 +2591,7 @@ const ReplacementFormModal: React.FC<{
               Replacement Car
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              Hand a substitute vehicle to a customer and block its calendar
+              {t('replacement.subtitle')}
             </div>
           </div>
           <button
@@ -2565,12 +2611,12 @@ const ReplacementFormModal: React.FC<{
 
             {/* ── Original vehicle ── */}
             <SectionHeading
-              title="Original Vehicle"
+              title={t('replacement.originalVehicle')}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>}
             />
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Original Car (Plate)" required>
+              <Field label={t('replacement.originalCar')} required>
                 <CarSearchSelect
                   cars={cars}
                   value={originalCarId}
@@ -2581,7 +2627,7 @@ const ReplacementFormModal: React.FC<{
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Original Booking / Customer" required>
+              <Field label={t('replacement.originalBooking')} required>
                 <select
                   value={bookingId}
                   onChange={e => setBookingId(e.target.value)}
@@ -2596,7 +2642,7 @@ const ReplacementFormModal: React.FC<{
                   <option value="">
                     {!originalCarId    ? 'Select a plate first…'
                       : bookingsLoading ? 'Loading bookings…'
-                      : carBookings.length === 0 ? 'No bookings found for this car'
+                      : carBookings.length === 0 ? t('replacement.noBookings')
                       : 'Select booking…'}
                   </option>
                   {carBookings.map(b => (
@@ -2618,26 +2664,26 @@ const ReplacementFormModal: React.FC<{
 
             {/* ── Replacement vehicle ── */}
             <SectionHeading
-              title="Replacement Vehicle"
+              title={t('replacement.replacementVehicle')}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             />
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Replacement Car" required>
+              <Field label={t('replacement.replacementCar')} required>
                 <select
                   value={replacementCarId}
                   onChange={e => setReplacementCarId(e.target.value)}
                   style={{ ...INPUT_STYLE, cursor: 'pointer', color: replacementCarId ? '#0f1117' : '#9ca3af' }}
                   onFocus={focusBlue} onBlur={blurGray}
                 >
-                  <option value="">{carsLoading ? 'Loading cars…' : 'Select car…'}</option>
+                  <option value="">{carsLoading ? t('replacement.loadingCars') : t('replacement.selectCar')}</option>
                   {parkingCars.length > 0 && (
-                    <optgroup label="Parking — free to hand over">
+                    <optgroup label={t('replacement.freeToHandOver')}>
                       {parkingCars.map(c => <option key={c.id} value={c.id}>{carLabel(c)}</option>)}
                     </optgroup>
                   )}
                   {otherCars.length > 0 && (
-                    <optgroup label="Other vehicles">
+                    <optgroup label={t('replacement.otherVehicles')}>
                       {otherCars.map(c => <option key={c.id} value={c.id}>{carLabel(c)}</option>)}
                     </optgroup>
                   )}
@@ -2645,20 +2691,24 @@ const ReplacementFormModal: React.FC<{
               </Field>
               {sameCarWarn && (
                 <div style={WARN_STYLE}>
-                  <span>This is the same car as the original. Double-check before saving.</span>
+                  <span>{t('replacement.sameCarWarn')}</span>
                 </div>
               )}
               {nonParkWarn && !sameCarWarn && replacementCar?.status && (
                 <div style={WARN_STYLE}>
                   <span>
-                    This car is currently <strong>{AVAILABILITY_LABEL[replacementCar.status]}</strong>, not Parking.
-                    You can still hand it over, but its calendar may overlap.
+                    <Trans
+                      t={t}
+                      i18nKey="replacement.notParking"
+                      values={{ status: t(AVAILABILITY_LABEL_KEY[replacementCar.status]) }}
+                      components={[<strong />]}
+                    />
                   </span>
                 </div>
               )}
             </div>
 
-            <Field label="Handover Date" required>
+            <Field label={t('replacement.handoverDate')} required>
               <input
                 required type="date" value={startDate}
                 onChange={e => setStartDate(e.target.value)}
@@ -2666,7 +2716,7 @@ const ReplacementFormModal: React.FC<{
               />
             </Field>
 
-            <Field label="Return Date" required>
+            <Field label={t('replacement.returnDate')} required>
               <input
                 required type="date" value={endDate}
                 onChange={e => setEndDate(e.target.value)}
@@ -2674,26 +2724,26 @@ const ReplacementFormModal: React.FC<{
               />
             </Field>
 
-            <Field label="KM at Handover">
+            <Field label={t('replacement.kmAtHandover')}>
               <input
-                type="number" min="0" step="1" placeholder="e.g. 45000"
+                type="number" min="0" step="1" placeholder={t('replacement.kmPlaceholder')}
                 value={km} onChange={e => setKm(e.target.value)}
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
               />
             </Field>
 
-            <Field label="Fuel at Handover">
+            <Field label={t('replacement.fuelAtHandover')}>
               <input
-                type="text" placeholder="e.g. 3/4"
+                type="text" placeholder={t('replacement.fuelPlaceholder')}
                 value={fuel} onChange={e => setFuel(e.target.value)}
                 style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
               />
             </Field>
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label="Notes">
+              <Field label={tc('fields.notes')}>
                 <textarea
-                  rows={2} placeholder="Anything worth recording on the sheet…"
+                  rows={2} placeholder={t('replacement.notesPlaceholder')}
                   value={notes} onChange={e => setNotes(e.target.value)}
                   style={{ ...INPUT_STYLE, height: 'auto', padding: '9px 12px', resize: 'vertical' }}
                   onFocus={focusBlue} onBlur={blurGray}
@@ -2730,7 +2780,7 @@ const ReplacementFormModal: React.FC<{
               onMouseEnter={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
               onMouseLeave={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
             >
-              {saving ? 'Saving…' : 'Create & Print'}
+              {saving ? 'Saving…' : t('replacement.createPrint')}
             </button>
           </div>
         </form>
@@ -2750,6 +2800,9 @@ const ReplacementFormModal: React.FC<{
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const BookingsPage: React.FC = () => {
+  const { t } = useTranslation('bookings');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => getMonthStart(new Date()));
   const [bookings, setBookings]           = useState<Booking[]>([]);
   const [loading, setLoading]             = useState(true);
@@ -2902,12 +2955,14 @@ const BookingsPage: React.FC = () => {
       .eq('id', bookingId);
     if (updateError) {
       setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, [field]: currentValue } : b));
-      showToast('Update failed', 'error');
+      showToast(t('toast.updateFailed'), 'error');
     }
   }, [showToast]);
 
   // ── Export CSV ──────────────────────────────────────────────────────────────
   const handleExport = () => {
+    // English on purpose — a CSV is opened in a spreadsheet, and its columns
+    // are what any saved filter or formula keys on.
     const headers = ['Booking #', 'Status', 'Car', 'Plate', 'Customer', 'Start Date', 'End Date', 'Kabis', 'Invoice'];
     const rows = sorted.map(b => [
       b.booking_number, b.status, b.car_model, b.plate_number, b.customer_name,
@@ -2920,7 +2975,7 @@ const BookingsPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bookings-${formatMonthLabel(selectedMonth).replace(' ', '-').toLowerCase()}.csv`;
+    a.download = `bookings-${formatMonthLabel(selectedMonth, 'en-GB').replace(' ', '-').toLowerCase()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -2962,13 +3017,13 @@ const BookingsPage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                Operations
+                {t('eyebrow')}
               </span>
             </div>
             <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
-              Bookings
+              {t('title')}
             </h1>
-            <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Monthly bookings control center</p>
+            <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>{t('subtitle')}</p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -2995,7 +3050,7 @@ const BookingsPage: React.FC = () => {
                 <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Replacement Car
+              {t('replacementCarButton')}
             </button>
 
             <button
@@ -3015,7 +3070,7 @@ const BookingsPage: React.FC = () => {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
               </svg>
-              Add New Booking
+              {t('addNewBooking')}
             </button>
           </div>
         </div>
@@ -3024,17 +3079,17 @@ const BookingsPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 28 }}>
           <MonthArrow direction="left"  onClick={() => setSelectedMonth(m => addMonths(m, -1))} />
           <span style={{ fontSize: 18, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', minWidth: 160, textAlign: 'center' }}>
-            {formatMonthLabel(selectedMonth)}
+            {formatMonthLabel(selectedMonth, dateLocale)}
           </span>
           <MonthArrow direction="right" onClick={() => setSelectedMonth(m => addMonths(m, 1))} />
         </div>
 
         {/* ── Stat cards ── */}
         <div className="bk-stats">
-          <StatCard label="Total Bookings" value={stats.total}     bg="#4ba6ea" loading={statsLoading} />
-          <StatCard label="Confirmed"      value={stats.confirmed} bg="#22c55e" loading={statsLoading} />
-          <StatCard label="Pending"        value={stats.pending}   bg="#f97316" loading={statsLoading} />
-          <StatCard label="Completed"      value={stats.completed} bg="#6b7280" loading={statsLoading} />
+          <StatCard label={t('stats.total')}     value={stats.total}     bg="#4ba6ea" loading={statsLoading} />
+          <StatCard label={t('stats.confirmed')} value={stats.confirmed} bg="#22c55e" loading={statsLoading} />
+          <StatCard label={t('stats.pending')}   value={stats.pending}   bg="#f97316" loading={statsLoading} />
+          <StatCard label={t('stats.completed')} value={stats.completed} bg="#6b7280" loading={statsLoading} />
         </div>
 
         {/* ── Search + filter bar ── */}
@@ -3047,7 +3102,7 @@ const BookingsPage: React.FC = () => {
         }}>
           <div style={{ flex: '1 1 220px', position: 'relative', minWidth: 0 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+              style={{ position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
               <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
@@ -3055,9 +3110,9 @@ const BookingsPage: React.FC = () => {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search booking number, customer, plate…"
+              placeholder={t('filters.search')}
               style={{
-                width: '100%', height: 40, paddingLeft: 34, paddingRight: 12,
+                width: '100%', height: 40, paddingInlineStart: 34, paddingInlineEnd: 12,
                 fontSize: 13, color: '#0f1117',
                 background: '#f9fafb', border: '1.5px solid #f0f0f0',
                 borderRadius: 9, outline: 'none', fontFamily: 'inherit',
@@ -3075,11 +3130,11 @@ const BookingsPage: React.FC = () => {
             onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
             onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#f0f0f0'; }}
           >
-            <option value="">All Statuses</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="pending">Pending</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="completed">Completed</option>
+            <option value="">{t('filters.allStatuses')}</option>
+            <option value="confirmed">{t('status.confirmed')}</option>
+            <option value="pending">{t('status.pending')}</option>
+            <option value="cancelled">{t('status.cancelled')}</option>
+            <option value="completed">{t('status.completed')}</option>
           </select>
 
           <button
@@ -3093,15 +3148,15 @@ const BookingsPage: React.FC = () => {
               <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
-            Export
+            {t('export')}
           </button>
         </div>
 
         {/* ── Error ── */}
         {error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid rgba(239,68,68,0.2)', borderLeft: '4px solid #ef4444', borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid rgba(239,68,68,0.2)', borderInlineStart: '4px solid #ef4444', borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/></svg>
-            <span style={{ fontSize: 14, color: '#0f1117' }}>Failed to load bookings: <span style={{ color: '#6b7280' }}>{error}</span></span>
+            <span style={{ fontSize: 14, color: '#0f1117' }}>{t('loadError')}<span style={{ color: '#6b7280' }}>{error}</span></span>
           </div>
         )}
 
@@ -3111,7 +3166,7 @@ const BookingsPage: React.FC = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
               <thead>
                 <tr>
-                  <Th style={{ width: 48, paddingLeft: 16, paddingRight: 8 }}>
+                  <Th style={{ width: 48, paddingInlineStart: 16, paddingInlineEnd: 8 }}>
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -3122,26 +3177,26 @@ const BookingsPage: React.FC = () => {
                   </Th>
                   <Th onClick={() => handleSort('booking_number')} style={{ cursor: 'pointer' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      Booking # {sortIcon('booking_number')}
+                      {t('table.bookingNumberShort')} {sortIcon('booking_number')}
                     </span>
                   </Th>
-                  <Th style={{ minWidth: 120 }}>Status</Th>
-                  <Th>Car</Th>
-                  <Th>Plate</Th>
-                  <Th style={{ minWidth: 150 }}>Customer</Th>
+                  <Th style={{ minWidth: 120 }}>{tc('fields.status')}</Th>
+                  <Th>{tc('fields.car')}</Th>
+                  <Th>{tc('fields.plate')}</Th>
+                  <Th style={{ minWidth: 150 }}>{tc('fields.customer')}</Th>
                   <Th onClick={() => handleSort('start_date')} style={{ cursor: 'pointer' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      Start {sortIcon('start_date')}
+                      {t('table.start')} {sortIcon('start_date')}
                     </span>
                   </Th>
                   <Th onClick={() => handleSort('end_date')} style={{ cursor: 'pointer' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      End {sortIcon('end_date')}
+                      {t('table.end')} {sortIcon('end_date')}
                     </span>
                   </Th>
-                  <Th style={{ textAlign: 'center' }}>Kabis</Th>
-                  <Th style={{ textAlign: 'center' }}>Invoice</Th>
-                  <Th style={{ textAlign: 'right', paddingRight: 16 }}>Actions</Th>
+                  <Th style={{ textAlign: 'center' }}>{t('table.kabis')}</Th>
+                  <Th style={{ textAlign: 'center' }}>{t('table.invoice')}</Th>
+                  <Th style={{ textAlign: 'end', paddingInlineEnd: 16 }}>{t('table.actions')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -3150,7 +3205,7 @@ const BookingsPage: React.FC = () => {
                 {!loading && sorted.length === 0 && (
                   <tr>
                     <td colSpan={11} style={{ padding: '60px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                      {search || statusFilter ? 'No bookings match your filters.' : 'No bookings for this month.'}
+                      {search || statusFilter ? t('table.empty') : t('table.emptyMonth')}
                     </td>
                   </tr>
                 )}
@@ -3209,10 +3264,10 @@ const BookingsPage: React.FC = () => {
               </svg>
             </div>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              Replacement Sheets
+              {t('replacementSheet')}
             </span>
             {!sheetsLoading && sheets.length > 0 && (
-              <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 'auto' }}>
+              <span style={{ fontSize: 12, color: '#9ca3af', marginInlineStart: 'auto' }}>
                 {sheets.length} sheet{sheets.length !== 1 ? 's' : ''}
               </span>
             )}
@@ -3220,20 +3275,21 @@ const BookingsPage: React.FC = () => {
 
           {sheetsLoading ? (
             <div style={{ padding: '28px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-              Loading replacement sheets…
+              {t('loadingSheets')}
             </div>
           ) : sheets.length === 0 ? (
             <div style={{ padding: '28px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-              No replacement sheets yet.
+              {t('noSheets')}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
                 <thead>
                   <tr>
-                    {['Sheet No', 'Customer', 'Original → Replacement', 'Period', ''].map((h, i) => (
+                    {[t('replacement.sheetNo'), tc('fields.customer'),
+                      t('replacement.originalToReplacement'), t('replacement.period'), ''].map((h, i) => (
                       <th key={h || i} style={{
-                        textAlign: i === 4 ? 'right' : 'left',
+                        textAlign: i === 4 ? 'end' : 'start',
                         padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
                         textTransform: 'uppercase', letterSpacing: '0.5px',
                         borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap',
@@ -3265,7 +3321,7 @@ const BookingsPage: React.FC = () => {
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
                         {s.start_date} → {s.end_date}
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right', borderBottom: '1px solid #f9fafb' }}>
+                      <td style={{ padding: '12px 16px', textAlign: 'end', borderBottom: '1px solid #f9fafb' }}>
                         <button
                           onClick={() => printReplacementSheet(s)}
                           style={{
@@ -3289,7 +3345,7 @@ const BookingsPage: React.FC = () => {
                             <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"
                               stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                          Reprint
+                          {t('reprint')}
                         </button>
                       </td>
                     </tr>
@@ -3319,7 +3375,7 @@ const BookingsPage: React.FC = () => {
           initial={EMPTY_FORM}
           onClose={() => setModal(null)}
           onSaved={() => {
-            showToast('Booking added successfully', 'success');
+            showToast(t('toast.added'), 'success');
             fetchStats(selectedMonth);
             fetchBookings(selectedMonth);
           }}
@@ -3333,7 +3389,7 @@ const BookingsPage: React.FC = () => {
           editCustomerId={modal.booking.customer_id}
           onClose={() => setModal(null)}
           onSaved={() => {
-            showToast('Booking updated', 'success');
+            showToast(t('toast.updated'), 'success');
             fetchStats(selectedMonth);
             fetchBookings(selectedMonth);
           }}

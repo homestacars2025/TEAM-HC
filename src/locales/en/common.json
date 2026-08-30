@@ -19,13 +19,31 @@
     "edit": "Edit",
     "delete": "Delete",
     "tryAgain": "Try again",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "yes": "Yes",
+    "no": "No",
+    "uploadFile": "Upload file",
+    "other": "Other"
   },
   "fields": {
     "car": "Car",
     "customer": "Customer",
     "booking": "Booking",
     "description": "Description",
-    "type": "Type"
+    "type": "Type",
+    "date": "Date",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "status": "Status",
+    "phone": "Phone",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "plate": "Plate",
+    "notes": "Notes",
+    "address": "Address",
+    "nationality": "Nationality",
+    "language": "Language",
+    "currency": "Currency",
+    "branch": "Branch"
   }
 }

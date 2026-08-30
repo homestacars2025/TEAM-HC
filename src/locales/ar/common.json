@@ -19,13 +19,31 @@
     "edit": "تعديل",
     "delete": "حذف",
     "tryAgain": "حاول مجدداً",
-    "saveChanges": "حفظ التغييرات"
+    "saveChanges": "حفظ التغييرات",
+    "yes": "نعم",
+    "no": "لا",
+    "uploadFile": "ارفع ملف",
+    "other": "أخرى"
   },
   "fields": {
     "car": "السيارة",
     "customer": "العميل",
     "booking": "الحجز",
     "description": "الوصف",
-    "type": "النوع"
+    "type": "النوع",
+    "date": "التاريخ",
+    "startDate": "تاريخ البداية",
+    "endDate": "تاريخ النهاية",
+    "status": "الحالة",
+    "phone": "الهاتف",
+    "firstName": "الاسم الأول",
+    "lastName": "اسم العائلة",
+    "plate": "اللوحة",
+    "notes": "ملاحظات",
+    "address": "العنوان",
+    "nationality": "الجنسية",
+    "language": "اللغة",
+    "currency": "العملة",
+    "branch": "الفرع"
   }
 }
