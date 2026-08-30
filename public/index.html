@@ -28,12 +28,23 @@
     <!--
       Runs before React mounts so an Arabic user never sees a left-to-right flash.
       The LanguageProvider applies the same values again on mount and on every change.
-      Key must stay in sync with LANG_STORAGE_KEY in src/i18n.ts.
+      Keys must stay in sync with LANG_STORAGE_KEY (src/i18n.ts) and
+      FF_LANGUAGE_SWITCHER (src/lib/featureFlags.ts).
+
+      This is also the one place the ?ff_lang= flag is captured: it has to be read
+      before any module loads, or this script and React would disagree about
+      whether Arabic is available and the page would flip direction twice.
     -->
     <script>
       (function () {
         try {
-          if (localStorage.getItem('hc_lang') === 'ar') {
+          var ff = new URLSearchParams(window.location.search).get('ff_lang');
+          if (ff === '1' || ff === '0') localStorage.setItem('hc_ff_lang', ff);
+
+          // Arabic applies only while the switcher is available, so a left-over
+          // language choice can never strand someone in RTL with no way back.
+          if (localStorage.getItem('hc_ff_lang') === '1' &&
+              localStorage.getItem('hc_lang') === 'ar') {
             document.documentElement.lang = 'ar';
             document.documentElement.dir = 'rtl';
           }

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CurrencyProvider } from './lib/CurrencyContext';
+import { LanguageProvider } from './lib/LanguageContext';
 import LoginPage from './pages/LoginPage';
 import Layout from './components/Layout';
 import CarsPage from './pages/CarsPage';
@@ -41,6 +42,8 @@ import { SectionAccessProvider } from './lib/SectionAccessContext';
 
 const App: React.FC = () => {
   return (
+    // Owns <html lang> and <html dir> for the whole app, login page included.
+    <LanguageProvider>
     <CurrencyProvider>
     <BrowserRouter>
       <Routes>
@@ -98,6 +101,7 @@ const App: React.FC = () => {
       </Routes>
     </BrowserRouter>
     </CurrencyProvider>
+    </LanguageProvider>
   );
 };
 

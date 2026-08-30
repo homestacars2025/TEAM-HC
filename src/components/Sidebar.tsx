@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
+import { useLanguage, LANGUAGES, LANGUAGE_SHORT, LANGUAGE_NAMES, type Language } from '../lib/LanguageContext';
 import { useSectionAccess } from '../lib/SectionAccessContext';
 import { useInbox } from '../lib/InboxContext';
 import { useTranslation } from 'react-i18next';
@@ -220,6 +221,7 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currency, setCurrency, symbol } = useCurrency();
+  const { lang, setLang, canSwitch } = useLanguage();
   const { canAccess } = useSectionAccess();
   const { openTasksCount } = useInbox();
   // Only the Tasks item is translated so far — the rest of the nav is still
@@ -650,6 +652,72 @@ const Sidebar: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/*
+          Language selector — same shape as the currency selector above it, so the
+          two read as one settings block. Hidden entirely behind the flag rather
+          than disabled: an option nobody can take is just noise, and while it is
+          hidden nothing here renders, which is what keeps English untouched.
+
+          Each language is labelled in its own script (EN / ع), never translated —
+          someone looking for Arabic is looking for the Arabic word.
+        */}
+        {canSwitch && (
+          <div style={{ marginBottom: 8 }}>
+            {!collapsed && (
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: '#c0c4cc',
+                textTransform: 'uppercase', letterSpacing: '0.7px',
+                marginBottom: 6, paddingInlineStart: 2,
+              }}>
+                Language
+              </div>
+            )}
+            {collapsed ? (
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
+                  title={`Language: ${LANGUAGE_NAMES[lang]} — click to switch`}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    border: '1.5px solid #4ba6ea',
+                    background: 'rgba(75,166,234,0.08)',
+                    color: '#4ba6ea',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {LANGUAGE_SHORT[lang]}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+                {LANGUAGES.map((l: Language) => (
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    lang={l}
+                    aria-pressed={lang === l}
+                    title={LANGUAGE_NAMES[l]}
+                    style={{
+                      height: 28, borderRadius: 7,
+                      border: lang === l ? '1.5px solid #4ba6ea' : '1.5px solid #e5e7eb',
+                      background: lang === l ? 'rgba(75,166,234,0.08)' : '#fff',
+                      color: lang === l ? '#4ba6ea' : '#6b7280',
+                      fontSize: 11,
+                      fontWeight: lang === l ? 700 : 500,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      transition: 'all 140ms ease',
+                    }}
+                  >
+                    {LANGUAGE_NAMES[l]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Profile row */}
         <div

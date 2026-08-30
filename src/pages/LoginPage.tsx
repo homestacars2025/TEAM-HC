@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useLanguage, LANGUAGES, LANGUAGE_NAMES, type Language } from '../lib/LanguageContext';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
+  const { lang, setLang, canSwitch } = useLanguage();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -66,7 +68,42 @@ const LoginPage: React.FC = () => {
       minHeight: '100vh',
       display: 'flex',
       background: 'var(--surface-secondary)',
+      position: 'relative',
     }}>
+      {/*
+        Language choice belongs here as much as in the sidebar: someone who
+        cannot read the login form cannot reach the sidebar to fix it. Pinned to
+        the top trailing corner so it flips with the layout and never lands on
+        the form. Hidden behind the flag, so nothing renders here today.
+      */}
+      {canSwitch && (
+        <div style={{
+          position: 'absolute', top: 20, insetInlineEnd: 20, zIndex: 10,
+          display: 'flex', gap: 4,
+        }}>
+          {LANGUAGES.map((l: Language) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => setLang(l)}
+              lang={l}
+              aria-pressed={lang === l}
+              style={{
+                height: 30, padding: '0 12px', borderRadius: 8,
+                border: lang === l ? '1.5px solid #4ba6ea' : '1.5px solid var(--border)',
+                background: lang === l ? 'rgba(75,166,234,0.08)' : 'var(--surface)',
+                color: lang === l ? '#4ba6ea' : 'var(--text-secondary)',
+                fontSize: 12, fontWeight: lang === l ? 700 : 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'all 140ms ease',
+              }}
+            >
+              {LANGUAGE_NAMES[l]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Left panel */}
       <div style={{
         flex: 1,
