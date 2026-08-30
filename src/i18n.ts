@@ -4,8 +4,12 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import enCommon from './locales/en/common.json';
 import enSidebar from './locales/en/sidebar.json';
+import enNotifications from './locales/en/notifications.json';
+import enTasks from './locales/en/tasks.json';
 import arCommon from './locales/ar/common.json';
 import arSidebar from './locales/ar/sidebar.json';
+import arNotifications from './locales/ar/notifications.json';
+import arTasks from './locales/ar/tasks.json';
 
 export const LANGUAGES = ['en', 'ar'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -27,8 +31,8 @@ export function dirFor(lang: Language): 'ltr' | 'rtl' {
  * those pages are translated.
  */
 const resources = {
-  en: { common: enCommon, sidebar: enSidebar },
-  ar: { common: arCommon, sidebar: arSidebar },
+  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks },
+  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks },
 };
 
 i18n
@@ -38,7 +42,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...LANGUAGES],
-    ns: ['common', 'sidebar'],
+    ns: ['common', 'sidebar', 'notifications', 'tasks'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage'],

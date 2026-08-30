@@ -1,0 +1,56 @@
+{
+  "nav": "Tasks",
+  "openCount": "{{count}} open task(s)",
+  "eyebrow": "Team",
+  "title": "My tasks",
+  "subtitle": "Tasks assigned to you — claim one, or mark it done",
+  "tabs": {
+    "aria": "Task status",
+    "active": "Active",
+    "done": "Done"
+  },
+  "loading": "Loading…",
+  "empty": {
+    "activeTitle": "No tasks — nice work! 🎉",
+    "activeBody": "Everything is cleared. New tasks will show up here as soon as they arrive.",
+    "doneTitle": "Nothing completed yet",
+    "doneBody": "Tasks move here once you finish them."
+  },
+  "priority": {
+    "urgent": "Urgent",
+    "high": "High",
+    "normal": "Normal",
+    "low": "Low"
+  },
+  "claimedBy": "Claimed by {{name}}",
+  "actions": {
+    "claim": "Claim it",
+    "complete": "Done"
+  },
+  "due": {
+    "today": "Due today",
+    "tomorrow": "Due tomorrow",
+    "overdue_one": "{{count}} day overdue",
+    "overdue_other": "{{count}} days overdue",
+    "in_one": "Due in {{count}} day",
+    "in_other": "Due in {{count}} days"
+  },
+  "dialog": {
+    "title": "Complete task",
+    "notesLabel": "Note",
+    "notesOptional": "(optional)",
+    "notesPlaceholder": "e.g. Uploaded the file and verified it",
+    "confirm": "Confirm completion",
+    "saving": "Saving…",
+    "cancel": "Cancel"
+  },
+  "toast": {
+    "claimed": "Claimed ✓",
+    "completed": "Task completed 🎉",
+    "claimFailed": "Couldn't claim the task",
+    "completeFailed": "Couldn't complete the task",
+    "racedClaim": "Someone just claimed it",
+    "racedComplete": "It was just completed",
+    "forbidden": "You don't have access to this task"
+  }
+}

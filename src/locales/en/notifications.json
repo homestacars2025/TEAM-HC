@@ -1,0 +1,49 @@
+{
+  "reminder": {
+    "missing_insurance": {
+      "title": "Upload insurance file — {{plate}}",
+      "body": "Car {{plate}} has no insurance file uploaded. Please upload it on the car page."
+    },
+    "missing_ruhsat": {
+      "title": "Upload registration (ruhsat) — {{plate}}",
+      "body": "Car {{plate}} has no ruhsat file uploaded."
+    },
+    "insurance_expiring": {
+      "title": "Renew insurance — {{plate}}",
+      "body": "Insurance for car {{plate}} expires on {{date}}. Prepare the renewal."
+    },
+    "inspection_expiring": {
+      "title": "Renew inspection — {{plate}}",
+      "body": "Inspection for car {{plate}} expires on {{date}}."
+    },
+    "open_car_issues": {
+      "title": "You have {{count}} car issue(s) to review",
+      "body": "There are {{count}} record(s) in Car Issues still open. Please review them."
+    }
+  },
+  "bell": {
+    "tooltip": "Tasks and alerts",
+    "aria": "Notifications",
+    "ariaUnread": "Notifications ({{count}} unread)",
+    "heading": "Notifications",
+    "markAllRead": "Mark all read",
+    "loading": "Loading…",
+    "empty": "No notifications",
+    "viewAll": "View all"
+  },
+  "category": {
+    "task": "Task",
+    "reminder": "Reminder",
+    "event": "Event",
+    "manual": "Message"
+  },
+  "time": {
+    "now": "Just now",
+    "minutes_one": "{{count}}m ago",
+    "minutes_other": "{{count}}m ago",
+    "hours_one": "{{count}}h ago",
+    "hours_other": "{{count}}h ago",
+    "days_one": "{{count}}d ago",
+    "days_other": "{{count}}d ago"
+  }
+}

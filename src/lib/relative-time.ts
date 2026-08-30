@@ -1,72 +1,67 @@
+import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+
 /**
- * Arabic relative time — "قبل ساعتين", not "قبل 2 ساعة".
+ * Relative and due-date wording for notifications and tasks.
  *
- * `Intl.RelativeTimeFormat('ar')` gets the dual right but not the 3–10 plural,
- * and it is inconsistent across engines for the counted noun, so the four
- * Arabic number categories are spelled out here instead: one, two (dual),
- * a few (3–10, broken plural), and many (11+, accusative singular).
+ * The counted forms live in the locale files rather than here, because Arabic
+ * needs five categories where English needs two — one, two (dual), few (3–10,
+ * broken plural), many (11+, accusative singular) and other. i18next resolves
+ * those through `Intl.PluralRules`, so the shape of the plural is a property of
+ * the language file and not of this module.
  */
 
-interface Forms {
-  /** 1 */
-  one: string;
-  /** 2 — the dual */
-  two: string;
-  /** 3–10 — takes the broken plural */
-  few: string;
-  /** 11+ — reverts to the singular, in the accusative */
-  many: string;
-}
+const MINUTE_MS = 60_000;
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
 
-const MINUTE: Forms = { one: 'دقيقة', two: 'دقيقتين', few: 'دقائق', many: 'دقيقة' };
-const HOUR: Forms = { one: 'ساعة', two: 'ساعتين', few: 'ساعات', many: 'ساعة' };
-const DAY: Forms = { one: 'يوم', two: 'يومين', few: 'أيام', many: 'يوماً' };
+/** Falls back to an absolute date once the elapsed count stops being readable. */
+const ABSOLUTE_AFTER_DAYS = 30;
 
-function counted(n: number, forms: Forms): string {
-  if (n === 1) return forms.one;
-  if (n === 2) return forms.two;
-  // The category is decided by the last two digits: 103 is "few", 111 is "many".
-  const tail = n % 100;
-  if (tail >= 3 && tail <= 10) return `${n} ${forms.few}`;
-  return `${n} ${forms.many}`;
-}
-
-/** Absolute date once "قبل ٣٤ يوماً" stops being easier to read than the date. */
-function absolute(date: Date): string {
-  return date.toLocaleDateString('ar', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-export function relativeTimeAr(iso: string): string {
+export function formatRelativeTime(t: TFunction, iso: string, locale: string): string {
   const then = new Date(iso);
   const ms = then.getTime();
   if (Number.isNaN(ms)) return '';
 
-  const mins = Math.floor((Date.now() - ms) / 60000);
-  // A clock skew between the browser and the server must not print "in the future".
-  if (mins < 1) return 'الآن';
-  if (mins < 60) return `قبل ${counted(mins, MINUTE)}`;
+  const elapsed = Date.now() - ms;
+  // Clock skew between browser and server must never print a negative count.
+  if (elapsed < MINUTE_MS) return t('notifications:time.now');
 
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `قبل ${counted(hours, HOUR)}`;
+  const mins = Math.floor(elapsed / MINUTE_MS);
+  if (mins < 60) return t('notifications:time.minutes', { count: mins });
 
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `قبل ${counted(days, DAY)}`;
+  const hours = Math.floor(elapsed / HOUR_MS);
+  if (hours < 24) return t('notifications:time.hours', { count: hours });
 
-  return absolute(then);
+  const days = Math.floor(elapsed / DAY_MS);
+  if (days < ABSOLUTE_AFTER_DAYS) return t('notifications:time.days', { count: days });
+
+  return then.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /**
- * A due date, phrased from the reader's side: overdue is the case that has to
- * stand out, so it is named rather than softened into "قبل يومين".
+ * A due date phrased from the reader's side. Overdue is named rather than
+ * softened into an elapsed count — it is the case that has to stand out.
  */
-export function dueLabelAr(iso: string): { text: string; overdue: boolean } {
-  const due = new Date(iso);
-  const ms = due.getTime();
+export function formatDue(t: TFunction, iso: string): { text: string; overdue: boolean } {
+  const ms = new Date(iso).getTime();
   if (Number.isNaN(ms)) return { text: '', overdue: false };
 
-  const diffDays = Math.round((ms - Date.now()) / 86400000);
-  if (diffDays < 0) return { text: `متأخرة ${counted(Math.abs(diffDays), DAY)}`, overdue: true };
-  if (diffDays === 0) return { text: 'تستحق اليوم', overdue: true };
-  if (diffDays === 1) return { text: 'تستحق غداً', overdue: false };
-  return { text: `تستحق بعد ${counted(diffDays, DAY)}`, overdue: false };
+  const diffDays = Math.round((ms - Date.now()) / DAY_MS);
+  if (diffDays < 0) return { text: t('tasks:due.overdue', { count: -diffDays }), overdue: true };
+  if (diffDays === 0) return { text: t('tasks:due.today'), overdue: true };
+  if (diffDays === 1) return { text: t('tasks:due.tomorrow'), overdue: false };
+  return { text: t('tasks:due.in', { count: diffDays }), overdue: false };
+}
+
+/** Both formatters bound to the active language, for use inside components. */
+export function useTimeFormat() {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language ?? 'en';
+
+  return {
+    relative: useCallback((iso: string) => formatRelativeTime(t, iso, locale), [t, locale]),
+    due: useCallback((iso: string) => formatDue(t, iso), [t]),
+  };
 }

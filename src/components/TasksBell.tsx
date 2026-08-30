@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { relativeTimeAr } from '../lib/arabic-time';
+import { useTranslation } from 'react-i18next';
+import { useNotifText, useUiDir } from '../lib/notifications/renderI18n';
+import { useTimeFormat } from '../lib/relative-time';
 import { useInbox } from '../lib/InboxContext';
 import {
   getMyNotifications, markAllNotificationsRead, markNotificationRead,
@@ -13,11 +15,15 @@ import type { MyNotification, NotificationCategory } from '../lib/types/tasks';
  * Deliberately a second bell beside the legacy kabis one rather than a
  * replacement: the two systems have separate tables, separate id types and
  * separate audiences, and merging them is its own piece of work. This one is
- * distinguishable by its list icon and its Arabic tooltip.
+ * distinguishable by its list icon and its tooltip.
  *
  * The badge count comes from `InboxContext`, which polls once for the whole
  * chrome. The list itself is fetched only when the panel is opened — nobody
  * needs ten rows of text on a 30-second timer.
+ *
+ * No row text is rendered from the database directly: every title and body goes
+ * through `useNotifText`, which resolves the server's key against the active
+ * language and falls back to the stored wording only for an unknown key.
  */
 
 const PANEL_LIMIT = 10;
@@ -27,7 +33,6 @@ const BRAND = '#4ba6ea';
 // ─── Category presentation ────────────────────────────────────────────────────
 
 interface CategoryStyle {
-  label: string;
   tint: string;
   color: string;
   icon: React.ReactNode;
@@ -35,7 +40,6 @@ interface CategoryStyle {
 
 const CATEGORY: Record<NotificationCategory, CategoryStyle> = {
   task: {
-    label: 'مهمة',
     tint: 'rgba(16,185,129,0.10)',
     color: '#059669',
     icon: (
@@ -47,7 +51,6 @@ const CATEGORY: Record<NotificationCategory, CategoryStyle> = {
     ),
   },
   reminder: {
-    label: 'تذكير',
     tint: 'rgba(245,158,11,0.12)',
     color: '#d97706',
     icon: (
@@ -59,7 +62,6 @@ const CATEGORY: Record<NotificationCategory, CategoryStyle> = {
     ),
   },
   event: {
-    label: 'حدث',
     tint: 'rgba(75,166,234,0.12)',
     color: BRAND,
     icon: (
@@ -70,7 +72,6 @@ const CATEGORY: Record<NotificationCategory, CategoryStyle> = {
     ),
   },
   manual: {
-    label: 'رسالة',
     tint: 'rgba(139,92,246,0.11)',
     color: '#7c3aed',
     icon: (
@@ -118,6 +119,12 @@ const TasksBell: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { unreadCount, refresh } = useInbox();
+  const { t } = useTranslation('notifications');
+  const notifText = useNotifText();
+  const { relative } = useTimeFormat();
+  // Follows the UI language rather than a baked-in value, so the panel flips
+  // with `i18n.changeLanguage` and never sits RTL inside an English dashboard.
+  const dir = useUiDir();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,8 +175,8 @@ const TasksBell: React.FC = () => {
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <button
         onClick={() => setOpen(o => !o)}
-        title="المهام والتنبيهات"
-        aria-label={unreadCount > 0 ? `التنبيهات (${unreadCount} غير مقروء)` : 'التنبيهات'}
+        title={t('bell.tooltip')}
+        aria-label={unreadCount > 0 ? t('bell.ariaUnread', { count: unreadCount }) : t('bell.aria')}
         aria-expanded={open}
         style={{
           width: 36, height: 36, borderRadius: 10,
@@ -203,10 +210,10 @@ const TasksBell: React.FC = () => {
       </button>
 
       {open && (
-        // The dashboard chrome is LTR; this panel declares its own direction so
-        // it reads correctly without touching <html dir>.
+        // The panel declares its own direction from the UI language, so it reads
+        // correctly whatever <html dir> the surrounding chrome is using.
         <div
-          dir="rtl"
+          dir={dir}
           style={{
             position: 'absolute',
             top: 48, right: 0, zIndex: 400,
@@ -215,14 +222,14 @@ const TasksBell: React.FC = () => {
             boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
             overflow: 'hidden',
             animation: 'tbFade 140ms ease',
-            textAlign: 'right',
+            textAlign: dir === 'rtl' ? 'right' : 'left',
           }}
         >
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             gap: 8, padding: '12px 14px', borderBottom: '1px solid #f3f4f6',
           }}>
-            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f1117' }}>التنبيهات</span>
+            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f1117' }}>{t('bell.heading')}</span>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAll}
@@ -232,7 +239,7 @@ const TasksBell: React.FC = () => {
                   fontFamily: 'inherit', padding: '4px 2px',
                 }}
               >
-                تعليم الكل كمقروء
+                {t('bell.markAllRead')}
               </button>
             )}
           </div>
@@ -240,21 +247,26 @@ const TasksBell: React.FC = () => {
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             {loading ? (
               <div style={{ padding: '28px 14px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                جارٍ التحميل…
+                {t('bell.loading')}
               </div>
             ) : items.length === 0 ? (
               <div style={{ padding: '32px 14px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                ما في تنبيهات
+                {t('bell.empty')}
               </div>
             ) : (
               items.map(n => {
                 const style = styleFor(n.category);
+                // Never `n.title` / `n.body` directly — the stored wording is a
+                // fallback for a key this build has no translation for.
+                const title = notifText(n.i18n_key, n.vars, n.title);
+                const body = notifText(n.body_i18n_key, n.vars, n.body);
                 return (
                   <button
                     key={n.id}
                     onClick={() => handleClick(n)}
                     style={{
-                      display: 'block', width: '100%', textAlign: 'right',
+                      display: 'block', width: '100%',
+                      textAlign: dir === 'rtl' ? 'right' : 'left',
                       padding: '11px 14px', border: 'none',
                       borderBottom: '1px solid #f6f7f8',
                       background: n.is_read ? '#fff' : 'rgba(75,166,234,0.05)',
@@ -266,7 +278,7 @@ const TasksBell: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
                       <span
                         aria-hidden
-                        title={style.label}
+                        title={t(`category.${n.category}`)}
                         style={{
                           width: 26, height: 26, borderRadius: 8, flexShrink: 0,
                           background: style.tint, color: style.color,
@@ -284,7 +296,7 @@ const TasksBell: React.FC = () => {
                             fontSize: 13, fontWeight: n.is_read ? 600 : 800,
                             color: '#0f1117', lineHeight: 1.55,
                           }}>
-                            {n.title}
+                            {title}
                           </div>
                           {!n.is_read && (
                             <span style={{
@@ -293,13 +305,13 @@ const TasksBell: React.FC = () => {
                             }} />
                           )}
                         </div>
-                        {n.body && (
+                        {body && (
                           <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.65, wordBreak: 'break-word', marginTop: 1 }}>
-                            {n.body}
+                            {body}
                           </div>
                         )}
                         <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                          {relativeTimeAr(n.created_at)}
+                          {relative(n.created_at)}
                         </div>
                       </div>
                     </div>
@@ -320,7 +332,7 @@ const TasksBell: React.FC = () => {
             onMouseEnter={e => { e.currentTarget.style.background = '#f3f7fb'; }}
             onMouseLeave={e => { e.currentTarget.style.background = '#fbfcfd'; }}
           >
-            عرض الكل
+            {t('bell.viewAll')}
           </button>
         </div>
       )}

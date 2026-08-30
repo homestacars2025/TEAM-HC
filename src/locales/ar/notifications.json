@@ -1,0 +1,58 @@
+{
+  "reminder": {
+    "missing_insurance": {
+      "title": "ارفع ملف التأمين — {{plate}}",
+      "body": "السيارة {{plate}} ما عندها ملف تأمين مرفوع. لطفاً ارفعه في صفحة السيارة."
+    },
+    "missing_ruhsat": {
+      "title": "ارفع ملف الرخصة (ruhsat) — {{plate}}",
+      "body": "السيارة {{plate}} ما عندها ملف ruhsat مرفوع."
+    },
+    "insurance_expiring": {
+      "title": "جدّد التأمين — {{plate}}",
+      "body": "تأمين السيارة {{plate}} ينتهي بتاريخ {{date}}. جهّز التجديد."
+    },
+    "inspection_expiring": {
+      "title": "جدّد الفحص الدوري — {{plate}}",
+      "body": "فحص السيارة {{plate}} ينتهي بتاريخ {{date}}."
+    },
+    "open_car_issues": {
+      "title": "عندك {{count}} مشكلة سيارة تحتاج مراجعة",
+      "body": "يوجد {{count}} سجل في Car Issues لسه بحالة open. ادخل راجعها."
+    }
+  },
+  "bell": {
+    "tooltip": "المهام والتنبيهات",
+    "aria": "التنبيهات",
+    "ariaUnread": "التنبيهات ({{count}} غير مقروء)",
+    "heading": "التنبيهات",
+    "markAllRead": "تعليم الكل كمقروء",
+    "loading": "جارٍ التحميل…",
+    "empty": "ما في تنبيهات",
+    "viewAll": "عرض الكل"
+  },
+  "category": {
+    "task": "مهمة",
+    "reminder": "تذكير",
+    "event": "حدث",
+    "manual": "رسالة"
+  },
+  "time": {
+    "now": "الآن",
+    "minutes_one": "قبل دقيقة",
+    "minutes_two": "قبل دقيقتين",
+    "minutes_few": "قبل {{count}} دقائق",
+    "minutes_many": "قبل {{count}} دقيقة",
+    "minutes_other": "قبل {{count}} دقيقة",
+    "hours_one": "قبل ساعة",
+    "hours_two": "قبل ساعتين",
+    "hours_few": "قبل {{count}} ساعات",
+    "hours_many": "قبل {{count}} ساعة",
+    "hours_other": "قبل {{count}} ساعة",
+    "days_one": "قبل يوم",
+    "days_two": "قبل يومين",
+    "days_few": "قبل {{count}} أيام",
+    "days_many": "قبل {{count}} يوماً",
+    "days_other": "قبل {{count}} يوماً"
+  }
+}

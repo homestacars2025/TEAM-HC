@@ -77,21 +77,16 @@ export async function getMyTasks(status: TaskFilter, limit = 50, offset = 0): Pr
  * Both write RPCs `raise exception` when their guarded UPDATE matches no row —
  * which is what a lost race looks like: someone claimed or completed it in the
  * seconds since the list was fetched. That is not a failure worth an alarming
- * message, so it is flagged as `raced` and the caller refreshes instead.
+ * message, so it gets its own code and the caller refreshes instead.
+ *
+ * Codes, not sentences: the wording is a translation key the component resolves.
  */
 function classify(message: string, verb: 'claim' | 'complete'): TaskActionResult {
-  const raced = /not claimable|not completable/i.test(message);
-  if (raced) {
-    return {
-      ok: false,
-      raced: true,
-      error: verb === 'claim'
-        ? 'المهمة استُلمت للتو'
-        : 'المهمة أُنجزت للتو',
-    };
+  if (/not claimable|not completable/i.test(message)) {
+    return { ok: false, code: verb === 'claim' ? 'raced_claim' : 'raced_complete' };
   }
   if (/row-level security|permission denied/i.test(message)) {
-    return { ok: false, error: 'ما عندك صلاحية لهذه المهمة' };
+    return { ok: false, code: 'forbidden' };
   }
   return { ok: false, error: message };
 }

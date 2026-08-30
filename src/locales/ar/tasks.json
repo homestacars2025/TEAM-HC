@@ -1,0 +1,62 @@
+{
+  "nav": "المهام",
+  "openCount": "{{count}} مهمة مفتوحة",
+  "eyebrow": "الفريق",
+  "title": "مهامي",
+  "subtitle": "المهام الموجّهة لك — استلمها أو علّمها كمنجزة",
+  "tabs": {
+    "aria": "حالة المهام",
+    "active": "نشطة",
+    "done": "منجزة"
+  },
+  "loading": "جارٍ التحميل…",
+  "empty": {
+    "activeTitle": "ما عندك مهام — عاش! 🎉",
+    "activeBody": "كل شي مخلّص. رح تشوف المهام الجديدة هون أول ما تنضاف.",
+    "doneTitle": "ما في مهام منجزة بعد",
+    "doneBody": "أول ما تخلّص مهمة رح تنتقل لهون."
+  },
+  "priority": {
+    "urgent": "عاجلة",
+    "high": "مهمة",
+    "normal": "عادية",
+    "low": "منخفضة"
+  },
+  "claimedBy": "مستلمة بواسطة {{name}}",
+  "actions": {
+    "claim": "أستلمها",
+    "complete": "تمّت"
+  },
+  "due": {
+    "today": "تستحق اليوم",
+    "tomorrow": "تستحق غداً",
+    "overdue_one": "متأخرة يوم",
+    "overdue_two": "متأخرة يومين",
+    "overdue_few": "متأخرة {{count}} أيام",
+    "overdue_many": "متأخرة {{count}} يوماً",
+    "overdue_other": "متأخرة {{count}} يوماً",
+    "in_one": "تستحق بعد يوم",
+    "in_two": "تستحق بعد يومين",
+    "in_few": "تستحق بعد {{count}} أيام",
+    "in_many": "تستحق بعد {{count}} يوماً",
+    "in_other": "تستحق بعد {{count}} يوماً"
+  },
+  "dialog": {
+    "title": "إنجاز المهمة",
+    "notesLabel": "ملاحظة",
+    "notesOptional": "(اختيارية)",
+    "notesPlaceholder": "مثلاً: رفعت الملف وتم التحقق منه",
+    "confirm": "تأكيد الإنجاز",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء"
+  },
+  "toast": {
+    "claimed": "استلمتها ✓",
+    "completed": "تمّت المهمة 🎉",
+    "claimFailed": "تعذّر استلام المهمة",
+    "completeFailed": "تعذّر إنجاز المهمة",
+    "racedClaim": "المهمة استُلمت للتو",
+    "racedComplete": "المهمة أُنجزت للتو",
+    "forbidden": "ما عندك صلاحية لهذه المهمة"
+  }
+}

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import { useSectionAccess } from '../lib/SectionAccessContext';
 import { useInbox } from '../lib/InboxContext';
+import { useTranslation } from 'react-i18next';
 
 /**
  * `sectionKey` ties a nav item to a row in `restricted_sections`. Items without one are
@@ -221,6 +222,9 @@ const Sidebar: React.FC = () => {
   const { currency, setCurrency, symbol } = useCurrency();
   const { canAccess } = useSectionAccess();
   const { openTasksCount } = useInbox();
+  // Only the Tasks item is translated so far — the rest of the nav is still
+  // hard-coded English, and `sidebar.json` is waiting for that migration.
+  const { t } = useTranslation('tasks');
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
@@ -267,7 +271,7 @@ const Sidebar: React.FC = () => {
       <NavLink
         key={item.path}
         to={item.path}
-        title={collapsed ? item.label : undefined}
+        title={collapsed ? (item.showTaskCount ? t('nav') : item.label) : undefined}
         style={({ isActive }) => ({
           display: 'flex',
           alignItems: 'center',
@@ -317,10 +321,10 @@ const Sidebar: React.FC = () => {
                 />
               )}
             </span>
-            {!collapsed && item.label}
+            {!collapsed && (item.showTaskCount ? t('nav') : item.label)}
             {item.showTaskCount && !collapsed && openTasksCount > 0 && (
               <span
-                aria-label={`${openTasksCount} مهمة مفتوحة`}
+                aria-label={t('openCount', { count: openTasksCount })}
                 style={{
                   marginInlineStart: 'auto',
                   minWidth: 20, height: 20, padding: '0 6px',
