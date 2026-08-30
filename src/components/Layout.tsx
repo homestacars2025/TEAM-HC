@@ -4,6 +4,8 @@ import { Outlet } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+import TasksBell from './TasksBell';
+import { InboxProvider } from '../lib/InboxContext';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
@@ -79,6 +81,8 @@ const Layout: React.FC = () => {
   const { showWarning, stayLoggedIn } = useInactivityTimeout();
 
   return (
+    // Both badge counts are polled once here, for the bell and the sidebar alike.
+    <InboxProvider>
     <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-secondary)' }}>
       <Sidebar />
 
@@ -89,7 +93,14 @@ const Layout: React.FC = () => {
         top of them. `main` scrolls beneath it, so the bell stays put.
       */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {/*
+          Two bells on purpose. The legacy one is the kabis-only `notifications`
+          table; the new one is notifications_v2, with its own tables, ids and
+          audience. They are to be unified later — until then, replacing either
+          with the other would lose notifications.
+        */}
         <header className="app-topbar">
+          <TasksBell />
           <NotificationBell />
         </header>
         <main style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -106,6 +117,7 @@ const Layout: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: flex-end;
+          gap: 10px;
           padding: 0 16px;
           background: #fff;
           border-bottom: 1px solid #ebebeb;
@@ -117,6 +129,7 @@ const Layout: React.FC = () => {
         @media (min-width: 1024px) { .app-topbar { padding: 0 40px; } }
       `}</style>
     </div>
+    </InboxProvider>
   );
 };
 
