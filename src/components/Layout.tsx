@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom';
 import { Outlet } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import Sidebar from './Sidebar';
-import NotificationBell from './NotificationBell';
 import TasksBell from './TasksBell';
 import { InboxProvider } from '../lib/InboxContext';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
@@ -94,14 +93,12 @@ const Layout: React.FC = () => {
       */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/*
-          Two bells on purpose. The legacy one is the kabis-only `notifications`
-          table; the new one is notifications_v2, with its own tables, ids and
-          audience. They are to be unified later — until then, replacing either
-          with the other would lose notifications.
+          One bell. kabis notifications now arrive through notifications_v2 like
+          everything else, so the separate kabis bell has been removed — its
+          unread rows are simply part of this badge now.
         */}
         <header className="app-topbar">
           <TasksBell />
-          <NotificationBell />
         </header>
         <main style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <Outlet />

@@ -21,6 +21,12 @@
       "body": "There are {{count}} record(s) in Car Issues still open. Please review them."
     }
   },
+  "kabis": {
+    "pending": {
+      "title": "New KABIS {{action_label}} pending",
+      "body": "{{customer}} — {{action_label}} — {{plate}} — {{booking}} — {{km}} km"
+    }
+  },
   "bell": {
     "tooltip": "Tasks and alerts",
     "aria": "Notifications",

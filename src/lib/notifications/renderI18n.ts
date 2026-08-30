@@ -16,26 +16,58 @@ import { dirFor, isLanguage } from '../../i18n';
 /** The namespace the server's keys are resolved against. */
 export const NOTIF_NS = 'notifications';
 
+/** The subset of the i18next instance this module needs. */
+export type I18nLike = Pick<I18nInstance, 'exists' | 'getResource' | 'language' | 'resolvedLanguage'>;
+
+const PLACEHOLDER = /\{\{\s*([\w.]+)\s*\}\}/g;
+
+/**
+ * Whether every `{{placeholder}}` in the template has a value to fill it.
+ *
+ * i18next leaves an unfilled placeholder in the output verbatim, so a template
+ * the server has not sent all the variables for renders as
+ * `{{customer}} — Check-in — {{plate}}`. That is worse than the stored wording
+ * it would replace, so a template that cannot be filled counts as a miss.
+ *
+ * This is what lets a key be added ahead of the data: the moment the server
+ * starts sending the missing variables, the translation takes over on its own.
+ */
+function canFill(template: unknown, vars: Record<string, unknown> | null | undefined): boolean {
+  // Plurals resolve to an object of forms; leave those to `t`.
+  if (typeof template !== 'string') return true;
+  for (const match of template.matchAll(PLACEHOLDER)) {
+    const name = match[1];
+    // `count` is supplied by i18next's own plural handling, not by `vars`.
+    if (name === 'count') continue;
+    if (vars?.[name] == null) return false;
+  }
+  return true;
+}
+
 /**
  * Resolves one key, or falls back.
  *
  * Kept free of React so it can be unit-tested and called from either component;
  * `useNotifText` below is the binding most callers actually want.
  *
- * `exists` is checked before `t` because i18next returns the key itself when a
- * lookup misses — printing `reminder.foo.title` at a user would be worse than
- * printing the server's own wording.
+ * The key is checked twice before it is used: `exists`, because i18next returns
+ * the key itself when a lookup misses, and `canFill`, because it returns raw
+ * placeholders when a variable is missing. Either way the stored wording wins —
+ * the server's own sentence always beats a broken-looking translation.
  */
 export function renderNotifText(
   t: TFunction,
-  exists: (key: string) => boolean,
+  i18n: I18nLike,
   key: string | null | undefined,
   vars: Record<string, unknown> | null | undefined,
   fallback: string | null | undefined,
 ): string {
   if (key) {
     const full = `${NOTIF_NS}:${key}`;
-    if (exists(full)) return t(full, { ...(vars ?? {}) }) as string;
+    const lng = i18n.resolvedLanguage ?? i18n.language ?? 'en';
+    if (i18n.exists(full) && canFill(i18n.getResource(lng, NOTIF_NS, key), vars)) {
+      return t(full, { ...(vars ?? {}) }) as string;
+    }
   }
   return fallback ?? '';
 }
@@ -45,7 +77,7 @@ export function useNotifText() {
   const { t, i18n } = useTranslation(NOTIF_NS);
   return useCallback(
     (key: string | null | undefined, vars: Record<string, unknown> | null | undefined, fallback: string | null | undefined) =>
-      renderNotifText(t, (k) => i18n.exists(k), key, vars, fallback),
+      renderNotifText(t, i18n, key, vars, fallback),
     [t, i18n],
   );
 }

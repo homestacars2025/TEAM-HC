@@ -5,9 +5,8 @@ import { resolveNotificationPath } from '../components/TasksBell';
 
 /** The real instance, so a broken namespace registration fails these tests. */
 const t = i18n.t.bind(i18n);
-const exists = (k: string) => i18n.exists(k);
 const render = (key: string | null, vars: Record<string, unknown> | null, fallback: string | null) =>
-  renderNotifText(t, exists, key, vars, fallback);
+  renderNotifText(t, i18n, key, vars, fallback);
 
 const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
 const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
@@ -52,6 +51,45 @@ describe('notification text rendering', () => {
     // `vars` carries car_id and body_i18n_key alongside the ones used.
     expect(render('reminder.missing_insurance.title', INSURANCE_VARS, null))
       .toBe('Upload insurance file — 34HZY380');
+  });
+});
+
+describe('kabis notifications, now in the same inbox', () => {
+  /** Exactly what the 46 migrated rows carry — no customer/plate/booking/km. */
+  const MIGRATED_VARS = {
+    action_label: 'Check-in',
+    legacy_body: 'Haitham younes Elfaituri — Check-in — 34NLP107 — HOM-08-26-035 — 58791 km',
+    body_i18n_key: 'kabis.pending.body',
+  };
+  const STORED_BODY = 'Haitham younes Elfaituri — Check-in — 34NLP107 — HOM-08-26-035 — 58791 km';
+
+  test('the title translates from action_label alone', async () => {
+    expect(render('kabis.pending.title', MIGRATED_VARS, 'New KABIS Check-in pending'))
+      .toBe('New KABIS Check-in pending');
+
+    await i18n.changeLanguage('ar');
+    expect(render('kabis.pending.title', MIGRATED_VARS, 'ignored'))
+      .toBe('تسجيل KABIS جديد بانتظار — Check-in');
+  });
+
+  test('a body whose variables are missing keeps the stored sentence', () => {
+    // i18next leaves `{{customer}}` in the output verbatim, so translating here
+    // would show raw placeholders and lose the customer, plate and booking.
+    expect(render('kabis.pending.body', MIGRATED_VARS, STORED_BODY)).toBe(STORED_BODY);
+  });
+
+  test('the same key takes over as soon as the server sends the variables', () => {
+    expect(render('kabis.pending.body', {
+      customer: 'YASSIR CHICHAKLI', action_label: 'Check-out',
+      plate: '06FHP046', booking: 'HOM-08-26-029', km: 28033,
+    }, STORED_BODY))
+      .toBe('YASSIR CHICHAKLI — Check-out — 06FHP046 — HOM-08-26-029 — 28033 km');
+  });
+
+  test('one absent variable is enough to prefer the fallback', () => {
+    expect(render('kabis.pending.body', {
+      customer: 'A', action_label: 'Check-in', plate: 'B', booking: 'C',
+    }, STORED_BODY)).toBe(STORED_BODY);
   });
 });
 
@@ -110,6 +148,8 @@ describe('due labels', () => {
 describe('notification link resolution', () => {
   test('a path this dashboard actually has is followed', () => {
     expect(resolveNotificationPath('/cars')).toBe('/dashboard/cars');
+    // The link every kabis notification carries; TEAM does have this page.
+    expect(resolveNotificationPath('/kabis')).toBe('/dashboard/kabis');
     expect(resolveNotificationPath('/dashboard/kabis')).toBe('/dashboard/kabis');
   });
 

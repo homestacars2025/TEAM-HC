@@ -21,6 +21,12 @@
       "body": "يوجد {{count}} سجل في Car Issues لسه بحالة open. ادخل راجعها."
     }
   },
+  "kabis": {
+    "pending": {
+      "title": "تسجيل KABIS جديد بانتظار — {{action_label}}",
+      "body": "{{customer}} — {{action_label}} — {{plate}} — {{booking}} — {{km}} كم"
+    }
+  },
   "bell": {
     "tooltip": "المهام والتنبيهات",
     "aria": "التنبيهات",
