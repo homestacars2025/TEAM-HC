@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
@@ -22,15 +23,16 @@ interface CarTableRow {
 
 type CarTableStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
 
-const STATUS_CONFIG: Record<CarTableStatus, { label: string; color: string; bg: string }> = {
-  working:     { label: 'Working',     color: '#16a34a', bg: 'rgba(34,197,94,0.1)'  },
-  parking:     { label: 'Parking',     color: '#ea580c', bg: 'rgba(249,115,22,0.1)' },
-  maintenance: { label: 'Maintenance', color: '#6b7280', bg: 'rgba(107,114,128,0.1)'},
-  selling:     { label: 'Selling',     color: '#ca8a04', bg: 'rgba(234,179,8,0.1)'  },
-  replacement: { label: 'Replacement', color: '#0891b2', bg: 'rgba(6,182,212,0.1)'  },
+const STATUS_CONFIG: Record<CarTableStatus, { color: string; bg: string }> = {
+  working:     { color: '#16a34a', bg: 'rgba(34,197,94,0.1)'  },
+  parking:     { color: '#ea580c', bg: 'rgba(249,115,22,0.1)' },
+  maintenance: { color: '#6b7280', bg: 'rgba(107,114,128,0.1)'},
+  selling:     { color: '#ca8a04', bg: 'rgba(234,179,8,0.1)'  },
+  replacement: { color: '#0891b2', bg: 'rgba(6,182,212,0.1)'  },
 };
 
 const CarStatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const { t } = useTranslation('cars');
   const cfg = STATUS_CONFIG[status as CarTableStatus];
   if (!cfg) return <span style={{ fontSize: 12, color: '#9ca3af' }}>{status || '—'}</span>;
   return (
@@ -40,7 +42,7 @@ const CarStatusBadge: React.FC<{ status: string }> = ({ status }) => {
       color: cfg.color, background: cfg.bg,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-      {cfg.label}
+      {t(`status.${status}`)}
     </span>
   );
 };
@@ -48,9 +50,8 @@ const CarStatusBadge: React.FC<{ status: string }> = ({ status }) => {
 // ─── Stat Card Types ───────────────────────────────────────────────────────────
 
 interface StatCard {
+  /** Also the locale key: `cards.<key>.label` / `.description`. */
   key: 'all' | CarStatus;
-  label: string;
-  description: string;
   accentColor: string;
   iconBg: string;
   icon: React.ReactNode;
@@ -59,8 +60,6 @@ interface StatCard {
 const CARDS: StatCard[] = [
   {
     key: 'all',
-    label: 'Total Fleet',
-    description: 'All registered vehicles',
     accentColor: '#4ba6ea',
     iconBg: 'rgba(75,166,234,0.1)',
     icon: (
@@ -73,8 +72,6 @@ const CARDS: StatCard[] = [
   },
   {
     key: 'working',
-    label: 'Working',
-    description: 'Active on the road',
     accentColor: '#22c55e',
     iconBg: 'rgba(34,197,94,0.1)',
     icon: (
@@ -86,8 +83,6 @@ const CARDS: StatCard[] = [
   },
   {
     key: 'parking',
-    label: 'Parking',
-    description: 'Parked at branch',
     accentColor: '#ef4444',
     iconBg: 'rgba(239,68,68,0.1)',
     icon: (
@@ -99,8 +94,6 @@ const CARDS: StatCard[] = [
   },
   {
     key: 'maintenance',
-    label: 'Maintenance',
-    description: 'Under service',
     accentColor: '#6b7280',
     iconBg: 'rgba(107,114,128,0.1)',
     icon: (
@@ -111,8 +104,6 @@ const CARDS: StatCard[] = [
   },
   {
     key: 'selling',
-    label: 'Selling',
-    description: 'Listed for sale',
     accentColor: '#eab308',
     iconBg: 'rgba(234,179,8,0.1)',
     icon: (
@@ -124,8 +115,6 @@ const CARDS: StatCard[] = [
   },
   {
     key: 'replacement',
-    label: 'Replacement',
-    description: 'Replacement vehicles',
     accentColor: '#06b6d4',
     iconBg: 'rgba(6,182,212,0.1)',
     icon: (
@@ -145,6 +134,7 @@ interface HoverCardProps {
 }
 
 const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => {
+  const { t } = useTranslation('cars');
   const ref = useRef<HTMLDivElement>(null);
 
   const handleEnter = () => {
@@ -227,10 +217,10 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
         {/* Label + description */}
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>
-            {card.label}
+            {t(`cards.${card.key}.label`)}
           </div>
           <div style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.4 }}>
-            {card.description}
+            {t(`cards.${card.key}.description`)}
           </div>
         </div>
       </div>
@@ -261,6 +251,7 @@ interface ModelGroupOption { id: number; name: string; }
 interface InvestorOption   { id: number; full_name: string; }
 
 const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ onClose, onAdded }) => {
+  const { t } = useTranslation('cars');
   const [modelGroups, setModelGroups]   = useState<ModelGroupOption[]>([]);
   const [investors,   setInvestors]     = useState<InvestorOption[]>([]);
   const [loadingData, setLoadingData]   = useState(true);
@@ -289,9 +280,9 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
 
   const handleSubmit = async () => {
     setFormError(null);
-    if (!modelGroupId) { setFormError('Please select a model group.'); return; }
-    if (!plate.trim()) { setFormError('Plate number is required.'); return; }
-    if (!investorId)   { setFormError('Please select an investor.'); return; }
+    if (!modelGroupId) { setFormError(t('modal.errors.modelGroup')); return; }
+    if (!plate.trim()) { setFormError(t('modal.errors.plate')); return; }
+    if (!investorId)   { setFormError(t('modal.errors.investor')); return; }
 
     setSaving(true);
     const { error } = await supabase.from('cars').insert({
@@ -347,10 +338,10 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
         }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              Add New Car
+              {t('modal.title')}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              Register a new vehicle in the fleet
+              {t('modal.subtitle')}
             </div>
           </div>
           <button
@@ -371,7 +362,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
         <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Model Group */}
           <div>
-            <label style={labelStyle}>Model Group <span style={{ color: '#ef4444' }}>*</span></label>
+            <label style={labelStyle}>{t('modal.modelGroup')} <span style={{ color: '#ef4444' }}>*</span></label>
             <select
               value={modelGroupId}
               onChange={e => setModelGroupId(e.target.value)}
@@ -379,7 +370,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
               style={selectStyle}
             >
               <option value="">
-                {loadingData ? 'Loading…' : 'Select model group'}
+                {loadingData ? t('modal.loading') : t('modal.selectModelGroup')}
               </option>
               {modelGroups.map(mg => (
                 <option key={mg.id} value={String(mg.id)}>{mg.name}</option>
@@ -389,10 +380,10 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
 
           {/* Plate Number */}
           <div>
-            <label style={labelStyle}>Plate Number <span style={{ color: '#ef4444' }}>*</span></label>
+            <label style={labelStyle}>{t('modal.plateNumber')} <span style={{ color: '#ef4444' }}>*</span></label>
             <input
               type="text"
-              placeholder="34 ABC 123"
+              placeholder={t('modal.platePlaceholder')}
               value={plate}
               onChange={e => setPlate(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
@@ -402,7 +393,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
 
           {/* Investor */}
           <div>
-            <label style={labelStyle}>Investor <span style={{ color: '#ef4444' }}>*</span></label>
+            <label style={labelStyle}>{t('modal.investor')} <span style={{ color: '#ef4444' }}>*</span></label>
             <select
               value={investorId}
               onChange={e => setInvestorId(e.target.value)}
@@ -410,7 +401,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
               style={selectStyle}
             >
               <option value="">
-                {loadingData ? 'Loading…' : 'Select investor'}
+                {loadingData ? t('modal.loading') : t('modal.selectInvestor')}
               </option>
               {investors.map(inv => (
                 <option key={inv.id} value={String(inv.id)}>{inv.full_name}</option>
@@ -448,7 +439,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            Cancel
+            {t('modal.cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -468,7 +459,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
                 <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56" />
               </svg>
             )}
-            {saving ? 'Creating…' : 'Create Car'}
+            {saving ? t('modal.creating') : t('modal.create')}
           </button>
         </div>
       </div>
@@ -482,6 +473,14 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const CarsPage: React.FC = () => {
+  const { t, i18n } = useTranslation('cars');
+  /**
+   * Western digits in both languages, as agreed for a Turkish fleet: plate
+   * numbers, booking refs and KGM records are all Latin, and Arabic-Indic
+   * figures beside them make a column harder to scan, not easier. Plain `ar`
+   * resolves to Arabic-Indic on some engines, so the numbering system is pinned.
+   */
+  const numberLocale = i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-US';
   const [counts, setCounts]         = useState<CarStatusCounts | null>(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
@@ -614,7 +613,7 @@ const CarsPage: React.FC = () => {
               background: '#4ba6ea',
             }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              Fleet Overview
+              {t('eyebrow')}
             </span>
           </div>
           <h1 style={{
@@ -625,10 +624,10 @@ const CarsPage: React.FC = () => {
             marginBottom: 6,
             lineHeight: 1.1,
           }}>
-            Cars
+            {t('title')}
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
-            Real-time availability across all branches.
+            {t('subtitle')}
           </p>
         </div>
       </div>
@@ -641,7 +640,7 @@ const CarsPage: React.FC = () => {
           gap: 12,
           background: '#fff',
           border: '1px solid rgba(239,68,68,0.2)',
-          borderLeft: '4px solid #ef4444',
+          borderInlineStart: '4px solid #ef4444',
           borderRadius: 12,
           padding: '14px 18px',
           marginBottom: 32,
@@ -652,7 +651,7 @@ const CarsPage: React.FC = () => {
             <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>Failed to load fleet data</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>{t('errorTitle')}</div>
             <div style={{ fontSize: 13, color: '#6b7280' }}>{error}</div>
           </div>
         </div>
@@ -683,7 +682,7 @@ const CarsPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f97316' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#f97316', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-            Alerts
+            {t('alerts.label')}
           </span>
         </div>
         <div style={{
@@ -693,7 +692,7 @@ const CarsPage: React.FC = () => {
         }}>
           <AlertSection
             viewName="upcoming_returns"
-            title="Upcoming Returns"
+            title={t('alerts.upcomingReturns')}
             accentColor="#4ba6ea"
             icon={
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -704,7 +703,7 @@ const CarsPage: React.FC = () => {
           />
           <AlertSection
             viewName="upcoming_insurance"
-            title="Insurance Expiry"
+            title={t('alerts.insuranceExpiry')}
             accentColor="#f97316"
             icon={
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -714,7 +713,7 @@ const CarsPage: React.FC = () => {
           />
           <AlertSection
             viewName="upcoming_inspection"
-            title="Inspection Expiry"
+            title={t('alerts.inspectionExpiry')}
             accentColor="#8b5cf6"
             icon={
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -733,22 +732,22 @@ const CarsPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              All Vehicles
+              {t('table.label')}
             </span>
           </div>
           {/* Search */}
           <div style={{ position: 'relative' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
               <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
             <input
               type="text"
-              placeholder="Search plate or model…"
+              placeholder={t('table.searchPlaceholder')}
               value={tableSearch}
               onChange={e => setTableSearch(e.target.value)}
               style={{
-                paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
+                paddingInlineStart: 32, paddingInlineEnd: 12, paddingTop: 8, paddingBottom: 8,
                 fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9,
                 outline: 'none', color: '#0f1117', background: '#fff',
                 width: 220, fontFamily: 'inherit',
@@ -764,12 +763,12 @@ const CarsPage: React.FC = () => {
               <thead>
                 <tr>
                   {([
-                    { label: 'Plate Number', col: 'plate_number' },
-                    { label: 'Model',        col: 'model'        },
-                    { label: 'Year',         col: 'year'         },
-                    { label: 'Current KM',   col: 'current_km'   },
-                    { label: 'Status',       col: 'status'       },
-                  ] as const).map(({ label, col }) => {
+                    { key: 'plateNumber', col: 'plate_number' },
+                    { key: 'model',       col: 'model'        },
+                    { key: 'year',        col: 'year'         },
+                    { key: 'currentKm',   col: 'current_km'   },
+                    { key: 'status',      col: 'status'       },
+                  ] as const).map(({ key, col }) => {
                     const active = sortCol === col;
                     return (
                       <th
@@ -779,7 +778,7 @@ const CarsPage: React.FC = () => {
                           padding: '9px 14px', fontSize: 11, fontWeight: 700,
                           color: active ? '#4ba6ea' : '#9ca3af',
                           textTransform: 'uppercase', letterSpacing: '0.7px',
-                          textAlign: 'left', background: '#fff',
+                          textAlign: 'start', background: '#fff',
                           borderBottom: '1.5px solid #f0f0f0',
                           whiteSpace: 'nowrap', userSelect: 'none',
                           cursor: 'pointer',
@@ -788,7 +787,7 @@ const CarsPage: React.FC = () => {
                         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLTableCellElement).style.color = '#9ca3af'; }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          {label}
+                          {t(`columns.${key}`)}
                           {active ? (
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
                               {sortDir === 'asc'
@@ -806,9 +805,9 @@ const CarsPage: React.FC = () => {
                     );
                   })}
                   {([
-                    { key: 'insurance_url', label: 'Insurance' },
-                    { key: 'ruhsat_url',    label: 'Ruhsat'    },
-                    { key: 'kasko_url',     label: 'Kasko'     },
+                    { key: 'insurance_url', labelKey: 'insurance' },
+                    { key: 'ruhsat_url',    labelKey: 'ruhsat'    },
+                    { key: 'kasko_url',     labelKey: 'kasko'     },
                   ] as const).map(col => {
                     const have = cars.filter(c => !!c[col.key]).length;
                     const tot  = cars.length;
@@ -820,7 +819,7 @@ const CarsPage: React.FC = () => {
                         borderBottom: '1.5px solid #f0f0f0',
                         whiteSpace: 'nowrap', userSelect: 'none',
                       }}>
-                        <div>{col.label}</div>
+                        <div>{t(`columns.${col.labelKey}`)}</div>
                         {!carsLoading && tot > 0 && (
                           <div style={{ fontSize: 10, fontWeight: 500, color: '#c0c4cc', marginTop: 1, letterSpacing: 0 }}>
                             ({have}/{tot})
@@ -870,7 +869,7 @@ const CarsPage: React.FC = () => {
                     return (
                       <tr>
                         <td colSpan={11} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
-                          {tableSearch ? 'No cars match your search.' : 'No cars found.'}
+                          {tableSearch ? t('table.noMatch') : t('table.none')}
                         </td>
                       </tr>
                     );
@@ -890,7 +889,9 @@ const CarsPage: React.FC = () => {
                         {car.year}
                       </td>
                       <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
-                        {car.current_km !== '—' ? Number(car.current_km).toLocaleString() + ' km' : '—'}
+                        {car.current_km !== '—'
+                          ? `${Number(car.current_km).toLocaleString(numberLocale)} ${t('table.km')}`
+                          : '—'}
                       </td>
                       <td style={{ padding: '12px 14px' }}>
                         {car.status && car.status !== '—' ? <CarStatusBadge status={car.status} /> : <span style={{ fontSize: 12, color: '#9ca3af' }}>—</span>}
@@ -898,7 +899,7 @@ const CarsPage: React.FC = () => {
                       {([car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
                         <td key={di} style={{ padding: '12px 14px', textAlign: 'center' }}>
                           {url ? (
-                            <a href={url} target="_blank" rel="noreferrer" title="Open document" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea' }}>
+                            <a href={url} target="_blank" rel="noreferrer" title={t('table.openDocument')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea' }}>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" opacity="0.15"/>
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#4ba6ea" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>

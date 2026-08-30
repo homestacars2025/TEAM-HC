@@ -1,0 +1,64 @@
+{
+  "eyebrow": "نظرة عامة على الأسطول",
+  "title": "السيارات",
+  "subtitle": "توفّر لحظي عبر كل الفروع.",
+  "errorTitle": "تعذّر تحميل بيانات الأسطول",
+  "status": {
+    "working": "تعمل",
+    "parking": "متوقفة",
+    "maintenance": "في الصيانة",
+    "selling": "للبيع",
+    "replacement": "بديلة"
+  },
+  "cards": {
+    "all": { "label": "إجمالي الأسطول", "description": "كل المركبات المسجّلة" },
+    "working": { "label": "تعمل", "description": "على الطريق" },
+    "parking": { "label": "متوقفة", "description": "متوقفة في الفرع" },
+    "maintenance": { "label": "في الصيانة", "description": "تحت الخدمة" },
+    "selling": { "label": "للبيع", "description": "معروضة للبيع" },
+    "replacement": { "label": "بديلة", "description": "مركبات بديلة" }
+  },
+  "alerts": {
+    "label": "تنبيهات",
+    "upcomingReturns": "إرجاعات قادمة",
+    "insuranceExpiry": "انتهاء التأمين",
+    "inspectionExpiry": "انتهاء الفحص الدوري"
+  },
+  "table": {
+    "label": "كل المركبات",
+    "searchPlaceholder": "ابحث برقم اللوحة أو الموديل…",
+    "openDocument": "افتح المستند",
+    "noMatch": "لا توجد سيارات مطابقة لبحثك.",
+    "none": "لا توجد سيارات.",
+    "km": "كم"
+  },
+  "columns": {
+    "plateNumber": "رقم اللوحة",
+    "model": "الموديل",
+    "year": "السنة",
+    "currentKm": "الكيلومترات",
+    "status": "الحالة",
+    "insurance": "التأمين",
+    "ruhsat": "الرخصة",
+    "kasko": "كاسكو"
+  },
+  "modal": {
+    "title": "إضافة سيارة",
+    "subtitle": "سجّل مركبة جديدة في الأسطول",
+    "modelGroup": "فئة السيارة",
+    "selectModelGroup": "اختر فئة السيارة",
+    "plateNumber": "رقم اللوحة",
+    "platePlaceholder": "34 ABC 123",
+    "investor": "المستثمر",
+    "selectInvestor": "اختر المستثمر",
+    "loading": "جارٍ التحميل…",
+    "cancel": "إلغاء",
+    "creating": "جارٍ الإضافة…",
+    "create": "إضافة السيارة",
+    "errors": {
+      "modelGroup": "اختر فئة السيارة.",
+      "plate": "رقم اللوحة مطلوب.",
+      "investor": "اختر المستثمر."
+    }
+  }
+}

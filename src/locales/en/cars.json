@@ -1,0 +1,64 @@
+{
+  "eyebrow": "Fleet Overview",
+  "title": "Cars",
+  "subtitle": "Real-time availability across all branches.",
+  "errorTitle": "Failed to load fleet data",
+  "status": {
+    "working": "Working",
+    "parking": "Parking",
+    "maintenance": "Maintenance",
+    "selling": "Selling",
+    "replacement": "Replacement"
+  },
+  "cards": {
+    "all": { "label": "Total Fleet", "description": "All registered vehicles" },
+    "working": { "label": "Working", "description": "Active on the road" },
+    "parking": { "label": "Parking", "description": "Parked at branch" },
+    "maintenance": { "label": "Maintenance", "description": "Under service" },
+    "selling": { "label": "Selling", "description": "Listed for sale" },
+    "replacement": { "label": "Replacement", "description": "Replacement vehicles" }
+  },
+  "alerts": {
+    "label": "Alerts",
+    "upcomingReturns": "Upcoming Returns",
+    "insuranceExpiry": "Insurance Expiry",
+    "inspectionExpiry": "Inspection Expiry"
+  },
+  "table": {
+    "label": "All Vehicles",
+    "searchPlaceholder": "Search plate or model…",
+    "openDocument": "Open document",
+    "noMatch": "No cars match your search.",
+    "none": "No cars found.",
+    "km": "km"
+  },
+  "columns": {
+    "plateNumber": "Plate Number",
+    "model": "Model",
+    "year": "Year",
+    "currentKm": "Current KM",
+    "status": "Status",
+    "insurance": "Insurance",
+    "ruhsat": "Ruhsat",
+    "kasko": "Kasko"
+  },
+  "modal": {
+    "title": "Add New Car",
+    "subtitle": "Register a new vehicle in the fleet",
+    "modelGroup": "Model Group",
+    "selectModelGroup": "Select model group",
+    "plateNumber": "Plate Number",
+    "platePlaceholder": "34 ABC 123",
+    "investor": "Investor",
+    "selectInvestor": "Select investor",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "creating": "Creating…",
+    "create": "Create Car",
+    "errors": {
+      "modelGroup": "Please select a model group.",
+      "plate": "Plate number is required.",
+      "investor": "Please select an investor."
+    }
+  }
+}
