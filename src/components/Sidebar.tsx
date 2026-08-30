@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import { useSectionAccess } from '../lib/SectionAccessContext';
+import { useInbox } from '../lib/InboxContext';
 
 /**
  * `sectionKey` ties a nav item to a row in `restricted_sections`. Items without one are
@@ -13,9 +14,23 @@ interface NavItem {
   path: string;
   icon: React.ReactNode;
   sectionKey?: string;
+  /** Renders the open-task count from `InboxContext` beside the label. */
+  showTaskCount?: boolean;
 }
 
 const mainItems: NavItem[] = [
+  {
+    label: 'Tasks',
+    path: '/dashboard/tasks',
+    showTaskCount: true,
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="4" width="18" height="17" rx="2.5" stroke="currentColor" strokeWidth="1.8"/>
+        <path d="M8 2v4M16 2v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M8.5 13l2.2 2.2 4.8-4.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
   {
     label: 'Bookings',
     path: '/dashboard/bookings',
@@ -205,6 +220,7 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const { currency, setCurrency, symbol } = useCurrency();
   const { canAccess } = useSectionAccess();
+  const { openTasksCount } = useInbox();
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
@@ -286,10 +302,36 @@ const Sidebar: React.FC = () => {
                 background: '#4ba6ea',
               }} />
             )}
-            <span style={{ color: isActive ? '#4ba6ea' : '#9ca3af', flexShrink: 0 }}>
+            <span style={{ color: isActive ? '#4ba6ea' : '#9ca3af', flexShrink: 0, position: 'relative' }}>
               {item.icon}
+              {/* Collapsed: the count has nowhere to sit, so it shrinks to a dot
+                  on the icon — still a signal, without reflowing the rail. */}
+              {item.showTaskCount && collapsed && openTasksCount > 0 && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute', top: -3, right: -3,
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: '#ef4444', boxShadow: '0 0 0 2px #fafafa',
+                  }}
+                />
+              )}
             </span>
             {!collapsed && item.label}
+            {item.showTaskCount && !collapsed && openTasksCount > 0 && (
+              <span
+                aria-label={`${openTasksCount} مهمة مفتوحة`}
+                style={{
+                  marginInlineStart: 'auto',
+                  minWidth: 20, height: 20, padding: '0 6px',
+                  borderRadius: 10, background: '#ef4444', color: '#fff',
+                  fontSize: 11, fontWeight: 800, lineHeight: '20px',
+                  textAlign: 'center', flexShrink: 0,
+                }}
+              >
+                {openTasksCount > 99 ? '99+' : openTasksCount}
+              </span>
+            )}
           </>
         )}
       </NavLink>
