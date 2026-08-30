@@ -1,10 +1,22 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { LanguageProvider, useLanguage } from './LanguageContext';
-import { languageSwitcherEnabled, FF_LANGUAGE_SWITCHER } from './featureFlags';
+import { languageSwitcherEnabled } from './featureFlags';
 import { LANG_STORAGE_KEY } from '../i18n';
 
-/** Reports what the provider decided, so the assertions read as behaviour. */
+/**
+ * The switcher is released, so `languageSwitcherEnabled` is now true for
+ * everyone. The gate it drives still exists and still matters — it is what any
+ * future flag would reuse — so it is exercised through a mock rather than by
+ * reaching for a localStorage value that no longer changes the answer.
+ */
+jest.mock('./featureFlags', () => ({
+  ...jest.requireActual('./featureFlags'),
+  languageSwitcherEnabled: jest.fn(() => true),
+}));
+
+const mockEnabled = languageSwitcherEnabled as jest.MockedFunction<typeof languageSwitcherEnabled>;
+
 const Probe: React.FC = () => {
   const { lang, dir, canSwitch, setLang } = useLanguage();
   return (
@@ -23,52 +35,29 @@ beforeEach(() => {
   localStorage.clear();
   document.documentElement.lang = 'en';
   document.documentElement.dir = '';
+  mockEnabled.mockReturnValue(true);
 });
 
-describe('the feature flag', () => {
-  test('is off until explicitly turned on', () => {
-    expect(languageSwitcherEnabled()).toBe(false);
-    localStorage.setItem(FF_LANGUAGE_SWITCHER, '1');
-    expect(languageSwitcherEnabled()).toBe(true);
-    localStorage.setItem(FF_LANGUAGE_SWITCHER, '0');
-    expect(languageSwitcherEnabled()).toBe(false);
+// Restores any spy even when the assertion that follows it throws — without
+// this, one failure silently breaks every test after it in the file.
+afterEach(() => { jest.restoreAllMocks(); });
+
+describe('the released flag', () => {
+  test('is on for everyone, with no opt-in needed', () => {
+    const real = jest.requireActual('./featureFlags').languageSwitcherEnabled;
+    expect(real()).toBe(true);
   });
 
-  test('blocked storage reads as off rather than throwing', () => {
-    const spy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+  test('does not depend on storage, so private mode still gets the switcher', () => {
+    jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('private mode');
     });
-    expect(languageSwitcherEnabled()).toBe(false);
-    spy.mockRestore();
+    const real = jest.requireActual('./featureFlags').languageSwitcherEnabled;
+    expect(real()).toBe(true);
   });
 });
 
-describe('English stays pinned while the switcher is hidden', () => {
-  test('a left-over Arabic choice does not strand anyone in RTL', () => {
-    // The regression that matters: without this, a stored language from testing
-    // would flip a staff member's dashboard with no visible control to undo it.
-    localStorage.setItem(LANG_STORAGE_KEY, 'ar');
-    mount();
-
-    expect(screen.getByTestId('lang')).toHaveTextContent('en');
-    expect(screen.getByTestId('dir')).toHaveTextContent('ltr');
-    expect(screen.getByTestId('can')).toHaveTextContent('false');
-    expect(document.documentElement.dir).toBe('ltr');
-  });
-
-  test('setLang is inert, so no code path can flip the language behind the flag', () => {
-    mount();
-    act(() => { screen.getByText('go-ar').click(); });
-
-    expect(screen.getByTestId('lang')).toHaveTextContent('en');
-    expect(document.documentElement.dir).toBe('ltr');
-    expect(localStorage.getItem(LANG_STORAGE_KEY)).toBeNull();
-  });
-});
-
-describe('with the flag on', () => {
-  beforeEach(() => { localStorage.setItem(FF_LANGUAGE_SWITCHER, '1'); });
-
+describe('normal use', () => {
   test('defaults to English when nothing is stored', () => {
     mount();
     expect(screen.getByTestId('lang')).toHaveTextContent('en');
@@ -98,5 +87,27 @@ describe('with the flag on', () => {
     localStorage.setItem(LANG_STORAGE_KEY, 'klingon');
     mount();
     expect(screen.getByTestId('lang')).toHaveTextContent('en');
+  });
+});
+
+describe('the gate, when a language is not on offer', () => {
+  beforeEach(() => { mockEnabled.mockReturnValue(false); });
+
+  test('a stored choice cannot strand anyone in a language they cannot leave', () => {
+    localStorage.setItem(LANG_STORAGE_KEY, 'ar');
+    mount();
+
+    expect(screen.getByTestId('lang')).toHaveTextContent('en');
+    expect(screen.getByTestId('dir')).toHaveTextContent('ltr');
+    expect(screen.getByTestId('can')).toHaveTextContent('false');
+    expect(document.documentElement.dir).toBe('ltr');
+  });
+
+  test('setLang is inert, so no code path can get around the gate', () => {
+    mount();
+    act(() => { screen.getByText('go-ar').click(); });
+
+    expect(screen.getByTestId('lang')).toHaveTextContent('en');
+    expect(localStorage.getItem(LANG_STORAGE_KEY)).toBeNull();
   });
 });

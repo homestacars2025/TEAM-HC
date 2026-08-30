@@ -14,11 +14,14 @@
 export const FF_LANGUAGE_SWITCHER = 'hc_ff_lang';
 
 /**
- * Flip to `true` to release the language switcher to everyone. That is the
- * single change phase 3 needs once the sidebar is translated — until then, a
- * staff member would see an Arabic layout wrapped around English text.
+ * Released. The sidebar and the Cars page are translated, so an Arabic user
+ * lands on a screen that is Arabic all the way through rather than an Arabic
+ * layout wrapped around English text.
+ *
+ * The rest of the pages are still English. That is a smaller version of the
+ * same problem, not a different one, so the remaining pages stay the priority.
  */
-const LANGUAGE_SWITCHER_RELEASED = false;
+const LANGUAGE_SWITCHER_RELEASED = true;
 
 /**
  * Whether the Arabic option is offered at all.
