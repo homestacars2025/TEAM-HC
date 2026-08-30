@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { LanguageProvider, useLanguage } from './LanguageContext';
 import { languageSwitcherEnabled } from './featureFlags';
 import { LANG_STORAGE_KEY } from '../i18n';
@@ -29,7 +30,12 @@ const Probe: React.FC = () => {
   );
 };
 
-const mount = () => render(<LanguageProvider><Probe /></LanguageProvider>);
+/** The provider reads the route, so every mount needs one. */
+const mount = (path = '/dashboard/cars') => render(
+  <MemoryRouter initialEntries={[path]}>
+    <LanguageProvider><Probe /></LanguageProvider>
+  </MemoryRouter>,
+);
 
 beforeEach(() => {
   localStorage.clear();
@@ -109,5 +115,28 @@ describe('the gate, when a language is not on offer', () => {
 
     expect(screen.getByTestId('lang')).toHaveTextContent('en');
     expect(localStorage.getItem(LANG_STORAGE_KEY)).toBeNull();
+  });
+});
+
+describe('pre-auth routes', () => {
+  test('the login page stays English even with Arabic stored', () => {
+    // There is no language control before signing in, so honouring the stored
+    // choice here would strand the user in RTL with no way to change it back.
+    localStorage.setItem(LANG_STORAGE_KEY, 'ar');
+    mount('/login');
+
+    expect(screen.getByTestId('lang')).toHaveTextContent('en');
+    expect(screen.getByTestId('dir')).toHaveTextContent('ltr');
+    expect(document.documentElement.dir).toBe('ltr');
+  });
+
+  test('the stored choice survives, so signing in comes back in Arabic', () => {
+    localStorage.setItem(LANG_STORAGE_KEY, 'ar');
+    mount('/login');
+    // Suspended for the route, never cleared.
+    expect(localStorage.getItem(LANG_STORAGE_KEY)).toBe('ar');
+
+    mount('/dashboard/cars');
+    expect(screen.getAllByTestId('dir')[1]).toHaveTextContent('rtl');
   });
 });

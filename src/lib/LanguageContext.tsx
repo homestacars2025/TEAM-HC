@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import i18n, { LANG_STORAGE_KEY, LANGUAGES, dirFor, isLanguage, type Language } from '../i18n';
 import { languageSwitcherEnabled } from './featureFlags';
 
@@ -32,6 +33,16 @@ const LanguageContext = createContext<LanguageContextValue>({
   canSwitch: false,
 });
 
+/**
+ * Routes that render before anyone has signed in.
+ *
+ * The language control lives inside the dashboard, so there is nowhere to
+ * change language from here — which makes honouring a stored Arabic choice a
+ * trap rather than a courtesy: the page would come up right-to-left with no
+ * visible way to put it back. These stay English, always.
+ */
+const PRE_AUTH_PATHS = new Set(['/login']);
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -54,19 +65,29 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   });
 
-  const dir = dirFor(lang);
+  /**
+   * The stored choice still stands; it is only suspended while a pre-auth route
+   * is on screen, so signing in restores Arabic without the user re-picking it.
+   */
+  const isPreAuth = PRE_AUTH_PATHS.has(useLocation().pathname);
+  const effectiveLang: Language = isPreAuth ? 'en' : lang;
+  const dir = dirFor(effectiveLang);
 
   /**
    * The single place the whole app's direction is controlled. `public/index.html`
    * is static and there is no SSR, so <html lang/dir> can only be set imperatively.
    * An inline script in that file applies the same values before React mounts, which
    * is what prevents an LTR flash for Arabic users on first paint.
+   *
+   * This has to live in the provider rather than in the page that wants English:
+   * a child's effect runs before its parent's, so anything the login page wrote
+   * would be overwritten here a moment later.
    */
   useEffect(() => {
-    document.documentElement.lang = lang;
+    document.documentElement.lang = effectiveLang;
     document.documentElement.dir = dir;
-    if (i18n.language !== lang) i18n.changeLanguage(lang);
-  }, [lang, dir]);
+    if (i18n.language !== effectiveLang) i18n.changeLanguage(effectiveLang);
+  }, [effectiveLang, dir]);
 
   const setLang = (next: Language) => {
     if (!canSwitch) return;
@@ -75,7 +96,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, dir, canSwitch }}>
+    <LanguageContext.Provider value={{ lang: effectiveLang, setLang, dir, canSwitch }}>
       {children}
     </LanguageContext.Provider>
   );

@@ -36,9 +36,10 @@
       Keys must stay in sync with LANG_STORAGE_KEY (src/i18n.ts) and
       FF_LANGUAGE_SWITCHER (src/lib/featureFlags.ts).
 
-      This is also the one place the ?ff_lang= flag is captured: it has to be read
-      before any module loads, or this script and React would disagree about
-      whether Arabic is available and the page would flip direction twice.
+      It is also where ?ff_lang= is captured. The language switcher is released,
+      so that flag no longer gates anything, but a flag has to be readable before
+      any module loads — otherwise this script and React could disagree and the
+      page would flip direction twice on load.
     -->
     <script>
       (function () {
@@ -46,9 +47,10 @@
           var ff = new URLSearchParams(window.location.search).get('ff_lang');
           if (ff === '1' || ff === '0') localStorage.setItem('hc_ff_lang', ff);
 
-          // Arabic applies only while the switcher is available, so a left-over
-          // language choice can never strand someone in RTL with no way back.
-          if (localStorage.getItem('hc_ff_lang') === '1' &&
+          // The login page has no language control, so it stays English —
+          // matching PRE_AUTH_PATHS in src/lib/LanguageContext.tsx. Applying
+          // Arabic here would flash right-to-left before React corrects it.
+          if (window.location.pathname !== '/login' &&
               localStorage.getItem('hc_lang') === 'ar') {
             document.documentElement.lang = 'ar';
             document.documentElement.dir = 'rtl';

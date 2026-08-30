@@ -42,10 +42,11 @@ import { SectionAccessProvider } from './lib/SectionAccessContext';
 
 const App: React.FC = () => {
   return (
-    // Owns <html lang> and <html dir> for the whole app, login page included.
-    <LanguageProvider>
     <CurrencyProvider>
     <BrowserRouter>
+    {/* Owns <html lang> and <html dir>. Inside the router because pre-auth
+        routes stay English regardless of the stored choice. */}
+    <LanguageProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -99,9 +100,9 @@ const App: React.FC = () => {
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+    </LanguageProvider>
     </BrowserRouter>
     </CurrencyProvider>
-    </LanguageProvider>
   );
 };
 
