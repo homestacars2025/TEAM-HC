@@ -1,0 +1,93 @@
+{
+  "eyebrow": "Fleet",
+  "title": "Car Issues",
+  "subtitle": "Damage, accidents, sounds, mechanical faults and maintenance",
+  "logIssue": "Log Issue",
+  "loading": "Loading issues…",
+  "showing_one": "Showing {{shown}} of {{count}} issue",
+  "showing_other": "Showing {{shown}} of {{count}} issues",
+  "stats": {
+    "total": "Total Issues",
+    "open": "Open",
+    "resolved": "Resolved"
+  },
+  "types": {
+    "damage": "Damage",
+    "accident": "Accident",
+    "sound": "Sound",
+    "mechanical": "Mechanical",
+    "maintenance": "Maintenance",
+    "other": "Other"
+  },
+  "status": {
+    "open": "Open",
+    "resolved": "Resolved"
+  },
+  "filters": {
+    "search": "Search plate, model, customer or description…",
+    "allStatuses": "All statuses",
+    "allTypes": "All types"
+  },
+  "empty": {
+    "noneTitle": "No issues logged yet",
+    "noneBody": "Use “Log Issue” to record the first damage or fault.",
+    "filteredTitle": "No issues match these filters",
+    "filteredBody": "Try clearing the search or changing the status and type filters."
+  },
+  "card": {
+    "resolvedIn": "Resolved in {{days}}d"
+  },
+  "add": {
+    "title": "Log Issue",
+    "subtitle": "Record a new damage, fault or maintenance item",
+    "discoveredOn": "Discovered On",
+    "descriptionPlaceholder": "What happened, and where on the car?",
+    "bookingOptional": "Booking (optional)",
+    "damagePhotos": "Damage Photos",
+    "addPhotos": "Add photos",
+    "noBookings": "No bookings for this car",
+    "noBookingLinked": "No booking linked",
+    "unknownCustomer": "Unknown customer",
+    "saving": "Saving…",
+    "loadingCars": "Loading cars…",
+    "selectCar": "Select car…",
+    "selectCarFirst": "Select a car first…",
+    "loadingBookings": "Loading bookings…"
+  },
+  "detail": {
+    "title": "Issue detail",
+    "noDescription": "No description",
+    "discovered": "Discovered",
+    "loggedBy": "Logged by",
+    "resolved": "Resolved",
+    "noDamagePhotos": "No damage photos.",
+    "noRepairPhotos": "No repair photos yet.",
+    "addRepairPhotos": "Add repair photos",
+    "uploading": "Uploading…",
+    "uploadPhotos": "Upload {{count}} photo(s)",
+    "updating": "Updating…",
+    "markResolved": "Mark Resolved",
+    "reopen": "Reopen Issue",
+    "confirmDelete": "Delete this issue?",
+    "deleting": "Deleting…",
+    "yesDelete": "Yes, delete",
+    "damagePhotosCount": "Damage photos ({{count}})",
+    "repairPhotosCount": "Repair photos ({{count}})",
+    "photosPartial": "{{added}} photo(s) added, {{failed}} failed"
+  },
+  "errors": {
+    "selectCar": "Select the car this issue belongs to.",
+    "description": "Add a short description of the issue.",
+    "discovered": "Discovered date is required.",
+    "emptyDescription": "Description cannot be empty.",
+    "photoUpload": "Photo upload failed. Check your connection and try again."
+  },
+  "toast": {
+    "logged": "Issue logged successfully",
+    "resolved": "Issue marked resolved",
+    "reopened": "Issue reopened",
+    "updated": "Issue updated",
+    "photosAdded": "Repair photos added",
+    "deleted": "Issue deleted"
+  }
+}

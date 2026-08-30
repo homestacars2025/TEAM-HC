@@ -7,11 +7,13 @@ import enSidebar from './locales/en/sidebar.json';
 import enNotifications from './locales/en/notifications.json';
 import enTasks from './locales/en/tasks.json';
 import enCars from './locales/en/cars.json';
+import enCarIssues from './locales/en/carIssues.json';
 import arCommon from './locales/ar/common.json';
 import arSidebar from './locales/ar/sidebar.json';
 import arNotifications from './locales/ar/notifications.json';
 import arTasks from './locales/ar/tasks.json';
 import arCars from './locales/ar/cars.json';
+import arCarIssues from './locales/ar/carIssues.json';
 
 export const LANGUAGES = ['en', 'ar'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -33,8 +35,8 @@ export function dirFor(lang: Language): 'ltr' | 'rtl' {
  * those pages are translated.
  */
 const resources = {
-  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars },
-  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars },
+  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues },
+  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues },
 };
 
 i18n
@@ -44,7 +46,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...LANGUAGES],
-    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars'],
+    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage'],

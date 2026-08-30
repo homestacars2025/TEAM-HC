@@ -1,0 +1,97 @@
+{
+  "eyebrow": "الأسطول",
+  "title": "مشاكل السيارات",
+  "subtitle": "أضرار وحوادث وأصوات وأعطال ميكانيكية وصيانة",
+  "logIssue": "تسجيل مشكلة",
+  "loading": "جارٍ تحميل المشاكل…",
+  "showing_zero": "عرض {{shown}} من أصل {{count}}",
+  "showing_one": "عرض {{shown}} من أصل {{count}}",
+  "showing_two": "عرض {{shown}} من أصل {{count}}",
+  "showing_few": "عرض {{shown}} من أصل {{count}}",
+  "showing_many": "عرض {{shown}} من أصل {{count}}",
+  "showing_other": "عرض {{shown}} من أصل {{count}}",
+  "stats": {
+    "total": "إجمالي المشاكل",
+    "open": "مفتوحة",
+    "resolved": "محلولة"
+  },
+  "types": {
+    "damage": "ضرر",
+    "accident": "حادث",
+    "sound": "صوت",
+    "mechanical": "عطل ميكانيكي",
+    "maintenance": "صيانة",
+    "other": "أخرى"
+  },
+  "status": {
+    "open": "مفتوحة",
+    "resolved": "محلولة"
+  },
+  "filters": {
+    "search": "ابحث برقم اللوحة أو الموديل أو العميل أو الوصف…",
+    "allStatuses": "كل الحالات",
+    "allTypes": "كل الأنواع"
+  },
+  "empty": {
+    "noneTitle": "لا توجد مشاكل مسجّلة بعد",
+    "noneBody": "استخدم «تسجيل مشكلة» لتسجيل أول ضرر أو عطل.",
+    "filteredTitle": "لا توجد مشاكل مطابقة لهذه الفلاتر",
+    "filteredBody": "جرّب مسح البحث أو تغيير فلاتر الحالة والنوع."
+  },
+  "card": {
+    "resolvedIn": "حُلّت خلال {{days}} يوم"
+  },
+  "add": {
+    "title": "تسجيل مشكلة",
+    "subtitle": "سجّل ضرراً أو عطلاً أو بند صيانة جديد",
+    "discoveredOn": "تاريخ الاكتشاف",
+    "descriptionPlaceholder": "ماذا حدث، وأين في السيارة؟",
+    "bookingOptional": "الحجز (اختياري)",
+    "damagePhotos": "صور الضرر",
+    "addPhotos": "أضف صوراً",
+    "noBookings": "لا توجد حجوزات لهذه السيارة",
+    "noBookingLinked": "بلا حجز مرتبط",
+    "unknownCustomer": "عميل غير معروف",
+    "saving": "جارٍ الحفظ…",
+    "loadingCars": "جارٍ تحميل السيارات…",
+    "selectCar": "اختر السيارة…",
+    "selectCarFirst": "اختر السيارة أولاً…",
+    "loadingBookings": "جارٍ تحميل الحجوزات…"
+  },
+  "detail": {
+    "title": "تفاصيل المشكلة",
+    "noDescription": "بلا وصف",
+    "discovered": "تاريخ الاكتشاف",
+    "loggedBy": "سجّلها",
+    "resolved": "تاريخ الحل",
+    "noDamagePhotos": "لا توجد صور للضرر.",
+    "noRepairPhotos": "لا توجد صور إصلاح بعد.",
+    "addRepairPhotos": "أضف صور الإصلاح",
+    "uploading": "جارٍ الرفع…",
+    "uploadPhotos": "ارفع {{count}} صورة",
+    "updating": "جارٍ التحديث…",
+    "markResolved": "تعليم كمحلولة",
+    "reopen": "إعادة فتح المشكلة",
+    "confirmDelete": "حذف هذه المشكلة؟",
+    "deleting": "جارٍ الحذف…",
+    "yesDelete": "نعم، احذف",
+    "damagePhotosCount": "صور الضرر ({{count}})",
+    "repairPhotosCount": "صور الإصلاح ({{count}})",
+    "photosPartial": "أُضيفت {{added}} صورة، وفشلت {{failed}}"
+  },
+  "errors": {
+    "selectCar": "اختر السيارة التي تخصّها هذه المشكلة.",
+    "description": "أضف وصفاً مختصراً للمشكلة.",
+    "discovered": "تاريخ الاكتشاف مطلوب.",
+    "emptyDescription": "الوصف لا يمكن أن يكون فارغاً.",
+    "photoUpload": "فشل رفع الصور. تحقّق من اتصالك وحاول مجدداً."
+  },
+  "toast": {
+    "logged": "تم تسجيل المشكلة",
+    "resolved": "تم تعليم المشكلة كمحلولة",
+    "reopened": "أُعيد فتح المشكلة",
+    "updated": "تم تحديث المشكلة",
+    "photosAdded": "أُضيفت صور الإصلاح",
+    "deleted": "تم حذف المشكلة"
+  }
+}

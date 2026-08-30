@@ -14,6 +14,18 @@
     "daysShort": "{{count}}d"
   },
   "actions": {
-    "close": "Close"
+    "close": "Close",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "tryAgain": "Try again",
+    "saveChanges": "Save changes"
+  },
+  "fields": {
+    "car": "Car",
+    "customer": "Customer",
+    "booking": "Booking",
+    "description": "Description",
+    "type": "Type"
   }
 }

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,9 +57,9 @@ const ISSUE_SELECT =
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
-const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+const TYPE_CONFIG: Record<IssueType, { color: string; bg: string; icon: React.ReactNode }> = {
   damage: {
-    label: 'Damage', color: '#dc2626', bg: 'rgba(220,38,38,0.10)',
+    color: '#dc2626', bg: 'rgba(220,38,38,0.10)',
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round"/>
@@ -66,7 +67,7 @@ const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string;
     ),
   },
   accident: {
-    label: 'Accident', color: '#ea580c', bg: 'rgba(234,88,12,0.10)',
+    color: '#ea580c', bg: 'rgba(234,88,12,0.10)',
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -75,7 +76,7 @@ const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string;
     ),
   },
   sound: {
-    label: 'Sound', color: '#7c3aed', bg: 'rgba(124,58,237,0.10)',
+    color: '#7c3aed', bg: 'rgba(124,58,237,0.10)',
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -84,7 +85,7 @@ const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string;
     ),
   },
   mechanical: {
-    label: 'Mechanical', color: '#0891b2', bg: 'rgba(8,145,178,0.10)',
+    color: '#0891b2', bg: 'rgba(8,145,178,0.10)',
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -92,7 +93,7 @@ const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string;
     ),
   },
   maintenance: {
-    label: 'Maintenance', color: '#ca8a04', bg: 'rgba(202,138,4,0.10)',
+    color: '#ca8a04', bg: 'rgba(202,138,4,0.10)',
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
@@ -101,7 +102,7 @@ const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string;
     ),
   },
   other: {
-    label: 'Other', color: '#6b7280', bg: 'rgba(107,114,128,0.10)',
+    color: '#6b7280', bg: 'rgba(107,114,128,0.10)',
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
@@ -111,9 +112,9 @@ const TYPE_CONFIG: Record<IssueType, { label: string; color: string; bg: string;
   },
 };
 
-const STATUS_CONFIG: Record<IssueStatus, { label: string; color: string; bg: string }> = {
-  open:     { label: 'Open',     color: '#dc2626', bg: 'rgba(220,38,38,0.10)' },
-  resolved: { label: 'Resolved', color: '#16a34a', bg: 'rgba(34,197,94,0.10)' },
+const STATUS_CONFIG: Record<IssueStatus, { color: string; bg: string }> = {
+  open:     { color: '#dc2626', bg: 'rgba(220,38,38,0.10)' },
+  resolved: { color: '#16a34a', bg: 'rgba(34,197,94,0.10)' },
 };
 
 const TYPE_ORDER: IssueType[] = ['damage', 'accident', 'sound', 'mechanical', 'maintenance', 'other'];
@@ -139,11 +140,21 @@ const todayStr = (): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-function formatDate(s: string | null): string {
+/**
+ * `ar-u-nu-latn` keeps Western digits in Arabic, matching the agreed treatment
+ * for a fleet whose plates, bookings and KGM records are all Latin.
+ */
+function formatDate(s: string | null, locale: string): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
   if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** The locale to hand every date and number on this page. */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
 }
 
 /** jsonb arrives parsed, but tolerate null / a JSON string / non-string members. */
@@ -187,6 +198,7 @@ async function uploadIssuePhotos(files: File[], prefix: string): Promise<{ urls:
 // ─── Small presentational pieces ──────────────────────────────────────────────
 
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const { t } = useTranslation('carIssues');
   const cfg = TYPE_CONFIG[asType(type)];
   return (
     <span style={{
@@ -195,12 +207,13 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
       color: cfg.color, background: cfg.bg, whiteSpace: 'nowrap',
     }}>
       {cfg.icon}
-      {cfg.label}
+      {t(`types.${asType(type)}`)}
     </span>
   );
 };
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const { t } = useTranslation('carIssues');
   const cfg = STATUS_CONFIG[asStatus(status)];
   return (
     <span style={{
@@ -209,7 +222,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       color: cfg.color, background: cfg.bg, whiteSpace: 'nowrap',
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-      {cfg.label}
+      {t(`status.${asStatus(status)}`)}
     </span>
   );
 };
@@ -256,7 +269,7 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 }) => (
   <div>
     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-      {label}{required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
+      {label}{required && <span style={{ color: '#ef4444', marginInlineStart: 3 }}>*</span>}
     </label>
     {children}
   </div>
@@ -290,8 +303,9 @@ const PhotoGallery: React.FC<{ urls: string[]; empty: string }> = ({ urls, empty
 const ModalShell: React.FC<{
   title: string; subtitle: string; maxWidth: number;
   onClose: () => void; children: React.ReactNode;
-}> = ({ title, subtitle, maxWidth, onClose, children }) =>
-  ReactDOM.createPortal(
+}> = ({ title, subtitle, maxWidth, onClose, children }) => {
+  const { t: tShell } = useTranslation('common');
+  return ReactDOM.createPortal(
     <div
       onClick={onClose}
       style={{
@@ -323,7 +337,7 @@ const ModalShell: React.FC<{
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={tShell('actions.close')}
             style={{
               width: 44, height: 44, borderRadius: 10, border: 'none', background: '#f3f4f6',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
@@ -341,6 +355,7 @@ const ModalShell: React.FC<{
     </div>,
     document.body,
   );
+};
 
 const ErrorBanner: React.FC<{ message: string }> = ({ message }) => (
   <div style={{
@@ -485,6 +500,9 @@ const AddIssueModal: React.FC<{
   onClose: () => void;
   onSaved: () => void;
 }> = ({ cars, carsLoading, onClose, onSaved }) => {
+  const { t } = useTranslation('carIssues');
+  const { t: tc } = useTranslation('common');
+
   const [carId, setCarId]               = useState('');
   const [type, setType]                 = useState<IssueType>('damage');
   const [description, setDescription]   = useState('');
@@ -523,7 +541,7 @@ const AddIssueModal: React.FC<{
           id: b.id,
           booking_number: b.booking_number,
           customer_id: b.customer_id,
-          customer_name: c ? `${c.first_name} ${c.last_name}`.trim() : 'Unknown customer',
+          customer_name: c ? `${c.first_name} ${c.last_name}`.trim() : t('add.unknownCustomer'),
           start_date: b.start_date,
           end_date: b.end_date,
         };
@@ -539,9 +557,9 @@ const AddIssueModal: React.FC<{
     e.preventDefault();
     setFormError(null);
 
-    if (!carId)                  { setFormError('Select the car this issue belongs to.'); return; }
-    if (!description.trim())     { setFormError('Add a short description of the issue.'); return; }
-    if (!discoveredAt)           { setFormError('Discovered date is required.'); return; }
+    if (!carId)                  { setFormError(t('errors.selectCar')); return; }
+    if (!description.trim())     { setFormError(t('errors.description')); return; }
+    if (!discoveredAt)           { setFormError(t('errors.discovered')); return; }
 
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -552,7 +570,7 @@ const AddIssueModal: React.FC<{
       photoUrls = urls;
       if (failed > 0 && urls.length === 0) {
         setSaving(false);
-        setFormError('Photo upload failed. Check your connection and try again.');
+        setFormError(t('errors.photoUpload'));
         return;
       }
     }
@@ -578,8 +596,8 @@ const AddIssueModal: React.FC<{
 
   return (
     <ModalShell
-      title="Log Issue"
-      subtitle="Record a new damage, fault or maintenance item"
+      title={t('add.title')}
+      subtitle={t('add.subtitle')}
       maxWidth={620}
       onClose={onClose}
     >
@@ -587,13 +605,13 @@ const AddIssueModal: React.FC<{
         <div className="ci-form-grid">
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <Field label="Car" required>
+            <Field label={tc('fields.car')} required>
               <select
                 value={carId} onChange={e => setCarId(e.target.value)}
                 style={{ ...INPUT_STYLE, cursor: 'pointer', color: carId ? '#0f1117' : '#9ca3af' }}
                 onFocus={focusBlue} onBlur={blurGray}
               >
-                <option value="">{carsLoading ? 'Loading cars…' : 'Select car…'}</option>
+                <option value="">{carsLoading ? t('add.loadingCars') : t('add.selectCar')}</option>
                 {cars.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.plate_number}{c.model ? ` — ${c.model}` : ''}
@@ -603,19 +621,19 @@ const AddIssueModal: React.FC<{
             </Field>
           </div>
 
-          <Field label="Type" required>
+          <Field label={tc('fields.type')} required>
             <select
               value={type} onChange={e => setType(e.target.value as IssueType)}
               style={{ ...INPUT_STYLE, cursor: 'pointer' }}
               onFocus={focusBlue} onBlur={blurGray}
             >
-              {TYPE_ORDER.map(t => (
-                <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>
+              {TYPE_ORDER.map(ty => (
+<option key={ty} value={ty}>{t(`types.${ty}`)}</option>
               ))}
             </select>
           </Field>
 
-          <Field label="Discovered On" required>
+          <Field label={t('add.discoveredOn')} required>
             <input
               required type="date" value={discoveredAt}
               onChange={e => setDiscoveredAt(e.target.value)}
@@ -624,10 +642,10 @@ const AddIssueModal: React.FC<{
           </Field>
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <Field label="Description" required>
+            <Field label={tc('fields.description')} required>
               <textarea
                 rows={3} value={description}
-                placeholder="What happened, and where on the car?"
+                placeholder={t('add.descriptionPlaceholder')}
                 onChange={e => setDescription(e.target.value)}
                 style={{ ...INPUT_STYLE, height: 'auto', padding: '10px 12px', resize: 'vertical' }}
                 onFocus={focusBlue} onBlur={blurGray}
@@ -636,7 +654,7 @@ const AddIssueModal: React.FC<{
           </div>
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <Field label="Booking (optional)">
+            <Field label={t('add.bookingOptional')}>
               <select
                 value={bookingId} onChange={e => setBookingId(e.target.value)}
                 disabled={!carId || bookingsLoading || bookings.length === 0}
@@ -649,10 +667,10 @@ const AddIssueModal: React.FC<{
                 onFocus={focusBlue} onBlur={blurGray}
               >
                 <option value="">
-                  {!carId            ? 'Select a car first…'
-                    : bookingsLoading ? 'Loading bookings…'
-                    : bookings.length === 0 ? 'No bookings for this car'
-                    : 'No booking linked'}
+                  {!carId            ? t('add.selectCarFirst')
+                    : bookingsLoading ? t('add.loadingBookings')
+                    : bookings.length === 0 ? t('add.noBookings')
+                    : t('add.noBookingLinked')}
                 </option>
                 {bookings.map(b => (
                   <option key={b.id} value={b.id}>
@@ -669,10 +687,10 @@ const AddIssueModal: React.FC<{
           </div>
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <Field label="Damage Photos">
+            <Field label={t('add.damagePhotos')}>
               <PhotoPicker
                 files={files} onChange={setFiles} disabled={saving}
-                label="Add photos"
+                label={t('add.addPhotos')}
               />
             </Field>
           </div>
@@ -684,9 +702,9 @@ const AddIssueModal: React.FC<{
           display: 'flex', justifyContent: 'flex-end', gap: 10,
           marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6', flexWrap: 'wrap',
         }}>
-          <GhostButton onClick={onClose} disabled={saving}>Cancel</GhostButton>
+          <GhostButton onClick={onClose} disabled={saving}>{tc('actions.cancel')}</GhostButton>
           <PrimaryButton type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Log Issue'}
+            {saving ? t('add.saving') : t('add.title')}
           </PrimaryButton>
         </div>
       </form>
@@ -714,6 +732,9 @@ const IssueDetailModal: React.FC<{
   onClose: () => void;
   onChanged: (message: string) => void;
 }> = ({ issue, onClose, onChanged }) => {
+  const { t } = useTranslation('carIssues');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const damagePhotos = useMemo(() => toUrlArray(issue.damage_photos), [issue.damage_photos]);
   const repairPhotos = useMemo(() => toUrlArray(issue.repair_photos), [issue.repair_photos]);
 
@@ -739,11 +760,11 @@ const IssueDetailModal: React.FC<{
       .eq('id', issue.id);
     setBusy(null);
     if (updateError) { setError(updateError.message); return; }
-    onChanged(next === 'resolved' ? 'Issue marked resolved' : 'Issue reopened');
+    onChanged(next === 'resolved' ? t('toast.resolved') : t('toast.reopened'));
   };
 
   const handleSaveEdits = async () => {
-    if (!editDesc.trim()) { setError('Description cannot be empty.'); return; }
+    if (!editDesc.trim()) { setError(t('errors.emptyDescription')); return; }
     setBusy('save');
     setError(null);
     const { error: updateError } = await supabase
@@ -753,7 +774,7 @@ const IssueDetailModal: React.FC<{
     setBusy(null);
     if (updateError) { setError(updateError.message); return; }
     setEditing(false);
-    onChanged('Issue updated');
+    onChanged(t('toast.updated'));
   };
 
   const handleAddRepairPhotos = async () => {
@@ -763,7 +784,7 @@ const IssueDetailModal: React.FC<{
     const { urls, failed } = await uploadIssuePhotos(repairFiles, `${issue.car_id}/repair/${issue.id}`);
     if (urls.length === 0) {
       setBusy(null);
-      setError('Photo upload failed. Check your connection and try again.');
+      setError(t('errors.photoUpload'));
       return;
     }
     // Append rather than replace so concurrent additions do not drop earlier photos.
@@ -774,7 +795,9 @@ const IssueDetailModal: React.FC<{
     setBusy(null);
     if (updateError) { setError(updateError.message); return; }
     setRepairFiles([]);
-    onChanged(failed > 0 ? `${urls.length} photo(s) added, ${failed} failed` : 'Repair photos added');
+    onChanged(failed > 0
+      ? t('detail.photosPartial', { added: urls.length, failed })
+      : t('toast.photosAdded'));
   };
 
   const handleDelete = async () => {
@@ -786,13 +809,13 @@ const IssueDetailModal: React.FC<{
       .eq('id', issue.id);
     setBusy(null);
     if (deleteError) { setError(deleteError.message); return; }
-    onChanged('Issue deleted');
+    onChanged(t('toast.deleted'));
   };
 
   return (
     <ModalShell
-      title={`${issue.plate_number} · ${TYPE_CONFIG[asType(issue.type)].label}`}
-      subtitle={issue.model_name ?? 'Issue detail'}
+      title={`${issue.plate_number} · ${t(`types.${asType(issue.type)}`)}`}
+      subtitle={issue.model_name ?? t('detail.title')}
       maxWidth={660}
       onClose={onClose}
     >
@@ -814,15 +837,15 @@ const IssueDetailModal: React.FC<{
 
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-            <Field label="Type">
+            <Field label={tc('fields.type')}>
               <select
                 value={editType} onChange={e => setEditType(e.target.value as IssueType)}
                 style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}
               >
-                {TYPE_ORDER.map(t => <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>)}
+                {TYPE_ORDER.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
               </select>
             </Field>
-            <Field label="Description">
+            <Field label={tc('fields.description')}>
               <textarea
                 rows={3} value={editDesc} onChange={e => setEditDesc(e.target.value)}
                 style={{ ...INPUT_STYLE, height: 'auto', padding: '10px 12px', resize: 'vertical' }}
@@ -831,7 +854,7 @@ const IssueDetailModal: React.FC<{
             </Field>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <PrimaryButton onClick={handleSaveEdits} disabled={anyBusy}>
-                {busy === 'save' ? 'Saving…' : 'Save changes'}
+                {busy === 'save' ? t('add.saving') : tc('actions.saveChanges')}
               </PrimaryButton>
               <GhostButton
                 disabled={anyBusy}
@@ -852,17 +875,17 @@ const IssueDetailModal: React.FC<{
             background: '#f9fafb', borderRadius: 10, padding: '12px 14px', marginBottom: 16,
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}>
-            {issue.description?.trim() ? issue.description : <span style={{ color: '#9ca3af' }}>No description</span>}
+            {issue.description?.trim() ? issue.description : <span style={{ color: '#9ca3af' }}>{t('detail.noDescription')}</span>}
           </div>
         )}
 
         <div style={{ marginBottom: 18 }}>
-          <DetailRow label="Car">{issue.plate_number}{issue.model_name ? ` · ${issue.model_name}` : ''}</DetailRow>
-          <DetailRow label="Discovered">{formatDate(issue.discovered_at)}</DetailRow>
-          <DetailRow label="Logged by">{issue.discovered_by_name ?? '—'}</DetailRow>
-          <DetailRow label="Customer">{issue.customer_name ?? '—'}</DetailRow>
-          <DetailRow label="Booking">{issue.booking_number ?? '—'}</DetailRow>
-          <DetailRow label="Resolved">{status === 'resolved' ? formatDate(issue.resolved_at) : '—'}</DetailRow>
+          <DetailRow label={tc('fields.car')}>{issue.plate_number}{issue.model_name ? ` · ${issue.model_name}` : ''}</DetailRow>
+          <DetailRow label={t('detail.discovered')}>{formatDate(issue.discovered_at, dateLocale)}</DetailRow>
+          <DetailRow label={t('detail.loggedBy')}>{issue.discovered_by_name ?? '—'}</DetailRow>
+          <DetailRow label={tc('fields.customer')}>{issue.customer_name ?? '—'}</DetailRow>
+          <DetailRow label={tc('fields.booking')}>{issue.booking_number ?? '—'}</DetailRow>
+          <DetailRow label={t('detail.resolved')}>{status === 'resolved' ? formatDate(issue.resolved_at, dateLocale) : '—'}</DetailRow>
         </div>
 
         <div style={{ marginBottom: 16 }}>
@@ -870,9 +893,9 @@ const IssueDetailModal: React.FC<{
             fontSize: 11, fontWeight: 700, color: '#374151',
             textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
           }}>
-            Damage photos ({damagePhotos.length})
+            {t('detail.damagePhotosCount', { count: damagePhotos.length })}
           </div>
-          <PhotoGallery urls={damagePhotos} empty="No damage photos." />
+          <PhotoGallery urls={damagePhotos} empty={t('detail.noDamagePhotos')} />
         </div>
 
         <div style={{ marginBottom: 18 }}>
@@ -880,19 +903,19 @@ const IssueDetailModal: React.FC<{
             fontSize: 11, fontWeight: 700, color: '#374151',
             textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
           }}>
-            Repair photos ({repairPhotos.length})
+            {t('detail.repairPhotosCount', { count: repairPhotos.length })}
           </div>
-          <PhotoGallery urls={repairPhotos} empty="No repair photos yet." />
+          <PhotoGallery urls={repairPhotos} empty={t('detail.noRepairPhotos')} />
 
           <div style={{ marginTop: 10 }}>
             <PhotoPicker
               files={repairFiles} onChange={setRepairFiles} disabled={anyBusy}
-              label="Add repair photos"
+              label={t('detail.addRepairPhotos')}
             />
             {repairFiles.length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <PrimaryButton onClick={handleAddRepairPhotos} disabled={anyBusy}>
-                  {busy === 'photos' ? 'Uploading…' : `Upload ${repairFiles.length} photo(s)`}
+                  {busy === 'photos' ? t('detail.uploading') : t('detail.uploadPhotos', { count: repairFiles.length })}
                 </PrimaryButton>
               </div>
             )}
@@ -907,25 +930,25 @@ const IssueDetailModal: React.FC<{
         }}>
           <PrimaryButton onClick={handleToggleStatus} disabled={anyBusy}>
             {busy === 'status'
-              ? 'Updating…'
-              : status === 'open' ? 'Mark Resolved' : 'Reopen Issue'}
+              ? t('detail.updating')
+              : status === 'open' ? t('detail.markResolved') : t('detail.reopen')}
           </PrimaryButton>
 
           {!editing && (
-            <GhostButton onClick={() => setEditing(true)} disabled={anyBusy}>Edit</GhostButton>
+            <GhostButton onClick={() => setEditing(true)} disabled={anyBusy}>{tc('actions.edit')}</GhostButton>
           )}
 
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {confirmDelete ? (
               <>
-                <span style={{ fontSize: 13, color: '#6b7280', alignSelf: 'center' }}>Delete this issue?</span>
+                <span style={{ fontSize: 13, color: '#6b7280', alignSelf: 'center' }}>{t('detail.confirmDelete')}</span>
                 <GhostButton onClick={() => setConfirmDelete(false)} disabled={anyBusy}>No</GhostButton>
                 <PrimaryButton danger onClick={handleDelete} disabled={anyBusy}>
-                  {busy === 'delete' ? 'Deleting…' : 'Yes, delete'}
+                  {busy === 'delete' ? t('detail.deleting') : t('detail.yesDelete')}
                 </PrimaryButton>
               </>
             ) : (
-              <GhostButton onClick={() => setConfirmDelete(true)} disabled={anyBusy}>Delete</GhostButton>
+              <GhostButton onClick={() => setConfirmDelete(true)} disabled={anyBusy}>{tc('actions.delete')}</GhostButton>
             )}
           </div>
         </div>
@@ -937,6 +960,8 @@ const IssueDetailModal: React.FC<{
 // ─── Issue card ───────────────────────────────────────────────────────────────
 
 const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, onClick }) => {
+  const { t } = useTranslation('carIssues');
+  const dateLocale = useDateLocale();
   const [hover, setHover] = useState(false);
   const damagePhotos = toUrlArray(issue.damage_photos);
   const thumb = damagePhotos[0] ?? null;
@@ -949,7 +974,7 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
       onMouseLeave={() => setHover(false)}
       style={{
         display: 'flex', flexDirection: 'column', gap: 0,
-        textAlign: 'left', width: '100%', padding: 0,
+        textAlign: 'start', width: '100%', padding: 0,
         background: '#fff', border: '1px solid #ebebeb', borderRadius: 14,
         cursor: 'pointer', fontFamily: 'inherit', overflow: 'hidden',
         boxShadow: hover ? '0 8px 24px rgba(0,0,0,0.09)' : '0 1px 3px rgba(0,0,0,0.04)',
@@ -1013,10 +1038,10 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 8, marginTop: 'auto', paddingTop: 4, flexWrap: 'wrap',
         }}>
-          <span style={{ fontSize: 12, color: '#9ca3af' }}>{formatDate(issue.discovered_at)}</span>
+          <span style={{ fontSize: 12, color: '#9ca3af' }}>{formatDate(issue.discovered_at, dateLocale)}</span>
           {status === 'resolved' && issue.days_to_resolve !== null ? (
             <span style={{ fontSize: 12, fontWeight: 600, color: '#16a34a' }}>
-              Resolved in {issue.days_to_resolve}d
+              {t('card.resolvedIn', { days: issue.days_to_resolve })}
             </span>
           ) : issue.customer_name ? (
             <span style={{
@@ -1035,6 +1060,8 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const CarIssuesPage: React.FC = () => {
+  const { t } = useTranslation('carIssues');
+  const { t: tc } = useTranslation('common');
   const [issues, setIssues]   = useState<IssueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -1138,14 +1165,14 @@ const CarIssuesPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              Fleet
+              {t('eyebrow')}
             </span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
-            Car Issues
+            {t('title')}
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
-            Damage, accidents, sounds, mechanical faults and maintenance
+            {t('subtitle')}
           </p>
         </div>
 
@@ -1166,15 +1193,15 @@ const CarIssuesPage: React.FC = () => {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
-          Log Issue
+          {t('logIssue')}
         </button>
       </div>
 
       {/* ── Stat cards ── */}
       <div className="ci-stats">
-        <StatCard label="Total Issues" value={stats.total}    bg="#4ba6ea" loading={loading} />
-        <StatCard label="Open"         value={stats.open}     bg="#ef4444" loading={loading} />
-        <StatCard label="Resolved"     value={stats.resolved} bg="#22c55e" loading={loading} />
+        <StatCard label={t('stats.total')}    value={stats.total}    bg="#4ba6ea" loading={loading} />
+        <StatCard label={t('stats.open')}     value={stats.open}     bg="#ef4444" loading={loading} />
+        <StatCard label={t('stats.resolved')} value={stats.resolved} bg="#22c55e" loading={loading} />
       </div>
 
       {/* ── Filters ── */}
@@ -1186,16 +1213,16 @@ const CarIssuesPage: React.FC = () => {
       }}>
         <div style={{ flex: '1 1 220px', position: 'relative', minWidth: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+            style={{ position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
             <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <input
             type="text"
-            placeholder="Search plate, model, customer or description…"
+            placeholder={t('filters.search')}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ ...INPUT_STYLE, paddingLeft: 34 }}
+            style={{ ...INPUT_STYLE, paddingInlineStart: 34 }}
             onFocus={focusBlue} onBlur={blurGray}
           />
         </div>
@@ -1206,9 +1233,9 @@ const CarIssuesPage: React.FC = () => {
           style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
           onFocus={focusBlue} onBlur={blurGray}
         >
-          <option value="all">All statuses</option>
-          <option value="open">Open</option>
-          <option value="resolved">Resolved</option>
+          <option value="all">{t('filters.allStatuses')}</option>
+          <option value="open">{t('status.open')}</option>
+          <option value="resolved">{t('status.resolved')}</option>
         </select>
 
         <select
@@ -1217,8 +1244,8 @@ const CarIssuesPage: React.FC = () => {
           style={{ ...INPUT_STYLE, width: 'auto', minWidth: 150, cursor: 'pointer', flex: '0 1 auto' }}
           onFocus={focusBlue} onBlur={blurGray}
         >
-          <option value="all">All types</option>
-          {TYPE_ORDER.map(t => <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>)}
+          <option value="all">{t('filters.allTypes')}</option>
+          {TYPE_ORDER.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
         </select>
       </div>
 
@@ -1229,14 +1256,14 @@ const CarIssuesPage: React.FC = () => {
           padding: '28px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 14, color: '#ef4444', marginBottom: 12 }}>{error}</div>
-          <GhostButton onClick={fetchIssues}>Try again</GhostButton>
+          <GhostButton onClick={fetchIssues}>{tc('actions.tryAgain')}</GhostButton>
         </div>
       ) : loading ? (
         <div style={{
           background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
           padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14,
         }}>
-          Loading issues…
+          {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{
@@ -1244,18 +1271,16 @@ const CarIssuesPage: React.FC = () => {
           padding: '48px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            {issues.length === 0 ? 'No issues logged yet' : 'No issues match these filters'}
+            {issues.length === 0 ? t('empty.noneTitle') : t('empty.filteredTitle')}
           </div>
           <div style={{ fontSize: 13.5, color: '#9ca3af' }}>
-            {issues.length === 0
-              ? 'Use “Log Issue” to record the first damage or fault.'
-              : 'Try clearing the search or changing the status and type filters.'}
+            {issues.length === 0 ? t('empty.noneBody') : t('empty.filteredBody')}
           </div>
         </div>
       ) : (
         <>
           <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-            Showing {filtered.length} of {issues.length} issue{issues.length === 1 ? '' : 's'}
+            {t('showing', { shown: filtered.length, count: issues.length })}
           </div>
           <div className="ci-grid">
             {filtered.map(issue => (
@@ -1273,7 +1298,7 @@ const CarIssuesPage: React.FC = () => {
           onClose={() => setAddOpen(false)}
           onSaved={() => {
             setAddOpen(false);
-            showToast('Issue logged successfully', 'success');
+            showToast(t('toast.logged'), 'success');
             fetchIssues();
           }}
         />
