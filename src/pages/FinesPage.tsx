@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1311,14 +1312,14 @@ const FinesPage: React.FC = () => {
         .eq('is_active', true)
         .order('plate_number');
       if (!active) return;
-      setCars(
+      setCars(sortCarsByModel(
         (carsData as Array<{ id: number; plate_number: string; model_group: { name: string } | { name: string }[] | null }> ?? [])
           .map(c => {
             const mg = c.model_group;
             const model_name = Array.isArray(mg) ? (mg[0]?.name ?? '') : (mg as { name: string } | null)?.name ?? '';
             return { id: c.id, plate_number: c.plate_number, model_name };
           })
-      );
+      ));
     })();
     return () => { active = false; };
   }, []);

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -364,7 +365,7 @@ const CarSheetsTab: React.FC<{
         model_name: c.model_group?.name ?? '',
         investor_id: c.investor_id ?? null,
       }));
-      setCars(opts);
+      setCars(sortCarsByModel(opts));
     })();
     return () => { active = false; };
   }, []);

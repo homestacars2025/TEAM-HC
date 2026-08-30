@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { sortCarsByModel } from '../lib/car-picker';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1110,10 +1111,10 @@ const CarIssuesPage: React.FC = () => {
         .order('plate_number');
       if (!active) return;
       type Raw = { id: number; plate_number: string; model_group: { name: string } | { name: string }[] | null };
-      setCars(((data ?? []) as unknown as Raw[]).map(c => {
+      setCars(sortCarsByModel(((data ?? []) as unknown as Raw[]).map(c => {
         const mg = Array.isArray(c.model_group) ? c.model_group[0] : c.model_group;
         return { id: c.id, plate_number: c.plate_number, model: mg?.name ?? null };
-      }));
+      })));
       setCarsLoading(false);
     })();
     return () => { active = false; };
