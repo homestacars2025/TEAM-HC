@@ -2,7 +2,8 @@
   "sections": {
     "main": "Main",
     "fleet": "Fleet",
-    "operations": "Operations"
+    "operations": "Operations",
+    "media": "Media"
   },
   "nav": {
     "bookings": "Bookings",
@@ -14,7 +15,13 @@
     "kgm": "KGM Tolls",
     "fines": "Fines",
     "customerWallets": "Customer Wallets",
-    "accounting": "Accounting"
+    "accounting": "Accounting",
+    "tasks": "Tasks",
+    "carIssues": "Car Issues",
+    "kabis": "KABIS",
+    "ideas": "Ideas",
+    "influencers": "Influencers",
+    "mediaCalendar": "Calendar"
   },
   "currency": {
     "label": "Currency",
@@ -30,5 +37,8 @@
   },
   "collapse": "Collapse sidebar",
   "expand": "Expand sidebar",
-  "signOut": "Sign out"
+  "signOut": "Sign out",
+  "brandSubtitle": "Admin",
+  "profileFallback": "User",
+  "openTasks": "{{count}} open task(s)"
 }

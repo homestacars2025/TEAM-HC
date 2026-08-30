@@ -12,7 +12,8 @@ import { useTranslation } from 'react-i18next';
  * public and always render.
  */
 interface NavItem {
-  label: string;
+  /** Key into the `sidebar` namespace, resolved at render. */
+  labelKey: string;
   path: string;
   icon: React.ReactNode;
   sectionKey?: string;
@@ -22,7 +23,7 @@ interface NavItem {
 
 const mainItems: NavItem[] = [
   {
-    label: 'Tasks',
+    labelKey: 'nav.tasks',
     path: '/dashboard/tasks',
     showTaskCount: true,
     icon: (
@@ -34,7 +35,7 @@ const mainItems: NavItem[] = [
     ),
   },
   {
-    label: 'Bookings',
+    labelKey: 'nav.bookings',
     path: '/dashboard/bookings',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -45,7 +46,7 @@ const mainItems: NavItem[] = [
     ),
   },
   {
-    label: 'Calendar',
+    labelKey: 'nav.calendar',
     path: '/dashboard/calendar',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -60,7 +61,7 @@ const mainItems: NavItem[] = [
 
 const fleetItems: NavItem[] = [
   {
-    label: 'Cars',
+    labelKey: 'nav.cars',
     path: '/dashboard/cars',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -72,7 +73,7 @@ const fleetItems: NavItem[] = [
     ),
   },
   {
-    label: 'Car Issues',
+    labelKey: 'nav.carIssues',
     path: '/dashboard/car-issues',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -82,7 +83,7 @@ const fleetItems: NavItem[] = [
     ),
   },
   {
-    label: 'Model Groups',
+    labelKey: 'nav.modelGroups',
     path: '/dashboard/model-groups',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -97,7 +98,7 @@ const fleetItems: NavItem[] = [
 
 const operationsItems: NavItem[] = [
   {
-    label: 'Operations',
+    labelKey: 'nav.operations',
     path: '/dashboard/operations',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -106,7 +107,7 @@ const operationsItems: NavItem[] = [
     ),
   },
   {
-    label: 'KGM Tolls',
+    labelKey: 'nav.kgm',
     path: '/dashboard/kgm',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -117,7 +118,7 @@ const operationsItems: NavItem[] = [
     ),
   },
   {
-    label: 'Fines',
+    labelKey: 'nav.fines',
     path: '/dashboard/fines',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -130,7 +131,7 @@ const operationsItems: NavItem[] = [
 ];
 
 const customerWalletsItem: NavItem = {
-  label: 'Customer Wallets',
+  labelKey: 'nav.customerWallets',
   path: '/dashboard/customer-wallets',
   icon: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -142,7 +143,7 @@ const customerWalletsItem: NavItem = {
 };
 
 const kabisItem: NavItem = {
-  label: 'KABIS',
+  labelKey: 'nav.kabis',
   path: '/dashboard/kabis',
   sectionKey: 'kabis',
   icon: (
@@ -160,7 +161,7 @@ const kabisItem: NavItem = {
  */
 const mediaItems: NavItem[] = [
   {
-    label: 'Ideas',
+    labelKey: 'nav.ideas',
     path: '/dashboard/media/ideas',
     sectionKey: 'media',
     icon: (
@@ -171,7 +172,7 @@ const mediaItems: NavItem[] = [
     ),
   },
   {
-    label: 'Calendar',
+    labelKey: 'nav.mediaCalendar',
     path: '/dashboard/media/calendar',
     sectionKey: 'media',
     icon: (
@@ -183,7 +184,7 @@ const mediaItems: NavItem[] = [
     ),
   },
   {
-    label: 'Influencers',
+    labelKey: 'nav.influencers',
     path: '/dashboard/media/influencers',
     sectionKey: 'media',
     icon: (
@@ -196,7 +197,7 @@ const mediaItems: NavItem[] = [
 ];
 
 const accountingItem: NavItem = {
-  label: 'Accounting',
+  labelKey: 'nav.accounting',
   path: '/dashboard/accounting',
   sectionKey: 'accounting',
   icon: (
@@ -224,9 +225,7 @@ const Sidebar: React.FC = () => {
   const { lang, setLang, canSwitch } = useLanguage();
   const { canAccess } = useSectionAccess();
   const { openTasksCount } = useInbox();
-  // Only the Tasks item is translated so far — the rest of the nav is still
-  // hard-coded English, and `sidebar.json` is waiting for that migration.
-  const { t } = useTranslation('tasks');
+  const { t } = useTranslation('sidebar');
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true'; }
@@ -273,7 +272,7 @@ const Sidebar: React.FC = () => {
       <NavLink
         key={item.path}
         to={item.path}
-        title={collapsed ? (item.showTaskCount ? t('nav') : item.label) : undefined}
+        title={collapsed ? t(item.labelKey) : undefined}
         style={({ isActive }) => ({
           display: 'flex',
           alignItems: 'center',
@@ -328,10 +327,10 @@ const Sidebar: React.FC = () => {
                 />
               )}
             </span>
-            {!collapsed && (item.showTaskCount ? t('nav') : item.label)}
+            {!collapsed && t(item.labelKey)}
             {item.showTaskCount && !collapsed && openTasksCount > 0 && (
               <span
-                aria-label={t('openCount', { count: openTasksCount })}
+                aria-label={t('openTasks', { count: openTasksCount })}
                 style={{
                   marginInlineStart: 'auto',
                   minWidth: 20, height: 20, padding: '0 6px',
@@ -405,7 +404,7 @@ const Sidebar: React.FC = () => {
               HomestaCars
             </div>
             <div style={{ fontSize: 11, color: '#9ca3af', letterSpacing: '0.1px', marginTop: 1 }}>
-              Admin
+              {t('brandSubtitle')}
             </div>
           </div>
         )}
@@ -414,7 +413,7 @@ const Sidebar: React.FC = () => {
         {!collapsed && (
           <button
             onClick={() => setCollapsed(true)}
-            title="Collapse sidebar"
+            title={t('collapse')}
             style={{
               position: 'absolute',
               insetInlineEnd: 12,
@@ -458,7 +457,7 @@ const Sidebar: React.FC = () => {
         }}>
           <button
             onClick={() => setCollapsed(false)}
-            title="Expand sidebar"
+            title={t('expand')}
             style={{
               width: 32,
               height: 32,
@@ -500,7 +499,7 @@ const Sidebar: React.FC = () => {
             textTransform: 'uppercase',
             padding: '0 10px 8px',
           }}>
-            Main
+            {t('sections.main')}
           </div>
         ) : null}
         {renderNavItems(mainItems)}
@@ -515,7 +514,7 @@ const Sidebar: React.FC = () => {
             textTransform: 'uppercase',
             padding: '16px 10px 8px',
           }}>
-            Fleet
+            {t('sections.fleet')}
           </div>
         ) : (
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
@@ -552,7 +551,7 @@ const Sidebar: React.FC = () => {
                 <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
                 <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               </svg>
-              Car Tracking
+              {t('nav.carTracking')}
             </NavLink>
           );
         })()}
@@ -568,7 +567,7 @@ const Sidebar: React.FC = () => {
             textTransform: 'uppercase',
             padding: '16px 10px 8px',
           }}>
-            Operations
+            {t('sections.operations')}
           </div>
         ) : (
           <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
@@ -587,7 +586,7 @@ const Sidebar: React.FC = () => {
                 textTransform: 'uppercase',
                 padding: '16px 10px 8px',
               }}>
-                Media
+                {t('sections.media')}
               </div>
             ) : (
               <div style={{ height: 1, background: '#ebebeb', margin: '10px 4px' }} />
@@ -608,7 +607,7 @@ const Sidebar: React.FC = () => {
               textTransform: 'uppercase', letterSpacing: '0.7px',
               marginBottom: 6, paddingInlineStart: 2,
             }}>
-              Currency
+              {t('currency.label')}
             </div>
           )}
           {collapsed ? (
@@ -619,7 +618,7 @@ const Sidebar: React.FC = () => {
                   const idx = CURRENCIES.indexOf(currency);
                   setCurrency(CURRENCIES[(idx + 1) % CURRENCIES.length]);
                 }}
-                title={`Currency: ${currency} — click to switch`}
+                title={t('currency.switchHint', { currency })}
                 style={{
                   width: 32, height: 32, borderRadius: 8,
                   border: '1.5px solid #4ba6ea',
@@ -677,14 +676,14 @@ const Sidebar: React.FC = () => {
                 textTransform: 'uppercase', letterSpacing: '0.7px',
                 marginBottom: 6, paddingInlineStart: 2,
               }}>
-                Language
+              {t('language.label')}
               </div>
             )}
             {collapsed ? (
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <button
                   onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
-                  title={`Language: ${LANGUAGE_NAMES[lang]} — click to switch`}
+                  title={t('language.switchHint', { language: LANGUAGE_NAMES[lang] })}
                   style={{
                     width: 32, height: 32, borderRadius: 8,
                     border: '1.5px solid #4ba6ea',
@@ -781,7 +780,7 @@ const Sidebar: React.FC = () => {
                 textOverflow: 'ellipsis',
                 lineHeight: 1.3,
               }}>
-                {profile?.full_name || 'User'}
+                {profile?.full_name || t('profileFallback')}
               </div>
             </div>
           )}
@@ -790,7 +789,7 @@ const Sidebar: React.FC = () => {
         {/* Sign out */}
         <button
           onClick={handleSignOut}
-          title={collapsed ? 'Sign out' : undefined}
+          title={collapsed ? t('signOut') : undefined}
           style={{
             width: '100%',
             display: 'flex',
@@ -823,7 +822,7 @@ const Sidebar: React.FC = () => {
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
             <path className="hc-flip-path" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          {!collapsed && 'Sign out'}
+          {!collapsed && t('signOut')}
         </button>
       </div>
     </aside>

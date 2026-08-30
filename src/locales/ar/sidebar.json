@@ -2,7 +2,8 @@
   "sections": {
     "main": "الرئيسية",
     "fleet": "الأسطول",
-    "operations": "العمليات"
+    "operations": "العمليات",
+    "media": "الوسائط"
   },
   "nav": {
     "bookings": "الحجوزات",
@@ -14,7 +15,13 @@
     "kgm": "رسوم الطرق",
     "fines": "المخالفات",
     "customerWallets": "محافظ العملاء",
-    "accounting": "المحاسبة"
+    "accounting": "المحاسبة",
+    "tasks": "المهام",
+    "carIssues": "مشاكل السيارات",
+    "kabis": "KABIS",
+    "ideas": "الأفكار",
+    "influencers": "المؤثرون",
+    "mediaCalendar": "التقويم"
   },
   "currency": {
     "label": "العملة",
@@ -30,5 +37,8 @@
   },
   "collapse": "طي القائمة",
   "expand": "توسيع القائمة",
-  "signOut": "تسجيل الخروج"
+  "signOut": "تسجيل الخروج",
+  "brandSubtitle": "الإدارة",
+  "profileFallback": "مستخدم",
+  "openTasks": "{{count}} مهمة مفتوحة"
 }

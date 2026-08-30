@@ -1,6 +1,4 @@
 {
-  "nav": "Tasks",
-  "openCount": "{{count}} open task(s)",
   "eyebrow": "Team",
   "title": "My tasks",
   "subtitle": "Tasks assigned to you — claim one, or mark it done",
