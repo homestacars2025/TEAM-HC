@@ -48,7 +48,7 @@ body {
    and pre-applied by the inline script in public/index.html.                */
 
 html[dir="rtl"] body {
-  font-family: 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* Money and other figures stay Western-digit, LTR and column-aligned even in RTL —
