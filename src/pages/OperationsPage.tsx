@@ -514,7 +514,7 @@ const PhotoSlotCard: React.FC<{
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#9ca3af'; }}
         >
-          Remove
+          {t('form.remove')}
         </button>
       )}
 
@@ -1512,7 +1512,7 @@ const AddOperationModal: React.FC<{
             style={{ height: 40, padding: '0 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
-            Cancel
+            {tc('actions.cancel')}
           </button>
           <button
             type="button"
@@ -1580,7 +1580,7 @@ const ConfirmDeleteDialog: React.FC<{
             onMouseEnter={e => { if (!deleting) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#f9fafb'; b.style.borderColor = '#d1d5db'; } }}
             onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#fff'; b.style.borderColor = '#e5e7eb'; }}
           >
-            Cancel
+            {tc('actions.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -1705,7 +1705,7 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
                   fontSize: 11, fontWeight: 700, color: '#374151',
                   textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8,
                 }}>
-                  Delivery Checklist
+                  {t('sections.deliveryChecklist')}
                 </div>
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
                   {CHECKLIST_ITEMS.map((item, idx) => {
@@ -2664,7 +2664,7 @@ const OperationsPage: React.FC = () => {
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M14 2v6h6M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                          Report
+                          {tc('actions.report')}
                         </button>
                       )}
                       {/* Edit */}

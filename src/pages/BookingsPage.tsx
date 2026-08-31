@@ -1973,7 +1973,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-                    Notes
+                    {tc('fields.notes')}
                   </label>
                   <textarea
                     value={form.cust_notes}
@@ -2106,7 +2106,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
             >
-              Cancel
+              {tc('actions.cancel')}
             </button>
             <button type="submit" disabled={saving}
               style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
@@ -2588,7 +2588,7 @@ const ReplacementFormModal: React.FC<{
         }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              Replacement Car
+              {t('replacementCarButton')}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
               {t('replacement.subtitle')}
@@ -2768,7 +2768,7 @@ const ReplacementFormModal: React.FC<{
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
             >
-              Cancel
+              {tc('actions.cancel')}
             </button>
             <button type="submit" disabled={saving || noBookings}
               style={{

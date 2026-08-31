@@ -866,7 +866,7 @@ const IssueDetailModal: React.FC<{
                   setError(null);
                 }}
               >
-                Cancel
+                {tc('actions.cancel')}
               </GhostButton>
             </div>
           </div>

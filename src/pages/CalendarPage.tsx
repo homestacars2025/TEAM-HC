@@ -473,7 +473,7 @@ const BlockPopup: React.FC<{
               onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
             >
-              Cancel
+              {t('common:actions.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -524,7 +524,7 @@ const BlockPopup: React.FC<{
               onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
             >
-              Cancel
+              {t('common:actions.cancel')}
             </button>
             <button
               onClick={handleDelete}

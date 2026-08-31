@@ -23,7 +23,9 @@
     "yes": "Yes",
     "no": "No",
     "uploadFile": "Upload file",
-    "other": "Other"
+    "other": "Other",
+    "report": "Report",
+    "remove": "Remove"
   },
   "fields": {
     "car": "Car",
