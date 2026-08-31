@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { Trans, useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { supabase } from '../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,14 +108,14 @@ interface AddOpForm {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const TYPE_CONFIG: Record<OperationType, { label: string; color: string; bg: string; card: string }> = {
-  DELIVERY:    { label: 'Delivery',    color: '#16a34a', bg: 'rgba(22,163,74,0.12)',    card: '#16a34a' },
-  PICKUP:      { label: 'Pickup',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)',    card: '#ef4444' },
-  CAR_WASH:    { label: 'Car Wash',    color: '#0891b2', bg: 'rgba(8,145,178,0.12)',    card: '#0891b2' },
-  MAINTENANCE: { label: 'Maintenance', color: '#6b7280', bg: 'rgba(107,114,128,0.12)', card: '#6b7280' },
-  OIL_CHANGE:  { label: 'Oil Change',  color: '#ea580c', bg: 'rgba(234,88,12,0.12)',   card: '#ea580c' },
+const TYPE_CONFIG: Record<OperationType, { color: string; bg: string; card: string }> = {
+  DELIVERY:    { color: '#16a34a', bg: 'rgba(22,163,74,0.12)',    card: '#16a34a' },
+  PICKUP:      { color: '#ef4444', bg: 'rgba(239,68,68,0.12)',    card: '#ef4444' },
+  CAR_WASH:    { color: '#0891b2', bg: 'rgba(8,145,178,0.12)',    card: '#0891b2' },
+  MAINTENANCE: { color: '#6b7280', bg: 'rgba(107,114,128,0.12)', card: '#6b7280' },
+  OIL_CHANGE:  { color: '#ea580c', bg: 'rgba(234,88,12,0.12)',   card: '#ea580c' },
 
-  OTHER:       { label: 'Other',       color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', card: '#9ca3af' },
+  OTHER:       { color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', card: '#9ca3af' },
 };
 
 const ALL_OP_TYPES: OperationType[] = [
@@ -130,11 +132,11 @@ type ChecklistKey =
 
 type ChecklistAnswer = 'yes' | 'no' | '';
 
-const CHECKLIST_ITEMS: { key: ChecklistKey; label: string }[] = [
-  { key: 'checklist_license_present', label: 'Vehicle license present?' },
-  { key: 'checklist_tutanak_present', label: 'Tutanak present?' },
-  { key: 'checklist_air_freshener',   label: 'Branded air freshener present?' },
-  { key: 'checklist_customer_card',   label: 'Customer number card present?' },
+const CHECKLIST_ITEMS: { key: ChecklistKey; labelKey: string }[] = [
+  { key: 'checklist_license_present', labelKey: 'checklist.license' },
+  { key: 'checklist_tutanak_present', labelKey: 'checklist.tutanak' },
+  { key: 'checklist_air_freshener',   labelKey: 'checklist.freshener' },
+  { key: 'checklist_customer_card',   labelKey: 'checklist.card' },
 ];
 
 /** null means "never asked" (pre-checklist operation), not "No". */
@@ -167,20 +169,20 @@ const AREA_TONE: Record<SlotArea, string> = {
  * highlight geometry all live on one row, so a diagram can never drift from its label.
  * Corner order is fixed: 1 front-left, 2 front-right, 3 rear-left, 4 rear-right.
  */
-const PHOTO_SLOTS: { key: PhotoSlotKey; label: string; area: SlotArea; highlight: SlotHighlight }[] = [
-  { key: 'front',       label: 'Front',       area: 'exterior', highlight: { shape: 'dot',  cx: 24,   cy: 10.5, r: 4 } },
-  { key: 'right_side',  label: 'Right side',  area: 'exterior', highlight: { shape: 'dot',  cx: 37.5, cy: 42,   r: 4 } },
-  { key: 'left_side',   label: 'Left side',   area: 'exterior', highlight: { shape: 'dot',  cx: 10.5, cy: 42,   r: 4 } },
-  { key: 'rear',        label: 'Rear',        area: 'exterior', highlight: { shape: 'dot',  cx: 24,   cy: 71.5, r: 4 } },
-  { key: 'corner_1',    label: 'Corner 1',    area: 'exterior', highlight: { shape: 'dot',  cx: 12.8, cy: 17,   r: 3.8 } },
-  { key: 'corner_2',    label: 'Corner 2',    area: 'exterior', highlight: { shape: 'dot',  cx: 35.2, cy: 17,   r: 3.8 } },
-  { key: 'corner_3',    label: 'Corner 3',    area: 'exterior', highlight: { shape: 'dot',  cx: 12.8, cy: 69,   r: 3.8 } },
-  { key: 'corner_4',    label: 'Corner 4',    area: 'exterior', highlight: { shape: 'dot',  cx: 35.2, cy: 69,   r: 3.8 } },
-  { key: 'trunk',       label: 'Trunk',       area: 'interior', highlight: { shape: 'zone', x: 12.5, y: 65.5, w: 23, h: 10,   rx: 3.5 } },
-  { key: 'rear_seats',  label: 'Rear seats',  area: 'interior', highlight: { shape: 'zone', x: 14,   y: 45,   w: 20, h: 10.5, rx: 3.5 } },
-  { key: 'front_seats', label: 'Front seats', area: 'interior', highlight: { shape: 'zone', x: 14,   y: 34,   w: 20, h: 10.5, rx: 3.5 } },
-  { key: 'odometer',    label: 'Odometer',    area: 'interior', highlight: { shape: 'dot',  cx: 18.5, cy: 31,  r: 3.4 } },
-  { key: 'dashboard',   label: 'Dashboard',   area: 'interior', highlight: { shape: 'zone', x: 14,   y: 28.2, w: 20, h: 5.6,  rx: 2.4 } },
+const PHOTO_SLOTS: { key: PhotoSlotKey; labelKey: string; area: SlotArea; highlight: SlotHighlight }[] = [
+  { key: 'front',       labelKey: 'slots.front',       area: 'exterior', highlight: { shape: 'dot',  cx: 24,   cy: 10.5, r: 4 } },
+  { key: 'right_side',  labelKey: 'slots.rightSide',  area: 'exterior', highlight: { shape: 'dot',  cx: 37.5, cy: 42,   r: 4 } },
+  { key: 'left_side',   labelKey: 'slots.leftSide',   area: 'exterior', highlight: { shape: 'dot',  cx: 10.5, cy: 42,   r: 4 } },
+  { key: 'rear',        labelKey: 'slots.rear',        area: 'exterior', highlight: { shape: 'dot',  cx: 24,   cy: 71.5, r: 4 } },
+  { key: 'corner_1',    labelKey: 'slots.corner1',    area: 'exterior', highlight: { shape: 'dot',  cx: 12.8, cy: 17,   r: 3.8 } },
+  { key: 'corner_2',    labelKey: 'slots.corner2',    area: 'exterior', highlight: { shape: 'dot',  cx: 35.2, cy: 17,   r: 3.8 } },
+  { key: 'corner_3',    labelKey: 'slots.corner3',    area: 'exterior', highlight: { shape: 'dot',  cx: 12.8, cy: 69,   r: 3.8 } },
+  { key: 'corner_4',    labelKey: 'slots.corner4',    area: 'exterior', highlight: { shape: 'dot',  cx: 35.2, cy: 69,   r: 3.8 } },
+  { key: 'trunk',       labelKey: 'slots.trunk',       area: 'interior', highlight: { shape: 'zone', x: 12.5, y: 65.5, w: 23, h: 10,   rx: 3.5 } },
+  { key: 'rear_seats',  labelKey: 'slots.rearSeats',  area: 'interior', highlight: { shape: 'zone', x: 14,   y: 45,   w: 20, h: 10.5, rx: 3.5 } },
+  { key: 'front_seats', labelKey: 'slots.frontSeats', area: 'interior', highlight: { shape: 'zone', x: 14,   y: 34,   w: 20, h: 10.5, rx: 3.5 } },
+  { key: 'odometer',    labelKey: 'slots.odometer',    area: 'interior', highlight: { shape: 'dot',  cx: 18.5, cy: 31,  r: 3.4 } },
+  { key: 'dashboard',   labelKey: 'slots.dashboard',   area: 'interior', highlight: { shape: 'zone', x: 14,   y: 28.2, w: 20, h: 5.6,  rx: 2.4 } },
 ];
 
 const MAX_SCRATCH_PHOTOS = 5;
@@ -194,15 +196,25 @@ function addMonths(d: Date, n: number): Date { return new Date(d.getFullYear(), 
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-function formatMonthLabel(d: Date): string {
-  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+function formatMonthLabel(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 }
-function formatDate(s: string): string {
+function formatDate(s: string, locale: string): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 function todayStr(): string { return toDateStr(new Date()); }
+
+/**
+ * Dates follow the UI language with Western digits. Money and kilometres keep
+ * their own `en-US` formatters untouched — amount shape reaches printed
+ * documents, and both already render Western digits either way.
+ */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
+}
 function nowTimeStr(): string {
   const n = new Date();
   return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`;
@@ -344,11 +356,12 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
 };
 
 const TypeBadge: React.FC<{ type: OperationType }> = ({ type }) => {
+  const { t } = useTranslation('operations');
   const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.OTHER;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-      {cfg.label}
+      {t(`types.${type}`)}
     </span>
   );
 };
@@ -431,6 +444,7 @@ const PhotoSlotCard: React.FC<{
   onPick: (file: File) => void;
   onRemove?: () => void;
 }> = ({ label, previewUrl, diagram, onPick, onRemove }) => {
+  const { t } = useTranslation('operations');
   const inputRef = useRef<HTMLInputElement>(null);
   const [hovered, setHovered] = useState(false);
   const filled = !!previewUrl;
@@ -457,7 +471,7 @@ const PhotoSlotCard: React.FC<{
           <>
             <img src={previewUrl} alt={label} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(15,17,23,0.62)', color: '#fff', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.3px', padding: '4px 0', textAlign: 'center' }}>
-              Replace / Retake
+              {t('form.replaceRetake')}
             </span>
           </>
         ) : diagram ? (
@@ -466,7 +480,7 @@ const PhotoSlotCard: React.FC<{
             <div style={{ position: 'absolute', top: 9, right: 9, bottom: 9, left: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CarDiagram area={diagram.area} highlight={diagram.highlight} />
             </div>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', top: 7, right: 7, color: hovered ? '#4ba6ea' : '#d1d5db', transition: 'color 140ms ease' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', top: 7, insetInlineEnd: 7, color: hovered ? '#4ba6ea' : '#d1d5db', transition: 'color 140ms ease' }}>
               <path d="M4 8a2 2 0 012-2h1.6a2 2 0 001.7-.9l.6-1a1 1 0 01.9-.5h2.4a1 1 0 01.9.5l.6 1a2 2 0 001.7.9H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
               <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.9" />
             </svg>
@@ -477,7 +491,7 @@ const PhotoSlotCard: React.FC<{
               <path d="M4 8a2 2 0 012-2h1.6a2 2 0 001.7-.9l.6-1a1 1 0 01.9-.5h2.4a1 1 0 01.9.5l.6 1a2 2 0 001.7.9H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
               <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
             </svg>
-            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af' }}>Tap to capture</span>
+            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af' }}>{t('slots.tapToCapture')}</span>
           </>
         )}
       </button>
@@ -531,7 +545,7 @@ const SkeletonRow: React.FC<{ cols: number }> = ({ cols }) => (
 );
 
 const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
-  <th style={{ padding: '9px 12px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'left', background: '#fff', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap', ...style }} {...rest}>
+  <th style={{ padding: '9px 12px', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', textAlign: 'start', background: '#fff', borderBottom: '1.5px solid #f0f0f0', whiteSpace: 'nowrap', ...style }} {...rest}>
     {children}
   </th>
 );
@@ -649,7 +663,9 @@ const ChecklistRow: React.FC<{
   value: ChecklistAnswer;
   onChange: (v: ChecklistAnswer) => void;
   last: boolean;
-}> = ({ label, value, onChange, last }) => (
+}> = ({ label, value, onChange, last }) => {
+  const { t: tc } = useTranslation('common');
+  return (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
     padding: '9px 12px',
@@ -678,13 +694,14 @@ const ChecklistRow: React.FC<{
               fontFamily: 'inherit', transition: 'all 140ms ease',
             }}
           >
-            {opt === 'yes' ? 'Yes' : 'No'}
+            {opt === 'yes' ? tc('actions.yes') : tc('actions.no')}
           </button>
-        );
+          );
       })}
     </div>
   </div>
-);
+  );
+};
 
 const EMPTY_FORM = (): AddOpForm => ({
   type:               'DELIVERY',
@@ -710,6 +727,9 @@ const AddOperationModal: React.FC<{
   onSaved: (notice?: SaveNotice) => void;
   editOp?: Operation;
 }> = ({ onClose, onSaved, editOp }) => {
+  const { t } = useTranslation('operations');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const isEdit = !!editOp;
   const [form, setForm]               = useState<AddOpForm>(isEdit ? opToForm(editOp!) : EMPTY_FORM);
   const [cars, setCars]               = useState<CarOption[]>([]);
@@ -898,7 +918,7 @@ const AddOperationModal: React.FC<{
       tasks.push({
         path:  `${basePath}/${slot.key}.jpg`,
         file,
-        label: slot.label,
+        label: t(slot.labelKey),
         assign: url => { slotUrls[slot.key] = url; },
       });
     }
@@ -928,27 +948,30 @@ const AddOperationModal: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.car_id)     { setFormError('Please select a car.'); return; }
-    if (!form.type)       { setFormError('Please select an operation type.'); return; }
-    if (!form.performed_by) { setFormError('Please select who handled this operation.'); return; }
-    if (form.fuel_level === '')          { setFormError('Fuel range is required.'); return; }
-    if (Number(form.fuel_level) > 2000)  { setFormError('Maximum fuel range is 2000 km'); return; }
+    if (!form.car_id)     { setFormError(t('errors.selectCar')); return; }
+    if (!form.type)       { setFormError(t('errors.selectType')); return; }
+    if (!form.performed_by) { setFormError(t('errors.selectPerson')); return; }
+    if (form.fuel_level === '')          { setFormError(t('errors.fuelRequired')); return; }
+    if (Number(form.fuel_level) > 2000)  { setFormError(t('errors.fuelMax')); return; }
     // Required on NEW deliveries only: 169 legacy deliveries predate the checklist,
     // so editing one must never be blocked by it.
     if (!isEdit && form.type === 'DELIVERY') {
       const unanswered = CHECKLIST_ITEMS.filter(i => form[i.key] === '');
       if (unanswered.length > 0) {
         setFormError(
-          `Delivery checklist incomplete — ${unanswered.length} of 4 unanswered: ${unanswered.map(i => i.label).join(', ')}`
+          t('errors.checklistIncomplete', {
+            count: unanswered.length,
+            items: unanswered.map(i => t(i.labelKey)).join(', '),
+          })
         );
         return;
       }
     }
     if (isStructured) {
-      if (!form.operation_date) { setFormError('Operation date is required.'); return; }
+      if (!form.operation_date) { setFormError(t('errors.dateRequired')); return; }
       if (!photosComplete) {
-        const missing = PHOTO_SLOTS.filter(s => !slotFiles[s.key]).map(s => s.label);
-        setFormError(`${missing.length} photo${missing.length > 1 ? 's are' : ' is'} still missing: ${missing.join(', ')}.`);
+        const missing = PHOTO_SLOTS.filter(s => !slotFiles[s.key]).map(s => t(s.labelKey));
+        setFormError(t('errors.photosMissing', { count: missing.length, items: missing.join(', ') }));
         return;
       }
     }
@@ -1011,7 +1034,7 @@ const AddOperationModal: React.FC<{
         photosPayload = await uploadStructuredPhotos(basePath);
       } catch (uploadErr) {
         setSaving(false);
-        setFormError(uploadErr instanceof Error ? uploadErr.message : 'Photo upload failed. Nothing was saved.');
+        setFormError(uploadErr instanceof Error ? uploadErr.message : t('errors.photoUpload'));
         return;
       }
 
@@ -1121,8 +1144,8 @@ const AddOperationModal: React.FC<{
         {/* Header */}
         <div style={{ padding: '24px 28px 18px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{isEdit ? 'Edit Operation' : 'New Operation'}</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{isEdit ? 'Update the operation details below' : 'Fill in the details below to log a new operation'}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{isEdit ? t('form.editTitle') : t('form.newTitle')}</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{isEdit ? t('form.editSubtitle') : 'Fill in the details below to log a new operation'}</div>
           </div>
           <button onClick={onClose}
             style={{ width: 34, height: 34, borderRadius: 9, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
@@ -1137,26 +1160,26 @@ const AddOperationModal: React.FC<{
 
           {/* Section: Operation Details */}
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14 }}>
-            Operation Details
+            {t('sections.operationDetails')}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px', marginBottom: 16 }}>
 
             {/* Type */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Operation Type <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>{t('form.operationType')} <span style={{ color: '#ef4444' }}>*</span></label>
               <select value={form.type} onChange={set('type')} onFocus={onFocus} onBlur={onBlur} style={selectStyle} required>
-                {ALL_OP_TYPES.map(t => (
-                  <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>
+                {ALL_OP_TYPES.map(ty => (
+                  <option key={ty} value={ty}>{t(`types.${ty}`)}</option>
                 ))}
               </select>
             </div>
 
             {/* Car */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Car <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>{tc('fields.car')} <span style={{ color: '#ef4444' }}>*</span></label>
               <select value={form.car_id} onChange={set('car_id')} onFocus={onFocus} onBlur={onBlur} style={selectStyle} required>
-                <option value="">{carsLoading ? 'Loading cars…' : 'Select a car'}</option>
+                <option value="">{carsLoading ? t('form.loadingCars') : t('form.selectCar')}</option>
                 {cars.map(c => (
                   <option key={c.id} value={String(c.id)}>
                     {c.plate_number}{c.model_group?.name ? ` — ${c.model_group.name}` : ''}
@@ -1167,9 +1190,9 @@ const AddOperationModal: React.FC<{
 
             {/* Handled By */}
             <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Handled By <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>{t('form.handledBy')} <span style={{ color: '#ef4444' }}>*</span></label>
               <select value={form.performed_by} onChange={set('performed_by')} onFocus={onFocus} onBlur={onBlur} style={selectStyle} required>
-                <option value="">{profilesLoading ? 'Loading staff…' : 'Select a person'}</option>
+                <option value="">{profilesLoading ? t('form.loadingStaff') : t('form.selectPerson')}</option>
                 {profiles.map(p => (
                   <option key={p.id} value={p.id}>{p.full_name ?? p.id}</option>
                 ))}
@@ -1180,7 +1203,7 @@ const AddOperationModal: React.FC<{
             {(DP_TYPES as string[]).includes(form.type) && (
               <>
                 <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Customer <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+                  <label style={labelStyle}>{tc('fields.customer')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span></label>
                   <select
                     value={form.customer_id}
                     onChange={set('customer_id')}
@@ -1191,12 +1214,12 @@ const AddOperationModal: React.FC<{
                   >
                     <option value="">
                       {!form.car_id
-                        ? 'Select a car first'
+                        ? t('form.selectCarFirst')
                         : customersLoading
-                          ? 'Loading customers…'
+                          ? t('form.loadingCustomers')
                           : customers.length === 0
-                            ? 'No customers found for this car'
-                            : 'Select a customer'}
+                            ? t('form.noCustomers')
+                            : t('form.selectCustomer')}
                     </option>
                     {customers.map(c => (
                       <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
@@ -1206,10 +1229,10 @@ const AddOperationModal: React.FC<{
 
                 <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
                   <label style={labelStyle}>
-                    Booking ID{' '}
-                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+                    {t('form.bookingId')}{' '}
+                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span>
                     {bookingLoading && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6, animation: 'spin 0.7s linear infinite', verticalAlign: 'middle', color: '#4ba6ea' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginInlineStart: 6, animation: 'spin 0.7s linear infinite', verticalAlign: 'middle', color: '#4ba6ea' }}>
                         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                       </svg>
                     )}
@@ -1217,7 +1240,7 @@ const AddOperationModal: React.FC<{
                   <input
                     type="number"
                     min="1"
-                    placeholder="Auto-filled when a customer is selected"
+                    placeholder={t('form.autoFilled')}
                     value={form.booking_id}
                     readOnly
                     style={{ ...inputStyle, background: '#f3f4f6', color: form.booking_id ? '#374151' : '#9ca3af', cursor: 'not-allowed' }}
@@ -1228,35 +1251,35 @@ const AddOperationModal: React.FC<{
 
             {/* Date */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Operation Date <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>{t('form.operationDate')} <span style={{ color: '#ef4444' }}>*</span></label>
               <input type="date" value={form.operation_date} onChange={set('operation_date')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} required />
             </div>
 
             {/* Time */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Operation Time</label>
+              <label style={labelStyle}>{t('form.operationTime')}</label>
               <input type="time" value={form.operation_time} onChange={set('operation_time')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
             </div>
 
             {/* Mileage */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Mileage (km)</label>
-              <input type="number" min="0" placeholder="e.g. 54200" value={form.current_km} onChange={set('current_km')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
+              <label style={labelStyle}>{t('form.mileage')}</label>
+              <input type="number" min="0" placeholder={t('form.mileagePlaceholder')} value={form.current_km} onChange={set('current_km')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
             </div>
 
             {/* Fuel Level */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Fuel Range (km) <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={labelStyle}>{t('form.fuelRange')} <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="number"
                 min="0"
                 max="2000"
-                placeholder="e.g. 420"
+                placeholder={t('form.fuelPlaceholder')}
                 value={form.fuel_level}
                 onChange={e => {
                   setForm(f => ({ ...f, fuel_level: e.target.value }));
                   if (e.target.value !== '' && Number(e.target.value) > 2000) {
-                    setFormError('Maximum fuel range is 2000 km');
+                    setFormError(t('errors.fuelMax'));
                   } else {
                     setFormError(null);
                   }
@@ -1269,9 +1292,9 @@ const AddOperationModal: React.FC<{
 
             {/* Cleanliness */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Cleanliness Status</label>
+              <label style={labelStyle}>{t('form.cleanliness')}</label>
               <select value={form.cleanliness_status} onChange={set('cleanliness_status')} onFocus={onFocus} onBlur={onBlur} style={selectStyle}>
-                <option value="">Not specified</option>
+                <option value="">{t('form.notSpecified')}</option>
                 <option value="clean">✅ Clean</option>
                 <option value="not_clean">❌ Not clean</option>
               </select>
@@ -1279,17 +1302,17 @@ const AddOperationModal: React.FC<{
 
             {/* Location */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>Location <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
-              <input type="text" placeholder="e.g. Şişli branch" value={form.location_text} onChange={set('location_text')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
+              <label style={labelStyle}>{t('form.location')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span></label>
+              <input type="text" placeholder={t('form.locationPlaceholder')} value={form.location_text} onChange={set('location_text')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
             </div>
           </div>
 
           {/* Note */}
           <div style={{ ...fieldStyle, marginBottom: 20 }}>
-            <label style={labelStyle}>Note <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+            <label style={labelStyle}>{t('form.note')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span></label>
             <textarea
               rows={3}
-              placeholder="Any additional notes…"
+              placeholder={t('form.notePlaceholder')}
               value={form.note}
               onChange={set('note')}
               onFocus={onFocus}
@@ -1306,7 +1329,7 @@ const AddOperationModal: React.FC<{
                 gap: 10, marginBottom: 10, flexWrap: 'wrap',
               }}>
                 <label style={{ ...labelStyle, marginBottom: 0 }}>
-                  Delivery Checklist {!isEdit && <span style={{ color: '#ef4444' }}>*</span>}
+                  {t('sections.deliveryChecklist')} {!isEdit && <span style={{ color: '#ef4444' }}>*</span>}
                 </label>
                 <span style={{
                   fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
@@ -1320,7 +1343,7 @@ const AddOperationModal: React.FC<{
                 {CHECKLIST_ITEMS.map((item, idx) => (
                   <ChecklistRow
                     key={item.key}
-                    label={item.label}
+                    label={t(item.labelKey)}
                     value={form[item.key]}
                     last={idx === CHECKLIST_ITEMS.length - 1}
                     onChange={v => setForm(f => ({ ...f, [item.key]: v } as AddOpForm))}
@@ -1341,7 +1364,7 @@ const AddOperationModal: React.FC<{
             <div style={fieldStyle}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                 <label style={{ ...labelStyle, marginBottom: 0 }}>
-                  Vehicle Photos <span style={{ color: '#ef4444' }}>*</span>
+                  {t('sections.vehiclePhotos')} <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <span style={{ fontSize: 12, fontWeight: 700, color: photosComplete ? '#16a34a' : '#4ba6ea', whiteSpace: 'nowrap' }}>
                   {capturedCount} / {PHOTO_SLOTS.length} photos captured
@@ -1355,10 +1378,10 @@ const AddOperationModal: React.FC<{
 
               {/* Diagram legend */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
-                <AreaLegendChip area="exterior" label="Exterior" />
-                <AreaLegendChip area="interior" label="Interior" />
+                <AreaLegendChip area="exterior" label={t('slots.exterior')} />
+                <AreaLegendChip area="interior" label={t('slots.interior')} />
                 <span style={{ fontSize: 10.5, color: '#9ca3af', fontWeight: 500 }}>
-                  Tap a position to capture that photo
+                  {t('form.tapPosition')}
                 </span>
               </div>
 
@@ -1367,7 +1390,7 @@ const AddOperationModal: React.FC<{
                 {PHOTO_SLOTS.map(slot => (
                   <PhotoSlotCard
                     key={slot.key}
-                    label={slot.label}
+                    label={t(slot.labelKey)}
                     diagram={{ area: slot.area, highlight: slot.highlight }}
                     previewUrl={slotPreviews[slot.key]}
                     onPick={file => {
@@ -1387,7 +1410,7 @@ const AddOperationModal: React.FC<{
               <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #f0f0f0' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   <label style={{ ...labelStyle, marginBottom: 0 }}>
-                    Extra scratches <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+                    {t('sections.extraScratches')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span>
                   </label>
                   <span style={{ fontSize: 11.5, color: '#9ca3af', whiteSpace: 'nowrap' }}>
                     {scratchFiles.length} / {MAX_SCRATCH_PHOTOS}
@@ -1418,7 +1441,7 @@ const AddOperationModal: React.FC<{
           {/* Photos — add mode only, non-structured types */}
           {!isEdit && !isStructured && <div style={fieldStyle}>
             <label style={labelStyle}>
-              Photos <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+              {t('form.photos')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span>
             </label>
 
             {/* Drop / click zone */}
@@ -1436,9 +1459,9 @@ const AddOperationModal: React.FC<{
                 <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>
-                {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected — click to add more` : 'Click to select photos'}
+                {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected — click to add more` : t('form.clickToSelect')}
               </span>
-              <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WEBP accepted</span>
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>{t('form.accepted')}</span>
               <input
                 type="file"
                 accept="image/*"
@@ -1461,7 +1484,7 @@ const AddOperationModal: React.FC<{
                     <button
                       type="button"
                       onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}
-                      style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                      style={{ position: 'absolute', top: 4, insetInlineEnd: 4, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
                     </button>
@@ -1481,7 +1504,7 @@ const AddOperationModal: React.FC<{
         {/* Footer */}
         <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', flexShrink: 0 }}>
           {isStructured && !photosComplete && !saving && (
-            <span style={{ fontSize: 11.5, color: '#9ca3af', marginRight: 'auto', lineHeight: 1.4 }}>
+            <span style={{ fontSize: 11.5, color: '#9ca3af', marginInlineEnd: 'auto', lineHeight: 1.4 }}>
               {missingCount} more photo{missingCount > 1 ? 's' : ''} needed to save
             </span>
           )}
@@ -1503,10 +1526,10 @@ const AddOperationModal: React.FC<{
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                 </svg>
                 {saveStep === 'uploading'
-                  ? (uploadTotal > 0 ? `Uploading ${uploadDone} / ${uploadTotal}…` : 'Uploading photos…')
-                  : 'Saving…'}
+                  ? (uploadTotal > 0 ? `Uploading ${uploadDone} / ${uploadTotal}…` : t('form.uploading'))
+                  : t('form.saving')}
               </>
-            ) : isEdit ? 'Save Changes' : 'Save Operation'}
+            ) : isEdit ? t('form.saveChanges') : t('form.saveOperation')}
           </button>
         </div>
       </div>
@@ -1522,6 +1545,8 @@ const ConfirmDeleteDialog: React.FC<{
   onCancel: () => void;
   deleting: boolean;
 }> = ({ onConfirm, onCancel, deleting }) => {
+  const { t } = useTranslation('operations');
+  const { t: tc } = useTranslation('common');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', onKey);
@@ -1543,9 +1568,9 @@ const ConfirmDeleteDialog: React.FC<{
             <path d="M10 11v5M14 11v5" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>Delete Operation?</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', marginBottom: 8, letterSpacing: '-0.3px' }}>{t('delete.title')}</div>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-          This will permanently delete this operation and all associated photos.<br/>This action cannot be undone.
+          {t('delete.body')}<br/>{t('delete.irreversible')}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -1569,9 +1594,9 @@ const ConfirmDeleteDialog: React.FC<{
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                 </svg>
-                Deleting…
+                {t('delete.deleting')}
               </>
-            ) : 'Delete'}
+            ) : tc('actions.delete')}
           </button>
         </div>
       </div>
@@ -1583,6 +1608,7 @@ const ConfirmDeleteDialog: React.FC<{
 // ─── Photos Modal ─────────────────────────────────────────────────────────────
 
 const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ operation, onClose }) => {
+  const { t } = useTranslation('operations');
   const structured    = hasStructuredPhotos(operation.photos);
   const folderUrl     = operation.folder_url;
   const showChecklist = operation.type === 'DELIVERY' && hasChecklist(operation);
@@ -1627,15 +1653,15 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
 
   // Named slots first (in capture order), then any extra scratches
   const photos: { label: string; url: string }[] = useMemo(() => {
-    if (!structured) return listed.map((url, i) => ({ label: `Photo ${i + 1}`, url }));
+    if (!structured) return listed.map((url, i) => ({ label: t('photos.photoN', { n: i + 1 }), url }));
     const p = operation.photos!;
     const items: { label: string; url: string }[] = [];
     for (const slot of PHOTO_SLOTS) {
       const url = p[slot.key];
-      if (url) items.push({ label: slot.label, url: `${url}?t=${cacheBust}` });
+      if (url) items.push({ label: t(slot.labelKey), url: `${url}?t=${cacheBust}` });
     }
     (p.extra_scratches ?? []).forEach((url, i) => {
-      if (url) items.push({ label: `Extra scratch ${i + 1}`, url: `${url}?t=${cacheBust}` });
+      if (url) items.push({ label: t('photos.extraScratch', { n: i + 1 }), url: `${url}?t=${cacheBust}` });
     });
     return items;
   }, [structured, listed, operation.photos, cacheBust]);
@@ -1654,7 +1680,7 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
           {/* Header */}
           <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>Operation Photos</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>{t('photos.title')}</div>
               {!fetching && !fetchErr && (
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
                   {photos.length} photo{photos.length !== 1 ? 's' : ''}
@@ -1695,7 +1721,7 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
                         }}
                       >
                         <span style={{ fontSize: 13, color: '#374151', flex: '1 1 180px', minWidth: 0 }}>
-                          {item.label}
+                          {t(item.labelKey)}
                         </span>
                         <span style={{
                           fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
@@ -1732,8 +1758,8 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
                   <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
                   <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>No photos found</div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>The folder exists but contains no photos</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#6b7280' }}>{t('photos.none')}</div>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{t('photos.emptyFolder')}</div>
               </div>
             )}
 
@@ -1782,13 +1808,13 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
         >
           <img
             src={lightbox}
-            alt="Full size"
+            alt={t('photos.fullSize')}
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 24px 80px rgba(0,0,0,0.6)', cursor: 'default' }}
           />
           <button
             onClick={() => setLightbox(null)}
-            style={{ position: 'fixed', top: 20, right: 20, width: 40, height: 40, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+            style={{ position: 'fixed', top: 20, insetInlineEnd: 20, width: 40, height: 40, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.22)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)'; }}
           >
@@ -1799,10 +1825,10 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            style={{ position: 'fixed', top: 20, right: 68, width: 40, height: 40, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', textDecoration: 'none' }}
+            style={{ position: 'fixed', top: 20, insetInlineEnd: 68, width: 40, height: 40, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', textDecoration: 'none' }}
             onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.22)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.12)'; }}
-            title="Open in new tab"
+            title={t('photos.openTab')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </a>
@@ -1826,9 +1852,11 @@ interface DeliveryMatch {
 
 const DELIVERY_SELECT = 'operation_date, current_km, fuel_level, cleanliness_status';
 
-function formatCleanliness(v: string | null): string {
-  if (v === 'clean')     return 'clean';
-  if (v === 'not_clean') return 'not_clean';
+/** Module-level, so the translator is passed in. The raw enum is what the
+    database stores; only its rendering changes. */
+function formatCleanliness(v: string | null, t: TFunction): string {
+  if (v === 'clean')     return t('report.cleanValue');
+  if (v === 'not_clean') return t('report.notCleanValue');
   return '—';
 }
 
@@ -1839,10 +1867,10 @@ function daysBetween(fromDate: string, toDate: string): number | null {
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 
-function formatDuration(days: number): string {
-  if (days === 0) return 'Same day';
-  if (days === 1) return '1 day';
-  return `${days} days`;
+/** Module-level, so the translator is passed in rather than hooked. */
+function formatDuration(days: number, t: TFunction): string {
+  if (days === 0) return t('sameDay');
+  return t('days', { count: days });
 }
 
 const MetricCard: React.FC<{
@@ -1851,7 +1879,9 @@ const MetricCard: React.FC<{
   raw: React.ReactNode;
   incomplete: boolean;
   warning?: string;
-}> = ({ label, value, raw, incomplete, warning }) => (
+}> = ({ label, value, raw, incomplete, warning }) => {
+  const { t } = useTranslation('operations');
+  return (
   <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
     <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
@@ -1861,13 +1891,14 @@ const MetricCard: React.FC<{
     </div>
     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 7 }}>{raw}</div>
     {incomplete && (
-      <div style={{ fontSize: 11, color: '#d97706', marginTop: 5, fontWeight: 600 }}>incomplete data</div>
+      <div style={{ fontSize: 11, color: '#d97706', marginTop: 5, fontWeight: 600 }}>{t('report.incompleteData')}</div>
     )}
     {warning && (
       <div style={{ fontSize: 11, color: '#b45309', marginTop: 5, fontWeight: 600 }}>{warning}</div>
     )}
   </div>
-);
+  );
+};
 
 const ChargeRow: React.FC<{
   label: string;
@@ -1897,6 +1928,8 @@ const ChargeRow: React.FC<{
 );
 
 const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = ({ pickup, onClose }) => {
+  const { t } = useTranslation('operations');
+  const dateLocale = useDateLocale();
   const [delivery, setDelivery]   = useState<DeliveryMatch | null>(null);
   const [method, setMethod]       = useState<MatchMethod | null>(null);
   const [fetching, setFetching]   = useState(true);
@@ -2026,10 +2059,10 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
         <div style={{ padding: '22px 26px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              Pickup Report — {pickup.plate_number}
+              {t('report.title')} — {pickup.plate_number}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
-              Pickup on {formatDate(pickup.operation_date)}
+              {t('report.pickupOn')} {formatDate(pickup.operation_date, dateLocale)}
             </div>
           </div>
           <button
@@ -2061,7 +2094,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
 
           {!fetching && !fetchErr && !delivery && (
             <div style={{ textAlign: 'center', padding: '44px 0', color: '#6b7280', fontSize: 14, fontWeight: 500 }}>
-              No matching delivery found — cannot generate report.
+              {t('report.noMatch')}
             </div>
           )}
 
@@ -2070,15 +2103,15 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
               {/* Match info */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
                 <span style={{ fontSize: 13, color: '#374151' }}>
-                  Matched delivery: <strong style={{ color: '#0f1117' }}>{formatDate(delivery.operation_date)}</strong>
+                  {t('report.matchedDelivery')} <strong style={{ color: '#0f1117' }}>{formatDate(delivery.operation_date, dateLocale)}</strong>
                 </span>
                 {method === 'booking' ? (
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '4px 10px' }}>
-                    Matched by booking
+                    {t('report.matchedByBooking')}
                   </span>
                 ) : (
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.15)', borderRadius: 20, padding: '4px 10px' }}>
-                    Approximate — matched by last delivery for this car
+                    {t('report.approximate')}
                   </span>
                 )}
               </div>
@@ -2086,35 +2119,35 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
               {/* Metrics */}
               <div style={{ display: 'grid', gap: 12 }}>
                 <MetricCard
-                  label="Rental Duration"
+                  label={t('report.rentalDuration')}
                   incomplete={durationDays == null}
-                  value={durationDays != null ? formatDuration(durationDays) : dash}
+                  value={durationDays != null ? formatDuration(durationDays, t) : dash}
                   raw={
                     <>
-                      Delivery: {formatDate(delivery.operation_date)}
+                      {t('report.deliveryLabel')} {formatDate(delivery.operation_date, dateLocale)}
                       {' → '}
-                      Pickup: {formatDate(pickup.operation_date)}
+                      {t('report.pickupLabel')} {formatDate(pickup.operation_date, dateLocale)}
                     </>
                   }
                 />
 
                 <MetricCard
-                  label="Kilometers Used"
+                  label={t('report.kilometersUsed')}
                   incomplete={!kmOk}
                   value={kmOk ? `${Math.round(kmUsed as number).toLocaleString()} km` : dash}
                   raw={
                     <>
-                      Delivery: {delivery.current_km != null ? `${delivery.current_km.toLocaleString()} km` : '—'}
+                      {t('report.deliveryLabel')} {delivery.current_km != null ? `${delivery.current_km.toLocaleString()} km` : '—'}
                       {' → '}
-                      Pickup: {pickup.current_km != null ? `${pickup.current_km.toLocaleString()} km` : '—'}
+                      {t('report.pickupLabel')} {pickup.current_km != null ? `${pickup.current_km.toLocaleString()} km` : '—'}
                     </>
                   }
                 />
 
                 <MetricCard
-                  label="Fuel Range Difference"
+                  label={t('report.fuelDifference')}
                   incomplete={!fuelOk}
-                  warning={fuelUnitsSuspect ? 'Inconsistent fuel units detected — verify manually' : undefined}
+                  warning={fuelUnitsSuspect ? t('report.inconsistentFuel') : undefined}
                   value={
                     fuelOk
                       ? <span style={{ color: (fuelDiff as number) < 0 ? '#ef4444' : '#16a34a' }}>
@@ -2124,28 +2157,28 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                   }
                   raw={
                     <>
-                      Delivery: {delivery.fuel_level != null ? `${delivery.fuel_level.toLocaleString()} km` : '—'}
+                      {t('report.deliveryLabel')} {delivery.fuel_level != null ? `${delivery.fuel_level.toLocaleString()} km` : '—'}
                       {' → '}
-                      Pickup: {pickup.fuel_level != null ? `${pickup.fuel_level.toLocaleString()} km` : '—'}
+                      {t('report.pickupLabel')} {pickup.fuel_level != null ? `${pickup.fuel_level.toLocaleString()} km` : '—'}
                     </>
                   }
                 />
 
                 <MetricCard
-                  label="Cleanliness"
+                  label={t('report.cleanliness')}
                   incomplete={!cleanOk}
                   value={
                     !cleanOk
                       ? dash
                       : washNeeded
-                        ? <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', background: 'rgba(239,68,68,0.12)', borderRadius: 20, padding: '5px 12px', display: 'inline-block' }}>Wash needed</span>
-                        : <span style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '5px 12px', display: 'inline-block' }}>No wash needed</span>
+                        ? <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', background: 'rgba(239,68,68,0.12)', borderRadius: 20, padding: '5px 12px', display: 'inline-block' }}>{t('report.washNeeded')}</span>
+                        : <span style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '5px 12px', display: 'inline-block' }}>{t('report.noWashNeeded')}</span>
                   }
                   raw={
                     <>
-                      Delivered: {formatCleanliness(delivery.cleanliness_status)}
+                      {t('report.deliveredLabel')} {formatCleanliness(delivery.cleanliness_status, t)}
                       {' → '}
-                      Returned: {formatCleanliness(pickup.cleanliness_status)}
+                      {t('report.returned')} {formatCleanliness(pickup.cleanliness_status, t)}
                     </>
                   }
                 />
@@ -2159,7 +2192,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
-                  Charges Due
+                  {t('sections.chargesDue')}
                 </div>
                 {chargesApplied && (
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: 'rgba(22,163,74,0.12)', borderRadius: 20, padding: '4px 10px' }}>
@@ -2190,7 +2223,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
 
                   <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, background: '#fafafa', padding: '2px 16px' }}>
                     <ChargeRow
-                      label="Extra kilometers"
+                      label={t('report.extraKm')}
                       amount={Number(charges.km.charge)}
                       detail={
                         <>
@@ -2200,22 +2233,31 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                       }
                     />
                     <ChargeRow
-                      label="Fuel"
+                      label={t('report.fuel')}
                       amount={Number(charges.fuel.charge)}
                       detail={
                         <>
-                          Range drop {formatKm(charges.fuel.drop)} km · tolerance {formatKm(charges.fuel.tolerance)} km
-                          {Number(charges.fuel.charge) > 0 && <> · ≈ {formatKm(charges.fuel.liters)} L to refill × {formatTry(charges.fuel.price_per_liter)}</>}
+                          {t('report.rangeDrop', {
+                            drop: formatKm(charges.fuel.drop),
+                            tolerance: formatKm(charges.fuel.tolerance),
+                          })}
+                          {Number(charges.fuel.charge) > 0 && <> · {t('report.refill', {
+                            liters: formatKm(charges.fuel.liters),
+                            price: formatTry(charges.fuel.price_per_liter),
+                          })}</>}
                         </>
                       }
                     />
                     <ChargeRow
-                      label="Car wash"
+                      label={t('report.carWash')}
                       amount={Number(charges.wash.charge)}
-                      detail={<>Delivered {formatCleanliness(charges.wash.delivery_clean || null)} → returned {formatCleanliness(charges.wash.return_clean || null)}</>}
+                      detail={t('report.washDetail', {
+                          delivered: formatCleanliness(charges.wash.delivery_clean || null, t),
+                          returned: formatCleanliness(charges.wash.return_clean || null, t),
+                        })}
                     />
                     <ChargeRow
-                      label="Total"
+                      label={t('report.total')}
                       amount={Number(charges.total_charge)}
                       detail={null}
                       isTotal
@@ -2225,7 +2267,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                   <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 9, lineHeight: 1.5 }}>
                     {chargesApplied
                       ? 'Recorded on the customer wallet when this pickup was saved.'
-                      : 'Preview only — not recorded on the customer wallet.'}
+                      : t('report.previewOnly')}
                   </div>
                 </>
               )}
@@ -2235,10 +2277,10 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
           {/* Damage Inspection placeholder */}
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>
-              Damage Inspection
+              {t('sections.damageInspection')}
             </div>
             <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 12, padding: '26px 16px', textAlign: 'center', fontSize: 13, color: '#9ca3af', background: '#fafafa' }}>
-              Photo comparison coming soon
+              {t('report.comingSoon')}
             </div>
           </div>
         </div>
@@ -2251,6 +2293,9 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const OperationsPage: React.FC = () => {
+  const { t } = useTranslation('operations');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const [tab, setTab] = useState<TabKey>('dp');
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -2306,10 +2351,10 @@ const OperationsPage: React.FC = () => {
     setDeleting(false);
     setDeleteOp(null);
     if (error) {
-      showToast('Failed to delete operation.', 'error');
+      showToast(t('toast.deleteFailed'), 'error');
     } else {
       fetchOperations(selectedMonth);
-      showToast('Operation deleted.', 'success');
+      showToast(t('toast.deleted'), 'success');
     }
   };
 
@@ -2383,12 +2428,12 @@ const OperationsPage: React.FC = () => {
 
   // ── Stat card definitions per tab ────────────────────────────────────────
   const dpStatCards = [
-    { key: 'total', label: 'Total', bg: '#4ba6ea' },
-    ...DP_STAT_CARDS.map(t => ({ key: t, label: TYPE_CONFIG[t].label, bg: TYPE_CONFIG[t].card })),
+    { key: 'total', label: t('stats.total'), bg: '#4ba6ea' },
+    ...DP_STAT_CARDS.map(ty => ({ key: ty, label: t(`types.${ty}`), bg: TYPE_CONFIG[ty].card })),
   ];
   const otherStatCards = [
-    { key: 'total', label: 'Total', bg: '#4ba6ea' },
-    ...OTHER_STAT_CARDS.map(t => ({ key: t, label: TYPE_CONFIG[t].label, bg: TYPE_CONFIG[t].card })),
+    { key: 'total', label: t('stats.total'), bg: '#4ba6ea' },
+    ...OTHER_STAT_CARDS.map(ty => ({ key: ty, label: t(`types.${ty}`), bg: TYPE_CONFIG[ty].card })),
   ];
   const activeStatCards = tab === 'dp' ? dpStatCards : otherStatCards;
 
@@ -2400,10 +2445,10 @@ const OperationsPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Operations</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>{t('eyebrow')}</span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>Car Operations</h1>
-          <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>Deliveries, pickups, washes, maintenance and more</p>
+          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>{t('title')}</h1>
+          <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>{t('subtitle')}</p>
         </div>
 
         {/* Add Operation button */}
@@ -2416,30 +2461,30 @@ const OperationsPage: React.FC = () => {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
           </svg>
-          Add Operation
+          {t('addOperation')}
         </button>
       </div>
 
       {/* ── Tabs ── */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 28, background: '#f3f4f6', borderRadius: 12, padding: 4, alignSelf: 'flex-start', width: 'fit-content' }}>
         {([
-          { key: 'dp',    label: 'Delivery & Pickup' },
-          { key: 'other', label: 'Other Operations'  },
-        ] as { key: TabKey; label: string }[]).map(t => (
+          { key: 'dp',    labelKey: 'tabs.dp'    },
+          { key: 'other', labelKey: 'tabs.other' },
+        ] as { key: TabKey; labelKey: string }[]).map(tb => (
           <button
-            key={t.key}
-            onClick={() => handleTabChange(t.key)}
+            key={tb.key}
+            onClick={() => handleTabChange(tb.key)}
             style={{
               padding: '8px 20px', borderRadius: 9, border: 'none',
-              fontSize: 13, fontWeight: tab === t.key ? 700 : 500,
-              color: tab === t.key ? '#0f1117' : '#6b7280',
-              background: tab === t.key ? '#fff' : 'transparent',
-              boxShadow: tab === t.key ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              fontSize: 13, fontWeight: tab === tb.key ? 700 : 500,
+              color: tab === tb.key ? '#0f1117' : '#6b7280',
+              background: tab === tb.key ? '#fff' : 'transparent',
+              boxShadow: tab === tb.key ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               cursor: 'pointer', transition: 'all 160ms ease',
               fontFamily: 'inherit', whiteSpace: 'nowrap',
             }}
           >
-            {t.label}
+            {t(tb.labelKey)}
           </button>
         ))}
       </div>
@@ -2455,7 +2500,7 @@ const OperationsPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <MonthArrow direction="left"  onClick={() => setSelectedMonth(m => addMonths(m, -1))} />
         <span style={{ fontSize: 15, fontWeight: 700, color: '#0f1117', minWidth: 160, textAlign: 'center' }}>
-          {formatMonthLabel(selectedMonth)}
+          {formatMonthLabel(selectedMonth, dateLocale)}
         </span>
         <MonthArrow direction="right" onClick={() => setSelectedMonth(m => addMonths(m, 1))} />
 
@@ -2466,24 +2511,24 @@ const OperationsPage: React.FC = () => {
           onChange={e => setTypeFilter(e.target.value as OperationType | '')}
           style={{ height: 36, padding: '0 12px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none', fontFamily: 'inherit', color: '#374151', background: '#fff', cursor: 'pointer' }}
         >
-          <option value="">All types</option>
-          {activeTypes.map(t => (
-            <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>
+          <option value="">{t('table.allTypes')}</option>
+          {activeTypes.map(ty => (
+            <option key={ty} value={ty}>{t(`types.${ty}`)}</option>
           ))}
         </select>
 
         <div style={{ position: 'relative' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+            style={{ position: 'absolute', insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
             <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
           <input
             type="text"
-            placeholder="Search plate, customer…"
+            placeholder={t('table.search')}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ height: 36, padding: '0 12px 0 32px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none', fontFamily: 'inherit', color: '#0f1117', background: '#fff', width: 220, transition: 'border-color 140ms ease' }}
+            style={{ height: 36, paddingBlock: 0, paddingInlineStart: 32, paddingInlineEnd: 12, fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none', fontFamily: 'inherit', color: '#0f1117', background: '#fff', width: 220, transition: 'border-color 140ms ease' }}
             onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; }}
             onBlur={e  => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
           />
@@ -2501,17 +2546,17 @@ const OperationsPage: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: tab === 'dp' ? 980 : 860 }}>
             <thead>
               <tr>
-                <Th>Date</Th>
-                <Th>Type</Th>
-                <Th>Plate</Th>
-                <Th>Handled By</Th>
-                {tab === 'dp' && <Th>Customer</Th>}
-                <Th>Mileage</Th>
-                <Th>Fuel Range</Th>
-                <Th style={{ textAlign: 'center' }}>Cleanliness</Th>
-                <Th>Notes</Th>
-                <Th style={{ textAlign: 'center' }}>Photos</Th>
-                <Th style={{ textAlign: 'center' }}>Actions</Th>
+                <Th>{tc('fields.date')}</Th>
+                <Th>{tc('fields.type')}</Th>
+                <Th>{tc('fields.plate')}</Th>
+                <Th>{t('table.handledBy')}</Th>
+                {tab === 'dp' && <Th>{tc('fields.customer')}</Th>}
+                <Th>{t('table.mileage')}</Th>
+                <Th>{t('table.fuelRange')}</Th>
+                <Th style={{ textAlign: 'center' }}>{t('table.cleanliness')}</Th>
+                <Th>{tc('fields.notes')}</Th>
+                <Th style={{ textAlign: 'center' }}>{t('table.photos')}</Th>
+                <Th style={{ textAlign: 'center' }}>{t('table.actions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -2520,7 +2565,7 @@ const OperationsPage: React.FC = () => {
               {!loading && filtered.length === 0 && (
                 <tr>
                   <td colSpan={colCount} style={{ padding: '60px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                    {search || typeFilter ? 'No operations match your filters.' : 'No operations for this month.'}
+                    {search || typeFilter ? t('table.empty') : t('table.emptyMonth')}
                   </td>
                 </tr>
               )}
@@ -2532,7 +2577,7 @@ const OperationsPage: React.FC = () => {
                   onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = '#f9fafb'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}
                 >
-                  <td style={{ ...td, whiteSpace: 'nowrap', fontWeight: 500 }}>{formatDate(op.operation_date)}</td>
+                  <td style={{ ...td, whiteSpace: 'nowrap', fontWeight: 500 }}>{formatDate(op.operation_date, dateLocale)}</td>
 
                   <td style={td}><TypeBadge type={op.type} /></td>
 
@@ -2562,9 +2607,9 @@ const OperationsPage: React.FC = () => {
 
                   <td style={{ ...td, textAlign: 'center' }}>
                     {op.cleanliness_status === 'clean'
-                      ? <span title="Clean" style={{ fontSize: 16 }}>✅</span>
+                      ? <span title={t('table.clean')} style={{ fontSize: 16 }}>✅</span>
                       : op.cleanliness_status === 'not_clean'
-                        ? <span title="Not clean" style={{ fontSize: 16 }}>❌</span>
+                        ? <span title={t('table.notClean')} style={{ fontSize: 16 }}>❌</span>
                         : <span style={{ color: '#d1d5db' }}>—</span>
                     }
                   </td>
@@ -2591,7 +2636,7 @@ const OperationsPage: React.FC = () => {
                     ) : (
                       <button
                         disabled
-                        title="No photos"
+                        title={t('photos.noPhotos')}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #f0f0f0', background: '#fafafa', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed', color: '#d1d5db' }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -2610,7 +2655,7 @@ const OperationsPage: React.FC = () => {
                       {op.type === 'PICKUP' && (
                         <button
                           onClick={() => setReportOp(op)}
-                          title="Pickup report"
+                          title={t('report.openReport')}
                           style={{ height: 32, padding: '0 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: '#6b7280', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap' }}
                           onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
@@ -2625,7 +2670,7 @@ const OperationsPage: React.FC = () => {
                       {/* Edit */}
                       <button
                         onClick={() => setEditOp(op)}
-                        title="Edit"
+                        title={tc('actions.edit')}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
                         onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
@@ -2638,7 +2683,7 @@ const OperationsPage: React.FC = () => {
                       {/* Delete */}
                       <button
                         onClick={() => setDeleteOp(op)}
-                        title="Delete"
+                        title={tc('actions.delete')}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
                         onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#fca5a5'; b.style.color = '#ef4444'; b.style.background = 'rgba(239,68,68,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
@@ -2659,8 +2704,12 @@ const OperationsPage: React.FC = () => {
         {!loading && (
           <div style={{ padding: '12px 20px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <span style={{ fontSize: 13, color: '#9ca3af' }}>
-              Showing <strong style={{ color: '#374151' }}>{filtered.length}</strong> of{' '}
-              <strong style={{ color: '#374151' }}>{activeOps.length}</strong> operation{activeOps.length !== 1 ? 's' : ''}
+              <Trans
+                t={t}
+                i18nKey="table.showing"
+                values={{ shown: filtered.length, count: activeOps.length }}
+                components={[<span />, <strong style={{ color: '#374151' }} />, <strong style={{ color: '#374151' }} />]}
+              />
             </span>
           </div>
         )}
@@ -2691,7 +2740,7 @@ const OperationsPage: React.FC = () => {
             fetchOperations(selectedMonth);
             // Charge summaries carry money figures — hold them long enough to read.
             if (notice) showToast(notice.message, notice.kind, 8000);
-            else        showToast('Operation saved successfully.', 'success');
+            else        showToast(t('toast.saved'), 'success');
           }}
         />
       )}
@@ -2704,7 +2753,7 @@ const OperationsPage: React.FC = () => {
           onSaved={() => {
             setEditOp(null);
             fetchOperations(selectedMonth);
-            showToast('Operation updated successfully.', 'success');
+            showToast(t('toast.updated'), 'success');
           }}
         />
       )}
