@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -66,6 +67,8 @@ export function IdeaFormSheet({
 function IdeaForm({
   idea, goals, formats, defaultCategory, onClose,
 }: Omit<IdeaFormSheetProps, 'open'>) {
+  const { t } = useTranslation('media');
+  const { t: tc } = useTranslation('common');
   const [form, setForm] = React.useState<FormState>(() => ({
     title: idea?.title ?? '',
     content: idea?.content ?? '',
@@ -85,7 +88,7 @@ function IdeaForm({
 
   function handleSubmit() {
     if (!form.title.trim()) {
-      toast.error('Title is required');
+      toast.error(t('errors.titleRequired'));
       return;
     }
     startTransition(async () => {
@@ -100,10 +103,10 @@ function IdeaForm({
         reference_url: form.reference_url || null,
       });
       if (!result.ok) {
-        toast.error(result.error ?? "Couldn't save the idea");
+        toast.error(result.error ?? t('errors.saveIdea'));
         return;
       }
-      toast.success(idea ? 'Idea updated' : 'Idea added');
+      toast.success(idea ? t('ideas.toast.updated') : t('ideas.toast.added'));
       onClose();
     });
   }
@@ -112,86 +115,85 @@ function IdeaForm({
     <>
       <SheetHeader className="border-b border-black/[0.06] px-6 py-5">
         <SheetTitle className="text-[16px] tracking-[-0.014em]">
-          {idea ? 'Edit idea' : 'New idea'}
+          {idea ? t('ideas.form.editTitle') : t('ideas.form.newTitle')}
         </SheetTitle>
         <SheetDescription className="text-[13px]">
-          {idea
-            ? 'Update the concept. Posted and Approved stay with the admin.'
-            : 'Capture the concept — you can turn it into a scheduled post later.'}
+          {idea ? t('ideas.form.editSubtitle') : t('ideas.form.newSubtitle')}
         </SheetDescription>
       </SheetHeader>
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
         <div className="flex flex-col gap-1.5">
           <Label className="text-[13px]">
-            Title <span className="text-destructive">*</span>
+            {t('ideas.form.title')} <span className="text-destructive">*</span>
           </Label>
           <Input
             autoFocus
+            dir="auto"
             value={form.title}
             onChange={(e) => set('title', e.target.value)}
-            placeholder="e.g. Sunrise terrace tour"
+            placeholder={t('ideas.form.titlePlaceholder')}
             className="h-9 text-[13px]"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Content</Label>
+          <Label className="text-[13px]">{t('ideas.form.content')}</Label>
           <Textarea
             rows={5}
+            dir="auto"
             value={form.content}
             onChange={(e) => set('content', e.target.value)}
-            placeholder="What is the piece about? This becomes the first draft of the caption."
+            placeholder={t('ideas.form.contentPlaceholder')}
             className="resize-none text-[13px] leading-relaxed"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="idea-reference" className="text-[13px]">Reference</Label>
+          <Label htmlFor="idea-reference" className="text-[13px]">{t('reference.label')}</Label>
           <ReferenceField
             id="idea-reference"
             value={form.reference_url}
             onChange={(v) => set('reference_url', v)}
           />
-          <p className="text-[11.5px] text-black/35">
-            Optional — the trend or example this is based on. Opens in a new tab.
-          </p>
+          <p className="text-[11.5px] text-black/35">{t('reference.hint')}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Category</Label>
+            <Label className="text-[13px]">{t('ideas.form.category')}</Label>
             <Select
               value={form.category || NONE}
               onValueChange={(v: string | null) => set('category', v === NONE ? '' : (v ?? ''))}
             >
               <SelectTrigger className="h-9 w-full text-[13px]">
                 <span className={cn('truncate', form.category ? 'text-foreground' : 'text-black/35')}>
-                  {form.category || 'None'}
+                  {form.category ? t(`category.${form.category}`, { defaultValue: form.category }) : t('none')}
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">None</SelectItem>
+                <SelectItem value={NONE} className="text-black/45">{t('none')}</SelectItem>
+                {/* `value` is what lands in the column — English, always. */}
                 {IDEA_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                  <SelectItem key={c} value={c}>{t(`category.${c}`)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Format</Label>
+            <Label className="text-[13px]">{t('colorMode.format')}</Label>
             <Select
               value={form.format_key || NONE}
               onValueChange={(v: string | null) => set('format_key', v === NONE ? '' : (v ?? ''))}
             >
               <SelectTrigger className="h-9 w-full text-[13px]">
                 <span className={cn('truncate', form.format_key ? 'text-foreground' : 'text-black/35')}>
-                  {format?.label ?? form.format_key ?? 'None'}
+                  {format?.label ?? form.format_key ?? t('none')}
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">None</SelectItem>
+                <SelectItem value={NONE} className="text-black/45">{t('none')}</SelectItem>
                 {formats.map((f) => (
                   <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
                 ))}
@@ -201,7 +203,7 @@ function IdeaForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Goal</Label>
+          <Label className="text-[13px]">{t('colorMode.goal')}</Label>
           <Select
             value={form.goal_key || NONE}
             onValueChange={(v: string | null) => set('goal_key', v === NONE ? '' : (v ?? ''))}
@@ -210,12 +212,12 @@ function IdeaForm({
               <span className="flex min-w-0 items-center gap-2">
                 {goal && <span aria-hidden className="size-2 shrink-0 rounded-full" style={dotStyle(goal.color)} />}
                 <span className={cn('truncate', form.goal_key ? 'text-foreground' : 'text-black/35')}>
-                  {goal?.label ?? form.goal_key ?? 'None'}
+                  {goal?.label ?? form.goal_key ?? t('none')}
                 </span>
               </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE} className="text-black/45">None</SelectItem>
+              <SelectItem value={NONE} className="text-black/45">{t('none')}</SelectItem>
               {goals.map((g) => (
                 <SelectItem key={g.key} value={g.key}>
                   <span aria-hidden className="size-2 shrink-0 rounded-full" style={dotStyle(g.color)} />
@@ -227,21 +229,22 @@ function IdeaForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Note</Label>
+          <Label className="text-[13px]">{t('ideas.form.note')}</Label>
           <Textarea
             rows={3}
+            dir="auto"
             value={form.note}
             onChange={(e) => set('note', e.target.value)}
-            placeholder="Internal reminder — props needed, location, who shoots it…"
+            placeholder={t('ideas.form.notePlaceholder')}
             className="resize-none text-[13px] leading-relaxed"
           />
         </div>
       </div>
 
       <div className="flex flex-row justify-end gap-2 border-t border-black/[0.06] px-6 py-4">
-        <Button variant="outline" size="lg" onClick={onClose} disabled={isPending}>Cancel</Button>
+        <Button variant="outline" size="lg" onClick={onClose} disabled={isPending}>{tc('actions.cancel')}</Button>
         <Button size="lg" onClick={handleSubmit} disabled={isPending}>
-          {isPending ? 'Saving…' : idea ? 'Save changes' : 'Add idea'}
+          {isPending ? tc('actions.saving') : idea ? tc('actions.saveChanges') : t('ideas.form.submit')}
         </Button>
       </div>
     </>

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './button';
 import { cn } from '../../lib/utils';
 
@@ -22,6 +23,8 @@ export interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof
 function SheetContent({
   className, children, side = 'right', showCloseButton = true, ...props
 }: SheetContentProps) {
+  const { t } = useTranslation('common');
+
   return (
     <SheetPortal>
       <SheetPrimitive.Backdrop
@@ -39,15 +42,23 @@ function SheetContent({
           'shadow-lg transition duration-200 ease-in-out',
           'data-[ending-style]:opacity-0 data-[starting-style]:opacity-0',
 
-          'data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full',
-          'data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:sm:max-w-sm',
+          // `right`/`left` name the *inline* edges, so a sheet always enters from
+          // the trailing side of the text — the right in English, the left in
+          // Arabic. Only the slide has to be spelled out per direction: a
+          // logical inset has no logical translate to go with it.
+          'data-[side=right]:inset-y-0 data-[side=right]:end-0 data-[side=right]:h-full',
+          'data-[side=right]:w-3/4 data-[side=right]:border-s data-[side=right]:sm:max-w-sm',
           'data-[side=right]:data-[ending-style]:translate-x-[2.5rem]',
           'data-[side=right]:data-[starting-style]:translate-x-[2.5rem]',
+          'rtl:data-[side=right]:data-[ending-style]:-translate-x-[2.5rem]',
+          'rtl:data-[side=right]:data-[starting-style]:-translate-x-[2.5rem]',
 
-          'data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full',
-          'data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:sm:max-w-sm',
+          'data-[side=left]:inset-y-0 data-[side=left]:start-0 data-[side=left]:h-full',
+          'data-[side=left]:w-3/4 data-[side=left]:border-e data-[side=left]:sm:max-w-sm',
           'data-[side=left]:data-[ending-style]:-translate-x-[2.5rem]',
           'data-[side=left]:data-[starting-style]:-translate-x-[2.5rem]',
+          'rtl:data-[side=left]:data-[ending-style]:translate-x-[2.5rem]',
+          'rtl:data-[side=left]:data-[starting-style]:translate-x-[2.5rem]',
 
           'data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto',
           'data-[side=bottom]:border-t',
@@ -65,10 +76,10 @@ function SheetContent({
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close
-            render={<Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" />}
+            render={<Button variant="ghost" size="icon-sm" className="absolute top-3 end-3" />}
           >
             <X />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t('actions.close')}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

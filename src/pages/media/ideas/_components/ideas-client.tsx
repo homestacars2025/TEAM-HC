@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { Lightbulb, Plus, Search, SearchX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
@@ -22,6 +23,8 @@ interface IdeasClientProps {
 }
 
 export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
+  const { t } = useTranslation('media');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
 
   const [category, setCategory] = React.useState<string>(ALL);
@@ -90,19 +93,28 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
       const result = await convertIdeaToPost(idea.id);
       setConvertingId(null);
       if (!result.ok) {
-        toast.error(result.error ?? "Couldn't convert this idea");
+        toast.error(result.error ?? t('errors.convertIdea'));
         return;
       }
       if (result.warning) toast.warning(result.warning);
-      else toast.success('Post created from idea');
+      else toast.success(t('ideas.toast.postCreated'));
       // Land on the calendar with the new post's panel already open.
       navigate(`/dashboard/media/calendar?post=${result.postId}`);
     });
-  }, [navigate]);
+  }, [navigate, t]);
 
+  /**
+   * `key` is the value stored in `media.ideas.category` and must never be
+   * translated — only `label` is. An admin-typed category has no locale entry,
+   * so it falls back to what they typed rather than showing a raw key.
+   */
   const tabs: { key: string; label: string; count: number }[] = [
-    { key: ALL, label: 'All', count: ideas.length },
-    ...categories.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
+    { key: ALL, label: t('ideas.allCategories'), count: ideas.length },
+    ...categories.map((c) => ({
+      key: c,
+      label: t(`category.${c}`, { defaultValue: c }),
+      count: counts.get(c) ?? 0,
+    })),
   ];
 
   return (
@@ -114,14 +126,14 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
             size={14}
             strokeWidth={1.75}
             aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/30"
+            className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-black/30"
           />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search ideas…"
-            aria-label="Search ideas"
-            className="h-9 pl-8 text-[13px]"
+            placeholder={t('ideas.searchPlaceholder')}
+            aria-label={t('ideas.searchAria')}
+            className="h-9 ps-8 text-[13px]"
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -132,13 +144,13 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
           />
           <Button size="lg" onClick={openCreate} className="shrink-0">
             <Plus size={15} strokeWidth={2} data-icon="inline-start" />
-            New idea
+            {t('ideas.newIdea')}
           </Button>
         </div>
       </div>
 
       {/* Category tabs */}
-      <div role="tablist" aria-label="Idea categories" className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1">
+      <div role="tablist" aria-label={t('ideas.categoriesAria')} className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1">
         {tabs.map(({ key, label, count }) => {
           const isActive = category === key;
           return (
@@ -182,27 +194,27 @@ export function IdeasClient({ ideas, goals, formats }: IdeasClientProps) {
         isFiltered ? (
           <MediaEmptyState
             icon={SearchX}
-            title="Nothing matches that filter"
-            description="No ideas in this category match your search. Try a different category or clear the search box."
+            title={t('ideas.empty.filteredTitle')}
+            description={t('ideas.empty.filteredBody')}
             action={
               <Button
                 variant="outline"
                 size="lg"
                 onClick={() => { setSearch(''); setCategory(ALL); }}
               >
-                Clear filters
+                {tc('actions.clearFilters')}
               </Button>
             }
           />
         ) : (
           <MediaEmptyState
             icon={Lightbulb}
-            title="No ideas yet"
-            description="This is the backlog for everything you might shoot or design. Capture the first concept and turn it into a scheduled post when it's ready."
+            title={t('ideas.empty.noneTitle')}
+            description={t('ideas.empty.noneBody')}
             action={
               <Button size="lg" onClick={openCreate}>
                 <Plus size={15} strokeWidth={2} data-icon="inline-start" />
-                Add the first idea
+                {t('ideas.empty.addFirst')}
               </Button>
             }
           />

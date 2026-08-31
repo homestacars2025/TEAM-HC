@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   COLOR_MODES, DEFAULT_COLOR_MODE, isColorMode, type ColorMode,
 } from '../../../lib/media/color-mode';
@@ -49,12 +50,14 @@ interface ColorModeToggleProps {
 }
 
 export function ColorModeToggle({ value, onChange, layoutId, className }: ColorModeToggleProps) {
+  const { t } = useTranslation('media');
+
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <span className="whitespace-nowrap text-[11.5px] font-medium text-black/40">Color by</span>
+      <span className="whitespace-nowrap text-[11.5px] font-medium text-black/40">{t('colorMode.label')}</span>
       <div
         role="group"
-        aria-label="Colour the board by"
+        aria-label={t('colorMode.aria')}
         className="inline-flex items-center gap-0.5 rounded-lg border border-black/[0.07] bg-black/[0.02] p-0.5"
       >
         {COLOR_MODES.map((m) => {
@@ -78,7 +81,7 @@ export function ColorModeToggle({ value, onChange, layoutId, className }: ColorM
                   transition={{ type: 'spring', stiffness: 480, damping: 38 }}
                 />
               )}
-              <span className="relative">{m.label}</span>
+              <span className="relative">{t(`colorMode.${m.value}`)}</span>
             </button>
           );
         })}

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { CheckCircle2, CircleDashed, Lock, ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip';
 import { TONE_CLASSES, TONE_DOTS, tintedStyle } from '../../../lib/media/badge-color';
 import type { MediaFormat, MediaGoal, Tone } from '../../../lib/types/media';
@@ -25,7 +26,8 @@ export function GoalBadge({
         className="size-1.5 shrink-0 rounded-full"
         style={{ backgroundColor: goal?.color ?? 'currentColor' }}
       />
-      {label}
+      {/* Lookup labels are typed by an admin, in either script. */}
+      <span dir="auto">{label}</span>
     </span>
   );
 }
@@ -37,7 +39,7 @@ export function FormatBadge({
   if (!label) return null;
   return (
     <span className={cn(PILL, className)} style={tintedStyle(format?.color)}>
-      {label}
+      <span dir="auto">{label}</span>
     </span>
   );
 }
@@ -86,28 +88,30 @@ function AdminFlag({
 }
 
 export function PostedBadge({ posted, className }: { posted: boolean; className?: string }) {
+  const { t } = useTranslation('media');
   return (
     <AdminFlag
       on={posted}
-      onLabel="Posted"
-      offLabel="Not posted"
+      onLabel={t('badges.posted')}
+      offLabel={t('badges.notPosted')}
       onClasses="border-emerald-500/18 bg-emerald-500/[0.1] text-emerald-700"
       icon={posted ? <CheckCircle2 size={12} strokeWidth={2} /> : <CircleDashed size={12} />}
-      tooltip="Marked by an admin"
+      tooltip={t('badges.postedTooltip')}
       className={className}
     />
   );
 }
 
 export function ApprovedBadge({ approved, className }: { approved: boolean; className?: string }) {
+  const { t } = useTranslation('media');
   return (
     <AdminFlag
       on={approved}
-      onLabel="Approved"
-      offLabel="Pending approval"
+      onLabel={t('badges.approved')}
+      offLabel={t('badges.pendingApproval')}
       onClasses="border-[#6ea4e7]/20 bg-[#6ea4e7]/[0.09] text-[#1f64bb]"
       icon={<ShieldCheck size={12} />}
-      tooltip="Approved by an admin"
+      tooltip={t('badges.approvedTooltip')}
       className={className}
     />
   );

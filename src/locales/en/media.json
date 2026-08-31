@@ -1,0 +1,238 @@
+{
+  "nav": {
+    "aria": "Media sections",
+    "ideas": "Ideas",
+    "calendar": "Calendar",
+    "influencers": "Influencers"
+  },
+  "colorMode": {
+    "label": "Color by",
+    "aria": "Colour the board by",
+    "goal": "Goal",
+    "format": "Format",
+    "legendAria": "{{dimension}} legend",
+    "accentTitle": "{{dimension}}: {{label}}"
+  },
+  "reference": {
+    "label": "Reference",
+    "openAria": "Open the reference link {{label}} in a new tab",
+    "openPlainAria": "Open the reference link in a new tab",
+    "hint": "Optional — the trend or example this is based on. Opens in a new tab."
+  },
+  "badges": {
+    "posted": "Posted",
+    "notPosted": "Not posted",
+    "postedTooltip": "Marked by an admin",
+    "approved": "Approved",
+    "pendingApproval": "Pending approval",
+    "approvedTooltip": "Approved by an admin"
+  },
+  "category": {
+    "Indoor": "Indoor",
+    "Outdoor": "Outdoor",
+    "Graphic": "Graphic",
+    "Reels": "Reels",
+    "UGC": "UGC",
+    "Trending": "Trending"
+  },
+  "influencerType": {
+    "Popular Influencer": "Popular Influencer",
+    "Influencer": "Influencer",
+    "UGC": "UGC"
+  },
+  "messagingStatus": {
+    "Not Contacted": "Not Contacted",
+    "Contacted": "Contacted",
+    "Replied": "Replied",
+    "In Talks": "In Talks",
+    "No Reply": "No Reply"
+  },
+  "finalDecision": {
+    "Pending": "Pending",
+    "Approved": "Approved",
+    "Rejected": "Rejected",
+    "On Hold": "On Hold"
+  },
+  "ideas": {
+    "eyebrow": "Content Ideas",
+    "title": "Ideas",
+    "subtitle": "The backlog of concepts — capture them here, then convert the good ones into scheduled posts.",
+    "searchPlaceholder": "Search ideas…",
+    "searchAria": "Search ideas",
+    "newIdea": "New idea",
+    "categoriesAria": "Idea categories",
+    "allCategories": "All",
+    "empty": {
+      "filteredTitle": "Nothing matches that filter",
+      "filteredBody": "No ideas in this category match your search. Try a different category or clear the search box.",
+      "noneTitle": "No ideas yet",
+      "noneBody": "This is the backlog for everything you might shoot or design. Capture the first concept and turn it into a scheduled post when it's ready.",
+      "addFirst": "Add the first idea"
+    },
+    "card": {
+      "editAria": "Edit {{title}}",
+      "convert": "Convert to Post",
+      "converting": "Converting…",
+      "convertedOpen": "Converted — open post"
+    },
+    "form": {
+      "editTitle": "Edit idea",
+      "newTitle": "New idea",
+      "editSubtitle": "Update the concept. Posted and Approved stay with the admin.",
+      "newSubtitle": "Capture the concept — you can turn it into a scheduled post later.",
+      "title": "Title",
+      "titlePlaceholder": "e.g. Sunrise terrace tour",
+      "content": "Content",
+      "contentPlaceholder": "What is the piece about? This becomes the first draft of the caption.",
+      "category": "Category",
+      "note": "Note",
+      "notePlaceholder": "Internal reminder — props needed, location, who shoots it…",
+      "submit": "Add idea"
+    },
+    "toast": {
+      "added": "Idea added",
+      "updated": "Idea updated",
+      "postCreated": "Post created from idea"
+    }
+  },
+  "calendar": {
+    "eyebrow": "Content Plan",
+    "title": "Calendar",
+    "subtitle": "Everything scheduled to go out — switch between the week-by-week list and the month grid.",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "today": "Today",
+    "postCount_one": "{{count}} post",
+    "postCount_other": "{{count}} posts",
+    "viewAria": "Calendar view",
+    "viewList": "List",
+    "viewMonth": "Calendar",
+    "newPost": "New post",
+    "empty": {
+      "title": "Nothing scheduled in {{month}}",
+      "body": "Add a post for this month, or convert an approved idea from the Ideas board straight into the calendar.",
+      "action": "Schedule a post"
+    },
+    "grid": {
+      "untitled": "Untitled post",
+      "addOnAria": "Add a post on {{date}}",
+      "openReferenceAria": "Open the reference link for {{title}} in a new tab"
+    },
+    "list": {
+      "week": "Week {{n}}",
+      "unscheduled": "Unscheduled",
+      "day": "Day",
+      "objective": "Objective",
+      "visualScript": "Text on Visual / Video Script",
+      "caption": "Caption",
+      "cta": "CTA",
+      "mediaLink": "Media Link",
+      "openPostAria": "Open post details",
+      "openMediaLinkAria": "Open media link in a new tab",
+      "postDateAria": "Post date",
+      "visualScriptAria": "Text on visual or video script",
+      "referenceAria": "Reference link",
+      "noGoal": "No goal",
+      "noFormat": "No format",
+      "addObjective": "Add objective",
+      "addVisualScript": "Add on-screen text or script",
+      "addCaption": "Add caption",
+      "addCta": "Add CTA",
+      "addLink": "Add link",
+      "addReference": "Add reference"
+    },
+    "detail": {
+      "editTitle": "Post details",
+      "newTitle": "New post",
+      "newSubtitle": "Schedule a piece of content on the calendar.",
+      "weekLabel": "Week label",
+      "weekLabelPlaceholder": "e.g. Launch week",
+      "weekNumberHint": "Week number is calculated from the date by the database.",
+      "objectivePlaceholder": "What should this post achieve?",
+      "visualScriptPlaceholder": "On-screen copy, shot list, or voiceover script.",
+      "captionPlaceholder": "The caption as it will be published.",
+      "ctaPlaceholder": "e.g. Book now via the link in bio",
+      "mediaLinkPlaceholder": "https://…",
+      "fromIdea": "Created from an idea in the Ideas board.",
+      "submit": "Create post"
+    },
+    "toast": {
+      "moved": "Moved to {{date}}",
+      "created": "Post created",
+      "updated": "Post updated"
+    }
+  },
+  "influencers": {
+    "eyebrow": "Creator Outreach",
+    "title": "Influencers",
+    "subtitle": "Every creator on the radar — audience size, contact details, and where the conversation stands.",
+    "searchPlaceholder": "Search influencers…",
+    "searchAria": "Search influencers",
+    "allTypes": "All types",
+    "allCountries": "All countries",
+    "allStatuses": "All statuses",
+    "filterTypeAria": "Filter by type",
+    "filterCountryAria": "Filter by country",
+    "filterStatusAria": "Filter by messaging status",
+    "newInfluencer": "New influencer",
+    "empty": {
+      "filteredTitle": "No influencers match those filters",
+      "filteredBody": "Try a broader type, country, or messaging status — or clear the filters to see the full list.",
+      "noneTitle": "No influencers yet",
+      "noneBody": "Track every creator you're talking to — who they are, how big their audience is, and where the conversation stands.",
+      "addFirst": "Add the first influencer"
+    },
+    "columns": {
+      "influencer": "Influencer",
+      "followers": "Followers",
+      "contact": "Contact",
+      "messaging": "Messaging",
+      "decision": "Decision"
+    },
+    "notSet": "Not set",
+    "messagingAria": "Messaging status for {{name}}",
+    "decisionAria": "Final decision for {{name}}",
+    "editAria": "Edit {{name}}",
+    "form": {
+      "editTitle": "Edit influencer",
+      "newTitle": "New influencer",
+      "subtitle": "Creator contacts and where each one stands in the outreach pipeline.",
+      "namePlaceholder": "Creator or account name",
+      "followersPlaceholder": "e.g. 124K",
+      "profileUrl": "Profile URL",
+      "profileUrlPlaceholder": "https://instagram.com/…",
+      "emailContact": "Email / contact",
+      "emailContactPlaceholder": "name@example.com or a WhatsApp number",
+      "messagingStatus": "Messaging status",
+      "finalDecision": "Final decision",
+      "notesPlaceholder": "Rates, audience fit, past collaborations…",
+      "submit": "Add influencer"
+    },
+    "toast": {
+      "added": "Influencer added",
+      "updated": "Influencer updated",
+      "statusUpdated": "Status updated"
+    }
+  },
+  "errors": {
+    "notAuthenticated": "Not authenticated",
+    "titleRequired": "Title is required",
+    "nameRequired": "Name is required",
+    "ideaNotFound": "Idea not found",
+    "insertFailed": "Insert failed",
+    "adminField": "That field is managed by an admin.",
+    "notEditableHere": "That field can't be edited here.",
+    "schemaUnreachable": "Media tables aren't reachable yet — ask an admin to expose the `media` schema in Supabase.",
+    "rowLevelSecurity": "You don't have permission to change this — Posted and Approved are set by an admin.",
+    "danglingReference": "That reference no longer exists. Refresh the page and try again.",
+    "duplicate": "A record with those details already exists.",
+    "saveIdea": "Couldn't save the idea",
+    "convertIdea": "Couldn't convert this idea",
+    "savePost": "Couldn't save the post",
+    "createPost": "Couldn't create the post",
+    "saveField": "Couldn't save that change",
+    "saveInfluencer": "Couldn't save the influencer",
+    "updateStatus": "Couldn't update the status"
+  },
+  "none": "None"
+}

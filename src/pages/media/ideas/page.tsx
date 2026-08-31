@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../../components/layout/page-header';
 import { getFormats, getGoals, getIdeas } from '../../../lib/queries/media';
 import type { MediaFormat, MediaGoal, MediaIdea } from '../../../lib/types/media';
@@ -19,6 +20,7 @@ const loadIdeasData = async (): Promise<IdeasData> => {
 };
 
 export default function MediaIdeasPage() {
+  const { t } = useTranslation('media');
   const { data, loading } = useMediaData(loadIdeasData);
 
   if (loading || !data) return <IdeasLoading />;
@@ -26,9 +28,9 @@ export default function MediaIdeasPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Content Ideas"
-        title="Ideas"
-        subtitle="The backlog of concepts — capture them here, then convert the good ones into scheduled posts."
+        eyebrow={t('ideas.eyebrow')}
+        title={t('ideas.title')}
+        subtitle={t('ideas.subtitle')}
       />
       <MediaNav />
       <IdeasClient ideas={data.ideas} goals={data.goals} formats={data.formats} />

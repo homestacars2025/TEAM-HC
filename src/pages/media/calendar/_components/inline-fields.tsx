@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Select, SelectContent, SelectItem, SelectTrigger,
 } from '../../../../components/ui/select';
@@ -17,7 +18,7 @@ import { cn } from '../../../../lib/utils';
 const NONE = '_none';
 
 const CELL_IDLE =
-  'w-full rounded-md px-2 py-1.5 text-left text-[12.5px] leading-snug transition-colors duration-150 ' +
+  'w-full rounded-md px-2 py-1.5 text-start text-[12.5px] leading-snug transition-colors duration-150 ' +
   'hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40';
 
 // ─── InlineText ───────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ interface InlineTextProps {
 export function InlineText({
   value, placeholder, multiline, onSave, className, ariaLabel,
 }: InlineTextProps) {
+  const { t } = useTranslation('common');
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [draft, setDraft] = React.useState('');
@@ -80,6 +82,8 @@ export function InlineText({
       onBlur: commit,
       onKeyDown: handleKeyDown,
       'aria-label': ariaLabel,
+      // Follows what is being typed, not the page it is typed on.
+      dir: 'auto' as const,
       className: cn(
         'w-full rounded-md border border-[#6ea4e7]/40 bg-white px-2 py-1.5 text-[12.5px] leading-snug',
         'outline-none ring-2 ring-[#6ea4e7]/15',
@@ -93,10 +97,10 @@ export function InlineText({
       {isSaving ? (
         <span className="inline-flex items-center gap-1.5 text-black/40">
           <Loader2 size={11} className="animate-spin" />
-          Saving…
+          {t('actions.saving')}
         </span>
       ) : value ? (
-        <span className={cn('block text-black/75', multiline && 'line-clamp-3')}>{value}</span>
+        <span dir="auto" className={cn('block text-black/75', multiline && 'line-clamp-3')}>{value}</span>
       ) : (
         <span className="text-black/25">{placeholder}</span>
       )}
@@ -171,7 +175,7 @@ export function InlineSelect({
           {showDot && selected && (
             <span aria-hidden className="size-2 shrink-0 rounded-full" style={dotStyle(selected.color)} />
           )}
-          <span className={cn('truncate', selected || value ? 'text-black/75' : 'text-black/25')}>
+          <span dir="auto" className={cn('truncate', selected || value ? 'text-black/75' : 'text-black/25')}>
             {selected?.label ?? value ?? placeholder}
           </span>
         </span>

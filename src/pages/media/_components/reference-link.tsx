@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '../../../components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip';
 import { normalizeReferenceUrl, referenceLabel } from '../../../lib/media/reference-url';
@@ -23,8 +24,9 @@ const CHIP =
 const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
 export function ReferenceChip({
-  url, label = 'Reference', className,
+  url, label, className,
 }: { url: string | null | undefined; label?: string; className?: string }) {
+  const { t } = useTranslation('media');
   const href = normalizeReferenceUrl(url);
   if (!href) return null;
 
@@ -35,16 +37,16 @@ export function ReferenceChip({
           <a
             href={href}
             {...EXTERNAL}
-            aria-label={`Open the reference link ${referenceLabel(href)} in a new tab`}
+            aria-label={t('reference.openAria', { label: referenceLabel(href) })}
             className={cn(CHIP, className)}
           />
         }
       >
         <ExternalLink size={11} strokeWidth={2} aria-hidden />
-        {label}
+        {label ?? t('reference.label')}
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6}>
-        <span className="max-w-[280px] truncate">{referenceLabel(href)}</span>
+        <span dir="ltr" className="max-w-[280px] truncate">{referenceLabel(href)}</span>
       </TooltipContent>
     </Tooltip>
   );
@@ -56,8 +58,9 @@ export function ReferenceChip({
  * sibling instead, or the markup is invalid and the drag handle swallows the tap.
  */
 export function ReferenceIconLink({
-  url, ariaLabel = 'Open the reference link in a new tab', className,
+  url, ariaLabel, className,
 }: { url: string | null | undefined; ariaLabel?: string; className?: string }) {
+  const { t } = useTranslation('media');
   const href = normalizeReferenceUrl(url);
   if (!href) return null;
 
@@ -65,7 +68,7 @@ export function ReferenceIconLink({
     <a
       href={href}
       {...EXTERNAL}
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? t('reference.openPlainAria')}
       title={referenceLabel(href)}
       className={cn(
         'inline-flex shrink-0 items-center justify-center rounded-md p-1 text-[#1f64bb]/60',
@@ -92,6 +95,7 @@ export function ReferenceField({
         id={id}
         type="url"
         inputMode="url"
+        dir="ltr"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => {

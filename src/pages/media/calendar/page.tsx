@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/page-header';
 import { getFormats, getGoals, getPosts } from '../../../lib/queries/media';
@@ -20,6 +21,7 @@ const loadCalendarData = async (): Promise<CalendarData> => {
 };
 
 export default function MediaCalendarPage() {
+  const { t } = useTranslation('media');
   const [searchParams] = useSearchParams();
   const { data, loading } = useMediaData(loadCalendarData);
 
@@ -28,9 +30,9 @@ export default function MediaCalendarPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Content Plan"
-        title="Calendar"
-        subtitle="Everything scheduled to go out — switch between the week-by-week list and the month grid."
+        eyebrow={t('calendar.eyebrow')}
+        title={t('calendar.title')}
+        subtitle={t('calendar.subtitle')}
       />
       <MediaNav />
       <MediaCalendarClient

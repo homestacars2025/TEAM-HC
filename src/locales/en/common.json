@@ -25,7 +25,10 @@
     "uploadFile": "Upload file",
     "other": "Other",
     "report": "Report",
-    "remove": "Remove"
+    "remove": "Remove",
+    "clear": "Clear",
+    "clearFilters": "Clear filters",
+    "saving": "Saving…"
   },
   "fields": {
     "car": "Car",
@@ -46,7 +49,10 @@
     "nationality": "Nationality",
     "language": "Language",
     "currency": "Currency",
-    "branch": "Branch"
+    "branch": "Branch",
+    "name": "Name",
+    "title": "Title",
+    "country": "Country"
   },
   "carStatus": {
     "working": "Working",
@@ -54,5 +60,10 @@
     "maintenance": "Maintenance",
     "selling": "Selling",
     "replacement": "Replacement"
+  },
+  "countryPicker": {
+    "select": "Select country",
+    "search": "Search countries…",
+    "empty": "No country found."
   }
 }

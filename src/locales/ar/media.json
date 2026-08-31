@@ -1,0 +1,242 @@
+{
+  "nav": {
+    "aria": "أقسام الوسائط",
+    "ideas": "الأفكار",
+    "calendar": "التقويم",
+    "influencers": "المؤثرون"
+  },
+  "colorMode": {
+    "label": "التلوين حسب",
+    "aria": "لوّن اللوحة حسب",
+    "goal": "الهدف",
+    "format": "الصيغة",
+    "legendAria": "مفتاح ألوان {{dimension}}",
+    "accentTitle": "{{dimension}}: {{label}}"
+  },
+  "reference": {
+    "label": "المرجع",
+    "openAria": "فتح رابط المرجع {{label}} في تبويب جديد",
+    "openPlainAria": "فتح رابط المرجع في تبويب جديد",
+    "hint": "اختياري — الترند أو المثال المبني عليه. يُفتح في تبويب جديد."
+  },
+  "badges": {
+    "posted": "منشور",
+    "notPosted": "غير منشور",
+    "postedTooltip": "يحدّدها المشرف",
+    "approved": "معتمد",
+    "pendingApproval": "بانتظار الاعتماد",
+    "approvedTooltip": "يعتمدها المشرف"
+  },
+  "category": {
+    "Indoor": "داخلي",
+    "Outdoor": "خارجي",
+    "Graphic": "تصميم",
+    "Reels": "ريلز",
+    "UGC": "UGC",
+    "Trending": "ترند"
+  },
+  "influencerType": {
+    "Popular Influencer": "مؤثر مشهور",
+    "Influencer": "مؤثر",
+    "UGC": "UGC"
+  },
+  "messagingStatus": {
+    "Not Contacted": "لم يتم التواصل",
+    "Contacted": "تم التواصل",
+    "Replied": "ردّ",
+    "In Talks": "قيد التفاوض",
+    "No Reply": "بلا رد"
+  },
+  "finalDecision": {
+    "Pending": "قيد الانتظار",
+    "Approved": "مقبول",
+    "Rejected": "مرفوض",
+    "On Hold": "معلّق"
+  },
+  "none": "لا شيء",
+  "ideas": {
+    "eyebrow": "أفكار المحتوى",
+    "title": "الأفكار",
+    "subtitle": "قائمة المفاهيم المؤجّلة — سجّلها هنا، ثم حوّل الجيّد منها إلى منشورات مجدولة.",
+    "searchPlaceholder": "ابحث في الأفكار…",
+    "searchAria": "البحث في الأفكار",
+    "newIdea": "فكرة جديدة",
+    "categoriesAria": "تصنيفات الأفكار",
+    "allCategories": "الكل",
+    "empty": {
+      "filteredTitle": "لا شيء يطابق هذا التصفية",
+      "filteredBody": "لا توجد أفكار في هذا التصنيف تطابق بحثك. جرّب تصنيفاً آخر أو امسح مربع البحث.",
+      "noneTitle": "لا توجد أفكار بعد",
+      "noneBody": "هذه قائمة كل ما قد تصوّره أو تصمّمه. سجّل أول مفهوم وحوّله إلى منشور مجدول حين يجهز.",
+      "addFirst": "أضف أول فكرة"
+    },
+    "card": {
+      "editAria": "تعديل {{title}}",
+      "convert": "تحويل إلى منشور",
+      "converting": "جارٍ التحويل…",
+      "convertedOpen": "تم التحويل — افتح المنشور"
+    },
+    "form": {
+      "editTitle": "تعديل الفكرة",
+      "newTitle": "فكرة جديدة",
+      "editSubtitle": "حدّث المفهوم. حالتا «منشور» و«معتمد» تبقيان بيد المشرف.",
+      "newSubtitle": "سجّل المفهوم — يمكنك تحويله إلى منشور مجدول لاحقاً.",
+      "title": "العنوان",
+      "titlePlaceholder": "مثال: جولة الشرفة عند الشروق",
+      "content": "المحتوى",
+      "contentPlaceholder": "عمّ يدور هذا العمل؟ يصبح هذا المسودة الأولى للتعليق.",
+      "category": "التصنيف",
+      "note": "ملاحظة",
+      "notePlaceholder": "تذكير داخلي — الأدوات المطلوبة، الموقع، من يصوّر…",
+      "submit": "أضف الفكرة"
+    },
+    "toast": {
+      "added": "تمت إضافة الفكرة",
+      "updated": "تم تحديث الفكرة",
+      "postCreated": "تم إنشاء منشور من الفكرة"
+    }
+  },
+  "calendar": {
+    "eyebrow": "خطة المحتوى",
+    "title": "التقويم",
+    "subtitle": "كل ما هو مجدول للنشر — بدّل بين قائمة الأسابيع وشبكة الشهر.",
+    "prevMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "today": "اليوم",
+    "postCount_zero": "لا منشورات",
+    "postCount_one": "منشور واحد",
+    "postCount_two": "منشوران",
+    "postCount_few": "{{count}} منشورات",
+    "postCount_many": "{{count}} منشوراً",
+    "postCount_other": "{{count}} منشور",
+    "viewAria": "عرض التقويم",
+    "viewList": "قائمة",
+    "viewMonth": "تقويم",
+    "newPost": "منشور جديد",
+    "empty": {
+      "title": "لا شيء مجدول في {{month}}",
+      "body": "أضف منشوراً لهذا الشهر، أو حوّل فكرة معتمدة من لوحة الأفكار مباشرة إلى التقويم.",
+      "action": "جدولة منشور"
+    },
+    "grid": {
+      "untitled": "منشور بلا عنوان",
+      "addOnAria": "إضافة منشور في {{date}}",
+      "openReferenceAria": "فتح رابط المرجع الخاص بـ {{title}} في تبويب جديد"
+    },
+    "list": {
+      "week": "الأسبوع {{n}}",
+      "unscheduled": "غير مجدول",
+      "day": "اليوم",
+      "objective": "الغرض",
+      "visualScript": "النص على الصورة / سيناريو الفيديو",
+      "caption": "التعليق",
+      "cta": "الدعوة للإجراء",
+      "mediaLink": "رابط الوسائط",
+      "openPostAria": "فتح تفاصيل المنشور",
+      "openMediaLinkAria": "فتح رابط الوسائط في تبويب جديد",
+      "postDateAria": "تاريخ المنشور",
+      "visualScriptAria": "النص على الصورة أو سيناريو الفيديو",
+      "referenceAria": "رابط المرجع",
+      "noGoal": "بلا هدف",
+      "noFormat": "بلا صيغة",
+      "addObjective": "أضف الغرض",
+      "addVisualScript": "أضف النص أو السيناريو",
+      "addCaption": "أضف التعليق",
+      "addCta": "أضف الدعوة للإجراء",
+      "addLink": "أضف رابطاً",
+      "addReference": "أضف مرجعاً"
+    },
+    "detail": {
+      "editTitle": "تفاصيل المنشور",
+      "newTitle": "منشور جديد",
+      "newSubtitle": "جدول قطعة محتوى على التقويم.",
+      "weekLabel": "تسمية الأسبوع",
+      "weekLabelPlaceholder": "مثال: أسبوع الإطلاق",
+      "weekNumberHint": "رقم الأسبوع تحسبه قاعدة البيانات من التاريخ.",
+      "objectivePlaceholder": "ما الذي يجب أن يحقّقه هذا المنشور؟",
+      "visualScriptPlaceholder": "النص الظاهر، أو قائمة اللقطات، أو نص التعليق الصوتي.",
+      "captionPlaceholder": "التعليق كما سيُنشر.",
+      "ctaPlaceholder": "مثال: احجز الآن عبر الرابط في البايو",
+      "mediaLinkPlaceholder": "https://…",
+      "fromIdea": "أُنشئ من فكرة في لوحة الأفكار.",
+      "submit": "إنشاء المنشور"
+    },
+    "toast": {
+      "moved": "نُقل إلى {{date}}",
+      "created": "تم إنشاء المنشور",
+      "updated": "تم تحديث المنشور"
+    }
+  },
+  "influencers": {
+    "eyebrow": "التواصل مع صنّاع المحتوى",
+    "title": "المؤثرون",
+    "subtitle": "كل صانع محتوى على الرادار — حجم الجمهور، وبيانات التواصل، وأين وصل الحديث معه.",
+    "searchPlaceholder": "ابحث في المؤثرين…",
+    "searchAria": "البحث في المؤثرين",
+    "allTypes": "كل الأنواع",
+    "allCountries": "كل الدول",
+    "allStatuses": "كل الحالات",
+    "filterTypeAria": "تصفية حسب النوع",
+    "filterCountryAria": "تصفية حسب الدولة",
+    "filterStatusAria": "تصفية حسب حالة المراسلة",
+    "newInfluencer": "مؤثر جديد",
+    "empty": {
+      "filteredTitle": "لا يوجد مؤثرون يطابقون هذه التصفية",
+      "filteredBody": "جرّب نوعاً أو دولة أو حالة مراسلة أوسع — أو امسح عوامل التصفية لرؤية القائمة كاملة.",
+      "noneTitle": "لا يوجد مؤثرون بعد",
+      "noneBody": "تابع كل صانع محتوى تتحدث معه — من هو، وكم حجم جمهوره، وأين وصل الحديث.",
+      "addFirst": "أضف أول مؤثر"
+    },
+    "columns": {
+      "influencer": "المؤثر",
+      "followers": "المتابعون",
+      "contact": "التواصل",
+      "messaging": "المراسلة",
+      "decision": "القرار"
+    },
+    "notSet": "غير محدد",
+    "messagingAria": "حالة المراسلة مع {{name}}",
+    "decisionAria": "القرار النهائي بشأن {{name}}",
+    "editAria": "تعديل {{name}}",
+    "form": {
+      "editTitle": "تعديل المؤثر",
+      "newTitle": "مؤثر جديد",
+      "subtitle": "جهات اتصال صنّاع المحتوى وموقع كل واحد منهم في مسار التواصل.",
+      "namePlaceholder": "اسم صانع المحتوى أو الحساب",
+      "followersPlaceholder": "مثال: 124K",
+      "profileUrl": "رابط الحساب",
+      "profileUrlPlaceholder": "https://instagram.com/…",
+      "emailContact": "البريد / وسيلة التواصل",
+      "emailContactPlaceholder": "name@example.com أو رقم واتساب",
+      "messagingStatus": "حالة المراسلة",
+      "finalDecision": "القرار النهائي",
+      "notesPlaceholder": "الأسعار، ملاءمة الجمهور، تعاونات سابقة…",
+      "submit": "أضف المؤثر"
+    },
+    "toast": {
+      "added": "تمت إضافة المؤثر",
+      "updated": "تم تحديث المؤثر",
+      "statusUpdated": "تم تحديث الحالة"
+    }
+  },
+  "errors": {
+    "notAuthenticated": "غير مسجَّل الدخول",
+    "titleRequired": "العنوان مطلوب",
+    "nameRequired": "الاسم مطلوب",
+    "ideaNotFound": "لم يتم العثور على الفكرة",
+    "insertFailed": "فشل الإدراج",
+    "adminField": "هذا الحقل يديره المشرف.",
+    "notEditableHere": "لا يمكن تعديل هذا الحقل هنا.",
+    "schemaUnreachable": "جداول الوسائط غير متاحة بعد — اطلب من المشرف إتاحة مخطط `media` في Supabase.",
+    "rowLevelSecurity": "لا تملك صلاحية تغيير هذا — حالتا «منشور» و«معتمد» يضبطهما المشرف.",
+    "danglingReference": "هذا المرجع لم يعد موجوداً. حدّث الصفحة وحاول مجدداً.",
+    "duplicate": "يوجد سجل بهذه البيانات مسبقاً.",
+    "saveIdea": "تعذّر حفظ الفكرة",
+    "convertIdea": "تعذّر تحويل هذه الفكرة",
+    "savePost": "تعذّر حفظ المنشور",
+    "createPost": "تعذّر إنشاء المنشور",
+    "saveField": "تعذّر حفظ هذا التغيير",
+    "saveInfluencer": "تعذّر حفظ المؤثر",
+    "updateStatus": "تعذّر تحديث الحالة"
+  }
+}

@@ -7,21 +7,22 @@ import {
   eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek,
 } from 'date-fns';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { chipStyle } from '../../../../lib/media/badge-color';
+import { useMediaDates, type MediaDates } from '../../../../lib/media/media-dates';
 import { accentFor, type ColorMode } from '../../../../lib/media/color-mode';
 import type { MediaFormat, MediaGoal, MediaLookup, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
 import { ReferenceIconLink } from '../../_components/reference-link';
-
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** Monday-first, so the grid lines up with the ISO week numbers the DB computes. */
 const WEEK_OPTS = { weekStartsOn: 1 as const };
 
 const day = (value: string | null | undefined) => value?.slice(0, 10) ?? '';
 
-const postTitle = (post: MediaPost): string =>
-  post.objective?.trim() || post.caption?.trim() || 'Untitled post';
+const postTitle = (post: MediaPost, t: TFunction): string =>
+  post.objective?.trim() || post.caption?.trim() || t('calendar.grid.untitled');
 
 interface PostsMonthViewProps {
   month: Date;
@@ -37,6 +38,8 @@ interface PostsMonthViewProps {
 export function PostsMonthView({
   month, posts, goals, formats, colorMode, onOpen, onCreateAt, onMovePost,
 }: PostsMonthViewProps) {
+  const { t } = useTranslation('media');
+  const d = useMediaDates();
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
 
   // 5 px keeps chips clickable: a tap opens the panel, only a real drag moves.
@@ -89,13 +92,14 @@ export function PostsMonthView({
     >
       <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
         <div className="grid grid-cols-7 border-b border-black/[0.06] bg-black/[0.015]">
-          {WEEKDAYS.map((d) => (
+          {d.weekdaysShort.map((name, i) => (
             <div
-              key={d}
+              key={name}
               className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-black/40"
             >
-              <span className="hidden sm:inline">{d}</span>
-              <span className="sm:hidden">{d[0]}</span>
+              <span className="hidden sm:inline">{name}</span>
+              {/* Narrow rather than `name[0]`: an Arabic weekday has its own one-letter form. */}
+              <span className="sm:hidden">{d.weekdaysNarrow[i]}</span>
             </div>
           ))}
         </div>
@@ -113,6 +117,8 @@ export function PostsMonthView({
               colorMode={colorMode}
               onOpen={onOpen}
               onCreateAt={onCreateAt}
+              t={t}
+              dates={d}
             />
           ))}
         </div>
@@ -130,6 +136,7 @@ export function PostsMonthView({
                 dragging.format_key ? formatMap.get(dragging.format_key) : undefined,
               )}
               className="shadow-[0_10px_28px_-10px_rgb(0_0_0/0.35)]"
+              t={t}
             />
           </div>
         )}
@@ -141,7 +148,7 @@ export function PostsMonthView({
 // ─── Day cell ─────────────────────────────────────────────────────────────────
 
 function DayCell({
-  date, inMonth, isToday, posts, goalMap, formatMap, colorMode, onOpen, onCreateAt,
+  date, inMonth, isToday, posts, goalMap, formatMap, colorMode, onOpen, onCreateAt, t, dates,
 }: {
   date: Date;
   inMonth: boolean;
@@ -152,17 +159,20 @@ function DayCell({
   colorMode: ColorMode;
   onOpen: (post: MediaPost) => void;
   onCreateAt: (date: string) => void;
+  t: TFunction;
+  dates: MediaDates;
 }) {
+  // Still date-fns: this is the droppable's id and the bucket key, never read.
   const iso = format(date, 'yyyy-MM-dd');
   const { setNodeRef, isOver } = useDroppable({ id: iso });
-  const label = `Add a post on ${format(date, 'd MMMM yyyy')}`;
+  const label = t('calendar.grid.addOnAria', { date: dates.full(date) });
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'group/day relative flex min-h-[124px] flex-col gap-1.5 border-b border-r border-black/[0.05] p-2 transition-colors duration-150',
-        '[&:nth-child(7n)]:border-r-0',
+        'group/day relative flex min-h-[124px] flex-col gap-1.5 border-b border-e border-black/[0.05] p-2 transition-colors duration-150',
+        '[&:nth-child(7n)]:border-e-0',
         !inMonth && 'bg-black/[0.012]',
         isOver && 'bg-[#6ea4e7]/[0.06] ring-1 ring-inset ring-[#6ea4e7]/30',
       )}
@@ -174,7 +184,7 @@ function DayCell({
             isToday ? 'bg-[#6ea4e7] text-white' : inMonth ? 'text-black/65' : 'text-black/25',
           )}
         >
-          {format(date, 'd')}
+          {date.getDate()}
         </span>
         <button
           type="button"
@@ -207,6 +217,7 @@ function DayCell({
           )}
           format={post.format_key ? formatMap.get(post.format_key) : undefined}
           onOpen={onOpen}
+          t={t}
         />
       ))}
     </div>
@@ -216,13 +227,14 @@ function DayCell({
 // ─── Chip ─────────────────────────────────────────────────────────────────────
 
 function PostChip({
-  post, accent, format: formatRow, onOpen,
+  post, accent, format: formatRow, onOpen, t,
 }: {
   post: MediaPost;
   /** The row driving the colour — a goal or a format, per the Color by switch. */
   accent?: MediaLookup;
   format?: MediaFormat;
   onOpen: (post: MediaPost) => void;
+  t: TFunction;
 }) {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: post.id });
 
@@ -235,29 +247,29 @@ function PostChip({
         ref={setNodeRef}
         type="button"
         onClick={() => onOpen(post)}
-        title={`${postTitle(post)}${formatRow ? ` — ${formatRow.label}` : ''}`}
+        title={`${postTitle(post, t)}${formatRow ? ` — ${formatRow.label}` : ''}`}
         className={cn(
-          'block w-full rounded-md text-left focus-visible:outline-none',
+          'block w-full rounded-md text-start focus-visible:outline-none',
           'focus-visible:ring-2 focus-visible:ring-[#6ea4e7]/40 focus-visible:ring-offset-1',
         )}
         {...listeners}
         {...attributes}
       >
-        <ChipBody post={post} accent={accent} hasReference={Boolean(post.reference_url)} />
+        <ChipBody post={post} accent={accent} hasReference={Boolean(post.reference_url)} t={t} />
       </button>
 
       <ReferenceIconLink
         url={post.reference_url}
-        ariaLabel={`Open the reference link for ${postTitle(post)} in a new tab`}
-        className="absolute right-0.5 top-0.5 z-[2] bg-white/70 backdrop-blur-[2px]"
+        ariaLabel={t('calendar.grid.openReferenceAria', { title: postTitle(post, t) })}
+        className="absolute end-0.5 top-0.5 z-[2] bg-white/70 backdrop-blur-[2px]"
       />
     </div>
   );
 }
 
 function ChipBody({
-  post, accent, hasReference, className,
-}: { post: MediaPost; accent?: MediaLookup; hasReference?: boolean; className?: string }) {
+  post, accent, hasReference, className, t,
+}: { post: MediaPost; accent?: MediaLookup; hasReference?: boolean; className?: string; t: TFunction }) {
   return (
     <div
       style={chipStyle(accent?.color)}
@@ -269,15 +281,15 @@ function ChipBody({
       )}
     >
       <p className={cn('line-clamp-2 text-[11.5px] font-medium leading-tight', hasReference && 'pe-4')}>
-        {postTitle(post)}
+        <span dir="auto">{postTitle(post, t)}</span>
       </p>
       <div className="mt-1 flex items-center gap-1">
         {post.posted && (
           <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-1.5 text-[9.5px] font-semibold uppercase tracking-wide text-emerald-700">
-            Posted
+            {t('badges.posted')}
           </span>
         )}
-        {accent && <span className="truncate text-[10px] font-medium opacity-70">{accent.label}</span>}
+        {accent && <span dir="auto" className="truncate text-[10px] font-medium opacity-70">{accent.label}</span>}
       </div>
     </div>
   );

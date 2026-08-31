@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   addMonths, format, isSameMonth, parseISO, startOfMonth, subMonths,
 } from 'date-fns';
@@ -8,6 +9,7 @@ import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, List, Plus } fro
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
 import { dotStyle } from '../../../../lib/media/badge-color';
+import { useMediaDates } from '../../../../lib/media/media-dates';
 import type { EditablePostField, MediaFormat, MediaGoal, MediaLookup, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
 import { ColorModeToggle, useColorMode } from '../../_components/color-mode-toggle';
@@ -19,9 +21,10 @@ import { PostsMonthView } from './posts-month-view';
 
 type ViewMode = 'list' | 'month';
 
+/** `value` is both the state and the i18n key — see `COLOR_MODES` for the reasoning. */
 const VIEWS = [
-  { value: 'list' as const, label: 'List', icon: List },
-  { value: 'month' as const, label: 'Calendar', icon: CalendarDays },
+  { value: 'list' as const, icon: List },
+  { value: 'month' as const, icon: CalendarDays },
 ];
 
 const day = (value: string | null | undefined) => value?.slice(0, 10) ?? '';
@@ -36,6 +39,10 @@ interface MediaCalendarClientProps {
 export function MediaCalendarClient({
   posts: initialPosts, goals, formats, initialPostId,
 }: MediaCalendarClientProps) {
+  const { t } = useTranslation('media');
+  const { i18n } = useTranslation();
+  const d = useMediaDates();
+  const isRtl = i18n.dir() === 'rtl';
   const [, setSearchParams] = useSearchParams();
 
   const arrivalTarget = initialPostId
@@ -93,20 +100,20 @@ export function MediaCalendarClient({
       const result = await updatePostField(postId, field, value);
       if (!result.ok) {
         setPosts(before);
-        toast.error(result.error ?? "Couldn't save that change");
+        toast.error(result.error ?? t('errors.saveField'));
         return false;
       }
       return true;
     },
-    [posts],
+    [posts, t],
   );
 
   const movePost = React.useCallback(
     async (postId: string, date: string) => {
       const ok = await saveField(postId, 'post_date', date);
-      if (ok) toast.success(`Moved to ${format(parseISO(date), 'd MMM')}`);
+      if (ok) toast.success(t('calendar.toast.moved', { date: d.dayMonth(parseISO(date)) }));
     },
-    [saveField],
+    [saveField, t, d],
   );
 
   const openPost = React.useCallback((post: MediaPost) => {
@@ -139,13 +146,13 @@ export function MediaCalendarClient({
       media_link: null, reference_url: null,
     });
     if (!result.ok || !result.id) {
-      toast.error(result.error ?? "Couldn't create the post");
+      toast.error(result.error ?? t('errors.createPost'));
       return;
     }
     setActivePostId(result.id);
     setDraftDate(undefined);
     setSheetOpen(true);
-  }, []);
+  }, [t]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -156,23 +163,27 @@ export function MediaCalendarClient({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Previous month"
+              aria-label={t('calendar.prevMonth')}
               onClick={() => setMonth((m) => subMonths(m, 1))}
             >
-              <ChevronLeft size={15} strokeWidth={1.75} />
+              {isRtl
+                ? <ChevronRight size={15} strokeWidth={1.75} />
+                : <ChevronLeft size={15} strokeWidth={1.75} />}
             </Button>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Next month"
+              aria-label={t('calendar.nextMonth')}
               onClick={() => setMonth((m) => addMonths(m, 1))}
             >
-              <ChevronRight size={15} strokeWidth={1.75} />
+              {isRtl
+                ? <ChevronLeft size={15} strokeWidth={1.75} />
+                : <ChevronRight size={15} strokeWidth={1.75} />}
             </Button>
           </div>
 
           <h2 className="text-[15px] font-semibold tracking-[-0.014em] text-black/85">
-            {format(month, 'MMMM yyyy')}
+            {d.monthYear(month)}
           </h2>
 
           {!isSameMonth(month, new Date()) && (
@@ -182,12 +193,12 @@ export function MediaCalendarClient({
               className="text-black/50"
               onClick={() => setMonth(startOfMonth(new Date()))}
             >
-              Today
+              {t('calendar.today')}
             </Button>
           )}
 
           <span className="rounded-full bg-black/[0.045] px-2 py-0.5 text-[11.5px] font-medium tabular-nums text-black/45">
-            {monthPosts.length} {monthPosts.length === 1 ? 'post' : 'posts'}
+            {t('calendar.postCount', { count: monthPosts.length })}
           </span>
         </div>
 
@@ -200,7 +211,7 @@ export function MediaCalendarClient({
 
           <div
             role="group"
-            aria-label="Calendar view"
+            aria-label={t('calendar.viewAria')}
             className="inline-flex items-center gap-0.5 rounded-lg border border-black/[0.07] bg-black/[0.02] p-0.5"
           >
             {VIEWS.map((v) => {
@@ -226,7 +237,7 @@ export function MediaCalendarClient({
                     />
                   )}
                   <Icon size={13} strokeWidth={isActive ? 2 : 1.6} className="relative" />
-                  <span className="relative">{v.label}</span>
+                  <span className="relative">{t(v.value === 'list' ? 'calendar.viewList' : 'calendar.viewMonth')}</span>
                 </button>
               );
             })}
@@ -234,14 +245,14 @@ export function MediaCalendarClient({
 
           <Button size="lg" onClick={() => openCreate()} className="shrink-0">
             <Plus size={15} strokeWidth={2} data-icon="inline-start" />
-            New post
+            {t('calendar.newPost')}
           </Button>
         </div>
       </div>
 
       {/* Month view only — the List view says the same thing in its own columns. */}
       {view === 'month' && legend.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2" aria-label={`${colorMode === 'format' ? 'Format' : 'Goal'} legend`}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2" aria-label={t('colorMode.legendAria', { dimension: t(`colorMode.${colorMode}`) })}>
           {legend.map((row) => (
             <span key={row.key} className="inline-flex items-center gap-1.5 text-[11.5px] text-black/45">
               <span aria-hidden className="size-2 rounded-full" style={dotStyle(row.color)} />
@@ -255,12 +266,12 @@ export function MediaCalendarClient({
         listPosts.length === 0 ? (
           <MediaEmptyState
             icon={CalendarPlus}
-            title={`Nothing scheduled in ${format(month, 'MMMM')}`}
-            description="Add a post for this month, or convert an approved idea from the Ideas board straight into the calendar."
+            title={t('calendar.empty.title', { month: d.month(month) })}
+            description={t('calendar.empty.body')}
             action={
               <Button size="lg" onClick={() => openCreate()}>
                 <Plus size={15} strokeWidth={2} data-icon="inline-start" />
-                Schedule a post
+                {t('calendar.empty.action')}
               </Button>
             }
           />

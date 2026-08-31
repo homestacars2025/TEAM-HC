@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
 import { CountryCombobox } from '../../../../components/ui/country-combobox';
@@ -52,6 +53,8 @@ export function InfluencerFormSheet({ open, onClose, influencer }: InfluencerFor
 function InfluencerForm({
   influencer, onClose,
 }: { influencer: MediaInfluencer | null; onClose: () => void }) {
+  const { t } = useTranslation('media');
+  const { t: tc } = useTranslation('common');
   const [form, setForm] = React.useState<FormState>(() => ({
     name: influencer?.name ?? '',
     followers_count: influencer?.followers_count ?? '',
@@ -68,13 +71,13 @@ function InfluencerForm({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const typeOption = INFLUENCER_TYPES.find((t) => t.value === form.type);
+  const typeOption = INFLUENCER_TYPES.find((ty) => ty.value === form.type);
   const messagingOption = MESSAGING_STATUSES.find((m) => m.value === form.messaging_status);
   const decisionOption = FINAL_DECISIONS.find((d) => d.value === form.final_decision);
 
   function handleSubmit() {
     if (!form.name.trim()) {
-      toast.error('Name is required');
+      toast.error(t('errors.nameRequired'));
       return;
     }
     startTransition(async () => {
@@ -91,10 +94,10 @@ function InfluencerForm({
         final_decision: form.final_decision || null,
       });
       if (!result.ok) {
-        toast.error(result.error ?? "Couldn't save the influencer");
+        toast.error(result.error ?? t('errors.saveInfluencer'));
         return;
       }
-      toast.success(influencer ? 'Influencer updated' : 'Influencer added');
+      toast.success(influencer ? t('influencers.toast.updated') : t('influencers.toast.added'));
       onClose();
     });
   }
@@ -103,40 +106,40 @@ function InfluencerForm({
     <>
       <SheetHeader className="border-b border-black/[0.06] px-6 py-5">
         <SheetTitle className="text-[16px] tracking-[-0.014em]">
-          {influencer ? 'Edit influencer' : 'New influencer'}
+          {influencer ? t('influencers.form.editTitle') : t('influencers.form.newTitle')}
         </SheetTitle>
-        <SheetDescription className="text-[13px]">
-          Creator contacts and where each one stands in the outreach pipeline.
-        </SheetDescription>
+        <SheetDescription className="text-[13px]">{t('influencers.form.subtitle')}</SheetDescription>
       </SheetHeader>
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
         <div className="flex flex-col gap-1.5">
           <Label className="text-[13px]">
-            Name <span className="text-destructive">*</span>
+            {tc('fields.name')} <span className="text-destructive">*</span>
           </Label>
           <Input
             autoFocus
+            dir="auto"
             value={form.name}
             onChange={(e) => set('name', e.target.value)}
-            placeholder="Creator or account name"
+            placeholder={t('influencers.form.namePlaceholder')}
             className="h-9 text-[13px]"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Followers</Label>
+            <Label className="text-[13px]">{t('influencers.columns.followers')}</Label>
             <Input
+              dir="ltr"
               value={form.followers_count}
               onChange={(e) => set('followers_count', e.target.value)}
-              placeholder="e.g. 124K"
+              placeholder={t('influencers.form.followersPlaceholder')}
               className="h-9 text-[13px] tabular-nums"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Type</Label>
+            <Label className="text-[13px]">{tc('fields.type')}</Label>
             <Select
               value={form.type || NONE}
               onValueChange={(v: string | null) => set('type', v === NONE ? '' : (v ?? ''))}
@@ -147,16 +150,16 @@ function InfluencerForm({
                     <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[typeOption.tone])} />
                   )}
                   <span className={cn('truncate', form.type ? 'text-foreground' : 'text-black/35')}>
-                    {typeOption?.label ?? form.type ?? 'None'}
+                    {form.type ? t(`influencerType.${form.type}`, { defaultValue: form.type }) : t('none')}
                   </span>
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">None</SelectItem>
-                {INFLUENCER_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[t.tone])} />
-                    {t.label}
+                <SelectItem value={NONE} className="text-black/45">{t('none')}</SelectItem>
+                {INFLUENCER_TYPES.map((ty) => (
+                  <SelectItem key={ty.value} value={ty.value}>
+                    <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[ty.tone])} />
+                    {t(`influencerType.${ty.value}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -165,37 +168,38 @@ function InfluencerForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Country</Label>
+          <Label className="text-[13px]">{tc('fields.country')}</Label>
           <CountryCombobox
             value={form.country}
             onChange={(code) => set('country', code)}
-            placeholder="Select country"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Profile URL</Label>
+          <Label className="text-[13px]">{t('influencers.form.profileUrl')}</Label>
           <Input
+            dir="ltr"
             value={form.url}
             onChange={(e) => set('url', e.target.value)}
-            placeholder="https://instagram.com/…"
+            placeholder={t('influencers.form.profileUrlPlaceholder')}
             className="h-9 text-[13px]"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Email / contact</Label>
+          <Label className="text-[13px]">{t('influencers.form.emailContact')}</Label>
           <Input
+            dir="ltr"
             value={form.email_contact}
             onChange={(e) => set('email_contact', e.target.value)}
-            placeholder="name@example.com or a WhatsApp number"
+            placeholder={t('influencers.form.emailContactPlaceholder')}
             className="h-9 text-[13px]"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Messaging status</Label>
+            <Label className="text-[13px]">{t('influencers.form.messagingStatus')}</Label>
             <Select
               value={form.messaging_status || NONE}
               onValueChange={(v: string | null) => set('messaging_status', v === NONE ? '' : (v ?? ''))}
@@ -206,16 +210,18 @@ function InfluencerForm({
                     <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[messagingOption.tone])} />
                   )}
                   <span className={cn('truncate', form.messaging_status ? 'text-foreground' : 'text-black/35')}>
-                    {messagingOption?.label ?? form.messaging_status ?? 'Not set'}
+                    {form.messaging_status
+                      ? t(`messagingStatus.${form.messaging_status}`, { defaultValue: form.messaging_status })
+                      : t('influencers.notSet')}
                   </span>
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">Not set</SelectItem>
+                <SelectItem value={NONE} className="text-black/45">{t('influencers.notSet')}</SelectItem>
                 {MESSAGING_STATUSES.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
                     <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[m.tone])} />
-                    {m.label}
+                    {t(`messagingStatus.${m.value}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -223,7 +229,7 @@ function InfluencerForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Final decision</Label>
+            <Label className="text-[13px]">{t('influencers.form.finalDecision')}</Label>
             <Select
               value={form.final_decision || NONE}
               onValueChange={(v: string | null) => set('final_decision', v === NONE ? '' : (v ?? ''))}
@@ -234,16 +240,18 @@ function InfluencerForm({
                     <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[decisionOption.tone])} />
                   )}
                   <span className={cn('truncate', form.final_decision ? 'text-foreground' : 'text-black/35')}>
-                    {decisionOption?.label ?? form.final_decision ?? 'Not set'}
+                    {form.final_decision
+                      ? t(`finalDecision.${form.final_decision}`, { defaultValue: form.final_decision })
+                      : t('influencers.notSet')}
                   </span>
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">Not set</SelectItem>
-                {FINAL_DECISIONS.map((d) => (
-                  <SelectItem key={d.value} value={d.value}>
-                    <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[d.tone])} />
-                    {d.label}
+                <SelectItem value={NONE} className="text-black/45">{t('influencers.notSet')}</SelectItem>
+                {FINAL_DECISIONS.map((dec) => (
+                  <SelectItem key={dec.value} value={dec.value}>
+                    <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[dec.tone])} />
+                    {t(`finalDecision.${dec.value}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -252,21 +260,22 @@ function InfluencerForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Notes</Label>
+          <Label className="text-[13px]">{tc('fields.notes')}</Label>
           <Textarea
             rows={4}
+            dir="auto"
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
-            placeholder="Rates, audience fit, past collaborations…"
+            placeholder={t('influencers.form.notesPlaceholder')}
             className="resize-none text-[13px] leading-relaxed"
           />
         </div>
       </div>
 
       <div className="flex flex-row justify-end gap-2 border-t border-black/[0.06] px-6 py-4">
-        <Button variant="outline" size="lg" onClick={onClose} disabled={isPending}>Cancel</Button>
+        <Button variant="outline" size="lg" onClick={onClose} disabled={isPending}>{tc('actions.cancel')}</Button>
         <Button size="lg" onClick={handleSubmit} disabled={isPending}>
-          {isPending ? 'Saving…' : influencer ? 'Save changes' : 'Add influencer'}
+          {isPending ? tc('actions.saving') : influencer ? tc('actions.saveChanges') : t('influencers.form.submit')}
         </Button>
       </div>
     </>

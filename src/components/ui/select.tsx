@@ -21,7 +21,7 @@ function SelectTrigger({
       data-size={size}
       className={cn(
         'flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent',
-        'py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none',
+        'py-2 pe-2 ps-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none',
         'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
         'disabled:cursor-not-allowed disabled:opacity-50',
         'data-[size=default]:h-8 data-[size=sm]:h-7',
@@ -69,7 +69,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        'relative flex cursor-default items-center gap-2 rounded-md py-1 pr-7 pl-1.5 text-sm outline-none select-none',
+        'relative flex cursor-default items-center gap-2 rounded-md py-1 pe-7 ps-1.5 text-sm outline-none select-none',
         'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
         'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className,
@@ -77,7 +77,7 @@ function SelectItem({
       {...props}
     >
       <SelectPrimitive.ItemText className="flex min-w-0 items-center gap-2">{children}</SelectPrimitive.ItemText>
-      <SelectPrimitive.ItemIndicator className="absolute right-2 flex items-center">
+      <SelectPrimitive.ItemIndicator className="absolute end-2 flex items-center">
         <Check className="size-3.5" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>

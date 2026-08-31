@@ -2,7 +2,8 @@ import * as React from 'react';
 import { Popover } from '@base-ui/react/popover';
 import { Command } from 'cmdk';
 import { Check, ChevronDown } from 'lucide-react';
-import { COUNTRIES, getCountry } from '../../lib/countries';
+import { useTranslation } from 'react-i18next';
+import { COUNTRIES, getCountry, localisedCountryName } from '../../lib/countries';
 import { cn } from '../../lib/utils';
 
 interface CountryComboboxProps {
@@ -20,10 +21,24 @@ interface CountryComboboxProps {
  * typing "Tur".
  */
 export function CountryCombobox({
-  value, onChange, placeholder = 'Select country', disabled, className,
+  value, onChange, placeholder, disabled, className,
 }: CountryComboboxProps) {
+  const { t, i18n } = useTranslation('common');
+  const lang = i18n.resolvedLanguage ?? 'en';
   const [open, setOpen] = React.useState(false);
   const selected = getCountry(value);
+
+  /**
+   * Sorted in the reader's own collation. The search value keeps the English
+   * name and the code alongside the localised one, so "TR", "Turkey" and
+   * "تركيا" all find the same row.
+   */
+  const countries = React.useMemo(
+    () => COUNTRIES
+      .map((c) => ({ ...c, localised: localisedCountryName(lang, c.cca2, c.name) }))
+      .sort((a, b) => a.localised.localeCompare(b.localised, lang)),
+    [lang],
+  );
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -38,7 +53,9 @@ export function CountryCombobox({
         )}
       >
         <span className={cn('truncate', selected ? 'text-foreground' : 'text-black/35')}>
-          {selected ? `${selected.flag} ${selected.name}` : placeholder}
+          {selected
+            ? `${selected.flag} ${localisedCountryName(lang, selected.cca2, selected.name)}`
+            : placeholder ?? t('countryPicker.select')}
         </span>
         <ChevronDown className="size-4 shrink-0 opacity-50" />
       </Popover.Trigger>
@@ -57,18 +74,18 @@ export function CountryCombobox({
               <div className="border-b border-black/[0.06] px-3">
                 <Command.Input
                   autoFocus
-                  placeholder="Search countries…"
+                  placeholder={t('countryPicker.search')}
                   className="h-9 w-full bg-transparent text-[13px] outline-none placeholder:text-black/30"
                 />
               </div>
               <Command.List className="max-h-[240px] overflow-y-auto p-1">
                 <Command.Empty className="px-3 py-4 text-center text-[12.5px] text-black/40">
-                  No country found.
+                  {t('countryPicker.empty')}
                 </Command.Empty>
-                {COUNTRIES.map((country) => (
+                {countries.map((country) => (
                   <Command.Item
                     key={country.cca2}
-                    value={`${country.name} ${country.cca2}`}
+                    value={`${country.localised} ${country.name} ${country.cca2}`}
                     onSelect={() => { onChange?.(country.cca2); setOpen(false); }}
                     className={cn(
                       'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px]',
@@ -76,7 +93,7 @@ export function CountryCombobox({
                     )}
                   >
                     <span aria-hidden>{country.flag}</span>
-                    <span className="min-w-0 flex-1 truncate">{country.name}</span>
+                    <span className="min-w-0 flex-1 truncate">{country.localised}</span>
                     {value?.toUpperCase() === country.cca2 && <Check className="size-3.5 shrink-0" />}
                   </Command.Item>
                 ))}

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -10,10 +11,16 @@ import { cn } from '../../../../lib/utils';
 
 interface StatusSelectProps {
   value: string | null;
-  options: readonly { value: string; label: string; tone: Tone }[];
+  options: readonly { value: string; tone: Tone }[];
   placeholder: string;
   ariaLabel: string;
   onSelect: (next: string | null) => Promise<boolean>;
+  /**
+   * Which `media` sub-object holds the display names for these options. The
+   * option's own `value` stays the stored English string in every case — this
+   * only decides what the reader sees on top of it.
+   */
+  labelKey: 'messagingStatus' | 'finalDecision';
 }
 
 /**
@@ -22,14 +29,17 @@ interface StatusSelectProps {
  * Unlike `posted` / `is_approved`, these two columns are team-editable, so the
  * control is deliberately interactive — the affordance matches what RLS allows.
  */
-export function StatusSelect({ value, options, placeholder, ariaLabel, onSelect }: StatusSelectProps) {
+export function StatusSelect({
+  value, options, placeholder, ariaLabel, onSelect, labelKey,
+}: StatusSelectProps) {
+  const { t } = useTranslation('media');
   const [pending, setPending] = React.useState(false);
   /** `undefined` means "defer to the prop", which makes a rollback one assignment. */
   const [optimistic, setOptimistic] = React.useState<string | null | undefined>(undefined);
 
   const current = optimistic === undefined ? value : optimistic;
   const tone = toneFor(options, current);
-  const label = options.find((o) => o.value === current)?.label ?? current;
+  const label = current ? t(`${labelKey}.${current}`, { defaultValue: current }) : null;
 
   async function choose(next: string | null) {
     if (next === current) return;
@@ -38,7 +48,7 @@ export function StatusSelect({ value, options, placeholder, ariaLabel, onSelect 
     const ok = await onSelect(next);
     setPending(false);
     if (!ok) setOptimistic(undefined);
-    else toast.success('Status updated');
+    else toast.success(t('influencers.toast.statusUpdated'));
   }
 
   return (
@@ -72,7 +82,7 @@ export function StatusSelect({ value, options, placeholder, ariaLabel, onSelect 
         {options.map((o) => (
           <DropdownMenuItem key={o.value} onClick={() => choose(o.value)}>
             <span aria-hidden className={cn('size-2 shrink-0 rounded-full', TONE_DOTS[o.tone])} />
-            {o.label}
+            {t(`${labelKey}.${o.value}`)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

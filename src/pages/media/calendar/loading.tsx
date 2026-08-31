@@ -38,7 +38,7 @@ export function CalendarLoading() {
             {Array.from({ length: 35 }).map((_, i) => (
               <div
                 key={i}
-                className="flex min-h-[124px] flex-col gap-1.5 border-b border-r border-black/[0.05] p-2 [&:nth-child(7n)]:border-r-0"
+                className="flex min-h-[124px] flex-col gap-1.5 border-b border-e border-black/[0.05] p-2 [&:nth-child(7n)]:border-e-0"
               >
                 <Skeleton className="size-[22px] rounded-full" />
                 {i % 3 === 0 && <Skeleton className="h-9 w-full rounded-md" />}

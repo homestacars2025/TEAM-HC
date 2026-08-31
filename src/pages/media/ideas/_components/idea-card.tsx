@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Pencil, Sparkles, StickyNote } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../../../components/ui/button';
 import { chipStyle } from '../../../../lib/media/badge-color';
 import { accentFor, type ColorMode } from '../../../../lib/media/color-mode';
@@ -20,6 +21,7 @@ interface IdeaCardProps {
 }
 
 export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, onConvert }: IdeaCardProps) {
+  const { t } = useTranslation('media');
   const accent = accentFor(colorMode, goal, format);
   // Only the leading rail is taken from the accent — the card stays white, so a
   // wall of cards never turns into a wall of tinted rectangles.
@@ -31,7 +33,9 @@ export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, 
   return (
     <article
       style={rail}
-      title={accent ? `${colorMode === 'format' ? 'Format' : 'Goal'}: ${accent.label}` : undefined}
+      title={accent
+        ? t('colorMode.accentTitle', { dimension: t(`colorMode.${colorMode}`), label: accent.label })
+        : undefined}
       className={cn(
         'group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5',
         // `bg-clip-padding` keeps the white surface from bleeding under the rail.
@@ -40,22 +44,24 @@ export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, 
       )}
     >
       <div className="flex items-start gap-2">
-        <h3 className="min-w-0 flex-1 text-[14.5px] font-semibold leading-snug tracking-[-0.012em] text-black/88">
+        {/* `dir="auto"` so an English idea inside an Arabic page keeps its own
+            punctuation at its own end — without it the full stop jumps to the left. */}
+        <h3 dir="auto" className="min-w-0 flex-1 text-[14.5px] font-semibold leading-snug tracking-[-0.012em] text-black/88">
           {idea.title}
         </h3>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={`Edit ${idea.title}`}
+          aria-label={t('ideas.card.editAria', { title: idea.title })}
           onClick={() => onEdit(idea)}
-          className="-mt-0.5 -mr-1.5 opacity-0 transition-opacity duration-150 focus-visible:opacity-100 group-hover/idea:opacity-100"
+          className="-mt-0.5 -me-1.5 opacity-0 transition-opacity duration-150 focus-visible:opacity-100 group-hover/idea:opacity-100"
         >
           <Pencil size={14} strokeWidth={1.75} />
         </Button>
       </div>
 
       {idea.content && (
-        <p className="line-clamp-3 text-[13px] leading-relaxed text-black/50">{idea.content}</p>
+        <p dir="auto" className="line-clamp-3 text-[13px] leading-relaxed text-black/50">{idea.content}</p>
       )}
 
       {hasTaxonomy && (
@@ -69,7 +75,7 @@ export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, 
       {idea.note && (
         <div className="flex items-start gap-2 rounded-xl bg-amber-500/[0.06] px-3 py-2.5 ring-1 ring-amber-500/[0.12]">
           <StickyNote size={13} strokeWidth={1.75} className="mt-px shrink-0 text-amber-600/80" />
-          <p className="text-[12.5px] leading-relaxed text-amber-900/70">{idea.note}</p>
+          <p dir="auto" className="text-[12.5px] leading-relaxed text-amber-900/70">{idea.note}</p>
         </div>
       )}
 
@@ -86,13 +92,13 @@ export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, 
             to={`/dashboard/media/calendar?post=${idea.converted_post_id}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-500/[0.08] px-3 text-[12.5px] font-semibold text-emerald-700 transition-colors duration-150 hover:bg-emerald-500/[0.14]"
           >
-            Converted — open post
+            {t('ideas.card.convertedOpen')}
             <ArrowUpRight size={13} strokeWidth={2} />
           </Link>
         ) : (
           <Button size="lg" onClick={() => onConvert(idea)} disabled={isConverting} className="w-full">
             <Sparkles size={14} strokeWidth={1.75} data-icon="inline-start" />
-            {isConverting ? 'Converting…' : 'Convert to Post'}
+            {isConverting ? t('ideas.card.converting') : t('ideas.card.convert')}
           </Button>
         )}
       </div>

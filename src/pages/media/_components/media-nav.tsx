@@ -1,24 +1,27 @@
 import * as React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CalendarRange, Lightbulb, Megaphone } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
+/** `key` names the label; the href is what decides which tab is current. */
 const SECTIONS = [
-  { title: 'Ideas', href: '/dashboard/media/ideas', icon: Lightbulb },
-  { title: 'Calendar', href: '/dashboard/media/calendar', icon: CalendarRange },
-  { title: 'Influencers', href: '/dashboard/media/influencers', icon: Megaphone },
+  { key: 'ideas', href: '/dashboard/media/ideas', icon: Lightbulb },
+  { key: 'calendar', href: '/dashboard/media/calendar', icon: CalendarRange },
+  { key: 'influencers', href: '/dashboard/media/influencers', icon: Megaphone },
 ] as const;
 
 /** The segmented sub-nav shared by all three Media pages. */
 export function MediaNav() {
+  const { t } = useTranslation('media');
   const { pathname } = useLocation();
 
   return (
     <nav
-      aria-label="Media sections"
+      aria-label={t('nav.aria')}
       className="inline-flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-black/[0.06] bg-black/[0.02] p-1"
     >
-      {SECTIONS.map(({ title, href, icon: Icon }) => {
+      {SECTIONS.map(({ key, href, icon: Icon }) => {
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link
@@ -33,7 +36,7 @@ export function MediaNav() {
             )}
           >
             <Icon size={14} strokeWidth={isActive ? 2 : 1.6} />
-            {title}
+            {t(`nav.${key}`)}
           </Link>
         );
       })}

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
 /**
- * A leading icon is marked `data-icon="inline-start"`, which trims the left padding
+ * A leading icon is marked `data-icon="inline-start"`, which trims the leading padding
  * so an icon + label button stays optically balanced against a text-only one.
  */
 const buttonVariants = cva(
@@ -15,7 +15,7 @@ const buttonVariants = cva(
     'disabled:pointer-events-none disabled:opacity-50',
     'aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-[3px] aria-[invalid=true]:ring-destructive/20',
     "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-    'has-[[data-icon=inline-start]]:pl-2',
+    'has-[[data-icon=inline-start]]:ps-2',
   ].join(' '),
   {
     variants: {

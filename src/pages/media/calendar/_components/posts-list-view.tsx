@@ -1,11 +1,14 @@
 import * as React from 'react';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { ExternalLink, Maximize2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Button } from '../../../../components/ui/button';
 import type { EditablePostField, MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
 import { dotStyle } from '../../../../lib/media/badge-color';
 import { accentFor, type ColorMode } from '../../../../lib/media/color-mode';
 import { normalizeReferenceUrl } from '../../../../lib/media/reference-url';
+import { useMediaDates, type MediaDates } from '../../../../lib/media/media-dates';
 import { PostedBadge } from '../../_components/media-badges';
 import { ReferenceIconLink } from '../../_components/reference-link';
 import { InlineDate, InlineSelect, InlineText } from './inline-fields';
@@ -27,7 +30,7 @@ interface WeekGroup {
  * Insertion order is preserved, and `getPosts()` orders by `post_date ASC NULLS
  * LAST`, so the groups come out chronologically with Unscheduled last.
  */
-function groupByWeek(posts: MediaPost[]): WeekGroup[] {
+function groupByWeek(posts: MediaPost[], t: TFunction, d: MediaDates): WeekGroup[] {
   const groups = new Map<string, WeekGroup>();
 
   for (const post of posts) {
@@ -39,12 +42,12 @@ function groupByWeek(posts: MediaPost[]): WeekGroup[] {
       groups.set(id, {
         id,
         label: hasWeek
-          ? (post.week_label?.trim() || `Week ${post.week_no}`)
+          ? (post.week_label?.trim() || t('calendar.list.week', { n: post.week_no }))
           : date
-            ? format(parseISO(date), 'MMMM yyyy')
-            : 'Unscheduled',
+            ? d.monthYear(parseISO(date))
+            : t('calendar.list.unscheduled'),
         // When a custom label replaced the title, the number survives as a hint.
-        hint: hasWeek && post.week_label?.trim() ? `Week ${post.week_no}` : null,
+        hint: hasWeek && post.week_label?.trim() ? t('calendar.list.week', { n: post.week_no }) : null,
         posts: [],
       });
     }
@@ -66,7 +69,10 @@ interface PostsListViewProps {
 const TH = 'whitespace-nowrap px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-black/40';
 
 export function PostsListView({ posts, goals, formats, colorMode, onSaveField, onOpen }: PostsListViewProps) {
-  const groups = React.useMemo(() => groupByWeek(posts), [posts]);
+  const { t } = useTranslation('media');
+  const { t: tc } = useTranslation('common');
+  const d = useMediaDates();
+  const groups = React.useMemo(() => groupByWeek(posts, t, d), [posts, t, d]);
 
   const goalMap = React.useMemo(() => new Map(goals.map((g) => [g.key, g])), [goals]);
   const formatMap = React.useMemo(() => new Map(formats.map((f) => [f.key, f])), [formats]);
@@ -83,20 +89,20 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
   return (
     <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1320px] border-collapse text-left">
+        <table className="w-full min-w-[1320px] border-collapse text-start">
           <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm">
             <tr className="border-b border-black/[0.07]">
-              <th scope="col" className={TH}>Date</th>
-              <th scope="col" className={TH}>Day</th>
-              <th scope="col" className={TH}>Goal</th>
-              <th scope="col" className={TH}>Format</th>
-              <th scope="col" className={TH}>Objective</th>
-              <th scope="col" className={TH}>Text on Visual / Video Script</th>
-              <th scope="col" className={TH}>Caption</th>
-              <th scope="col" className={TH}>CTA</th>
-              <th scope="col" className={TH}>Media Link</th>
-              <th scope="col" className={TH}>Reference</th>
-              <th scope="col" className={TH}>Posted</th>
+              <th scope="col" className={TH}>{tc('fields.date')}</th>
+              <th scope="col" className={TH}>{t('calendar.list.day')}</th>
+              <th scope="col" className={TH}>{t('colorMode.goal')}</th>
+              <th scope="col" className={TH}>{t('colorMode.format')}</th>
+              <th scope="col" className={TH}>{t('calendar.list.objective')}</th>
+              <th scope="col" className={TH}>{t('calendar.list.visualScript')}</th>
+              <th scope="col" className={TH}>{t('calendar.list.caption')}</th>
+              <th scope="col" className={TH}>{t('calendar.list.cta')}</th>
+              <th scope="col" className={TH}>{t('calendar.list.mediaLink')}</th>
+              <th scope="col" className={TH}>{t('reference.label')}</th>
+              <th scope="col" className={TH}>{t('badges.posted')}</th>
               <th scope="col" className={TH} />
             </tr>
           </thead>
@@ -108,14 +114,14 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                   <th
                     scope="colgroup"
                     colSpan={12}
-                    className="border-y border-black/[0.05] bg-black/[0.018] px-3 py-2 text-left"
+                    className="border-y border-black/[0.05] bg-black/[0.018] px-3 py-2 text-start"
                   >
                     <span className="flex items-center gap-2">
-                      <span className="text-[12px] font-semibold tracking-[-0.008em] text-black/70">
+                      <span dir="auto" className="text-[12px] font-semibold tracking-[-0.008em] text-black/70">
                         {group.label}
                       </span>
                       {group.hint && <span className="text-[11px] font-medium text-black/30">{group.hint}</span>}
-                      <span className="ml-auto rounded-full bg-black/[0.05] px-1.5 text-[10.5px] font-semibold tabular-nums text-black/45">
+                      <span className="ms-auto rounded-full bg-black/[0.05] px-1.5 text-[10.5px] font-semibold tabular-nums text-black/45">
                         {group.posts.length}
                       </span>
                     </span>
@@ -145,14 +151,14 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                           />
                           <InlineDate
                             value={date || null}
-                            ariaLabel="Post date"
+                            ariaLabel={t('calendar.list.postDateAria')}
                             onSave={(v) => onSaveField(post.id, 'post_date', v)}
                           />
                         </div>
                       </td>
 
                       <td className="whitespace-nowrap px-3 py-3.5 text-[12.5px] text-black/45">
-                        {date ? format(parseISO(date), 'EEEE') : '—'}
+                        {date ? d.weekday(parseISO(date)) : '—'}
                       </td>
 
                       <td className="px-2 py-2">
@@ -160,8 +166,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                           showDot
                           value={post.goal_key}
                           options={goalOptions}
-                          placeholder="No goal"
-                          ariaLabel="Goal"
+                          placeholder={t('calendar.list.noGoal')}
+                          ariaLabel={t('colorMode.goal')}
                           onSave={(v) => onSaveField(post.id, 'goal_key', v)}
                         />
                       </td>
@@ -170,8 +176,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                         <InlineSelect
                           value={post.format_key}
                           options={formatOptions}
-                          placeholder="No format"
-                          ariaLabel="Format"
+                          placeholder={t('calendar.list.noFormat')}
+                          ariaLabel={t('colorMode.format')}
                           onSave={(v) => onSaveField(post.id, 'format_key', v)}
                         />
                       </td>
@@ -179,8 +185,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                       <td className="min-w-[180px] px-1 py-2">
                         <InlineText
                           value={post.objective}
-                          placeholder="Add objective"
-                          ariaLabel="Objective"
+                          placeholder={t('calendar.list.addObjective')}
+                          ariaLabel={t('calendar.list.objective')}
                           onSave={(v) => onSaveField(post.id, 'objective', v)}
                         />
                       </td>
@@ -189,8 +195,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                         <InlineText
                           multiline
                           value={post.visual_script}
-                          placeholder="Add on-screen text or script"
-                          ariaLabel="Text on visual or video script"
+                          placeholder={t('calendar.list.addVisualScript')}
+                          ariaLabel={t('calendar.list.visualScriptAria')}
                           onSave={(v) => onSaveField(post.id, 'visual_script', v)}
                         />
                       </td>
@@ -199,8 +205,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                         <InlineText
                           multiline
                           value={post.caption}
-                          placeholder="Add caption"
-                          ariaLabel="Caption"
+                          placeholder={t('calendar.list.addCaption')}
+                          ariaLabel={t('calendar.list.caption')}
                           onSave={(v) => onSaveField(post.id, 'caption', v)}
                         />
                       </td>
@@ -208,8 +214,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                       <td className="min-w-[130px] px-1 py-2">
                         <InlineText
                           value={post.cta}
-                          placeholder="Add CTA"
-                          ariaLabel="CTA"
+                          placeholder={t('calendar.list.addCta')}
+                          ariaLabel={t('calendar.list.cta')}
                           onSave={(v) => onSaveField(post.id, 'cta', v)}
                         />
                       </td>
@@ -219,8 +225,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                           <InlineText
                             className="truncate"
                             value={post.media_link}
-                            placeholder="Add link"
-                            ariaLabel="Media link"
+                            placeholder={t('calendar.list.addLink')}
+                            ariaLabel={t('calendar.list.mediaLink')}
                             onSave={(v) => onSaveField(post.id, 'media_link', v)}
                           />
                           {post.media_link && (
@@ -228,7 +234,7 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                               href={post.media_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              aria-label="Open media link in a new tab"
+                              aria-label={t('calendar.list.openMediaLinkAria')}
                               className="mt-1.5 shrink-0 rounded-md p-1 text-black/30 transition-colors hover:bg-black/[0.05] hover:text-black/60"
                             >
                               <ExternalLink size={12} />
@@ -242,8 +248,8 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                           <InlineText
                             className="truncate"
                             value={post.reference_url}
-                            placeholder="Add reference"
-                            ariaLabel="Reference link"
+                            placeholder={t('calendar.list.addReference')}
+                            ariaLabel={t('calendar.list.referenceAria')}
                             // Normalised here too, so the optimistic value in the
                             // grid is exactly what the server ends up storing.
                             onSave={(v) => onSaveField(post.id, 'reference_url', normalizeReferenceUrl(v))}
@@ -261,7 +267,7 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Open post details"
+                          aria-label={t('calendar.list.openPostAria')}
                           onClick={() => onOpen(post)}
                           className="opacity-0 transition-opacity duration-150 focus-visible:opacity-100 group-hover/row:opacity-100"
                         >

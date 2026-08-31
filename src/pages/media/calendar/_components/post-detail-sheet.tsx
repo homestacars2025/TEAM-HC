@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { ExternalLink, Hash } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -13,6 +14,7 @@ import {
 } from '../../../../components/ui/sheet';
 import { Textarea } from '../../../../components/ui/textarea';
 import { dotStyle } from '../../../../lib/media/badge-color';
+import { useMediaDates } from '../../../../lib/media/media-dates';
 import type { MediaFormat, MediaGoal, MediaPost } from '../../../../lib/types/media';
 import { cn } from '../../../../lib/utils';
 import { PostedBadge } from '../../_components/media-badges';
@@ -72,6 +74,9 @@ const day = (value: string | null | undefined) => value?.slice(0, 10) ?? '';
 function PostForm({
   post, defaultDate, goals, formats, onClose,
 }: Omit<PostDetailSheetProps, 'open'>) {
+  const { t } = useTranslation('media');
+  const { t: tc } = useTranslation('common');
+  const d = useMediaDates();
   const [form, setForm] = React.useState<FormState>(() => ({
     post_date: day(post?.post_date) || defaultDate || '',
     week_label: post?.week_label ?? '',
@@ -90,7 +95,6 @@ function PostForm({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const goal = goals.find((g) => g.key === form.goal_key);
-  // Named `formatRow` so it does not shadow date-fns' `format`.
   const formatRow = formats.find((f) => f.key === form.format_key);
 
   // Every post field is optional — there is nothing to validate client-side.
@@ -110,34 +114,34 @@ function PostForm({
         reference_url: form.reference_url || null,
       });
       if (!result.ok) {
-        toast.error(result.error ?? "Couldn't save the post");
+        toast.error(result.error ?? t('errors.savePost'));
         return;
       }
-      toast.success(post ? 'Post updated' : 'Post created');
+      toast.success(post ? t('calendar.toast.updated') : t('calendar.toast.created'));
       onClose();
     });
   }
 
   const headerDate = post?.post_date
-    ? format(parseISO(day(post.post_date)), 'EEEE, d MMMM yyyy')
-    : 'Schedule a piece of content on the calendar.';
+    ? d.fullWithWeekday(parseISO(day(post.post_date)))
+    : t('calendar.detail.newSubtitle');
 
   return (
     <>
       <SheetHeader className="flex-row items-start justify-between gap-3 border-b border-black/[0.06] px-6 py-5">
         <div className="flex min-w-0 flex-col gap-0.5">
           <SheetTitle className="text-[16px] tracking-[-0.014em]">
-            {post ? 'Post details' : 'New post'}
+            {post ? t('calendar.detail.editTitle') : t('calendar.detail.newTitle')}
           </SheetTitle>
           <SheetDescription className="text-[13px]">{headerDate}</SheetDescription>
         </div>
         {post && (
-          <div className="mr-8 flex shrink-0 flex-col items-end gap-1">
+          <div className="me-8 flex shrink-0 flex-col items-end gap-1">
             <PostedBadge posted={post.posted} />
             {typeof post.week_no === 'number' && (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium tabular-nums text-black/35">
                 <Hash size={10} strokeWidth={2} />
-                Week {post.week_no}
+                {t('calendar.list.week', { n: post.week_no })}
               </span>
             )}
           </div>
@@ -147,7 +151,7 @@ function PostForm({
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Date</Label>
+            <Label className="text-[13px]">{tc('fields.date')}</Label>
             <Input
               type="date"
               value={form.post_date}
@@ -156,25 +160,24 @@ function PostForm({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Week label</Label>
+            <Label className="text-[13px]">{t('calendar.detail.weekLabel')}</Label>
             <Input
+              dir="auto"
               value={form.week_label}
               onChange={(e) => set('week_label', e.target.value)}
-              placeholder="e.g. Launch week"
+              placeholder={t('calendar.detail.weekLabelPlaceholder')}
               className="h-9 text-[13px]"
             />
           </div>
         </div>
 
         {post && typeof post.week_no === 'number' && (
-          <p className="-mt-2 text-[11.5px] text-black/35">
-            Week number is calculated from the date by the database.
-          </p>
+          <p className="-mt-2 text-[11.5px] text-black/35">{t('calendar.detail.weekNumberHint')}</p>
         )}
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Goal</Label>
+            <Label className="text-[13px]">{t('colorMode.goal')}</Label>
             <Select
               value={form.goal_key || NONE}
               onValueChange={(v: string | null) => set('goal_key', v === NONE ? '' : (v ?? ''))}
@@ -183,12 +186,12 @@ function PostForm({
                 <span className="flex min-w-0 items-center gap-2">
                   {goal && <span aria-hidden className="size-2 shrink-0 rounded-full" style={dotStyle(goal.color)} />}
                   <span className={cn('truncate', form.goal_key ? 'text-foreground' : 'text-black/35')}>
-                    {goal?.label ?? form.goal_key ?? 'None'}
+                    {goal?.label ?? form.goal_key ?? t('none')}
                   </span>
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">None</SelectItem>
+                <SelectItem value={NONE} className="text-black/45">{t('none')}</SelectItem>
                 {goals.map((g) => (
                   <SelectItem key={g.key} value={g.key}>
                     <span aria-hidden className="size-2 shrink-0 rounded-full" style={dotStyle(g.color)} />
@@ -200,18 +203,18 @@ function PostForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px]">Format</Label>
+            <Label className="text-[13px]">{t('colorMode.format')}</Label>
             <Select
               value={form.format_key || NONE}
               onValueChange={(v: string | null) => set('format_key', v === NONE ? '' : (v ?? ''))}
             >
               <SelectTrigger className="h-9 w-full text-[13px]">
                 <span className={cn('truncate', form.format_key ? 'text-foreground' : 'text-black/35')}>
-                  {formatRow?.label ?? form.format_key ?? 'None'}
+                  {formatRow?.label ?? form.format_key ?? t('none')}
                 </span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE} className="text-black/45">None</SelectItem>
+                <SelectItem value={NONE} className="text-black/45">{t('none')}</SelectItem>
                 {formats.map((f) => (
                   <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
                 ))}
@@ -221,66 +224,69 @@ function PostForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Objective</Label>
+          <Label className="text-[13px]">{t('calendar.list.objective')}</Label>
           <Input
+            dir="auto"
             value={form.objective}
             onChange={(e) => set('objective', e.target.value)}
-            placeholder="What should this post achieve?"
+            placeholder={t('calendar.detail.objectivePlaceholder')}
             className="h-9 text-[13px]"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Text on visual / video script</Label>
+          <Label className="text-[13px]">{t('calendar.list.visualScript')}</Label>
           <Textarea
             rows={4}
+            dir="auto"
             value={form.visual_script}
             onChange={(e) => set('visual_script', e.target.value)}
-            placeholder="On-screen copy, shot list, or voiceover script."
+            placeholder={t('calendar.detail.visualScriptPlaceholder')}
             className="resize-none text-[13px] leading-relaxed"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Caption</Label>
+          <Label className="text-[13px]">{t('calendar.list.caption')}</Label>
           <Textarea
             rows={5}
+            dir="auto"
             value={form.caption}
             onChange={(e) => set('caption', e.target.value)}
-            placeholder="The caption as it will be published."
+            placeholder={t('calendar.detail.captionPlaceholder')}
             className="resize-none text-[13px] leading-relaxed"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="post-reference" className="text-[13px]">Reference</Label>
+          <Label htmlFor="post-reference" className="text-[13px]">{t('reference.label')}</Label>
           <ReferenceField
             id="post-reference"
             value={form.reference_url}
             onChange={(v) => set('reference_url', v)}
           />
-          <p className="text-[11.5px] text-black/35">
-            Optional — the trend or example this is based on. Opens in a new tab.
-          </p>
+          <p className="text-[11.5px] text-black/35">{t('reference.hint')}</p>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">CTA</Label>
+          <Label className="text-[13px]">{t('calendar.list.cta')}</Label>
           <Input
+            dir="auto"
             value={form.cta}
             onChange={(e) => set('cta', e.target.value)}
-            placeholder="e.g. Book now via the link in bio"
+            placeholder={t('calendar.detail.ctaPlaceholder')}
             className="h-9 text-[13px]"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-[13px]">Media link</Label>
+          <Label className="text-[13px]">{t('calendar.list.mediaLink')}</Label>
           <div className="flex items-center gap-2">
             <Input
+              dir="ltr"
               value={form.media_link}
               onChange={(e) => set('media_link', e.target.value)}
-              placeholder="https://…"
+              placeholder={t('calendar.detail.mediaLinkPlaceholder')}
               className="h-9 text-[13px]"
             />
             {form.media_link.trim() && (
@@ -288,7 +294,7 @@ function PostForm({
                 href={form.media_link.trim()}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Open media link in a new tab"
+                aria-label={t('calendar.list.openMediaLinkAria')}
                 className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-black/[0.08] text-black/45 transition-colors hover:bg-black/[0.03] hover:text-black/70"
               >
                 <ExternalLink size={14} />
@@ -299,15 +305,14 @@ function PostForm({
 
         {post?.source_idea_id && (
           <p className="rounded-xl bg-black/[0.025] px-3 py-2.5 text-[12px] text-black/45">
-            Created from an idea in the Ideas board.
-          </p>
+{t('calendar.detail.fromIdea')}</p>
         )}
       </div>
 
       <div className="flex flex-row justify-end gap-2 border-t border-black/[0.06] px-6 py-4">
-        <Button variant="outline" size="lg" onClick={onClose} disabled={isPending}>Cancel</Button>
+        <Button variant="outline" size="lg" onClick={onClose} disabled={isPending}>{tc('actions.cancel')}</Button>
         <Button size="lg" onClick={handleSubmit} disabled={isPending}>
-          {isPending ? 'Saving…' : post ? 'Save changes' : 'Create post'}
+          {isPending ? tc('actions.saving') : post ? tc('actions.saveChanges') : t('calendar.detail.submit')}
         </Button>
       </div>
     </>

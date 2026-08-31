@@ -24,6 +24,7 @@ export type Tone = 'slate' | 'sky' | 'violet' | 'amber' | 'rose' | 'emerald';
 
 // ─── Ideas ────────────────────────────────────────────────────────────────────
 
+/** Stored verbatim in `media.ideas.category`; displayed via `media:category.*`. */
 export const IDEA_CATEGORIES = ['Indoor', 'Outdoor', 'Graphic', 'Reels', 'UGC', 'Trending'] as const;
 export type IdeaCategory = (typeof IDEA_CATEGORIES)[number];
 
@@ -108,26 +109,35 @@ export type EditablePostField = Exclude<keyof PostInput, 'id'>;
 
 // ─── Influencers ──────────────────────────────────────────────────────────────
 
+/**
+ * The three enum tables below are the values stored in `media.influencers`, and
+ * they stay English in the column whatever language the dashboard is in.
+ *
+ * There is no `label` any more: `value` doubles as the i18n key
+ * (`media:influencerType.UGC`, `media:messagingStatus."No Reply"`, …), so the
+ * wording lives in the locale files alone and cannot drift away from what the
+ * pill, the filter and the form each print.
+ */
 export const INFLUENCER_TYPES = [
-  { value: 'Popular Influencer', label: 'Popular Influencer', tone: 'violet' },
-  { value: 'Influencer', label: 'Influencer', tone: 'sky' },
-  { value: 'UGC', label: 'UGC', tone: 'amber' },
-] as const satisfies readonly { value: string; label: string; tone: Tone }[];
+  { value: 'Popular Influencer', tone: 'violet' },
+  { value: 'Influencer', tone: 'sky' },
+  { value: 'UGC', tone: 'amber' },
+] as const satisfies readonly { value: string; tone: Tone }[];
 
 export const MESSAGING_STATUSES = [
-  { value: 'Not Contacted', label: 'Not Contacted', tone: 'slate' },
-  { value: 'Contacted', label: 'Contacted', tone: 'sky' },
-  { value: 'Replied', label: 'Replied', tone: 'violet' },
-  { value: 'In Talks', label: 'In Talks', tone: 'amber' },
-  { value: 'No Reply', label: 'No Reply', tone: 'rose' },
-] as const satisfies readonly { value: string; label: string; tone: Tone }[];
+  { value: 'Not Contacted', tone: 'slate' },
+  { value: 'Contacted', tone: 'sky' },
+  { value: 'Replied', tone: 'violet' },
+  { value: 'In Talks', tone: 'amber' },
+  { value: 'No Reply', tone: 'rose' },
+] as const satisfies readonly { value: string; tone: Tone }[];
 
 export const FINAL_DECISIONS = [
-  { value: 'Pending', label: 'Pending', tone: 'slate' },
-  { value: 'Approved', label: 'Approved', tone: 'emerald' },
-  { value: 'Rejected', label: 'Rejected', tone: 'rose' },
-  { value: 'On Hold', label: 'On Hold', tone: 'amber' },
-] as const satisfies readonly { value: string; label: string; tone: Tone }[];
+  { value: 'Pending', tone: 'slate' },
+  { value: 'Approved', tone: 'emerald' },
+  { value: 'Rejected', tone: 'rose' },
+  { value: 'On Hold', tone: 'amber' },
+] as const satisfies readonly { value: string; tone: Tone }[];
 
 export interface MediaInfluencer {
   id: string;

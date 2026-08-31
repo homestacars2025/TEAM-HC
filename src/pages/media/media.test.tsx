@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+// Imported for the side effect: these components read the shared instance.
+import i18n from '../../i18n';
 import { Lightbulb } from 'lucide-react';
 import { TooltipProvider } from '../../components/ui/tooltip';
 import { PageHeader } from '../../components/layout/page-header';
@@ -10,10 +12,13 @@ import { ApprovedBadge, GoalBadge, PostedBadge, ToneBadge } from './_components/
 import { ReferenceChip, ReferenceIconLink } from './_components/reference-link';
 import { ColorModeToggle } from './_components/color-mode-toggle';
 import { StatusSelect } from './influencers/_components/status-select';
-import { MESSAGING_STATUSES } from '../../lib/types/media';
+import {
+  FINAL_DECISIONS, IDEA_CATEGORIES, INFLUENCER_TYPES, MESSAGING_STATUSES,
+} from '../../lib/types/media';
 import { chipStyle, tintedStyle, toneFor } from '../../lib/media/badge-color';
 import { normalizeReferenceUrl, referenceLabel } from '../../lib/media/reference-url';
 import { accentFor, isColorMode, DEFAULT_COLOR_MODE } from '../../lib/media/color-mode';
+import { dateLocaleFor, makeMediaDates } from '../../lib/media/media-dates';
 import { formatCountry } from '../../lib/countries';
 
 const wrap = (ui: React.ReactNode) => (
@@ -66,6 +71,7 @@ test('status pill renders its value and is interactive', () => {
       options={MESSAGING_STATUSES}
       placeholder="Not set"
       ariaLabel="Messaging status for Ada"
+      labelKey="messagingStatus"
       onSelect={async () => true}
     />,
   ));
@@ -165,4 +171,102 @@ test('the colour toggle exposes its state and reports a change', () => {
 
   format.click();
   expect(onChange).toHaveBeenCalledWith('format');
+});
+
+// ─── Arabic ───────────────────────────────────────────────────────────────────
+
+/**
+ * The Media section is behind a per-user grant, so a screenshot cannot reach it
+ * without signing in as the one account that has it. These assertions stand in
+ * for that: the surfaces are mounted directly and read in Arabic.
+ */
+describe('in Arabic', () => {
+  beforeAll(async () => { await i18n.changeLanguage('ar'); });
+  afterAll(async () => { await i18n.changeLanguage('en'); });
+
+  test('the sub-nav names the three pages, matching the sidebar', () => {
+    render(wrap(<MediaNav />));
+    for (const label of ['الأفكار', 'التقويم', 'المؤثرون']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    for (const leaked of ['Ideas', 'Calendar', 'Influencers']) {
+      expect(screen.queryByText(leaked)).toBeNull();
+    }
+    // The same word the sidebar uses — the two must never diverge.
+    expect(i18n.t('media:nav.ideas')).toBe(i18n.t('sidebar:nav.ideas'));
+    expect(i18n.t('media:nav.influencers')).toBe(i18n.t('sidebar:nav.influencers'));
+  });
+
+  test('the admin flags read as state in Arabic', () => {
+    render(wrap(<><PostedBadge posted={false} /><ApprovedBadge approved /></>));
+    expect(screen.getByText('غير منشور')).toBeInTheDocument();
+    expect(screen.getByText('معتمد')).toBeInTheDocument();
+  });
+
+  test('the colour toggle is translated but still reports the English mode', () => {
+    const onChange = jest.fn();
+    render(wrap(<ColorModeToggle value="goal" onChange={onChange} layoutId="t-ar" />));
+    const format = screen.getByRole('button', { name: 'الصيغة' });
+    expect(screen.getByRole('button', { name: 'الهدف' })).toHaveAttribute('aria-pressed', 'true');
+    format.click();
+    // The stored preference is a key, not a label — Arabic must not change it.
+    expect(onChange).toHaveBeenCalledWith('format');
+  });
+
+  test('a status pill shows Arabic while the value it saves stays English', async () => {
+    const onSelect = jest.fn(async () => true);
+    render(wrap(
+      <StatusSelect
+        value="Not Contacted"
+        options={MESSAGING_STATUSES}
+        placeholder="غير محدد"
+        ariaLabel="حالة المراسلة"
+        labelKey="messagingStatus"
+        onSelect={onSelect}
+      />,
+    ));
+    expect(screen.getByText('لم يتم التواصل')).toBeInTheDocument();
+    expect(screen.queryByText('Not Contacted')).toBeNull();
+  });
+
+  test('a stored value with no translation falls back to itself, never to a key', () => {
+    // A category an admin typed by hand, and a status renamed upstream.
+    expect(i18n.t('media:category.Sunset', { defaultValue: 'Sunset' })).toBe('Sunset');
+    expect(i18n.t('media:influencerType.Nano', { defaultValue: 'Nano' })).toBe('Nano');
+  });
+
+  test('every stored enum value has an Arabic display name', () => {
+    const arabic = /[؀-ۿ]/;
+    // UGC is an industry acronym and stays Latin, like KABIS elsewhere.
+    const latinByDesign = new Set(['media:category.UGC', 'media:influencerType.UGC']);
+    const keys = [
+      ...IDEA_CATEGORIES.map((c) => `media:category.${c}`),
+      ...INFLUENCER_TYPES.map((o) => `media:influencerType.${o.value}`),
+      ...MESSAGING_STATUSES.map((o) => `media:messagingStatus.${o.value}`),
+      ...FINAL_DECISIONS.map((o) => `media:finalDecision.${o.value}`),
+    ];
+    expect(keys.filter((k) => !i18n.exists(k))).toEqual([]);
+    expect(keys.filter((k) => !latinByDesign.has(k) && !arabic.test(i18n.t(k) as string))).toEqual([]);
+  });
+
+  test('Arabic dates are Gregorian with Western digits, as everywhere else', () => {
+    const d = makeMediaDates(dateLocaleFor('ar'));
+    const march = new Date(Date.UTC(2026, 2, 4));
+    expect(d.monthYear(march)).toContain('2026');
+    expect(d.full(march)).toMatch(/[؀-ۿ]/);
+    // Never Arabic-Indic digits (٢٠٢٦), and never a Hijri year.
+    expect(d.full(march)).not.toMatch(/[٠-٩]/);
+    expect(d.full(march)).toContain('2026');
+    expect(d.weekdaysShort).toHaveLength(7);
+    expect(d.weekdaysNarrow.every((w) => w.length > 0)).toBe(true);
+  });
+
+  test('the post counter uses the Arabic plural the count actually calls for', () => {
+    expect(i18n.t('media:calendar.postCount', { count: 1 })).toBe('منشور واحد');
+    expect(i18n.t('media:calendar.postCount', { count: 2 })).toBe('منشوران');
+    expect(i18n.t('media:calendar.postCount', { count: 3 })).toBe('3 منشورات');
+    // 50 is the "many" category — the one that silently fell back to English
+    // in the bookings calendar before `plurals.test.ts` existed.
+    expect(i18n.t('media:calendar.postCount', { count: 50 })).toBe('50 منشوراً');
+  });
 });

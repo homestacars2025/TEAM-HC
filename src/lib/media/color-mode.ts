@@ -10,10 +10,17 @@ import type { MediaFormat, MediaGoal, MediaLookup } from '../types/media';
 
 export type ColorMode = 'goal' | 'format';
 
-/** Goal first, and the default: it is the section's original behaviour. */
-export const COLOR_MODES: readonly { value: ColorMode; label: string }[] = [
-  { value: 'goal', label: 'Goal' },
-  { value: 'format', label: 'Format' },
+/**
+ * Goal first, and the default: it is the section's original behaviour.
+ *
+ * There is no label here on purpose. `value` is the stable key the toggle reads
+ * back out of localStorage *and* the i18n key it renders under
+ * (`media:colorMode.goal` / `media:colorMode.format`), so the wording lives in
+ * one place and cannot drift out of sync with the legend beside it.
+ */
+export const COLOR_MODES: readonly { value: ColorMode }[] = [
+  { value: 'goal' },
+  { value: 'format' },
 ];
 
 export const DEFAULT_COLOR_MODE: ColorMode = 'goal';

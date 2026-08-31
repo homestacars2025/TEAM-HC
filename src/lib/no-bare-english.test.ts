@@ -18,6 +18,7 @@ import path from 'path';
  */
 
 const PAGES_DIR = path.join(__dirname, '..', 'pages');
+const SRC_DIR = path.join(__dirname, '..');
 
 /** Pages migrated so far. Add a page here when it is translated. */
 const TRANSLATED = [
@@ -34,6 +35,22 @@ const TRANSLATED = [
   'CustomerWalletsPage.tsx',
   'KabisPage.tsx',
 ];
+
+/**
+ * The Media section is many small files rather than one page, and it shares the
+ * `components/ui` primitives with nothing else — so both trees are swept whole,
+ * by path rather than by name. `media.test.tsx` is exempt: its fixtures are
+ * English on purpose.
+ */
+const TREES = ['pages/media', 'components/ui'];
+
+function walk(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) return walk(full);
+    return e.name.endsWith('.tsx') && !e.name.endsWith('.test.tsx') ? [full] : [];
+  });
+}
 
 /** A line holding only capitalised English prose — no code punctuation. */
 const BARE_ENGLISH = /^[A-Z][A-Za-z]*(?: [A-Za-z()#…'&/,.-]+){0,8}[.?…]?$/;
@@ -57,6 +74,15 @@ function stripPrintTemplate(src: string): string[] {
   return lines.filter((_, i) => i < start || (end !== -1 && i > end));
 }
 
+function offendersIn(src: string, label: string): string[] {
+  return stripPrintTemplate(src)
+    .map((line, i) => [i + 1, line.trim()] as const)
+    .filter(([n, text], _i, all) =>
+      (text.length > 2 && BARE_ENGLISH.test(text)) ||
+      (WRAPPED_SENTENCE.test(text) && (all[n]?.[1] ?? '').startsWith('</')))
+    .map(([n, text]) => `${label}:${n} ${JSON.stringify(text)}`);
+}
+
 describe.each(TRANSLATED)('%s', (file) => {
   test('renders no bare English text node', () => {
     const src = fs.readFileSync(path.join(PAGES_DIR, file), 'utf8');
@@ -66,6 +92,16 @@ describe.each(TRANSLATED)('%s', (file) => {
         (text.length > 2 && BARE_ENGLISH.test(text)) ||
         (WRAPPED_SENTENCE.test(text) && (all[n]?.[1] ?? '').startsWith('</')))
       .map(([n, text]) => `${file}:${n} ${JSON.stringify(text)}`);
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe.each(TREES)('%s', (tree) => {
+  test('no file in the tree renders a bare English text node', () => {
+    const root = path.join(SRC_DIR, tree);
+    const offenders = walk(root).flatMap((file) =>
+      offendersIn(fs.readFileSync(file, 'utf8'), path.relative(SRC_DIR, file)));
 
     expect(offenders).toEqual([]);
   });

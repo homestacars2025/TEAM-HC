@@ -25,7 +25,10 @@
     "uploadFile": "ارفع ملف",
     "other": "أخرى",
     "report": "تقرير",
-    "remove": "إزالة"
+    "remove": "إزالة",
+    "clear": "مسح",
+    "clearFilters": "مسح عوامل التصفية",
+    "saving": "جارٍ الحفظ…"
   },
   "fields": {
     "car": "السيارة",
@@ -46,7 +49,10 @@
     "nationality": "الجنسية",
     "language": "اللغة",
     "currency": "العملة",
-    "branch": "الفرع"
+    "branch": "الفرع",
+    "name": "الاسم",
+    "title": "العنوان",
+    "country": "الدولة"
   },
   "carStatus": {
     "working": "تعمل",
@@ -54,5 +60,10 @@
     "maintenance": "في الصيانة",
     "selling": "للبيع",
     "replacement": "بديلة"
+  },
+  "countryPicker": {
+    "select": "اختر الدولة",
+    "search": "ابحث عن دولة…",
+    "empty": "لا توجد دولة مطابقة."
   }
 }

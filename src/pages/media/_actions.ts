@@ -1,3 +1,4 @@
+import i18n from '../../i18n';
 import { getCurrentProfile } from '../../lib/auth/get-current-profile';
 import { mediaDb } from '../../lib/queries/media';
 import { normalizeReferenceUrl } from '../../lib/media/reference-url';
@@ -11,7 +12,13 @@ import type {
  *
  * Each action re-checks the caller and returns a plain object — never throws — so
  * a rejected write becomes a toast rather than an error boundary.
+ *
+ * These are not components, so there is no `useTranslation` to reach for: the
+ * shared i18n instance is called directly. It resolves at the moment the write
+ * fails, which is also the moment the toast appears, so a language switched
+ * mid-session is already reflected.
  */
+const tr = (key: string): string => i18n.t(`media:errors.${key}`);
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -48,18 +55,16 @@ function friendlyError(error: { code?: string; message: string }): string {
   const code = error.code ?? '';
   const msg = error.message.toLowerCase();
 
-  if (code === 'PGRST106' || msg.includes('invalid schema'))
-    return "Media tables aren't reachable yet — ask an admin to expose the `media` schema in Supabase.";
-  if (code === '42501' || msg.includes('row-level security'))
-    return "You don't have permission to change this — Posted and Approved are set by an admin.";
-  if (code === '23503')
-    return 'That reference no longer exists. Refresh the page and try again.';
-  if (code === '23505')
-    return 'A record with those details already exists.';
+  if (code === 'PGRST106' || msg.includes('invalid schema')) return tr('schemaUnreachable');
+  if (code === '42501' || msg.includes('row-level security')) return tr('rowLevelSecurity');
+  if (code === '23503') return tr('danglingReference');
+  if (code === '23505') return tr('duplicate');
+  // Anything else is Postgres' own wording, which has no translation to give.
   return error.message;
 }
 
-const NOT_AUTHENTICATED = { ok: false as const, error: 'Not authenticated' };
+/** A function, not a constant: the message must resolve when the call fails. */
+const notAuthenticated = () => ({ ok: false as const, error: tr('notAuthenticated') });
 
 // ─── Ideas ────────────────────────────────────────────────────────────────────
 
@@ -70,10 +75,10 @@ const NOT_AUTHENTICATED = { ok: false as const, error: 'Not authenticated' };
  */
 export async function saveIdea(input: IdeaInput): Promise<SaveResult> {
   const profile = await getCurrentProfile();
-  if (!profile) return NOT_AUTHENTICATED;
+  if (!profile) return notAuthenticated();
 
   const title = input.title.trim();
-  if (!title) return { ok: false, error: 'Title is required' };
+  if (!title) return { ok: false, error: tr('titleRequired') };
 
   const payload = {
     title,
@@ -100,7 +105,7 @@ export async function saveIdea(input: IdeaInput): Promise<SaveResult> {
     .insert({ ...payload, created_by: profile.id })
     .select('id')
     .single();
-  if (error || !data) return { ok: false, error: friendlyError(error ?? { message: 'Insert failed' }) };
+  if (error || !data) return { ok: false, error: friendlyError(error ?? { message: tr('insertFailed') }) };
   revalidateMedia();
   return { ok: true, id: (data as unknown as { id: string }).id };
 }
@@ -115,7 +120,7 @@ export async function saveIdea(input: IdeaInput): Promise<SaveResult> {
  */
 export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> {
   const profile = await getCurrentProfile();
-  if (!profile) return NOT_AUTHENTICATED;
+  if (!profile) return notAuthenticated();
 
   const { data: idea, error: readError } = await mediaDb
     .from('ideas')
@@ -124,7 +129,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
     .single();
 
   if (readError) return { ok: false, error: friendlyError(readError) };
-  if (!idea) return { ok: false, error: 'Idea not found' };
+  if (!idea) return { ok: false, error: tr('ideaNotFound') };
 
   const source = idea as unknown as {
     id: string; title: string | null; content: string | null;
@@ -150,7 +155,7 @@ export async function convertIdeaToPost(ideaId: string): Promise<ConvertResult> 
     .single();
 
   if (insertError || !post) {
-    return { ok: false, error: friendlyError(insertError ?? { message: 'Insert failed' }) };
+    return { ok: false, error: friendlyError(insertError ?? { message: tr('insertFailed') }) };
   }
 
   const postId = (post as unknown as { id: string }).id;
@@ -181,7 +186,7 @@ const EDITABLE_POST_FIELDS: readonly EditablePostField[] = [
 
 export async function savePost(input: PostInput): Promise<SaveResult> {
   const profile = await getCurrentProfile();
-  if (!profile) return NOT_AUTHENTICATED;
+  if (!profile) return notAuthenticated();
 
   const payload = {
     post_date: trimmed(input.post_date),
@@ -211,7 +216,7 @@ export async function savePost(input: PostInput): Promise<SaveResult> {
     .insert({ ...payload, created_by: profile.id })
     .select('id')
     .single();
-  if (error || !data) return { ok: false, error: friendlyError(error ?? { message: 'Insert failed' }) };
+  if (error || !data) return { ok: false, error: friendlyError(error ?? { message: tr('insertFailed') }) };
   revalidateMedia();
   return { ok: true, id: (data as unknown as { id: string }).id };
 }
@@ -227,10 +232,10 @@ export async function updatePostField(
   value: string | null,
 ): Promise<ActionResult> {
   const profile = await getCurrentProfile();
-  if (!profile) return NOT_AUTHENTICATED;
+  if (!profile) return notAuthenticated();
 
   if (!EDITABLE_POST_FIELDS.includes(field)) {
-    return { ok: false, error: 'That field is managed by an admin.' };
+    return { ok: false, error: tr('adminField') };
   }
 
   const next = field === 'reference_url' ? normalizeReferenceUrl(value) : trimmed(value);
@@ -248,10 +253,10 @@ export async function updatePostField(
 
 export async function saveInfluencer(input: InfluencerInput): Promise<SaveResult> {
   const profile = await getCurrentProfile();
-  if (!profile) return NOT_AUTHENTICATED;
+  if (!profile) return notAuthenticated();
 
   const name = input.name.trim();
-  if (!name) return { ok: false, error: 'Name is required' };
+  if (!name) return { ok: false, error: tr('nameRequired') };
 
   const payload = {
     name,
@@ -280,7 +285,7 @@ export async function saveInfluencer(input: InfluencerInput): Promise<SaveResult
     .insert({ ...payload, created_by: profile.id })
     .select('id')
     .single();
-  if (error || !data) return { ok: false, error: friendlyError(error ?? { message: 'Insert failed' }) };
+  if (error || !data) return { ok: false, error: friendlyError(error ?? { message: tr('insertFailed') }) };
   revalidateMedia();
   return { ok: true, id: (data as unknown as { id: string }).id };
 }
@@ -292,10 +297,10 @@ export async function updateInfluencerStatus(
   value: string | null,
 ): Promise<ActionResult> {
   const profile = await getCurrentProfile();
-  if (!profile) return NOT_AUTHENTICATED;
+  if (!profile) return notAuthenticated();
 
   if (field !== 'messaging_status' && field !== 'final_decision') {
-    return { ok: false, error: "That field can't be edited here." };
+    return { ok: false, error: tr('notEditableHere') };
   }
 
   const { error } = await mediaDb
