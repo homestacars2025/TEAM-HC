@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { printCustomerInvoice } from '../lib/printCustomerInvoice';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useCurrency, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -193,9 +195,9 @@ function convertEntry(
   return { value: row.amount, approx: true };
 }
 
-function customerNameOf(row: LedgerRow): string {
+function customerNameOf(row: LedgerRow, t: TFunction): string {
   const c = firstOf(row.customers);
-  return [c?.first_name, c?.last_name].filter(Boolean).join(' ').trim() || 'Unknown customer';
+  return [c?.first_name, c?.last_name].filter(Boolean).join(' ').trim() || t('unknownCustomer');
 }
 
 function bookingLabel(b: BookingOption): string {
@@ -288,51 +290,60 @@ const ConfirmDialog: React.FC<{
   busy?: boolean;
   onConfirm: () => void;
   onClose: () => void;
-}> = ({ title, message, confirmLabel = 'Confirm', busy, onConfirm, onClose }) => (
+}> = ({ title, message, confirmLabel, busy, onConfirm, onClose }) => {
+  const { t } = useTranslation('wallets');
+  const { t: tc } = useTranslation('common');
+  return (
   <Modal title={title} onClose={onClose} maxWidth={420}>
     <p style={{ margin: '0 0 22px', fontSize: 14, color: '#4b5563', lineHeight: 1.55 }}>{message}</p>
     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
       <button onClick={onClose} style={{
         height: 42, padding: '0 18px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff',
         color: '#4b5563', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-      }}>Cancel</button>
+      }}>{tc('actions.cancel')}</button>
       <button onClick={onConfirm} disabled={busy} style={{
         height: 42, padding: '0 18px', borderRadius: 10, border: 'none', background: COLOR_OUT,
         color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         opacity: busy ? 0.6 : 1,
-      }}>{busy ? 'Deleting…' : confirmLabel}</button>
+      }}>{busy ? t('confirm.deleting') : (confirmLabel ?? t('confirm.confirm'))}</button>
     </div>
   </Modal>
-);
+  );
+};
 
 // ─── Transaction form fields shared by Add and Edit ───────────────────────────
 
-const TypeSelect: React.FC<{ value: string; extraType?: string; onChange: (t: string) => void }> = ({ value, extraType, onChange }) => (
+const TypeSelect: React.FC<{ value: string; extraType?: string; onChange: (v: string) => void }> = ({ value, extraType, onChange }) => {
+  const { t } = useTranslation('wallets');
+  return (
   <div>
-    <label style={labelStyle}>Type</label>
+    <label style={labelStyle}>{t('form.typeLabel')}</label>
     <select value={value} onChange={e => onChange(e.target.value)} style={inputStyle}>
       {/* A legacy value outside the 7 clean types stays selectable so editing can't silently rewrite it */}
       {extraType && !ALL_TYPES.includes(extraType) && (
-        <option value={extraType}>{typeLabel(extraType)} (legacy)</option>
+        <option value={extraType}>{typeLabel(extraType)} {t('form.legacy')}</option>
       )}
-      <optgroup label="Money in">
-        {IN_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+      <optgroup label={t('direction.moneyIn')}>
+        {IN_TYPES.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
       </optgroup>
-      <optgroup label="Money out">
-        {OUT_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+      <optgroup label={t('direction.moneyOut')}>
+        {OUT_TYPES.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
       </optgroup>
     </select>
   </div>
-);
+  );
+};
 
 const DirectionPicker: React.FC<{
   direction: Direction;
   /** False for types with no preset (currently `other`), which need a manual choice. */
   hasPreset: boolean;
   onChange: (d: Direction) => void;
-}> = ({ direction, hasPreset, onChange }) => (
+}> = ({ direction, hasPreset, onChange }) => {
+  const { t } = useTranslation('wallets');
+  return (
   <div>
-    <label style={labelStyle}>Direction</label>
+    <label style={labelStyle}>{t('form.directionLabel')}</label>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       {(['IN', 'OUT'] as Direction[]).map(d => {
         const on = direction === d;
@@ -343,7 +354,7 @@ const DirectionPicker: React.FC<{
             border: on ? `1.5px solid ${c}` : '1px solid #e5e7eb',
             background: on ? (d === 'IN' ? 'rgba(22,163,74,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
             color: on ? c : '#6b7280',
-          }}>{d}</button>
+          }}>{t(`direction.${d}`)}</button>
         );
       })}
     </div>
@@ -353,19 +364,23 @@ const DirectionPicker: React.FC<{
         : 'This type has no preset direction — choose whether the money came in or went out.'}
     </div>
   </div>
-);
+  );
+};
 
-const AmountField: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
+const AmountField: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const { t } = useTranslation('wallets');
+  return (
   <div>
-    <label style={labelStyle}>Amount (₺)</label>
+    <label style={labelStyle}>{t('form.amountLabel')}</label>
     <input
       type="number" min="0" step="0.01" value={value}
       onChange={e => onChange(e.target.value)}
       placeholder="0.00" style={inputStyle}
     />
-    <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 6 }}>Always entered in Turkish Lira.</div>
+    <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 6 }}>{t('form.amountHint')}</div>
   </div>
-);
+  );
+};
 
 // ─── Add transaction ──────────────────────────────────────────────────────────
 
@@ -380,6 +395,7 @@ const AddTransactionModal: React.FC<{
   onSaved: () => void;
   onError: (message: string) => void;
 }> = ({ userId, presetCustomerId, presetName, presetCarId, fallbackUsdRate, onClose, onSaved, onError }) => {
+  const { t } = useTranslation('wallets');
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = useState<string>(presetCustomerId ?? '');
   const [bookings, setBookings] = useState<BookingOption[]>([]);
@@ -400,7 +416,7 @@ const AddTransactionModal: React.FC<{
       if (!active) return;
       setCustomers((data ?? []).map((c: { id: string; first_name: string | null; last_name: string | null }) => ({
         id: c.id,
-        name: [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || 'Unknown customer',
+        name: [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || t('unknownCustomer'),
       })));
     })();
     return () => { active = false; };
@@ -452,7 +468,7 @@ const AddTransactionModal: React.FC<{
     const rate = (await fetchCurrentUsdRate()) ?? fallbackUsdRate;
     if (rate == null) {
       setSaving(false);
-      onError('Could not read the current USD rate — nothing was saved.');
+      onError(t('errors.rate'));
       return;
     }
 
@@ -469,27 +485,27 @@ const AddTransactionModal: React.FC<{
       created_by: userId,
     });
     setSaving(false);
-    if (error) { onError('Could not save the transaction.'); return; }
+    if (error) { onError(t('errors.save')); return; }
     onSaved();
   };
 
   return (
-    <Modal title="Add Transaction" onClose={onClose}>
+    <Modal title={t('form.addTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label style={labelStyle}>Customer</label>
+          <label style={labelStyle}>{t('form.customer')}</label>
           {presetCustomerId ? (
             <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', color: '#0f1117' }}>{presetName || 'Customer'}</div>
           ) : (
             <select value={customerId} onChange={e => setCustomerId(e.target.value)} style={inputStyle}>
-              <option value="">Select a customer…</option>
+              <option value="">{t('form.selectCustomer')}</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
         </div>
 
         <div>
-          <label style={labelStyle}>Booking</label>
+          <label style={labelStyle}>{t('form.booking')}</label>
           <select
             value={bookingId}
             onChange={e => setBookingId(e.target.value ? Number(e.target.value) : '')}
@@ -497,16 +513,16 @@ const AddTransactionModal: React.FC<{
             disabled={!customerId || loadingBookings || bookings.length === 0}
           >
             <option value="">
-              {!customerId ? 'Select a customer first…'
-                : loadingBookings ? 'Loading bookings…'
-                : bookings.length === 0 ? 'No bookings for this customer'
-                : 'Select a booking…'}
+              {!customerId ? t('form.selectCustomerFirst')
+                : loadingBookings ? t('form.loadingBookings')
+                : bookings.length === 0 ? t('form.noBookings')
+                : t('form.selectBooking')}
             </option>
             {bookings.map(b => <option key={b.id} value={b.id}>{bookingLabel(b)}</option>)}
           </select>
           {customerId && !loadingBookings && bookings.length === 0 && (
             <div style={{ fontSize: 12, color: COLOR_OUT, marginTop: 6 }}>
-              This customer has no bookings — a transaction must be linked to one.
+              {t('noBookingsWarn')}
             </div>
           )}
         </div>
@@ -519,8 +535,8 @@ const AddTransactionModal: React.FC<{
         <DirectionPicker direction={direction} hasPreset={TYPE_DIRECTION[type] !== undefined} onChange={setDirection} />
 
         <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.descriptionOptional')}</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
 
         <button
@@ -529,7 +545,7 @@ const AddTransactionModal: React.FC<{
           disabled={!canSave || saving}
           onClick={handleSave}
         >
-          {saving ? 'Saving…' : 'Save Transaction'}
+          {saving ? t('form.saving') : t('form.saveTransaction')}
         </button>
       </div>
     </Modal>
@@ -544,6 +560,7 @@ const EditTransactionModal: React.FC<{
   onSaved: () => void;
   onError: (message: string) => void;
 }> = ({ row, onClose, onSaved, onError }) => {
+  const { t } = useTranslation('wallets');
   const [type, setType] = useState(row.type);
   const [direction, setDirection] = useState<Direction>(row.direction);
   const [description, setDescription] = useState(row.description ?? '');
@@ -567,7 +584,7 @@ const EditTransactionModal: React.FC<{
     const parsedRate = rate.trim() === '' ? null : Number(rate);
     if (parsedRate != null && (!isFinite(parsedRate) || parsedRate <= 0)) {
       setSaving(false);
-      onError('Exchange rate must be a positive number.');
+      onError(t('errors.ratePositive'));
       return;
     }
     const { error } = await supabase.from('customer_accounting_ledger').update({
@@ -578,12 +595,12 @@ const EditTransactionModal: React.FC<{
       exchange_rate_at_entry: parsedRate,
     }).eq('id', row.id);
     setSaving(false);
-    if (error) { onError('Could not update the transaction.'); return; }
+    if (error) { onError(t('errors.update')); return; }
     onSaved();
   };
 
   return (
-    <Modal title="Edit Transaction" onClose={onClose}>
+    <Modal title={t('form.editTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <TypeSelect value={type} extraType={row.type} onChange={handleTypeChange} />
@@ -593,20 +610,20 @@ const EditTransactionModal: React.FC<{
         <DirectionPicker direction={direction} hasPreset={TYPE_DIRECTION[type] !== undefined} onChange={setDirection} />
 
         <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.descriptionOptional')}</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
 
         <div>
-          <label style={labelStyle}>Exchange rate at entry (USD → ₺)</label>
+          <label style={labelStyle}>{t('form.rateLabel')}</label>
           <input
             type="number" min="0" step="0.0001" value={rate}
             onChange={e => setRate(e.target.value)}
-            placeholder="Not recorded" style={inputStyle}
+            placeholder={t('form.ratePlaceholder')} style={inputStyle}
           />
           <div style={{ fontSize: 11.5, color: rateChanged ? '#b45309' : '#9ca3af', marginTop: 6, lineHeight: 1.5 }}>
             {rateChanged
-              ? 'You are overwriting the rate captured when this entry was created.'
+              ? t('form.rateWarning')
               : 'Kept from when this entry was created — editing the amount does not re-stamp it.'}
           </div>
         </div>
@@ -617,7 +634,7 @@ const EditTransactionModal: React.FC<{
           disabled={!canSave || saving}
           onClick={handleSave}
         >
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? t('form.saving') : t('form.saveChanges')}
         </button>
       </div>
     </Modal>
@@ -877,15 +894,18 @@ function toneClass(balance: number): string {
   return 'cw-neu';
 }
 
-function balanceCaption(balance: number): string {
-  if (balance < -0.005) return 'Owes us';
-  if (balance > 0.005) return 'In credit';
-  return 'Settled';
+function balanceCaption(balance: number, t: TFunction): string {
+  if (balance < -0.005) return t('balance.owes');
+  if (balance > 0.005) return t('balance.credit');
+  return t('balance.settled');
 }
 
-const Approx: React.FC = () => (
-  <span className="cw-approx" title="Approximate — converted at today's rate rather than the rate stored on the entry.">≈</span>
-);
+const Approx: React.FC = () => {
+  const { t } = useTranslation('wallets');
+  return (
+  <span className="cw-approx" title={t('balance.approx')}>≈</span>
+  );
+};
 
 const CarGlyph: React.FC<{ size?: number }> = ({ size = 26 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -914,6 +934,7 @@ const TransactionSheet: React.FC<{
   onEdit: (row: LedgerRow) => void;
   onDelete: (row: LedgerRow) => void;
 }> = ({ entry, currency, rates, fallbackUsdRate, onEdit, onDelete }) => {
+  const { t } = useTranslation('wallets');
   // Oldest first so the running balance reads top-to-bottom.
   const chronological = useMemo(() => {
     const sorted = [...entry.rows].sort((a, b) => {
@@ -934,12 +955,12 @@ const TransactionSheet: React.FC<{
       <table className="cw-tx">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th className="r">Amount</th>
-            <th className="r">Balance</th>
-            <th className="r"><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Actions</span></th>
+            <th>{t('table.date')}</th>
+            <th>{t('table.type')}</th>
+            <th>{t('table.description')}</th>
+            <th className="r">{t('table.amount')}</th>
+            <th className="r">{t('table.balance')}</th>
+            <th className="r"><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{t('table.actions')}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -950,7 +971,7 @@ const TransactionSheet: React.FC<{
                 <td className="cw-date">{formatDateDisplay(row.created_at)}</td>
                 <td>
                   {/* The dot carries direction; the signed, coloured amount repeats it. */}
-                  <span className="cw-chip" title={isIn ? 'Money in' : 'Money out'}>
+                  <span className="cw-chip" title={isIn ? t('direction.moneyIn') : t('direction.moneyOut')}>
                     <i style={{ background: isIn ? 'var(--cw-pos)' : 'var(--cw-neg)' }} />
                     {typeLabel(row.type)}
                   </span>
@@ -963,12 +984,12 @@ const TransactionSheet: React.FC<{
                 <td className="r cw-num cw-neu">{formatSigned(running, currency)}</td>
                 <td className="r">
                   <span className="cw-tx-actions">
-                    <button type="button" className="cw-icon-btn" onClick={() => onEdit(row)} title="Edit transaction" aria-label="Edit transaction">
+                    <button type="button" className="cw-icon-btn" onClick={() => onEdit(row)} title={t('table.edit')} aria-label={t('table.edit')}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                         <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
-                    <button type="button" className="cw-icon-btn danger" onClick={() => onDelete(row)} title="Delete transaction" aria-label="Delete transaction">
+                    <button type="button" className="cw-icon-btn danger" onClick={() => onDelete(row)} title={t('table.delete')} aria-label={t('table.delete')}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                         <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
@@ -998,6 +1019,7 @@ const CustomerRow: React.FC<{
   onDelete: (row: LedgerRow) => void;
   onError: (message: string) => void;
 }> = ({ entry, currency, rates, fallbackUsdRate, open, onToggle, onAdd, onEdit, onDelete, onError }) => {
+  const { t } = useTranslation('wallets');
   const [printing, setPrinting] = useState(false);
 
   /**
@@ -1034,7 +1056,7 @@ const CustomerRow: React.FC<{
             <span className="cw-plate-line">
               {/* Pill trails the name so names stay left-aligned down the card. */}
               <span className="cw-cust-name">{entry.name}</span>
-              {entry.live && <span className="cw-pill cw-pill--live"><i />Live</span>}
+              {entry.live && <span className="cw-pill cw-pill--live"><i />{t('live')}</span>}
             </span>
             <span className="cw-caption" style={{ display: 'block' }}>
               {entry.rows.length} {entry.rows.length === 1 ? 'entry' : 'entries'}
@@ -1049,21 +1071,21 @@ const CustomerRow: React.FC<{
             {entry.approx && <Approx />}
             {formatSigned(entry.balance, currency)}
           </div>
-          <div className="cw-caption" style={{ marginTop: 1 }}>{balanceCaption(entry.balance)}</div>
+          <div className="cw-caption" style={{ marginTop: 1 }}>{balanceCaption(entry.balance, t)}</div>
         </div>
 
         <div className="cw-row-actions">
-          <button type="button" className="cw-btn-soft" onClick={onAdd} title="Add a transaction for this customer on this car">
+          <button type="button" className="cw-btn-soft" onClick={onAdd} title={t('form.addForCar')}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
             </svg>
-            Add transaction
+            {t('addTransactionShort')}
           </button>
-          <button type="button" className="cw-btn-ghost" onClick={handlePrintInvoice} disabled={printing} title="Print an invoice for this customer on this car">
+          <button type="button" className="cw-btn-ghost" onClick={handlePrintInvoice} disabled={printing} title={t('form.printInvoice')}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {printing ? 'Preparing…' : 'Print invoice'}
+            {printing ? t('form.preparing') : t('form.print')}
           </button>
         </div>
       </div>
@@ -1090,7 +1112,9 @@ const CarTile: React.FC<{
   car: CarGroup;
   currency: Currency;
   onOpen: (trigger: HTMLButtonElement) => void;
-}> = ({ car, currency, onOpen }) => (
+}> = ({ car, currency, onOpen }) => {
+  const { t } = useTranslation('wallets');
+  return (
   <button
     type="button"
     className="cw-tile"
@@ -1105,10 +1129,10 @@ const CarTile: React.FC<{
     </span>
 
     <span className="cw-tile-meta">
-      <span className="cw-caption" style={{ marginTop: 0 }}>{car.modelName ?? 'No model group'}</span>
+      <span className="cw-caption" style={{ marginTop: 0 }}>{car.modelName ?? t('noModelGroup')}</span>
       {car.hasLive
-        ? <span className="cw-pill cw-pill--live"><i />On rent</span>
-        : <span className="cw-pill cw-pill--idle"><i />Available</span>}
+        ? <span className="cw-pill cw-pill--live"><i />{t('onRent')}</span>
+        : <span className="cw-pill cw-pill--idle"><i />{t('available')}</span>}
       <span className="cw-caption" style={{ marginTop: 0 }}>
         · {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
       </span>
@@ -1118,21 +1142,22 @@ const CarTile: React.FC<{
 
     <span className="cw-tile-bal">
       <span style={{ minWidth: 0 }}>
-        <span className="cw-bal-label" style={{ display: 'block' }}>Car balance</span>
+        <span className="cw-bal-label" style={{ display: 'block' }}>{t('carBalance')}</span>
         <span className={`cw-tile-bal-value cw-num ${toneClass(car.balance)}`}>
           {car.approx && <Approx />}
           {formatSigned(car.balance, currency)}
         </span>
       </span>
       <span className="cw-view">
-        View
+        {t('viewLabel')}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>
     </span>
   </button>
-);
+  );
+};
 
 // ─── Levels 2 + 3 — the car modal ─────────────────────────────────────────────
 
@@ -1149,6 +1174,8 @@ const CarModal: React.FC<{
   onError: (message: string) => void;
   onClose: () => void;
 }> = ({ car, currency, rates, fallbackUsdRate, expanded, onToggle, onAdd, onEdit, onDelete, onError, onClose }) => {
+  const { t } = useTranslation('wallets');
+  const { t: tc } = useTranslation('common');
   const boxRef = useRef<HTMLDivElement>(null);
   const titleId = `cw-modal-${car.key}`;
 
@@ -1191,21 +1218,21 @@ const CarModal: React.FC<{
             <div className="cw-plate-line">
               <span className="cw-plate" id={titleId}>{car.plate}</span>
               {car.hasLive
-                ? <span className="cw-pill cw-pill--live"><i />On rent</span>
-                : <span className="cw-pill cw-pill--idle"><i />Available</span>}
+                ? <span className="cw-pill cw-pill--live"><i />{t('onRent')}</span>
+                : <span className="cw-pill cw-pill--idle"><i />{t('available')}</span>}
             </div>
             <div className="cw-caption">
-              {car.modelName ?? 'No model group'} · {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
+              {car.modelName ?? t('noModelGroup')} · {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
             </div>
           </div>
           <div className="cw-bal-block" style={{ marginRight: 4 }}>
-            <div className="cw-bal-label">Car balance</div>
+            <div className="cw-bal-label">{t('carBalance')}</div>
             <div className={`cw-bal-lg cw-num ${toneClass(car.balance)}`}>
               {car.approx && <Approx />}
               {formatSigned(car.balance, currency)}
             </div>
           </div>
-          <button type="button" className="cw-modal-close" onClick={onClose} aria-label="Close">
+          <button type="button" className="cw-modal-close" onClick={onClose} aria-label={tc('actions.close')}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
@@ -1240,6 +1267,8 @@ const CarModal: React.FC<{
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const CustomerWalletsPage: React.FC = () => {
+  const { t } = useTranslation('wallets');
+  const { t: tc } = useTranslation('common');
   const { currency, rates } = useCurrency();
 
   const [rows, setRows] = useState<LedgerRow[]>([]);
@@ -1358,7 +1387,7 @@ const CustomerWalletsPage: React.FC = () => {
         car = {
           key,
           carId: linked ? row.car_id : null,
-          plate: linked ? plate! : 'Unlinked to a car',
+          plate: linked ? plate! : t('unlinked'),
           customers: [], totalIn: 0, totalOut: 0, balance: 0, approx: false, hasLive: false,
           modelName: meta?.modelName ?? null,
           imageUrl: meta?.imageUrl ?? null,
@@ -1370,7 +1399,7 @@ const CustomerWalletsPage: React.FC = () => {
       if (!entry) {
         entry = {
           customerId: row.customer_id,
-          name: customerNameOf(row),
+          name: customerNameOf(row, t),
           rows: [], totalIn: 0, totalOut: 0, balance: 0, approx: false,
           live: linked && liveKeys.has(`${row.car_id}:${row.customer_id}`),
         };
@@ -1449,54 +1478,54 @@ const CustomerWalletsPage: React.FC = () => {
     const { error } = await supabase.from('customer_accounting_ledger').delete().eq('id', deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
-    if (error) { notify({ message: 'Could not delete the transaction', type: 'error' }); return; }
-    notify({ message: 'Transaction deleted', type: 'success' });
+    if (error) { notify({ message: t('errors.delete'), type: 'error' }); return; }
+    notify({ message: t('toast.deleted'), type: 'success' });
     await load();
   };
 
   const TABS: { key: RentalTab; label: string }[] = [
-    { key: 'all',     label: 'All' },
-    { key: 'current', label: 'Current rentals' },
-    { key: 'ended',   label: 'Ended rentals' },
+    { key: 'all',     label: t('all') },
+    { key: 'current', label: t('currentRentals') },
+    { key: 'ended',   label: t('endedRentals') },
   ];
 
   const emptyTitle = cars.length === 0
-    ? 'No customer ledger entries yet.'
-    : tab === 'current' ? 'No cars with current rentals.'
-    : tab === 'ended'   ? 'No cars with ended rentals.'
-    : 'No cars match this search.';
+    ? t('empty.noEntries')
+    : tab === 'current' ? t('empty.noCurrent')
+    : tab === 'ended'   ? t('empty.noEnded')
+    : t('empty.noMatch');
 
   return (
     <div className="cw-page">
       <style>{CW_STYLES}</style>
 
       <header className="cw-head">
-        <h1 className="cw-h1">Customer Wallets</h1>
-        <p className="cw-sub">Balances per car and customer — charges owed against payments and deposits received.</p>
+        <h1 className="cw-h1">{t('title')}</h1>
+        <p className="cw-sub">{t('subtitle')}</p>
       </header>
 
       {/* Summary */}
       <div className="cw-stats">
         <div className="cw-stat">
-          <div className="cw-stat-label">Owed to us</div>
+          <div className="cw-stat-label">{t('owedToUs')}</div>
           <div className="cw-stat-value cw-num cw-neg">{formatMoney(totals.owed, currency)}</div>
-          <div className="cw-stat-hint">{totals.debtors} {totals.debtors === 1 ? 'balance' : 'balances'}</div>
+          <div className="cw-stat-hint">{t('balanceCount', { count: totals.debtors })}</div>
         </div>
         <div className="cw-stat">
-          <div className="cw-stat-label">In credit</div>
+          <div className="cw-stat-label">{t('inCredit')}</div>
           <div className="cw-stat-value cw-num cw-pos">{formatMoney(totals.credit, currency)}</div>
-          <div className="cw-stat-hint">{totals.inCredit} {totals.inCredit === 1 ? 'balance' : 'balances'}</div>
+          <div className="cw-stat-hint">{t('balanceCount', { count: totals.inCredit })}</div>
         </div>
         <div className="cw-stat">
-          <div className="cw-stat-label">Net position</div>
+          <div className="cw-stat-label">{t('netPosition')}</div>
           <div className={`cw-stat-value cw-num ${toneClass(totals.net)}`}>{formatSigned(totals.net, currency)}</div>
-          <div className="cw-stat-hint">{filtered.length} {filtered.length === 1 ? 'car' : 'cars'}</div>
+          <div className="cw-stat-hint">{t('carCount', { count: filtered.length })}</div>
         </div>
       </div>
 
       {/* Tabs + search + add */}
       <div className="cw-toolbar">
-        <div className="cw-seg" role="tablist" aria-label="Rental status">
+        <div className="cw-seg" role="tablist" aria-label={t('rentalStatus')}>
           {TABS.map(t => (
             <button
               key={t.key}
@@ -1517,8 +1546,8 @@ const CustomerWalletsPage: React.FC = () => {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search plate, model or customer…"
-            aria-label="Search by plate, model group or customer name"
+            placeholder={t('search')}
+            aria-label={t('searchAria')}
           />
         </div>
 
@@ -1526,23 +1555,23 @@ const CustomerWalletsPage: React.FC = () => {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
-          Add Transaction
+          {t('form.addTitle')}
         </button>
       </div>
 
       {loadError ? (
         <div className="cw-empty">
-          <div className="cw-empty-title cw-neg">Could not load the ledger</div>
+          <div className="cw-empty-title cw-neg">{t('loadError')}</div>
           <div className="cw-empty-sub">{loadError}</div>
         </div>
       ) : loading ? (
         <div className="cw-empty">
-          <div className="cw-empty-title">Loading…</div>
+          <div className="cw-empty-title">{t('loading')}</div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="cw-empty">
           <div className="cw-empty-title">{emptyTitle}</div>
-          <div className="cw-empty-sub">Transactions you add will appear here, grouped by car.</div>
+          <div className="cw-empty-sub">{t('emptyHint')}</div>
         </div>
       ) : (
         <div className="cw-grid">
@@ -1584,7 +1613,7 @@ const CustomerWalletsPage: React.FC = () => {
           presetCarId={addFor.carId}
           fallbackUsdRate={usdRate}
           onClose={() => setAddFor(null)}
-          onSaved={async () => { setAddFor(null); notify({ message: 'Transaction added', type: 'success' }); await load(); }}
+          onSaved={async () => { setAddFor(null); notify({ message: t('toast.added'), type: 'success' }); await load(); }}
           onError={message => notify({ message, type: 'error' })}
         />
       )}
@@ -1593,14 +1622,14 @@ const CustomerWalletsPage: React.FC = () => {
         <EditTransactionModal
           row={editRow}
           onClose={() => setEditRow(null)}
-          onSaved={async () => { setEditRow(null); notify({ message: 'Transaction updated', type: 'success' }); await load(); }}
+          onSaved={async () => { setEditRow(null); notify({ message: t('toast.updated'), type: 'success' }); await load(); }}
           onError={message => notify({ message, type: 'error' })}
         />
       )}
 
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete transaction?"
+          title={t('confirm.deleteTitle')}
           message="This ledger entry will be permanently removed and the balance will be recalculated. This cannot be undone."
           confirmLabel="Delete"
           busy={deleting}
