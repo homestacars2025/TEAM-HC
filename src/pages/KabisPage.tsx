@@ -156,9 +156,9 @@ const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
   );
 };
 
-const StatCard: React.FC<{ label: string; value: number; bg: string; loading: boolean }> = ({
-  label, value, bg, loading,
-}) => (
+const StatCard: React.FC<{
+  label: string; value: number; bg: string; loading: boolean; hint?: string;
+}> = ({ label, value, bg, loading, hint }) => (
   <div style={{
     background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
     display: 'flex', flexDirection: 'column', gap: 6,
@@ -169,6 +169,9 @@ const StatCard: React.FC<{ label: string; value: number; bg: string; loading: bo
     <div style={{ ...NUM, fontSize: 36, fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>
       {loading ? '—' : value}
     </div>
+    {hint && (
+      <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.8, lineHeight: 1.3 }}>{hint}</div>
+    )}
   </div>
 );
 
@@ -359,11 +362,20 @@ const KabisPage: React.FC = () => {
     if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightId, loading, entries]);
 
-  const stats = useMemo(() => ({
-    pending:    entries.filter(e => asStatus(e.status) === 'pending').length,
-    checkedIn:  entries.filter(e => asStatus(e.status) === 'checked_in').length,
-    checkedOut: entries.filter(e => asStatus(e.status) === 'checked_out').length,
-  }), [entries]);
+  const stats = useMemo(() => {
+    // A car is "inside KABIS" once it has a checked-in row and no checked-out row yet.
+    const checkedInCarIds = new Set(
+      entries.filter(e => asStatus(e.status) === 'checked_in' && e.car_id != null).map(e => e.car_id),
+    );
+    const checkedOutCarIds = new Set(
+      entries.filter(e => asStatus(e.status) === 'checked_out' && e.car_id != null).map(e => e.car_id),
+    );
+    return {
+      pending:     entries.filter(e => asStatus(e.status) === 'pending').length,
+      insideKabis: [...checkedInCarIds].filter(id => !checkedOutCarIds.has(id)).length,
+      checkedOut:  entries.filter(e => asStatus(e.status) === 'checked_out').length,
+    };
+  }, [entries]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -457,7 +469,7 @@ const KabisPage: React.FC = () => {
       {/* ── Stat cards ── */}
       <div className="kb-stats">
         <StatCard label="Pending"     value={stats.pending}    bg="#ea580c" loading={loading} />
-        <StatCard label="Checked in"  value={stats.checkedIn}  bg="#16a34a" loading={loading} />
+        <StatCard label="Inside KABIS" value={stats.insideKabis} bg="#16a34a" loading={loading} hint="Checked in, not yet out" />
         <StatCard label="Checked out" value={stats.checkedOut} bg="#2563eb" loading={loading} />
       </div>
 
