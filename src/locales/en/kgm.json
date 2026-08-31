@@ -1,0 +1,17 @@
+{
+  "eyebrow": "Operations",
+  "title": "KGM Tolls",
+  "subtitle": "Daily toll records across all vehicles.",
+  "goToToday": "Go to today",
+  "print": "Print",
+  "loading": "Loading…",
+  "save": "Save",
+  "saving": "Saving…",
+  "saved": "Saved",
+  "notePlaceholder": "Add note…",
+  "total": "Total",
+  "yesterday": "Yesterday",
+  "today": "Today",
+  "difference": "Difference",
+  "note": "Note"
+}

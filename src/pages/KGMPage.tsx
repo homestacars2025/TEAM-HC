@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../lib/CurrencyContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,8 +50,14 @@ function addDays(d: Date, n: number): Date {
   return c;
 }
 
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-GB', {
+/** Dates follow the UI language on screen; the printed report stays en-GB. */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
+}
+
+function formatDate(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -58,8 +65,8 @@ function formatDate(d: Date): string {
   });
 }
 
-function formatDateShort(d: Date): string {
-  return d.toLocaleDateString('en-GB', {
+function formatDateShort(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -79,6 +86,9 @@ function parseToll(raw: string): number | null {
 // ─── KGM Page ─────────────────────────────────────────────────────────────────
 
 const KGMPage: React.FC = () => {
+  const { t } = useTranslation('kgm');
+  const dateLocale = useDateLocale();
+  const { t: tc } = useTranslation('common');
   const { fmt, symbol } = useCurrency();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [cars, setCars] = useState<CarRow[]>([]);
@@ -446,7 +456,7 @@ const KGMPage: React.FC = () => {
       <div style="font-size:12px;color:#6b7280;margin-top:4px">Generated: ${generatedAt}</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:16px;font-weight:700;color:#0f1117">${formatDate(selectedDate)}</div>
+      <div style="font-size:16px;font-weight:700;color:#0f1117">${formatDate(selectedDate, 'en-GB')}</div>
     </div>
   </div>
   <div style="display:flex;gap:16px;margin-bottom:24px">
@@ -597,14 +607,14 @@ const KGMPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              Operations
+              {t('eyebrow')}
             </span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
-            KGM Tolls
+            {t('title')}
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
-            Daily toll records across all vehicles.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -623,7 +633,7 @@ const KGMPage: React.FC = () => {
 
           <div style={{ textAlign: 'center', minWidth: 300 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.5px', lineHeight: 1.2 }}>
-              {formatDate(selectedDate)}
+              {formatDate(selectedDate, dateLocale)}
             </div>
             {!isToday(selectedDate) && (
               <button
@@ -637,7 +647,7 @@ const KGMPage: React.FC = () => {
                 onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
                 onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
               >
-                Go to today
+                {t('goToToday')}
               </button>
             )}
           </div>
@@ -649,7 +659,7 @@ const KGMPage: React.FC = () => {
             onClick={handlePrint}
             style={{
               position: 'absolute',
-              right: 36,
+              insetInlineEnd: 36,
               top: '50%',
               transform: 'translateY(-50%)',
               display: 'flex',
@@ -674,7 +684,7 @@ const KGMPage: React.FC = () => {
               <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
             </svg>
-            Print
+            {t('print')}
           </button>
         </div>
 
@@ -682,7 +692,7 @@ const KGMPage: React.FC = () => {
         <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
           {isLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>
-              Loading…
+              {t('loading')}
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
@@ -698,12 +708,12 @@ const KGMPage: React.FC = () => {
               <thead>
                 <tr>
                   <Th style={{ textAlign: 'center' }} sortKey="index" activeSort={sort} onSort={handleSort}>#</Th>
-                  <Th sortKey="plate" activeSort={sort} onSort={handleSort}>Plate</Th>
-                  <Th sortKey="model" activeSort={sort} onSort={handleSort}>Model</Th>
-                  <Th style={{ textAlign: 'right' }} sortKey="yesterday" activeSort={sort} onSort={handleSort}>Yesterday</Th>
-                  <Th style={{ textAlign: 'right' }} sortKey="today" activeSort={sort} onSort={handleSort}>Today</Th>
-                  <Th style={{ textAlign: 'right' }} sortKey="diff" activeSort={sort} onSort={handleSort}>Difference</Th>
-                  <Th>Note</Th>
+                  <Th sortKey="plate" activeSort={sort} onSort={handleSort}>{tc('fields.plate')}</Th>
+                  <Th sortKey="model" activeSort={sort} onSort={handleSort}>{tc('fields.car')}</Th>
+                  <Th style={{ textAlign: 'end' }} sortKey="yesterday" activeSort={sort} onSort={handleSort}>{t('yesterday')}</Th>
+                  <Th style={{ textAlign: 'end' }} sortKey="today" activeSort={sort} onSort={handleSort}>{t('today')}</Th>
+                  <Th style={{ textAlign: 'end' }} sortKey="diff" activeSort={sort} onSort={handleSort}>{t('difference')}</Th>
+                  <Th>{t('note')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -728,7 +738,7 @@ const KGMPage: React.FC = () => {
                       <td style={{ padding: '14px 0', textAlign: 'center' }}>
                         <span style={{ fontSize: 12, color: '#c0c4cc', fontWeight: 500 }}>{idx + 1}</span>
                       </td>
-                      <td style={{ padding: '14px 12px 14px 16px', overflow: 'hidden' }}>
+                      <td style={{ paddingBlock: '14px', paddingInlineStart: '16px', paddingInlineEnd: '12px', overflow: 'hidden' }}>
                         <div style={{
                           display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
                           padding: '3px 9px', fontSize: 13, fontWeight: 700, color: '#0f1117',
@@ -746,12 +756,12 @@ const KGMPage: React.FC = () => {
                           {car.model}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'end' }}>
                         <span style={{ fontSize: 14, color: yVal === 0 ? '#d1d5db' : '#9ca3af', fontWeight: 500, whiteSpace: 'nowrap' }}>
                           {yVal === 0 ? '—' : fmt(yVal)}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 12px 10px 8px', textAlign: 'right' }}>
+                      <td style={{ paddingBlock: '10px', paddingInlineStart: '8px', paddingInlineEnd: '12px', textAlign: 'end' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                           {saveState === 'saved' && (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
@@ -787,7 +797,7 @@ const KGMPage: React.FC = () => {
                           />
                         </div>
                       </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'end' }}>
                         <span style={{
                           fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap',
                           color: diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : '#d1d5db',
@@ -800,7 +810,7 @@ const KGMPage: React.FC = () => {
                           <input
                             type="text"
                             value={noteValue}
-                            placeholder="Add note…"
+                            placeholder={t('notePlaceholder')}
                             className={`kgm-note-input${noteSaving ? ' is-saving' : ''}`}
                             style={{ flex: 1, minWidth: 0 }}
                             onChange={e => handleNoteChange(car.id, e.target.value)}
@@ -817,7 +827,7 @@ const KGMPage: React.FC = () => {
                             onClick={() => saveNote(car.id)}
                             disabled={noteSaving}
                           >
-                            {noteSaving ? 'Saving…' : noteState?.saved ? '✓ Saved' : 'Save'}
+                            {noteSaving ? t('saving') : noteState?.saved ? `✓ ${t('saved')}` : t('save')}
                           </button>
                         </div>
                       </td>
@@ -846,19 +856,19 @@ const KGMPage: React.FC = () => {
                 <tr>
                   <td />
                   <td colSpan={2} style={{ padding: '14px 16px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Total</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{t('total')}</span>
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td style={{ padding: '14px 16px', textAlign: 'end' }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {fmt(totalYesterday)}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 12px', textAlign: 'right' }}>
+                  <td style={{ padding: '14px 12px', textAlign: 'end' }}>
                     <span style={{ fontSize: 15, fontWeight: 800, color: '#0f1117', whiteSpace: 'nowrap' }}>
                       {fmt(totalToday)}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td style={{ padding: '14px 16px', textAlign: 'end' }}>
                     <span style={{
                       fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap',
                       color: totalDiff > 0 ? '#22c55e' : totalDiff < 0 ? '#ef4444' : '#9ca3af',
@@ -904,7 +914,7 @@ const Th: React.FC<ThProps> = ({ children, style, sortKey, activeSort, onSort, .
         color: isActive ? '#4ba6ea' : '#9ca3af',
         textTransform: 'uppercase',
         letterSpacing: '0.7px',
-        textAlign: 'left',
+        textAlign: 'start',
         background: '#fff',
         borderBottom: '1.5px solid #f0f0f0',
         position: 'sticky',

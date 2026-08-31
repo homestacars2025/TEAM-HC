@@ -28,16 +28,28 @@ const TRANSLATED = [
   'CalendarPage.tsx',
   'FinesPage.tsx',
   'TasksPage.tsx',
+  'KGMPage.tsx',
 ];
 
 /** A line holding only capitalised English prose — no code punctuation. */
 const BARE_ENGLISH = /^[A-Z][A-Za-z]*(?: [A-Za-z()#…'&/,.-]+){0,8}[.?…]?$/;
 
+/**
+ * KGM builds a printable HTML report in a template literal. That report is a
+ * document, not a screen, and stays English — so its lines are skipped.
+ */
+function stripPrintTemplate(src: string): string[] {
+  const lines = src.split('\n');
+  const start = lines.findIndex(l => l.includes('const html = `<!DOCTYPE html>'));
+  if (start === -1) return lines;
+  const end = lines.findIndex((l, i) => i > start && l.trim() === '</html>`;');
+  return lines.filter((_, i) => i < start || (end !== -1 && i > end));
+}
+
 describe.each(TRANSLATED)('%s', (file) => {
   test('renders no bare English text node', () => {
     const src = fs.readFileSync(path.join(PAGES_DIR, file), 'utf8');
-    const offenders = src
-      .split('\n')
+    const offenders = stripPrintTemplate(src)
       .map((line, i) => [i + 1, line.trim()] as const)
       .filter(([, text]) => text.length > 2 && BARE_ENGLISH.test(text))
       .map(([n, text]) => `${file}:${n} ${JSON.stringify(text)}`);
