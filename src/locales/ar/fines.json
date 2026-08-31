@@ -1,0 +1,77 @@
+{
+  "eyebrow": "العمليات",
+  "title": "المخالفات المرورية",
+  "subtitle": "إدارة ومتابعة مخالفات المركبات",
+  "totalFines": "إجمالي المخالفات",
+  "totalUnpaid": "إجمالي غير المدفوع",
+  "chooseFile": "اختر ملفاً…",
+  "showing": "عرض {{shown}} من أصل {{count}} مخالفة",
+  "status": {
+    "unpaid": "غير مدفوعة",
+    "paid": "مدفوعة",
+    "all": "كل الحالات"
+  },
+  "table": {
+    "plate": "اللوحة",
+    "violationNo": "رقم المخالفة",
+    "amount": "المبلغ",
+    "date": "التاريخ",
+    "location": "المكان",
+    "actions": "إجراءات",
+    "search": "ابحث باللوحة أو العميل أو المخالفة…",
+    "empty": "لا توجد مخالفات مطابقة لبحثك.",
+    "emptyNone": "لا توجد مخالفات مسجّلة بعد.",
+    "markPaid": "تعليم كمدفوعة",
+    "view": "عرض التفاصيل",
+    "edit": "تعديل المخالفة",
+    "delete": "حذف المخالفة",
+    "pay": "دفع",
+    "clearFilter": "مسح الفلتر"
+  },
+  "form": {
+    "addTitle": "إضافة مخالفة",
+    "addSubtitle": "أدخل تفاصيل المخالفة أدناه",
+    "editTitle": "تعديل المخالفة",
+    "selectPlate": "اختر اللوحة…",
+    "violationNoPlaceholder": "مثلاً MB-94271641",
+    "selectCarFirst": "اختر السيارة أولاً",
+    "loading": "جارٍ التحميل…",
+    "noCustomers": "لا يوجد عملاء لهذه السيارة",
+    "amountLabel": "المبلغ (ليرة)",
+    "violationDate": "تاريخ المخالفة",
+    "violationTime": "وقت المخالفة",
+    "locationPlaceholder": "مثلاً شيشلي، إسطنبول",
+    "article": "المادة",
+    "articlePlaceholder": "مثلاً المادة 51",
+    "fineImage": "صورة المخالفة",
+    "finePdf": "ملف المخالفة PDF",
+    "descriptionPlaceholder": "ملاحظات اختيارية عن المخالفة…",
+    "saving": "جارٍ الحفظ…",
+    "saveChanges": "حفظ التغييرات",
+    "saveError": "تعذّر حفظ المخالفة.",
+    "violationNumber": "رقم المخالفة"
+  },
+  "view": {
+    "plateNumber": "رقم اللوحة",
+    "attachments": "المرفقات",
+    "paymentReceipt": "إيصال الدفع"
+  },
+  "payment": {
+    "title": "تأكيد الدفع",
+    "fineAmount": "مبلغ المخالفة",
+    "receipt": "إيصال الدفع (اختياري)",
+    "confirming": "جارٍ التأكيد…",
+    "error": "تعذّر تأكيد الدفع."
+  },
+  "delete": {
+    "title": "حذف المخالفة",
+    "deleting": "جارٍ الحذف…",
+    "confirm": "متأكد من حذف المخالفة <1>{{number}}</1> للوحة <2>{{plate}}</2>؟"
+  },
+  "toast": {
+    "added": "تمت إضافة المخالفة.",
+    "updated": "تم تحديث المخالفة.",
+    "paid": "تم تأكيد الدفع.",
+    "deleted": "تم حذف المخالفة."
+  }
+}

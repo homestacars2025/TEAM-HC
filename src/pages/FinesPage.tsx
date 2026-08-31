@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
@@ -58,10 +59,16 @@ interface AddFineForm {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDateDisplay(s: string | null): string {
+/** Dates follow the UI language; amounts stay with `useCurrency().fmt`. */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
+}
+
+function formatDateDisplay(s: string | null, locale: string): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 async function fetchCarCustomers(carId: number): Promise<CustomerOption[]> {
@@ -113,9 +120,9 @@ async function uploadFile(
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<FineStatus, { label: string; color: string; bg: string }> = {
-  unpaid: { label: 'Unpaid', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
-  paid:   { label: 'Paid',   color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
+const STATUS_CFG: Record<FineStatus, { color: string; bg: string }> = {
+  unpaid: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  paid:   { color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -144,6 +151,7 @@ const Toast: React.FC<ToastState> = ({ message, type }) =>
 
 // Status badge
 const StatusBadge: React.FC<{ status: FineStatus }> = ({ status }) => {
+  const { t } = useTranslation('fines');
   const cfg = STATUS_CFG[status];
   return (
     <span style={{
@@ -153,7 +161,7 @@ const StatusBadge: React.FC<{ status: FineStatus }> = ({ status }) => {
       borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap',
     }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-      {cfg.label}
+      {t(`status.${status}`)}
     </span>
   );
 };
@@ -164,7 +172,7 @@ const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, 
     style={{
       padding: '9px 12px', fontSize: 11, fontWeight: 700,
       color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
-      textAlign: 'left', background: '#fff',
+      textAlign: 'start', background: '#fff',
       borderBottom: '1.5px solid #f0f0f0',
       position: 'sticky', top: 0, zIndex: 1,
       whiteSpace: 'nowrap', userSelect: 'none',
@@ -231,6 +239,7 @@ const FileUploadField: React.FC<{
   file: File | null;
   onChange: (f: File | null) => void;
 }> = ({ label, accept, file, onChange }) => {
+  const { t } = useTranslation('fines');
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div>
@@ -253,12 +262,12 @@ const FileUploadField: React.FC<{
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {file ? file.name : 'Choose file…'}
+          {file ? file.name : t('chooseFile')}
         </span>
         {file && (
           <button
             onClick={e => { e.stopPropagation(); onChange(null); if (ref.current) ref.current.value = ''; }}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, flexShrink: 0 }}
+            style={{ marginInlineStart: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, flexShrink: 0 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
@@ -279,6 +288,8 @@ interface AddFineModalProps {
 }
 
 const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) => {
+  const { t } = useTranslation('fines');
+  const { t: tc } = useTranslation('common');
   const [form, setForm] = useState<AddFineForm>({
     violation_number: '', car_id: null, plate_number: '', customer_id: null as string | null,
     amount: '', violation_date: '', violation_time: '',
@@ -359,7 +370,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
       onSaved();
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save fine.';
+      const msg = err instanceof Error ? err.message : t('form.saveError');
       setFormError(msg);
       setSaving(false);
     }
@@ -382,8 +393,8 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Add Fine</div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Enter the violation details below</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{t('form.addTitle')}</div>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{t('form.addSubtitle')}</div>
             </div>
             <button onClick={onClose} style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
@@ -420,7 +431,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
                 onChange={e => handleCarChange(e.target.value)}
                 style={{ ...FIELD_STYLE, cursor: 'pointer' }}
               >
-                <option value="">Select plate…</option>
+                <option value="">{t('form.selectPlate')}</option>
                 {cars.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.plate_number}{c.model_name ? ` — ${c.model_name}` : ''}
@@ -432,14 +443,14 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Violation Number (manual input) */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Violation Number <span style={{ color: '#ef4444' }}>*</span>
+                {t('form.violationNumber')} <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
                 required
                 value={form.violation_number}
                 onChange={e => set('violation_number', e.target.value)}
-                placeholder="e.g. MB-94271641"
+                placeholder={t('form.violationNoPlaceholder')}
                 style={FIELD_STYLE}
               />
             </div>
@@ -447,7 +458,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Customer (dependent on selected car) */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Customer
+                {tc('fields.customer')}
               </label>
               <select
                 value={form.customer_id ?? ''}
@@ -456,13 +467,13 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
                 style={{ ...FIELD_STYLE, cursor: (!form.car_id || customersLoading) ? 'not-allowed' : 'pointer', opacity: 1, color: !form.car_id ? '#9ca3af' : '#0f1117' }}
               >
                 {!form.car_id
-                  ? <option value="">Select a car first</option>
+                  ? <option value="">{t('form.selectCarFirst')}</option>
                   : customersLoading
-                    ? <option value="">Loading…</option>
+                    ? <option value="">{t('form.loading')}</option>
                     : <>
                         <option value="">— No customer (general fine) —</option>
                         {carCustomers.length === 0
-                          ? <option disabled value="">No customers found for this car</option>
+                          ? <option disabled value="">{t('form.noCustomers')}</option>
                           : carCustomers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)
                         }
                       </>
@@ -473,7 +484,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Amount */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Amount (TRY) <span style={{ color: '#ef4444' }}>*</span>
+                {t('form.amountLabel')} <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="number"
@@ -504,7 +515,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Violation Time */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Violation Time
+                {t('form.violationTime')}
               </label>
               <input
                 type="time"
@@ -517,13 +528,13 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Location */}
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Location
+                {t('table.location')}
               </label>
               <input
                 type="text"
                 value={form.location}
                 onChange={e => set('location', e.target.value)}
-                placeholder="e.g. Şişli, Istanbul"
+                placeholder={t('form.locationPlaceholder')}
                 style={FIELD_STYLE}
               />
             </div>
@@ -531,13 +542,13 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Article */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Article
+                {t('form.article')}
               </label>
               <input
                 type="text"
                 value={form.article}
                 onChange={e => set('article', e.target.value)}
-                placeholder="e.g. Art. 51"
+                placeholder={t('form.articlePlaceholder')}
                 style={FIELD_STYLE}
               />
             </div>
@@ -545,7 +556,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Fine Image */}
             <div>
               <FileUploadField
-                label="Fine Image"
+                label={t('form.fineImage')}
                 accept="image/*"
                 file={form.fine_image}
                 onChange={f => set('fine_image', f)}
@@ -555,7 +566,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Fine PDF */}
             <div>
               <FileUploadField
-                label="Fine PDF"
+                label={t('form.finePdf')}
                 accept=".pdf,application/pdf"
                 file={form.fine_pdf}
                 onChange={f => set('fine_pdf', f)}
@@ -565,13 +576,13 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
             {/* Description */}
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Description
+                {tc('fields.description')}
               </label>
               <textarea
                 value={form.description}
                 onChange={e => set('description', e.target.value)}
                 rows={3}
-                placeholder="Optional notes about the violation…"
+                placeholder={t('form.descriptionPlaceholder')}
                 style={{
                   ...FIELD_STYLE, height: 'auto', padding: '10px 12px',
                   resize: 'vertical', lineHeight: 1.5,
@@ -587,7 +598,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
               background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
-              Cancel
+              {tc('actions.cancel')}
             </button>
             <button type="submit" disabled={saving} style={{
               height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
@@ -595,7 +606,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
               fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit', transition: 'background 150ms ease',
             }}>
-              {saving ? 'Saving…' : 'Add Fine'}
+              {saving ? t('form.saving') : t('form.addTitle')}
             </button>
           </div>
         </form>
@@ -615,6 +626,8 @@ interface EditFineModalProps {
 }
 
 const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSaved }) => {
+  const { t } = useTranslation('fines');
+  const { t: tc } = useTranslation('common');
   const [form, setForm] = useState({
     violation_number: fine.violation_number,
     car_id: fine.car_id ?? null as number | null,
@@ -714,7 +727,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Edit Fine</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{t('form.editTitle')}</div>
               <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{fine.violation_number}</div>
             </div>
             <button onClick={onClose} style={{
@@ -742,10 +755,10 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Plate Number
+                {t('view.plateNumber')}
               </label>
               <select value={form.car_id ?? ''} onChange={e => handleCarChange(e.target.value)} style={{ ...FIELD_STYLE, cursor: 'pointer' }}>
-                <option value="">Select plate…</option>
+                <option value="">{t('form.selectPlate')}</option>
                 {cars.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.plate_number}{c.model_name ? ` — ${c.model_name}` : ''}
@@ -756,21 +769,21 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Violation Number <span style={{ color: '#ef4444' }}>*</span>
+                {t('form.violationNumber')} <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
                 required
                 value={form.violation_number}
                 onChange={e => set('violation_number', e.target.value)}
-                placeholder="e.g. MB-94271641"
+                placeholder={t('form.violationNoPlaceholder')}
                 style={FIELD_STYLE}
               />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Customer
+                {tc('fields.customer')}
               </label>
               <select
                 value={form.customer_id ?? ''}
@@ -779,13 +792,13 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
                 style={{ ...FIELD_STYLE, cursor: (!form.car_id || customersLoading) ? 'not-allowed' : 'pointer', opacity: 1, color: !form.car_id ? '#9ca3af' : '#0f1117' }}
               >
                 {!form.car_id
-                  ? <option value="">Select a car first</option>
+                  ? <option value="">{t('form.selectCarFirst')}</option>
                   : customersLoading
-                    ? <option value="">Loading…</option>
+                    ? <option value="">{t('form.loading')}</option>
                     : <>
                         <option value="">— No customer (general fine) —</option>
                         {carCustomers.length === 0
-                          ? <option disabled value="">No customers found for this car</option>
+                          ? <option disabled value="">{t('form.noCustomers')}</option>
                           : carCustomers.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)
                         }
                       </>
@@ -795,7 +808,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Amount (TRY) <span style={{ color: '#ef4444' }}>*</span>
+                {t('form.amountLabel')} <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input type="number" min="0" step="0.01" required value={form.amount} onChange={e => set('amount', e.target.value)} style={FIELD_STYLE} />
             </div>
@@ -809,28 +822,28 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Violation Time
+                {t('form.violationTime')}
               </label>
               <input type="time" value={form.violation_time} onChange={e => set('violation_time', e.target.value)} style={FIELD_STYLE} />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Article
+                {t('form.article')}
               </label>
               <input type="text" value={form.article} onChange={e => set('article', e.target.value)} style={FIELD_STYLE} />
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Location
+                {t('table.location')}
               </label>
               <input type="text" value={form.location} onChange={e => set('location', e.target.value)} style={FIELD_STYLE} />
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.3px' }}>
-                Description
+                {tc('fields.description')}
               </label>
               <textarea
                 value={form.description}
@@ -847,7 +860,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
               background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
-              Cancel
+              {tc('actions.cancel')}
             </button>
             <button type="submit" disabled={saving} style={{
               height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
@@ -855,7 +868,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
               fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
             }}>
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? t('form.saving') : t('form.saveChanges')}
             </button>
           </div>
         </form>
@@ -868,6 +881,9 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
 // ─── View Fine Modal ──────────────────────────────────────────────────────────
 
 const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, onClose }) => {
+  const { t } = useTranslation('fines');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const { fmt: formatAmount } = useCurrency();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -904,7 +920,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{fine.violation_number}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{formatDateDisplay(fine.violation_date)}</div>
+                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{formatDateDisplay(fine.violation_date, dateLocale)}</div>
               </div>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -912,7 +928,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
                 borderRadius: 20, padding: '3px 10px',
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-                {cfg.label}
+                {t(`status.${status}`)}
               </span>
             </div>
             <button onClick={onClose} style={{
@@ -926,18 +942,18 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '22px 26px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            <DetailRow label="Plate Number" value={fine.plate_number} />
-            <DetailRow label="Customer" value={fine.customer_name} />
-            <DetailRow label="Amount" value={formatAmount(fine.amount)} />
-            <DetailRow label="Violation Date" value={formatDateDisplay(fine.violation_date)} />
-            <DetailRow label="Violation Time" value={fine.violation_time} />
-            <DetailRow label="Article" value={fine.article} />
+            <DetailRow label={t('view.plateNumber')} value={fine.plate_number} />
+            <DetailRow label={tc('fields.customer')} value={fine.customer_name} />
+            <DetailRow label={t('table.amount')} value={formatAmount(fine.amount)} />
+            <DetailRow label={t('form.violationDate')} value={formatDateDisplay(fine.violation_date, dateLocale)} />
+            <DetailRow label={t('form.violationTime')} value={fine.violation_time} />
+            <DetailRow label={t('form.article')} value={fine.article} />
             <div style={{ gridColumn: '1 / -1' }}>
-              <DetailRow label="Location" value={fine.location} />
+              <DetailRow label={t('table.location')} value={fine.location} />
             </div>
             {fine.description && (
               <div style={{ gridColumn: '1 / -1' }}>
-                <DetailRow label="Description" value={fine.description} />
+                <DetailRow label={tc('fields.description')} value={fine.description} />
               </div>
             )}
           </div>
@@ -945,7 +961,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
           {(fine.fine_image_url || fine.fine_pdf_url || fine.payment_receipt_url) && (
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
-                Attachments
+                {t('view.attachments')}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {fine.fine_image_url && (
@@ -955,7 +971,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
                     textDecoration: 'none', color: '#374151', fontSize: 13, fontWeight: 500,
                   }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#9ca3af" strokeWidth="1.8" /><circle cx="8.5" cy="8.5" r="1.5" fill="#9ca3af" /><path d="M21 15l-5-5L5 21" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    Fine Image
+                    {t('form.fineImage')}
                   </a>
                 )}
                 {fine.fine_pdf_url && (
@@ -965,7 +981,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
                     textDecoration: 'none', color: '#374151', fontSize: 13, fontWeight: 500,
                   }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#9ca3af" strokeWidth="1.8" /><path d="M14 2v6h6" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" /></svg>
-                    Fine PDF
+                    {t('form.finePdf')}
                   </a>
                 )}
                 {fine.payment_receipt_url && (
@@ -975,7 +991,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
                     textDecoration: 'none', color: '#374151', fontSize: 13, fontWeight: 500,
                   }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" /><circle cx="12" cy="12" r="9" stroke="#22c55e" strokeWidth="1.8" /></svg>
-                    Payment Receipt
+                    {t('view.paymentReceipt')}
                   </a>
                 )}
               </div>
@@ -988,7 +1004,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
             height: 40, padding: '0 22px', borderRadius: 9, border: '1.5px solid #e5e7eb',
             background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit',
           }}>
-            Close
+            {tc('actions.close')}
           </button>
         </div>
       </div>
@@ -1006,6 +1022,8 @@ interface ConfirmPaymentModalProps {
 }
 
 const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose, onPaid }) => {
+  const { t } = useTranslation('fines');
+  const { t: tc } = useTranslation('common');
   const { fmt: formatAmount } = useCurrency();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1064,7 +1082,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
       onPaid();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to confirm payment.');
+      setError(err instanceof Error ? err.message : t('payment.error'));
       setSaving(false);
     }
   };
@@ -1083,7 +1101,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
       }}>
         <div style={{ padding: '22px 26px 18px', borderBottom: '1px solid #f0f0f0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>Confirm Payment</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>{t('payment.title')}</div>
             <button onClick={onClose} style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid #e5e7eb',
               background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
@@ -1110,7 +1128,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
             border: '1px solid #e5e7eb', marginBottom: 20,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Plate Number</span>
+              <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>{t('view.plateNumber')}</span>
               <span style={{
                 background: '#f3f4f6', borderRadius: 6, padding: '2px 8px',
                 fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
@@ -1119,7 +1137,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Fine Amount</span>
+              <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>{t('payment.fineAmount')}</span>
               <span style={{ fontSize: 22, fontWeight: 800, color: '#ef4444', letterSpacing: '-0.5px' }}>
                 {formatAmount(fine.amount)}
               </span>
@@ -1128,7 +1146,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
 
           {/* Receipt upload */}
           <FileUploadField
-            label="Payment Receipt (optional)"
+            label={t('payment.receipt')}
             accept="image/*,.pdf"
             file={receiptFile}
             onChange={setReceiptFile}
@@ -1140,7 +1158,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
               background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
-              Cancel
+              {tc('actions.cancel')}
             </button>
             <button onClick={handleConfirm} disabled={saving} style={{
               height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
@@ -1148,7 +1166,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
               fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit',
             }}>
-              {saving ? 'Confirming…' : 'Confirm Payment'}
+              {saving ? t('payment.confirming') : t('payment.title')}
             </button>
           </div>
         </div>
@@ -1165,6 +1183,8 @@ const DeleteModal: React.FC<{
   onClose: () => void;
   onDeleted: () => void;
 }> = ({ fine, onClose, onDeleted }) => {
+  const { t } = useTranslation('fines');
+  const { t: tc } = useTranslation('common');
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -1202,9 +1222,14 @@ const DeleteModal: React.FC<{
             <path d="M3 6h18M19 6l-1 14H6L5 6M10 6V4h4v2" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', marginBottom: 8 }}>Delete Fine</div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', marginBottom: 8 }}>{t('delete.title')}</div>
         <div style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.5, marginBottom: 24 }}>
-          Are you sure you want to delete fine <strong style={{ color: '#0f1117' }}>{fine.violation_number}</strong> for plate <strong style={{ color: '#0f1117' }}>{fine.plate_number}</strong>? This action cannot be undone.
+          <Trans
+            t={t}
+            i18nKey="delete.confirm"
+            values={{ number: fine.violation_number, plate: fine.plate_number }}
+            components={[<span />, <strong style={{ color: '#0f1117' }} />, <strong style={{ color: '#0f1117' }} />]}
+          />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{
@@ -1212,7 +1237,7 @@ const DeleteModal: React.FC<{
             background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
             cursor: 'pointer', fontFamily: 'inherit',
           }}>
-            Cancel
+            {tc('actions.cancel')}
           </button>
           <button onClick={handleDelete} disabled={deleting} style={{
             flex: 1, height: 40, borderRadius: 9, border: 'none',
@@ -1220,7 +1245,7 @@ const DeleteModal: React.FC<{
             fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit',
           }}>
-            {deleting ? 'Deleting…' : 'Delete'}
+            {deleting ? t('delete.deleting') : tc('actions.delete')}
           </button>
         </div>
       </div>
@@ -1241,6 +1266,9 @@ type ModalState =
   | null;
 
 const FinesPage: React.FC = () => {
+  const { t } = useTranslation('fines');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const { fmt: formatAmount } = useCurrency();
   const [fines, setFines] = useState<Fine[]>([]);
   const [cars, setCars] = useState<CarOption[]>([]);
@@ -1361,14 +1389,14 @@ const FinesPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
           <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            Operations
+            {t('eyebrow')}
           </span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
-          Traffic Fines
+          {t('title')}
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
-          Manage and track all vehicle traffic fines
+          {t('subtitle')}
         </p>
       </div>
 
@@ -1406,7 +1434,7 @@ const FinesPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
-                Total Fines
+                {t('totalFines')}
               </div>
               <div style={{ fontSize: 40, fontWeight: 800, color: '#0f1117', letterSpacing: '-1.5px', lineHeight: 1 }}>
                 {loading ? '—' : totalCount}
@@ -1442,7 +1470,7 @@ const FinesPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
-                Total Unpaid
+                {t('totalUnpaid')}
               </div>
               <div style={{ fontSize: 32, fontWeight: 800, color: '#ef4444', letterSpacing: '-1px', lineHeight: 1 }}>
                 {loading ? '—' : formatAmount(totalUnpaid)}
@@ -1467,17 +1495,17 @@ const FinesPage: React.FC = () => {
       }}>
         {/* Search */}
         <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 160 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
             <path d="M20 20l-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           <input
             type="text"
-            placeholder="Search plate, customer, violation…"
+            placeholder={t('table.search')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
-              width: '100%', height: 38, paddingLeft: 34, paddingRight: 12,
+              width: '100%', height: 38, paddingInlineStart: 34, paddingInlineEnd: 12,
               fontSize: 13, color: '#0f1117', background: '#f9fafb',
               border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
               fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 150ms ease',
@@ -1497,9 +1525,9 @@ const FinesPage: React.FC = () => {
             outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
           }}
         >
-          <option value="all">All Statuses</option>
-          <option value="paid">Paid</option>
-          <option value="unpaid">Unpaid</option>
+          <option value="all">{t('status.all')}</option>
+          <option value="paid">{t('status.paid')}</option>
+          <option value="unpaid">{t('status.unpaid')}</option>
         </select>
 
         <div style={{ flex: 1 }} />
@@ -1521,7 +1549,7 @@ const FinesPage: React.FC = () => {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
-          Add Fine
+          {t('form.addTitle')}
         </button>
       </div>
 
@@ -1534,14 +1562,14 @@ const FinesPage: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
             <thead>
               <tr>
-                <Th>Plate</Th>
-                <Th>Violation #</Th>
-                <Th>Customer</Th>
-                <Th style={{ textAlign: 'right' }}>Amount</Th>
-                <Th>Status</Th>
-                <Th>Date</Th>
-                <Th>Location</Th>
-                <Th style={{ textAlign: 'right' }}>Actions</Th>
+                <Th>{t('table.plate')}</Th>
+                <Th>{t('table.violationNo')}</Th>
+                <Th>{tc('fields.customer')}</Th>
+                <Th style={{ textAlign: 'end' }}>{t('table.amount')}</Th>
+                <Th>{tc('fields.status')}</Th>
+                <Th>{tc('fields.date')}</Th>
+                <Th>{t('table.location')}</Th>
+                <Th style={{ textAlign: 'end' }}>{t('table.actions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -1552,7 +1580,7 @@ const FinesPage: React.FC = () => {
                     <tr>
                       <td colSpan={8} style={{ padding: '48px 24px', textAlign: 'center' }}>
                         <div style={{ fontSize: 14, color: '#9ca3af' }}>
-                          {search || filterStatus !== 'all' ? 'No fines match your search.' : 'No fines recorded yet.'}
+                          {search || filterStatus !== 'all' ? t('table.empty') : t('table.emptyNone')}
                         </div>
                       </td>
                     </tr>
@@ -1573,7 +1601,7 @@ const FinesPage: React.FC = () => {
                       <td style={{ padding: '11px 12px' }}>
                         <span style={{ fontSize: 13, color: '#374151' }}>{fine.customer_name || '—'}</span>
                       </td>
-                      <td style={{ padding: '11px 12px', textAlign: 'right' }}>
+                      <td style={{ padding: '11px 12px', textAlign: 'end' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: fine.status === 'unpaid' ? '#ef4444' : '#0f1117' }}>
                           {formatAmount(fine.amount)}
                         </span>
@@ -1583,7 +1611,7 @@ const FinesPage: React.FC = () => {
                       </td>
                       <td style={{ padding: '11px 12px' }}>
                         <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
-                          {formatDateDisplay(fine.violation_date)}
+                          {formatDateDisplay(fine.violation_date, dateLocale)}
                         </span>
                       </td>
                       <td style={{ padding: '11px 12px', maxWidth: 180 }}>
@@ -1599,7 +1627,7 @@ const FinesPage: React.FC = () => {
                           {fine.status === 'unpaid' && (
                             <button
                               onClick={() => setModal({ type: 'pay', fine })}
-                              title="Mark as paid"
+                              title={t('table.markPaid')}
                               style={{
                                 height: 28, padding: '0 10px', borderRadius: 7, border: 'none',
                                 background: 'rgba(34,197,94,0.1)', color: '#22c55e',
@@ -1614,22 +1642,22 @@ const FinesPage: React.FC = () => {
                                 (e.currentTarget as HTMLButtonElement).style.background = 'rgba(34,197,94,0.1)';
                               }}
                             >
-                              Pay
+                              {t('table.pay')}
                             </button>
                           )}
-                          <ActionBtn onClick={() => setModal({ type: 'view', fine })} title="View details" hoverColor="#4ba6ea">
+                          <ActionBtn onClick={() => setModal({ type: 'view', fine })} title={t('table.view')} hoverColor="#4ba6ea">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8" />
                               <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
                             </svg>
                           </ActionBtn>
-                          <ActionBtn onClick={() => setModal({ type: 'edit', fine })} title="Edit fine" hoverColor="#6b7280">
+                          <ActionBtn onClick={() => setModal({ type: 'edit', fine })} title={t('table.edit')} hoverColor="#6b7280">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                               <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                           </ActionBtn>
-                          <ActionBtn onClick={() => setModal({ type: 'delete', fine })} title="Delete fine" hoverColor="#ef4444">
+                          <ActionBtn onClick={() => setModal({ type: 'delete', fine })} title={t('table.delete')} hoverColor="#ef4444">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                               <path d="M3 6h18M19 6l-1 14H6L5 6M10 6V4h4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
@@ -1649,13 +1677,13 @@ const FinesPage: React.FC = () => {
             padding: '12px 18px', borderTop: '1px solid #f5f5f5',
             fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <span>Showing {filtered.length} of {totalCount} fines</span>
+            <span>{t('showing', { shown: filtered.length, count: totalCount })}</span>
             {filterStatus !== 'all' && (
               <button
                 onClick={() => setFilterStatus('all')}
                 style={{ background: 'none', border: 'none', color: '#4ba6ea', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
               >
-                Clear filter
+                {t('table.clearFilter')}
               </button>
             )}
           </div>
@@ -1667,7 +1695,7 @@ const FinesPage: React.FC = () => {
         <AddFineModal
           cars={cars}
           onClose={() => setModal(null)}
-          onSaved={() => { fetchFines(); showToast('Fine added successfully.', 'success'); }}
+          onSaved={() => { fetchFines(); showToast(t('toast.added'), 'success'); }}
         />
       )}
       {modal?.type === 'edit' && (
@@ -1675,7 +1703,7 @@ const FinesPage: React.FC = () => {
           fine={modal.fine}
           cars={cars}
           onClose={() => setModal(null)}
-          onSaved={() => { fetchFines(); showToast('Fine updated successfully.', 'success'); }}
+          onSaved={() => { fetchFines(); showToast(t('toast.updated'), 'success'); }}
         />
       )}
       {modal?.type === 'view' && (
@@ -1688,14 +1716,14 @@ const FinesPage: React.FC = () => {
         <ConfirmPaymentModal
           fine={modal.fine}
           onClose={() => setModal(null)}
-          onPaid={() => { fetchFines(); showToast('Payment confirmed successfully.', 'success'); }}
+          onPaid={() => { fetchFines(); showToast(t('toast.paid'), 'success'); }}
         />
       )}
       {modal?.type === 'delete' && (
         <DeleteModal
           fine={modal.fine}
           onClose={() => setModal(null)}
-          onDeleted={() => { fetchFines(); showToast('Fine deleted.', 'success'); }}
+          onDeleted={() => { fetchFines(); showToast(t('toast.deleted'), 'success'); }}
         />
       )}
 

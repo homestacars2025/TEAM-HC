@@ -1,0 +1,77 @@
+{
+  "eyebrow": "Operations",
+  "title": "Traffic Fines",
+  "subtitle": "Manage and track all vehicle traffic fines",
+  "totalFines": "Total Fines",
+  "totalUnpaid": "Total Unpaid",
+  "chooseFile": "Choose file…",
+  "showing": "Showing {{shown}} of {{count}} fines",
+  "status": {
+    "unpaid": "Unpaid",
+    "paid": "Paid",
+    "all": "All Statuses"
+  },
+  "table": {
+    "plate": "Plate",
+    "violationNo": "Violation #",
+    "amount": "Amount",
+    "date": "Date",
+    "location": "Location",
+    "actions": "Actions",
+    "search": "Search plate, customer, violation…",
+    "empty": "No fines match your search.",
+    "emptyNone": "No fines recorded yet.",
+    "markPaid": "Mark as paid",
+    "view": "View details",
+    "edit": "Edit fine",
+    "delete": "Delete fine",
+    "pay": "Pay",
+    "clearFilter": "Clear filter"
+  },
+  "form": {
+    "addTitle": "Add Fine",
+    "addSubtitle": "Enter the violation details below",
+    "editTitle": "Edit Fine",
+    "selectPlate": "Select plate…",
+    "violationNoPlaceholder": "e.g. MB-94271641",
+    "selectCarFirst": "Select a car first",
+    "loading": "Loading…",
+    "noCustomers": "No customers found for this car",
+    "amountLabel": "Amount (TRY)",
+    "violationDate": "Violation Date",
+    "violationTime": "Violation Time",
+    "locationPlaceholder": "e.g. Şişli, Istanbul",
+    "article": "Article",
+    "articlePlaceholder": "e.g. Art. 51",
+    "fineImage": "Fine Image",
+    "finePdf": "Fine PDF",
+    "descriptionPlaceholder": "Optional notes about the violation…",
+    "saving": "Saving…",
+    "saveChanges": "Save Changes",
+    "saveError": "Failed to save fine.",
+    "violationNumber": "Violation Number"
+  },
+  "view": {
+    "plateNumber": "Plate Number",
+    "attachments": "Attachments",
+    "paymentReceipt": "Payment Receipt"
+  },
+  "payment": {
+    "title": "Confirm Payment",
+    "fineAmount": "Fine Amount",
+    "receipt": "Payment Receipt (optional)",
+    "confirming": "Confirming…",
+    "error": "Failed to confirm payment."
+  },
+  "delete": {
+    "title": "Delete Fine",
+    "deleting": "Deleting…",
+    "confirm": "Are you sure you want to delete fine <1>{{number}}</1> for plate <2>{{plate}}</2>?"
+  },
+  "toast": {
+    "added": "Fine added successfully.",
+    "updated": "Fine updated successfully.",
+    "paid": "Payment confirmed successfully.",
+    "deleted": "Fine deleted."
+  }
+}
