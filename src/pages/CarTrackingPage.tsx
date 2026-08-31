@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 interface RawTrackingRow {
@@ -28,6 +29,10 @@ interface TrackingDisplayRow {
 }
 
 const CarTrackingPage: React.FC = () => {
+  const { t, i18n } = useTranslation('tracking');
+  const { t: tc } = useTranslation('common');
+  /** Western digits in Arabic too — these sit beside Latin plate numbers. */
+  const numberLocale = i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-US';
   const [displayRows, setDisplayRows] = useState<TrackingDisplayRow[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
@@ -143,14 +148,14 @@ const CarTrackingPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-            Fleet
+            {t('eyebrow')}
           </span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
-          Car Tracking
+          {t('title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
-          Live vehicle tracking data.
+          {t('subtitle')}
         </p>
       </div>
 
@@ -159,21 +164,21 @@ const CarTrackingPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-            All Vehicles
+            {t('allVehicles')}
           </span>
         </div>
         <div style={{ position: 'relative' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
             <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <input
             type="text"
-            placeholder="Search plate…"
+            placeholder={t('search')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
-              paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
+              paddingInlineStart: 32, paddingInlineEnd: 12, paddingTop: 8, paddingBottom: 8,
               fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9,
               outline: 'none', color: '#0f1117', background: '#fff',
               width: 220, fontFamily: 'inherit',
@@ -189,12 +194,12 @@ const CarTrackingPage: React.FC = () => {
             <thead>
               <tr>
                 {([
-                  { label: 'Plate Number',   col: 'plate_number'   },
-                  { label: 'Model',          col: 'model'          },
-                  { label: 'Current KM',     col: 'current_km'     },
-                  { label: 'Daily KM',       col: 'daily_km'       },
-                  { label: 'Next Oil Change',col: 'next_oil_change'},
-                  { label: 'KM Remaining',   col: null             },
+                  { label: tc('fields.plate'), col: 'plate_number'   },
+                  { label: tc('fields.car'),   col: 'model'          },
+                  { label: t('currentKm'),     col: 'current_km'     },
+                  { label: t('dailyKm'),       col: 'daily_km'       },
+                  { label: t('nextOilChange'), col: 'next_oil_change'},
+                  { label: t('kmRemaining'),   col: null             },
                 ] as { label: string; col: keyof TrackingDisplayRow | null }[]).map(({ label, col }) => {
                   const active = col !== null && sortCol === col;
                   return (
@@ -205,7 +210,7 @@ const CarTrackingPage: React.FC = () => {
                         padding: '9px 14px', fontSize: 11, fontWeight: 700,
                         color: active ? '#4ba6ea' : '#9ca3af',
                         textTransform: 'uppercase', letterSpacing: '0.7px',
-                        textAlign: 'left', background: '#fff',
+                        textAlign: 'start', background: '#fff',
                         borderBottom: '1.5px solid #f0f0f0',
                         whiteSpace: 'nowrap', userSelect: 'none',
                         cursor: col !== null ? 'pointer' : 'default',
@@ -247,7 +252,7 @@ const CarTrackingPage: React.FC = () => {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
-                    {search ? 'No cars match your search.' : 'No tracking data found.'}
+                    {search ? t('empty') : t('emptyNone')}
                   </td>
                 </tr>
               ) : filtered.map((row, idx) => {
@@ -266,11 +271,11 @@ const CarTrackingPage: React.FC = () => {
                       {row.model}
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
-                      {row.current_km !== null ? row.current_km.toLocaleString() + ' km' : '—'}
+                      {row.current_km !== null ? row.current_km.toLocaleString(numberLocale) + ` ${t('km')}` : '—'}
                     </td>
                     <td style={{ padding: '12px 14px', fontVariantNumeric: 'tabular-nums' }}>
                       {row.daily_km > 0 ? (
-                        <span style={{ color: '#16a34a', fontWeight: 500 }}>+{row.daily_km.toLocaleString()} km</span>
+                        <span style={{ color: '#16a34a', fontWeight: 500 }}>+{row.daily_km.toLocaleString(numberLocale)} {t('km')}</span>
                       ) : (
                         <span style={{ color: '#9ca3af' }}>0 km</span>
                       )}
@@ -322,7 +327,7 @@ const CarTrackingPage: React.FC = () => {
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
                         >
                           {row.next_oil_change !== null ? (
-                            <span style={{ color: '#374151' }}>{row.next_oil_change.toLocaleString()} km</span>
+                            <span style={{ color: '#374151' }}>{row.next_oil_change.toLocaleString(numberLocale)} {t('km')}</span>
                           ) : (
                             <span style={{ color: '#9ca3af' }}>—</span>
                           )}
@@ -339,14 +344,14 @@ const CarTrackingPage: React.FC = () => {
                       {kmRemaining === null ? (
                         <span style={{ fontSize: 13, color: '#9ca3af' }}>—</span>
                       ) : kmRemaining > 1000 ? (
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#16a34a' }}>+{kmRemaining.toLocaleString()} km</span>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#16a34a' }}>+{kmRemaining.toLocaleString(numberLocale)} {t('km')}</span>
                       ) : kmRemaining > 0 ? (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
                           padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                           color: '#ca8a04', background: '#fef9c3',
                         }}>
-                          ⚠ {kmRemaining.toLocaleString()} km
+                          ⚠ {kmRemaining.toLocaleString(numberLocale)} {t('km')}
                         </span>
                       ) : (
                         <span style={{

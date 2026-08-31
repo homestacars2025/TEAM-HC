@@ -13,6 +13,7 @@ import enOperations from './locales/en/operations.json';
 import enCalendar from './locales/en/calendar.json';
 import enFines from './locales/en/fines.json';
 import enKgm from './locales/en/kgm.json';
+import enTracking from './locales/en/tracking.json';
 import arCommon from './locales/ar/common.json';
 import arSidebar from './locales/ar/sidebar.json';
 import arNotifications from './locales/ar/notifications.json';
@@ -24,6 +25,7 @@ import arOperations from './locales/ar/operations.json';
 import arCalendar from './locales/ar/calendar.json';
 import arFines from './locales/ar/fines.json';
 import arKgm from './locales/ar/kgm.json';
+import arTracking from './locales/ar/tracking.json';
 
 export const LANGUAGES = ['en', 'ar'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -45,8 +47,8 @@ export function dirFor(lang: Language): 'ltr' | 'rtl' {
  * those pages are translated.
  */
 const resources = {
-  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm },
-  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm },
+  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking },
+  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking },
 };
 
 i18n
@@ -56,7 +58,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...LANGUAGES],
-    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm'],
+    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage'],

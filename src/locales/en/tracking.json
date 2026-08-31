@@ -1,0 +1,14 @@
+{
+  "eyebrow": "Fleet",
+  "title": "Car Tracking",
+  "subtitle": "Live vehicle tracking data.",
+  "allVehicles": "All Vehicles",
+  "search": "Search plate…",
+  "currentKm": "Current KM",
+  "dailyKm": "Daily KM",
+  "nextOilChange": "Next Oil Change",
+  "kmRemaining": "KM Remaining",
+  "km": "km",
+  "empty": "No cars match your search.",
+  "emptyNone": "No tracking data found."
+}

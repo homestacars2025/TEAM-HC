@@ -29,6 +29,7 @@ const TRANSLATED = [
   'FinesPage.tsx',
   'TasksPage.tsx',
   'KGMPage.tsx',
+  'CarTrackingPage.tsx',
 ];
 
 /** A line holding only capitalised English prose — no code punctuation. */
