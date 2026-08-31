@@ -45,5 +45,12 @@
     "language": "Language",
     "currency": "Currency",
     "branch": "Branch"
+  },
+  "carStatus": {
+    "working": "Working",
+    "parking": "Parking",
+    "maintenance": "Maintenance",
+    "selling": "Selling",
+    "replacement": "Replacement"
   }
 }

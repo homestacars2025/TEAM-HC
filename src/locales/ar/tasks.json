@@ -37,7 +37,9 @@
     "in_two": "تستحق بعد يومين",
     "in_few": "تستحق بعد {{count}} أيام",
     "in_many": "تستحق بعد {{count}} يوماً",
-    "in_other": "تستحق بعد {{count}} يوماً"
+    "in_other": "تستحق بعد {{count}} يوماً",
+    "in_zero": "تستحق بعد {{count}} يوم",
+    "overdue_zero": "متأخرة {{count}} يوم"
   },
   "dialog": {
     "title": "إنجاز المهمة",

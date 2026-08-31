@@ -59,6 +59,9 @@
     "days_two": "قبل يومين",
     "days_few": "قبل {{count}} أيام",
     "days_many": "قبل {{count}} يوماً",
-    "days_other": "قبل {{count}} يوماً"
+    "days_other": "قبل {{count}} يوماً",
+    "days_zero": "{{count}} يوم",
+    "hours_zero": "{{count}} ساعة",
+    "minutes_zero": "{{count}} دقيقة"
   }
 }

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -68,30 +69,31 @@ const LEGEND_DOT: Record<CalendarStatus, string> = {
   replacement: '#fed7aa',
 };
 
-const STATUS_LABEL: Record<CellKind, string> = {
-  working:     'Working',
-  parking:     'Parking',
-  maintenance: 'Maintenance',
-  selling:     'Selling',
-  replacement: 'Replacement',
-  booked:      'Booked',
+/** Keys, not words. The five car statuses live in `common`; `booked` is ours. */
+const STATUS_LABEL_KEY: Record<CellKind, string> = {
+  working:     'common:carStatus.working',
+  parking:     'common:carStatus.parking',
+  maintenance: 'common:carStatus.maintenance',
+  selling:     'common:carStatus.selling',
+  replacement: 'common:carStatus.replacement',
+  booked:      'calendar:booked',
 };
 
-const STATUS_OPTIONS: Array<{ value: CalendarStatus | 'all'; label: string }> = [
-  { value: 'all',         label: 'All statuses'  },
-  { value: 'working',     label: 'Working'        },
-  { value: 'parking',     label: 'Parking'        },
-  { value: 'maintenance', label: 'Maintenance'    },
-  { value: 'selling',     label: 'Selling'        },
-  { value: 'replacement', label: 'Replacement'    },
+const STATUS_OPTIONS: Array<{ value: CalendarStatus | 'all'; labelKey: string }> = [
+  { value: 'all',         labelKey: 'calendar:allStatuses'          },
+  { value: 'working',     labelKey: 'common:carStatus.working'      },
+  { value: 'parking',     labelKey: 'common:carStatus.parking'      },
+  { value: 'maintenance', labelKey: 'common:carStatus.maintenance'  },
+  { value: 'selling',     labelKey: 'common:carStatus.selling'      },
+  { value: 'replacement', labelKey: 'common:carStatus.replacement'  },
 ];
 
 const LEGEND_KINDS: CalendarStatus[] = ['working', 'parking', 'maintenance', 'selling', 'replacement'];
 
 const EDITABLE_BLOCK_TYPES = [
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'selling',     label: 'Selling'     },
-  { value: 'replacement', label: 'Replacement' },
+  { value: 'maintenance', labelKey: 'common:carStatus.maintenance' },
+  { value: 'selling',     labelKey: 'common:carStatus.selling'     },
+  { value: 'replacement', labelKey: 'common:carStatus.replacement' },
 ] as const;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,12 +102,22 @@ function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
-function formatMonthLabel(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+function formatMonthLabel(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 }
 
 function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
+}
+
+/**
+ * Gregorian with Western digits in both languages. `ar-u-nu-latn` gives Arabic
+ * month names ("أغسطس") without switching to Arabic-Indic numerals, which would
+ * clash with the Latin plates in the frozen column beside them.
+ */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
 }
 
 function parseLocalDate(s: string): Date {
@@ -113,8 +125,8 @@ function parseLocalDate(s: string): Date {
   return new Date(y, m - 1, day);
 }
 
-function formatDateShort(s: string): string {
-  return parseLocalDate(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+function formatDateShort(s: string, locale: string): string {
+  return parseLocalDate(s).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function resolveModelGroup(raw: ModelGroupJoin | ModelGroupJoin[] | null): ModelGroupJoin {
@@ -139,6 +151,8 @@ function blockTypeToKind(blockType: string): CellKind {
 // ─── Tooltip ───────────────────────────────────────────────────────────────────
 
 const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
+  const { t } = useTranslation(['calendar', 'common']);
+  const dateLocale = useDateLocale();
   const { entry, x, y } = state;
   const flipLeft = x + 260 > window.innerWidth;
   const kind = blockTypeToKind(entry.block_type);
@@ -164,7 +178,7 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
       }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
         <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
-          {STATUS_LABEL[kind]}
+          {t(STATUS_LABEL_KEY[kind])}
         </span>
       </div>
 
@@ -179,11 +193,11 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center' }}>
           <span style={{ fontSize: 12.5, color: TEXT_MID }}>From</span>
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date)}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date, dateLocale)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center' }}>
           <span style={{ fontSize: 12.5, color: TEXT_MID }}>To</span>
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date)}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date, dateLocale)}</span>
         </div>
       </div>
     </div>
@@ -202,6 +216,8 @@ const BlockPopup: React.FC<{
   onDeleted: () => void;
   onToast: (t: ToastInfo) => void;
 }> = ({ state, onClose, onSaved, onDeleted, onToast }) => {
+  const { t } = useTranslation(['calendar', 'common']);
+  const dateLocale = useDateLocale();
   const { entry, car, x, y } = state;
   const isBooked = entry.booking_id !== null;
   const kind     = blockTypeToKind(entry.block_type);
@@ -220,7 +236,7 @@ const BlockPopup: React.FC<{
 
   const handleSave = async () => {
     if (editEnd <= editStart) {
-      setEditError('End date must be after start date');
+      setEditError(t('calendar:popup.dateOrder'));
       return;
     }
     setEditError(null);
@@ -233,7 +249,7 @@ const BlockPopup: React.FC<{
     if (error) {
       onToast({ message: `Failed to update: ${error.message}`, isError: true });
     } else {
-      onToast({ message: 'Block updated successfully' });
+      onToast({ message: t('calendar:popup.updated') });
       onSaved();
     }
   };
@@ -245,7 +261,7 @@ const BlockPopup: React.FC<{
     if (error) {
       onToast({ message: `Failed to delete: ${error.message}`, isError: true });
     } else {
-      onToast({ message: 'Block deleted successfully' });
+      onToast({ message: t('calendar:popup.deleted') });
       onDeleted();
     }
   };
@@ -291,7 +307,7 @@ const BlockPopup: React.FC<{
         }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
-            {mode === 'edit' ? 'Edit Block' : STATUS_LABEL[kind]}
+            {mode === 'edit' ? t('calendar:popup.editBlock') : t(STATUS_LABEL_KEY[kind])}
           </span>
         </div>
         <button
@@ -333,11 +349,11 @@ const BlockPopup: React.FC<{
           <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12.5, color: TEXT_MID }}>From</span>
-              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date)}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date, dateLocale)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12.5, color: TEXT_MID }}>To</span>
-              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date)}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date, dateLocale)}</span>
             </div>
           </div>
 
@@ -403,14 +419,14 @@ const BlockPopup: React.FC<{
               onChange={e => setEditType(e.target.value)}
               style={{
                 ...inputStyle,
-                paddingRight: 28, cursor: 'pointer',
+                paddingInlineEnd: 28, cursor: 'pointer',
                 appearance: 'none',
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aaaaaa' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' fill='none'/%3E%3C/svg%3E")`,
                 backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
               }}
             >
-              {EDITABLE_BLOCK_TYPES.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+              {EDITABLE_BLOCK_TYPES.map(bt => (
+                <option key={bt.value} value={bt.value}>{t(bt.labelKey)}</option>
               ))}
             </select>
           </div>
@@ -481,7 +497,7 @@ const BlockPopup: React.FC<{
                   animation: 'calSpin 0.75s linear infinite',
                 }} />
               )}
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('calendar:popup.saving') : t('calendar:popup.save')}
             </button>
           </div>
         </div>
@@ -491,7 +507,7 @@ const BlockPopup: React.FC<{
       {mode === 'confirm-delete' && (
         <div style={{ padding: '12px 14px 14px' }}>
           <p style={{ fontSize: 13.5, color: TEXT_DARK, margin: '0 0 14px', lineHeight: 1.55 }}>
-            Are you sure you want to delete this block?
+            {t('calendar:confirmDelete')}
           </p>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
@@ -532,7 +548,7 @@ const BlockPopup: React.FC<{
                   animation: 'calSpin 0.75s linear infinite',
                 }} />
               )}
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? t('calendar:popup.deleting') : t('common:actions.delete')}
             </button>
           </div>
         </div>
@@ -552,14 +568,15 @@ const ActionMenu: React.FC<{
   onInsert: (type: 'maintenance' | 'selling' | 'replacement') => void;
   inserting: boolean;
 }> = ({ pos, onAddBooking, onInsert, inserting }) => {
+  const { t } = useTranslation(['calendar', 'common']);
   const left = Math.min(pos.x + 12, window.innerWidth - MENU_W - 16);
   const top  = pos.y + 12 + MENU_H > window.innerHeight ? pos.y - MENU_H - 8 : pos.y + 12;
 
   const items: Array<{ icon: string; label: string; onClick: () => void }> = [
-    { icon: '📅', label: 'Add Booking',  onClick: onAddBooking },
-    { icon: '🔧', label: 'Maintenance',  onClick: () => onInsert('maintenance') },
-    { icon: '💰', label: 'Selling',      onClick: () => onInsert('selling') },
-    { icon: '🔄', label: 'Replacement',  onClick: () => onInsert('replacement') },
+    { icon: '📅', label: t('calendar:menu.addBooking'),  onClick: onAddBooking },
+    { icon: '🔧', label: t('common:carStatus.maintenance'),  onClick: () => onInsert('maintenance') },
+    { icon: '💰', label: t('common:carStatus.selling'),      onClick: () => onInsert('selling') },
+    { icon: '🔄', label: t('common:carStatus.replacement'),  onClick: () => onInsert('replacement') },
   ];
 
   return (
@@ -584,7 +601,7 @@ const ActionMenu: React.FC<{
           fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
           letterSpacing: '0.6px', textTransform: 'uppercase',
         }}>
-          Actions
+          {t('calendar:actions')}
         </span>
       </div>
 
@@ -606,7 +623,7 @@ const ActionMenu: React.FC<{
             fontSize: 13.5,
             color: TEXT_DARK,
             fontFamily: FONT,
-            textAlign: 'left',
+            textAlign: 'start',
             transition: 'background 0.12s ease',
             opacity: inserting ? 0.5 : 1,
           }}
@@ -617,7 +634,7 @@ const ActionMenu: React.FC<{
           <span style={{ fontWeight: 500 }}>{item.label}</span>
           {inserting && item.label !== 'Add Booking' && (
             <div style={{
-              marginLeft: 'auto',
+              marginInlineStart: 'auto',
               width: 14, height: 14,
               borderRadius: '50%',
               border: '2px solid #e5e7eb',
@@ -672,6 +689,8 @@ const Toast: React.FC<{ info: ToastInfo }> = ({ info }) => (
 // ─── CalendarPage ─────────────────────────────────────────────────────────────
 
 const CalendarPage: React.FC = () => {
+  const { t } = useTranslation(['calendar', 'common']);
+  const dateLocale = useDateLocale();
 
   // ── State ───────────────────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState<Date>(
@@ -711,10 +730,15 @@ const CalendarPage: React.FC = () => {
       return {
         day,
         isWeekend: dow === 0 || dow === 6,
-        abbr: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2),
+        // Arabic weekday abbreviations are already short; slicing them mangles
+        // the word, so only the Latin ones are trimmed to two letters.
+        abbr: (() => {
+          const w = d.toLocaleDateString(dateLocale, { weekday: 'short' });
+          return /^[A-Za-z]/.test(w) ? w.slice(0, 2) : w;
+        })(),
       };
     }),
-    [year, month, daysInMonth]
+    [year, month, daysInMonth, dateLocale]
   );
 
   // ── Helpers ─────────────────────────────────────────────────────────────
@@ -750,7 +774,7 @@ const CalendarPage: React.FC = () => {
     ]);
 
     if (carsRes.error || availRes.error || calRes.error) {
-      setError(carsRes.error?.message ?? availRes.error?.message ?? calRes.error?.message ?? 'Failed to load data');
+      setError(carsRes.error?.message ?? availRes.error?.message ?? calRes.error?.message ?? t('calendar:loadError'));
       setLoading(false);
       return;
     }
@@ -798,7 +822,7 @@ const CalendarPage: React.FC = () => {
     setAllCars(mappedCars);
     setCalendarMap(calMap);
     setLoading(false);
-  }, [year, month, daysInMonth]);
+  }, [year, month, daysInMonth, dateLocale]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -914,14 +938,14 @@ const CalendarPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-            Fleet Calendar
+            {t('calendar:eyebrow')}
           </span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 6px', lineHeight: 1.1 }}>
-          Fleet Calendar
+          {t('calendar:title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
-          {allCars.length} vehicle{allCars.length !== 1 ? 's' : ''} · {formatMonthLabel(currentMonth)}
+          {t('calendar:vehicleCount', { count: allCars.length, month: formatMonthLabel(currentMonth, dateLocale) })}
         </p>
       </div>
 
@@ -977,7 +1001,7 @@ const CalendarPage: React.FC = () => {
             minWidth: 168, textAlign: 'center', letterSpacing: '-0.4px',
             userSelect: 'none',
           }}>
-            {formatMonthLabel(currentMonth)}
+            {formatMonthLabel(currentMonth, dateLocale)}
           </span>
 
           <button
@@ -1019,18 +1043,18 @@ const CalendarPage: React.FC = () => {
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
             >
-              Today
+              {t('calendar:today')}
             </button>
           )}
         </div>
 
         {/* Right: search + filter */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
 
           {/* Search pill */}
           <div style={{ position: 'relative' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{
-              position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)',
+              position: 'absolute', insetInlineStart: 13, top: '50%', transform: 'translateY(-50%)',
               pointerEvents: 'none', color: TEXT_LIGHT,
             }}>
               <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8"/>
@@ -1038,11 +1062,11 @@ const CalendarPage: React.FC = () => {
             </svg>
             <input
               type="text"
-              placeholder="Search…"
+              placeholder={t('calendar:search')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
-                paddingLeft: 36, paddingRight: 16, height: 38,
+                paddingInlineStart: 36, paddingInlineEnd: 16, height: 38,
                 borderRadius: 24, border: 'none',
                 background: '#f7f7f7', fontSize: 13.5, color: TEXT_DARK,
                 outline: 'none', width: 168, fontFamily: FONT,
@@ -1058,7 +1082,7 @@ const CalendarPage: React.FC = () => {
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as CalendarStatus | 'all')}
             style={{
-              height: 38, paddingLeft: 16, paddingRight: 34,
+              height: 38, paddingInlineStart: 16, paddingInlineEnd: 34,
               borderRadius: 24, border: 'none',
               background: '#f7f7f7', fontSize: 13.5, color: TEXT_DARK,
               cursor: 'pointer', outline: 'none', fontFamily: FONT,
@@ -1067,7 +1091,7 @@ const CalendarPage: React.FC = () => {
               backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
             }}
           >
-            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
           </select>
         </div>
       </div>
@@ -1089,31 +1113,31 @@ const CalendarPage: React.FC = () => {
               width: 11, height: 11, borderRadius: '50%',
               background: LEGEND_DOT[kind], flexShrink: 0,
             }} />
-            <span style={{ fontSize: 12, color: TEXT_MID }}>{STATUS_LABEL[kind]}</span>
+            <span style={{ fontSize: 12, color: TEXT_MID }}>{t(STATUS_LABEL_KEY[kind])}</span>
           </div>
         ))}
 
         {/* Selection hint */}
         {!selStart && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ color: TEXT_LIGHT }}>
               <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
               <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
-            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>Click a day to start selecting a range</span>
+            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>{t('calendar:hint')}</span>
           </div>
         )}
 
         {/* Active selection label */}
         {selStart && !selEnd && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: '#eff6ff', borderRadius: 20, padding: '4px 12px',
             }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ba6ea', flexShrink: 0 }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>
-                {formatDateShort(selStart)} — click a later day to set end date
+                {t('calendar:pickEndDate', { date: formatDateShort(selStart, dateLocale) })}
               </span>
             </div>
             <button
@@ -1122,7 +1146,7 @@ const CalendarPage: React.FC = () => {
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: TEXT_LIGHT, padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
               }}
-              title="Clear selection"
+              title={t('calendar:clearSelection')}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -1133,14 +1157,14 @@ const CalendarPage: React.FC = () => {
 
         {/* Range selected label */}
         {selStart && selEnd && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
               background: '#eff6ff', borderRadius: 20, padding: '4px 12px',
             }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ba6ea', flexShrink: 0 }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>
-                {formatDateShort(selStart)} → {formatDateShort(selEnd)}
+                {formatDateShort(selStart, dateLocale)} → {formatDateShort(selEnd, dateLocale)}
               </span>
             </div>
             <button
@@ -1149,7 +1173,7 @@ const CalendarPage: React.FC = () => {
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: TEXT_LIGHT, padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
               }}
-              title="Clear selection"
+              title={t('calendar:clearSelection')}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -1197,7 +1221,7 @@ const CalendarPage: React.FC = () => {
               fontWeight: 600, cursor: 'pointer', fontFamily: FONT, flexShrink: 0,
             }}
           >
-            Retry
+            {t('calendar:retry')}
           </button>
         </div>
       )}
@@ -1226,7 +1250,7 @@ const CalendarPage: React.FC = () => {
                 fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
                 letterSpacing: '0.6px', textTransform: 'uppercase',
               }}>
-                {filteredCars.length} car{filteredCars.length !== 1 ? 's' : ''}
+                {t('calendar:carCount', { count: filteredCars.length })}
               </span>
             </div>
 
@@ -1333,7 +1357,7 @@ const CalendarPage: React.FC = () => {
                         fontSize: 11, fontWeight: 500, color: BADGE[status].color,
                         whiteSpace: 'nowrap', lineHeight: 1.4,
                       }}>
-                        {STATUS_LABEL[status]}
+                        {t(STATUS_LABEL_KEY[status])}
                       </span>
                     </div>
                   </div>

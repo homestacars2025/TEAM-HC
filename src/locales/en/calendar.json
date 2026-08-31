@@ -1,0 +1,40 @@
+{
+  "booked": "Booked",
+  "allStatuses": "All statuses",
+  "today": "Today",
+  "search": "Search…",
+  "hint": "Click a day to start selecting a range",
+  "clearSelection": "Clear selection",
+  "loading": "Loading calendar…",
+  "loadError": "Failed to load data",
+  "noVehicles": "No vehicles found",
+  "noVehiclesHint": "Try adjusting your search or filter.",
+  "carCount_one": "{{count}} car",
+  "carCount_other": "{{count}} cars",
+  "popup": {
+    "from": "From",
+    "to": "To",
+    "editBlock": "Edit Block",
+    "managedFromBookings": "Managed from the Bookings page",
+    "blockType": "Block type",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "saving": "Saving…",
+    "save": "Save",
+    "deleting": "Deleting…",
+    "dateOrder": "End date must be after start date",
+    "updated": "Block updated successfully",
+    "deleted": "Block deleted successfully"
+  },
+  "menu": {
+    "addBooking": "Add Booking"
+  },
+  "pickEndDate": "{{date}} — click a later day to set end date",
+  "eyebrow": "Fleet Calendar",
+  "title": "Fleet Calendar",
+  "actions": "Actions",
+  "retry": "Retry",
+  "confirmDelete": "Are you sure you want to delete this block?",
+  "vehicleCount_one": "{{count}} vehicle · {{month}}",
+  "vehicleCount_other": "{{count}} vehicles · {{month}}"
+}

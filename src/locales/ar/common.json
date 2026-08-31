@@ -45,5 +45,12 @@
     "language": "اللغة",
     "currency": "العملة",
     "branch": "الفرع"
+  },
+  "carStatus": {
+    "working": "تعمل",
+    "parking": "متوقفة",
+    "maintenance": "في الصيانة",
+    "selling": "للبيع",
+    "replacement": "بديلة"
   }
 }
