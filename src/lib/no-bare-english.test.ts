@@ -32,10 +32,18 @@ const TRANSLATED = [
   'CarTrackingPage.tsx',
   'ModelGroupsPage.tsx',
   'CustomerWalletsPage.tsx',
+  'KabisPage.tsx',
 ];
 
 /** A line holding only capitalised English prose — no code punctuation. */
 const BARE_ENGLISH = /^[A-Z][A-Za-z]*(?: [A-Za-z()#…'&/,.-]+){0,8}[.?…]?$/;
+
+/**
+ * A longer sentence that wraps onto its own line, closed by a tag underneath.
+ * `BARE_ENGLISH` caps out at nine words, so a full sentence slipped past it —
+ * which is how the KABIS subtitle and two Operations hints stayed English.
+ */
+const WRAPPED_SENTENCE = /^[A-Z][A-Za-z][^<>{}=]{15,200}$/;
 
 /**
  * KGM builds a printable HTML report in a template literal. That report is a
@@ -54,7 +62,9 @@ describe.each(TRANSLATED)('%s', (file) => {
     const src = fs.readFileSync(path.join(PAGES_DIR, file), 'utf8');
     const offenders = stripPrintTemplate(src)
       .map((line, i) => [i + 1, line.trim()] as const)
-      .filter(([, text]) => text.length > 2 && BARE_ENGLISH.test(text))
+      .filter(([n, text], _i, all) =>
+        (text.length > 2 && BARE_ENGLISH.test(text)) ||
+        (WRAPPED_SENTENCE.test(text) && (all[n]?.[1] ?? '').startsWith('</')))
       .map(([n, text]) => `${file}:${n} ${JSON.stringify(text)}`);
 
     expect(offenders).toEqual([]);

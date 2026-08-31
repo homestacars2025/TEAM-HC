@@ -16,6 +16,7 @@ import enKgm from './locales/en/kgm.json';
 import enTracking from './locales/en/tracking.json';
 import enModelGroups from './locales/en/modelGroups.json';
 import enWallets from './locales/en/wallets.json';
+import enKabis from './locales/en/kabis.json';
 import arCommon from './locales/ar/common.json';
 import arSidebar from './locales/ar/sidebar.json';
 import arNotifications from './locales/ar/notifications.json';
@@ -30,6 +31,7 @@ import arKgm from './locales/ar/kgm.json';
 import arTracking from './locales/ar/tracking.json';
 import arModelGroups from './locales/ar/modelGroups.json';
 import arWallets from './locales/ar/wallets.json';
+import arKabis from './locales/ar/kabis.json';
 
 export const LANGUAGES = ['en', 'ar'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -51,8 +53,8 @@ export function dirFor(lang: Language): 'ltr' | 'rtl' {
  * those pages are translated.
  */
 const resources = {
-  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking, modelGroups: enModelGroups, wallets: enWallets },
-  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking, modelGroups: arModelGroups, wallets: arWallets },
+  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking, modelGroups: enModelGroups, wallets: enWallets, kabis: enKabis },
+  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking, modelGroups: arModelGroups, wallets: arWallets, kabis: arKabis },
 };
 
 i18n
@@ -62,7 +64,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...LANGUAGES],
-    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking', 'modelGroups', 'wallets'],
+    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking', 'modelGroups', 'wallets', 'kabis'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage'],

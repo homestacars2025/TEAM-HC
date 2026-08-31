@@ -77,7 +77,8 @@
     "remove": "إزالة",
     "bookingId": "رقم الحجز",
     "optional": "(اختياري)",
-    "photos": "الصور"
+    "photos": "الصور",
+    "checklistOptional": "اختيارية عند التعديل — التسليمات المسجّلة قبل وجود هذه القائمة تبقى بلا إجابة."
   },
   "errors": {
     "selectCar": "اختر السيارة.",
@@ -143,7 +144,8 @@
     "cleanValue": "نظيفة",
     "notCleanValue": "غير نظيفة",
     "returned": "أُعيدت:",
-    "incompleteData": "بيانات ناقصة"
+    "incompleteData": "بيانات ناقصة",
+    "noReference": "لا توجد عملية تسليم مرجعية للمقارنة — قد تكون هذه الأرقام ناقصة."
   },
   "table": {
     "allTypes": "كل الأنواع",

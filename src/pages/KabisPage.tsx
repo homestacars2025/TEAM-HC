@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,10 +49,10 @@ const KABIS_SELECT = `
 /** Figures stay column-aligned across rows. */
 const NUM: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
-const STATUS_CONFIG: Record<KabisStatus, { label: string; color: string; bg: string }> = {
-  pending:     { label: 'Pending',     color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
-  checked_in:  { label: 'Checked in',  color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
-  checked_out: { label: 'Checked out', color: '#2563eb', bg: 'rgba(37,99,235,0.12)'  },
+const STATUS_CONFIG: Record<KabisStatus, { color: string; bg: string }> = {
+  pending:     { color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
+  checked_in:  { color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
+  checked_out: { color: '#2563eb', bg: 'rgba(37,99,235,0.12)'  },
 };
 
 /**
@@ -60,17 +61,17 @@ const STATUS_CONFIG: Record<KabisStatus, { label: string; color: string; bg: str
  * delivery can only ever become `checked_in`, a pickup only ever `checked_out`.
  */
 const ACTION_CONFIG: Record<KabisAction, {
-  label: string; color: string; bg: string; target: KabisStatus; cta: string;
+  color: string; bg: string; target: KabisStatus;
   ctaBg: string; ctaBgHover: string;
 }> = {
   delivery: {
-    label: 'Check-in',  color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)',
-    target: 'checked_in',  cta: 'Mark checked-in',
+    color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)',
+    target: 'checked_in',
     ctaBg: '#16a34a', ctaBgHover: '#15803d',
   },
   pickup: {
-    label: 'Check-out', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',
-    target: 'checked_out', cta: 'Mark checked-out',
+    color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',
+    target: 'checked_out',
     ctaBg: '#2563eb', ctaBgHover: '#1d4ed8',
   },
 };
@@ -96,29 +97,35 @@ const onBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLT
 
 const dash = (v: string | null | undefined): string => (v?.trim() ? v.trim() : '—');
 
-function formatDate(s: string | null): string {
+/** Dates follow the reader; kilometres stay Western-digit. */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
+}
+
+function formatDate(s: string | null, locale: string): string {
   if (!s) return '—';
   const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 /** `entered_at` arrives as an ISO string; null and unparseable both render as an em dash. */
-function formatDateTime(s: string | null): string {
+function formatDateTime(s: string | null, locale: string): string {
   if (!s) return '—';
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', {
+  return d.toLocaleString(locale, {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: false,
   });
 }
 
 /** numeric may arrive as a string; render with thousands separators or an em dash. */
-function formatKm(v: number | string | null): string {
+function formatKm(v: number | string | null, kmUnit: string): string {
   if (v === null || v === '') return '—';
   const n = typeof v === 'number' ? v : Number(v);
-  return Number.isFinite(n) ? `${n.toLocaleString('en-US')} km` : '—';
+  return Number.isFinite(n) ? `${n.toLocaleString('en-US')} ${kmUnit}` : '—';
 }
 
 function resolveRow(row: KabisRow): KabisEntry {
@@ -130,7 +137,9 @@ function resolveRow(row: KabisRow): KabisEntry {
 // ─── Small pieces ─────────────────────────────────────────────────────────────
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const { t } = useTranslation('kabis');
   const cfg = STATUS_CONFIG[asStatus(status)];
+  const label = t(`status.${asStatus(status)}`);
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -138,20 +147,22 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       color: cfg.color, background: cfg.bg, whiteSpace: 'nowrap',
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-      {cfg.label}
+      {label}
     </span>
   );
 };
 
 const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
+  const { t } = useTranslation('kabis');
   const cfg = ACTION_CONFIG[asAction(action)];
+  const label = t(`action.${asAction(action)}`);
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center',
       padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700,
       color: cfg.color, background: cfg.bg, whiteSpace: 'nowrap',
     }}>
-      {cfg.label}
+      {label}
     </span>
   );
 };
@@ -178,7 +189,7 @@ const StatCard: React.FC<{
 const Toast: React.FC<ToastState> = ({ message, kind }) =>
   ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
+      position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 2000,
       display: 'flex', alignItems: 'center', gap: 10,
       background: kind === 'success' ? '#0f1117' : '#ef4444',
       color: '#fff', borderRadius: 12, padding: '12px 20px',
@@ -201,6 +212,9 @@ const ConfirmModal: React.FC<{
   onCancel: () => void;
   onConfirm: (note: string) => void;
 }> = ({ entry, saving, error, onCancel, onConfirm }) => {
+  const { t } = useTranslation('kabis');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const [note, setNote] = useState(entry.note ?? '');
 
   return ReactDOM.createPortal(
@@ -219,10 +233,10 @@ const ConfirmModal: React.FC<{
       }}>
         <div style={{ padding: '20px 24px 14px', borderBottom: '1px solid #f3f4f6' }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-            {ACTION_CONFIG[asAction(entry.action_type)].cta}
+            {t(asAction(entry.action_type) === 'delivery' ? 'action.ctaDelivery' : 'action.ctaPickup')}
           </div>
           <div style={{ fontSize: 12.5, color: '#9ca3af', marginTop: 3, lineHeight: 1.6 }}>
-            Confirm you have registered this operation in the KABIS system.
+            {t('confirmPrompt')}
           </div>
         </div>
 
@@ -232,13 +246,13 @@ const ConfirmModal: React.FC<{
             marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 7,
           }}>
             {[
-              { k: 'Plate',     v: dash(entry.plate_number),      num: true  },
-              { k: 'Customer',  v: dash(entry.customer_name),     num: false },
-              { k: 'ID Number', v: dash(entry.customer_id_number), num: true  },
-              { k: 'KM',        v: formatKm(entry.km),            num: true  },
-              { k: 'Booking',   v: dash(entry.booking_number),    num: true  },
-              { k: 'Type',      v: ACTION_CONFIG[asAction(entry.action_type)].label, num: false },
-              { k: 'Date',      v: formatDate(entry.operation_date), num: true },
+              { k: t('table.plate'),     v: dash(entry.plate_number),      num: true  },
+              { k: tc('fields.customer'),  v: dash(entry.customer_name),     num: false },
+              { k: t('table.idNumber'), v: dash(entry.customer_id_number), num: true  },
+              { k: t('km').toUpperCase(),        v: formatKm(entry.km, t('km')),            num: true  },
+              { k: t('table.booking'),   v: dash(entry.booking_number),    num: true  },
+              { k: t('table.type'),      v: t(`action.${asAction(entry.action_type)}`), num: false },
+              { k: t('table.date'),      v: formatDate(entry.operation_date, dateLocale), num: true },
             ].map(item => (
               <div key={item.k} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
                 <span style={{ color: '#9ca3af' }}>{item.k}</span>
@@ -248,13 +262,13 @@ const ConfirmModal: React.FC<{
           </div>
 
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
-            Note <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+            {t('noteLabel')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('optional')}</span>
           </label>
           <textarea
             rows={2}
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder="Anything worth recording about this entry…"
+            placeholder={t('confirm.notePlaceholder')}
             style={{ ...INPUT_STYLE, height: 'auto', padding: '10px 12px', resize: 'vertical', lineHeight: 1.6 }}
             onFocus={onFocus}
             onBlur={onBlur}
@@ -282,7 +296,7 @@ const ConfirmModal: React.FC<{
                 fontFamily: 'inherit', transition: 'opacity 140ms ease',
               }}
             >
-              {saving ? 'Saving…' : 'Confirm'}
+              {saving ? t('confirm.saving') : t('confirm.confirm')}
             </button>
             <button
               onClick={onCancel}
@@ -294,7 +308,7 @@ const ConfirmModal: React.FC<{
                 cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
               }}
             >
-              Cancel
+              {tc('actions.cancel')}
             </button>
           </div>
         </div>
@@ -307,6 +321,9 @@ const ConfirmModal: React.FC<{
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const KabisPage: React.FC = () => {
+  const { t } = useTranslation('kabis');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const [entries, setEntries] = useState<KabisEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -411,7 +428,7 @@ const KabisPage: React.FC = () => {
     if (updateError) { setModalError(updateError.message); return; }
 
     setConfirmEntry(null);
-    showToast(`Marked ${STATUS_CONFIG[target].label.toLowerCase()} in KABIS`, 'success');
+    showToast(t('toast.marked', { status: t(`status.${target}`) }), 'success');
     fetchEntries();
   }, [confirmEntry, showToast, fetchEntries]);
 
@@ -425,7 +442,7 @@ const KabisPage: React.FC = () => {
     setRevertingId(null);
 
     if (updateError) { showToast(`Could not undo: ${updateError.message}`, 'error'); return; }
-    showToast('Moved back to pending', 'success');
+    showToast(t('toast.movedBack'), 'success');
     fetchEntries();
   }, [showToast, fetchEntries]);
 
@@ -436,7 +453,7 @@ const KabisPage: React.FC = () => {
   }, [searchParams, setSearchParams]);
 
   const th: React.CSSProperties = {
-    textAlign: 'left', padding: '11px 14px', fontSize: 11, fontWeight: 700,
+    textAlign: 'start', padding: '11px 14px', fontSize: 11, fontWeight: 700,
     color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px',
     whiteSpace: 'nowrap', borderBottom: '1px solid #f3f4f6',
   };
@@ -455,22 +472,22 @@ const KabisPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-            Operations
+            {t('eyebrow')}
           </span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
-          KABIS
+          {t('title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.6, margin: 0, maxWidth: 640 }}>
-          KABIS ledger — register deliveries as check-ins and pickups as check-outs in the KABIS system, then mark them here.
+          {t('subtitle')}
         </p>
       </div>
 
       {/* ── Stat cards ── */}
       <div className="kb-stats">
-        <StatCard label="Pending"     value={stats.pending}    bg="#ea580c" loading={loading} />
-        <StatCard label="Inside KABIS" value={stats.insideKabis} bg="#16a34a" loading={loading} hint="Checked in, not yet out" />
-        <StatCard label="Checked out" value={stats.checkedOut} bg="#2563eb" loading={loading} />
+        <StatCard label={t('stats.pending')}     value={stats.pending}    bg="#ea580c" loading={loading} />
+        <StatCard label={t('stats.insideKabis')} value={stats.insideKabis} bg="#16a34a" loading={loading} hint={t('stats.insideHint')} />
+        <StatCard label={t('stats.checkedOut')} value={stats.checkedOut} bg="#2563eb" loading={loading} />
       </div>
 
       {/* ── Filters ── */}
@@ -483,7 +500,7 @@ const KabisPage: React.FC = () => {
         <div style={{ flex: '1 1 240px', minWidth: 0 }}>
           <input
             type="text"
-            placeholder="Search customer, ID number, booking, plate…"
+            placeholder={t('search')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={INPUT_STYLE}
@@ -498,10 +515,10 @@ const KabisPage: React.FC = () => {
           style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
           onFocus={onFocus} onBlur={onBlur}
         >
-          <option value="all">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="checked_in">Checked in</option>
-          <option value="checked_out">Checked out</option>
+          <option value="all">{t('status.all')}</option>
+          <option value="pending">{t('status.pending')}</option>
+          <option value="checked_in">{t('status.checked_in')}</option>
+          <option value="checked_out">{t('status.checked_out')}</option>
         </select>
 
         <select
@@ -510,9 +527,9 @@ const KabisPage: React.FC = () => {
           style={{ ...INPUT_STYLE, width: 'auto', minWidth: 130, cursor: 'pointer', flex: '0 1 auto' }}
           onFocus={onFocus} onBlur={onBlur}
         >
-          <option value="all">All types</option>
-          <option value="delivery">Check-in</option>
-          <option value="pickup">Check-out</option>
+          <option value="all">{t('action.all')}</option>
+          <option value="delivery">{t('action.delivery')}</option>
+          <option value="pickup">{t('action.pickup')}</option>
         </select>
       </div>
 
@@ -525,7 +542,12 @@ const KabisPage: React.FC = () => {
           borderRadius: 10, padding: '10px 14px',
         }}>
           <span style={{ fontSize: 13, color: '#1f6ea8' }}>
-            Opened from a notification — entry <strong style={NUM}>#{highlightId}</strong> is highlighted below.
+            <Trans
+              t={t}
+              i18nKey="fromNotification"
+              values={{ id: highlightId }}
+              components={[<span />, <strong style={NUM} />]}
+            />
           </span>
           <button
             onClick={clearHighlight}
@@ -536,7 +558,7 @@ const KabisPage: React.FC = () => {
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            Clear highlight
+            {t('clearHighlight')}
           </button>
         </div>
       )}
@@ -557,7 +579,7 @@ const KabisPage: React.FC = () => {
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            Try again
+            {t('tryAgain')}
           </button>
         </div>
       ) : loading ? (
@@ -565,7 +587,7 @@ const KabisPage: React.FC = () => {
           background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
           padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14,
         }}>
-          Loading…
+          {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{
@@ -573,18 +595,18 @@ const KabisPage: React.FC = () => {
           padding: '48px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-            {entries.length === 0 ? 'No KABIS entries yet' : 'No entries match these filters'}
+            {entries.length === 0 ? t('table.emptyNone') : t('table.emptyFiltered')}
           </div>
           <div style={{ fontSize: 13.5, color: '#9ca3af', lineHeight: 1.6 }}>
             {entries.length === 0
               ? 'Entries are created automatically when a delivery or pickup is recorded.'
-              : 'Try clearing the search or changing the filters.'}
+              : t('table.emptyHint')}
           </div>
         </div>
       ) : (
         <>
           <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-            Showing {filtered.length} of {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
+            {t('showing', { shown: filtered.length, count: entries.length })}
           </div>
 
           <div style={{
@@ -595,16 +617,16 @@ const KabisPage: React.FC = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
                 <thead>
                   <tr>
-                    <th style={th}>Plate</th>
+                    <th style={th}>{t('table.plate')}</th>
                     <th style={th}>KM</th>
-                    <th style={th}>Customer</th>
-                    <th style={th}>ID Number</th>
-                    <th style={th}>Booking</th>
-                    <th style={th}>Type</th>
-                    <th style={th}>Date</th>
-                    <th style={th}>Status</th>
-                    <th style={th}>Registered At</th>
-                    <th style={{ ...th, textAlign: 'center' }}>Action</th>
+                    <th style={th}>{tc('fields.customer')}</th>
+                    <th style={th}>{t('table.idNumber')}</th>
+                    <th style={th}>{t('table.booking')}</th>
+                    <th style={th}>{t('table.type')}</th>
+                    <th style={th}>{t('table.date')}</th>
+                    <th style={th}>{tc('fields.status')}</th>
+                    <th style={th}>{t('table.registeredAt')}</th>
+                    <th style={{ ...th, textAlign: 'center' }}>{t('table.action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -624,17 +646,17 @@ const KabisPage: React.FC = () => {
                         <td style={{ ...td, ...NUM, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
                           {dash(entry.plate_number)}
                         </td>
-                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatKm(entry.km)}</td>
+                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatKm(entry.km, t('km'))}</td>
                         <td style={{ ...td, maxWidth: 200 }}>{dash(entry.customer_name)}</td>
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{dash(entry.customer_id_number)}</td>
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{dash(entry.booking_number)}</td>
                         <td style={td}><ActionBadge action={entry.action_type} /></td>
-                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatDate(entry.operation_date)}</td>
+                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatDate(entry.operation_date, dateLocale)}</td>
                         <td style={td}>
                           <StatusBadge status={entry.status} />
                           {status !== 'pending' && (
                             <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 5, lineHeight: 1.6 }}>
-                              By {dash(entry.entered_by_name)}
+                              {t('by', { name: dash(entry.entered_by_name) })}
                             </div>
                           )}
                           {entry.note && (
@@ -642,7 +664,7 @@ const KabisPage: React.FC = () => {
                               fontSize: 11.5, color: '#6b7280', marginTop: 5,
                               maxWidth: 220, lineHeight: 1.6, wordBreak: 'break-word',
                             }}>
-                              Note: {entry.note}
+                              {t('notePrefix')} {entry.note}
                             </div>
                           )}
                         </td>
@@ -652,7 +674,7 @@ const KabisPage: React.FC = () => {
                           ...td, ...NUM, whiteSpace: 'nowrap',
                           color: status === 'pending' ? '#d1d5db' : '#374151',
                         }}>
-                          {status === 'pending' ? '—' : formatDateTime(entry.entered_at)}
+                          {status === 'pending' ? '—' : formatDateTime(entry.entered_at, dateLocale)}
                         </td>
                         <td style={{ ...td, textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {status === 'pending' ? (
@@ -673,7 +695,7 @@ const KabisPage: React.FC = () => {
                                   ACTION_CONFIG[asAction(entry.action_type)].ctaBg;
                               }}
                             >
-                              {ACTION_CONFIG[asAction(entry.action_type)].cta}
+                              {t(asAction(entry.action_type) === 'delivery' ? 'action.ctaDelivery' : 'action.ctaPickup')}
                             </button>
                           ) : (
                             <button
@@ -689,7 +711,7 @@ const KabisPage: React.FC = () => {
                               onMouseEnter={e => { if (revertingId !== entry.id) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
                             >
-                              {revertingId === entry.id ? 'Undoing…' : 'Undo'}
+                              {revertingId === entry.id ? t('table.undoing') : t('table.undo')}
                             </button>
                           )}
                         </td>

@@ -1,0 +1,62 @@
+{
+  "eyebrow": "Operations",
+  "title": "KABIS",
+  "loading": "Loading…",
+  "tryAgain": "Try again",
+  "clearHighlight": "Clear highlight",
+  "search": "Search customer, ID number, booking, plate…",
+  "km": "km",
+  "stats": {
+    "pending": "Pending",
+    "insideKabis": "Inside KABIS",
+    "insideHint": "Checked in, not yet out",
+    "checkedOut": "Checked out"
+  },
+  "status": {
+    "all": "All statuses",
+    "pending": "Pending",
+    "checked_in": "Checked in",
+    "checked_out": "Checked out"
+  },
+  "action": {
+    "all": "All types",
+    "delivery": "Check-in",
+    "pickup": "Check-out",
+    "ctaDelivery": "Mark checked-in",
+    "ctaPickup": "Mark checked-out"
+  },
+  "table": {
+    "plate": "Plate",
+    "customer": "Customer",
+    "idNumber": "ID Number",
+    "booking": "Booking",
+    "type": "Type",
+    "date": "Date",
+    "status": "Status",
+    "registeredAt": "Registered At",
+    "action": "Action",
+    "emptyNone": "No KABIS entries yet",
+    "emptyFiltered": "No entries match these filters",
+    "emptyHint": "Try clearing the search or changing the filters.",
+    "undo": "Undo",
+    "undoing": "Undoing…"
+  },
+  "confirm": {
+    "notePlaceholder": "Anything worth recording about this entry…",
+    "saving": "Saving…",
+    "confirm": "Confirm"
+  },
+  "toast": {
+    "movedBack": "Moved back to pending",
+    "marked": "Marked {{status}} in KABIS"
+  },
+  "confirmPrompt": "Confirm you have registered this operation in the KABIS system.",
+  "noteLabel": "Note",
+  "optional": "(optional)",
+  "notePrefix": "Note:",
+  "by": "By {{name}}",
+  "showing_one": "Showing {{shown}} of {{count}} entry",
+  "showing_other": "Showing {{shown}} of {{count}} entries",
+  "fromNotification": "Opened from a notification — entry <1>#{{id}}</1> is highlighted below.",
+  "subtitle": "KABIS ledger — register deliveries as check-ins and pickups as check-outs in the KABIS system, then mark them here."
+}

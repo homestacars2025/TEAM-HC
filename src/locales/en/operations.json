@@ -77,7 +77,8 @@
     "remove": "Remove",
     "bookingId": "Booking ID",
     "optional": "(optional)",
-    "photos": "Photos"
+    "photos": "Photos",
+    "checklistOptional": "Optional when editing — deliveries recorded before this checklist existed stay unanswered."
   },
   "errors": {
     "selectCar": "Please select a car.",
@@ -139,7 +140,8 @@
     "cleanValue": "clean",
     "notCleanValue": "not_clean",
     "returned": "Returned:",
-    "incompleteData": "incomplete data"
+    "incompleteData": "incomplete data",
+    "noReference": "No reference delivery operation to compare against — these figures may be incomplete."
   },
   "table": {
     "allTypes": "All types",

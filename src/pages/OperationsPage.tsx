@@ -1353,7 +1353,7 @@ const AddOperationModal: React.FC<{
 
               {isEdit && (
                 <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6, lineHeight: 1.5 }}>
-                  Optional when editing — deliveries recorded before this checklist existed stay unanswered.
+                  {t('form.checklistOptional')}
                 </div>
               )}
             </div>
@@ -2217,7 +2217,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                   {Number(charges.km.delivery_km) === 0 && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '11px 14px', marginBottom: 12, background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 10, fontSize: 12, color: '#b45309', lineHeight: 1.45 }}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 3l9 16H3l9-16z" stroke="#b45309" strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 10v4M12 17h.01" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                      No reference delivery operation to compare against — these figures may be incomplete.
+                      {t('report.noReference')}
                     </div>
                   )}
 
