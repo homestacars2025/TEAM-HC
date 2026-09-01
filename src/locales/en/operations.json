@@ -78,7 +78,13 @@
     "bookingId": "Booking ID",
     "optional": "(optional)",
     "photos": "Photos",
-    "checklistOptional": "Optional when editing — deliveries recorded before this checklist existed stay unanswered."
+    "checklistOptional": "Optional when editing — deliveries recorded before this checklist existed stay unanswered.",
+    "customersFromCar": "From this car's bookings",
+    "allCustomers": "All customers",
+    "selectCustomerRequired": "Select the customer — required",
+    "photosNeeded_one": "{{count}} more photo needed to save",
+    "photosNeeded_other": "{{count}} more photos needed to save",
+    "uploadingProgress": "Uploading {{done}} / {{total}}…"
   },
   "errors": {
     "selectCar": "Please select a car.",
@@ -90,7 +96,8 @@
     "photoUpload": "Photo upload failed. Nothing was saved.",
     "checklistIncomplete": "Delivery checklist incomplete — {{count}} of 4 unanswered: {{items}}",
     "photosMissing_one": "{{count}} photo is still missing: {{items}}.",
-    "photosMissing_other": "{{count}} photos are still missing: {{items}}."
+    "photosMissing_other": "{{count}} photos are still missing: {{items}}.",
+    "customerRequired": "Please select a linked customer for delivery/pickup operations."
   },
   "delete": {
     "title": "Delete Operation?",

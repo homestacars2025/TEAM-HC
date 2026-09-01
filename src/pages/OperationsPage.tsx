@@ -737,6 +737,7 @@ const AddOperationModal: React.FC<{
   const [profiles, setProfiles]           = useState<ProfileOption[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [customers, setCustomers]         = useState<CustomerOption[]>([]);
+  const [allCustomers, setAllCustomers]   = useState<CustomerOption[]>([]);
   const [customersLoading, setCustomersLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [photos, setPhotos]               = useState<File[]>([]);
@@ -755,10 +756,31 @@ const AddOperationModal: React.FC<{
 
   // Structured capture replaces the free uploader for new DELIVERY / PICKUP operations only
   const isStructured   = !isEdit && (DP_TYPES as string[]).includes(form.type);
+
+  /**
+   * Delivery and pickup are the two operations KABIS reports on, and the report
+   * is built from the customer row — name, national id, nationality, licence.
+   * Without `customer_id` every one of those fields arrives empty, which is why
+   * staff had taken to typing the name into `note` instead. The link is the
+   * requirement; the note is not a substitute for it.
+   *
+   * The other types (wash, maintenance, oil change, service, other) have no
+   * customer to speak of and stay unconstrained.
+   */
+  const needsCustomer  = (DP_TYPES as string[]).includes(form.type);
+  const otherCustomers = useMemo(() => {
+    const shown = new Set(customers.map(c => c.id));
+    return allCustomers.filter(c => !shown.has(c.id));
+  }, [allCustomers, customers]);
+  const hasCustomer    = form.customer_id.trim() !== '';
+  const customerMissing = needsCustomer && !hasCustomer;
   const checklistAnswered = CHECKLIST_ITEMS.filter(i => form[i.key] !== '').length;
   const capturedCount  = PHOTO_SLOTS.filter(s => !!slotFiles[s.key]).length;
   const missingCount   = PHOTO_SLOTS.length - capturedCount;
   const photosComplete = missingCount === 0;
+
+  /** Every reason the form cannot be submitted, in one place. */
+  const saveBlocked = saving || customerMissing || (isStructured && !photosComplete);
 
   // Refs to skip resets on initial mount when editing
   const skipCarResetRef     = useRef(isEdit);
@@ -796,6 +818,19 @@ const AddOperationModal: React.FC<{
       .then(({ data }) => {
         if (active && data) setProfiles(data as ProfileOption[]);
         if (active) setProfilesLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  // Every customer, for the fallback group. Fetched once, independent of the car.
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from('customers')
+      .select('id, first_name, last_name')
+      .order('first_name')
+      .then(({ data }) => {
+        if (active && data) setAllCustomers(data as CustomerOption[]);
       });
     return () => { active = false; };
   }, []);
@@ -847,6 +882,31 @@ const AddOperationModal: React.FC<{
       setForm(f => ({ ...f, customer_id: '', booking_id: '' }));
     }
   }, [form.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * The reverse fill, for editing an older row that has a booking but no
+   * customer. The booking already identifies the customer, so the link is
+   * recovered rather than demanded again — which is also what makes the
+   * requirement fair on rows created before it existed.
+   */
+  useEffect(() => {
+    if (!isEdit || form.customer_id || !form.booking_id.trim()) return;
+    if (!(DP_TYPES as string[]).includes(form.type)) return;
+    let active = true;
+    supabase
+      .from('bookings')
+      .select('customer_id')
+      .eq('id', Number(form.booking_id))
+      .single()
+      .then(({ data }) => {
+        if (!active || !data?.customer_id) return;
+        // The booking is the source here, so the forward fill must not run and
+        // overwrite the booking we just read the customer out of.
+        skipBookingFillRef.current = true;
+        setForm(f => (f.customer_id ? f : { ...f, customer_id: String(data.customer_id) }));
+      });
+    return () => { active = false; };
+  }, [isEdit, form.booking_id, form.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-fill booking_id when customer is selected (skip on initial mount in edit mode)
   useEffect(() => {
@@ -951,6 +1011,7 @@ const AddOperationModal: React.FC<{
     if (!form.car_id)     { setFormError(t('errors.selectCar')); return; }
     if (!form.type)       { setFormError(t('errors.selectType')); return; }
     if (!form.performed_by) { setFormError(t('errors.selectPerson')); return; }
+    if (customerMissing)  { setFormError(t('errors.customerRequired')); return; }
     if (form.fuel_level === '')          { setFormError(t('errors.fuelRequired')); return; }
     if (Number(form.fuel_level) > 2000)  { setFormError(t('errors.fuelMax')); return; }
     // Required on NEW deliveries only: 169 legacy deliveries predate the checklist,
@@ -1203,27 +1264,50 @@ const AddOperationModal: React.FC<{
             {(DP_TYPES as string[]).includes(form.type) && (
               <>
                 <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>{tc('fields.customer')} <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span></label>
+                  <label style={labelStyle}>{tc('fields.customer')} <span style={{ color: '#ef4444' }}>*</span></label>
                   <select
                     value={form.customer_id}
                     onChange={set('customer_id')}
                     onFocus={onFocus}
                     onBlur={onBlur}
                     disabled={!form.car_id || customersLoading}
-                    style={{ ...selectStyle, color: (!form.car_id || customersLoading) ? '#9ca3af' : '#0f1117', opacity: 1 }}
+                    required
+                    aria-invalid={customerMissing}
+                    style={{
+                      ...selectStyle,
+                      color: (!form.car_id || customersLoading) ? '#9ca3af' : '#0f1117',
+                      opacity: 1,
+                      // Named, not merely absent: an empty required field has to
+                      // read as something still owed, not as a finished one.
+                      borderColor: customerMissing && form.car_id ? '#fca5a5' : selectStyle.borderColor,
+                    }}
                   >
                     <option value="">
                       {!form.car_id
                         ? t('form.selectCarFirst')
                         : customersLoading
                           ? t('form.loadingCustomers')
-                          : customers.length === 0
-                            ? t('form.noCustomers')
-                            : t('form.selectCustomer')}
+                          : t('form.selectCustomerRequired')}
                     </option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-                    ))}
+                    {/* This car's own renters first — nearly always the right
+                        person, and a short list to scan. */}
+                    {customers.length > 0 && (
+                      <optgroup label={t('form.customersFromCar')}>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {/* Everyone else, so a car with no booking history — or a
+                        renter who booked under another car — never leaves the
+                        field impossible to fill. */}
+                    {otherCustomers.length > 0 && (
+                      <optgroup label={customers.length > 0 ? t('form.allCustomers') : undefined}>
+                        {otherCustomers.map(c => (
+                          <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -1503,9 +1587,14 @@ const AddOperationModal: React.FC<{
 
         {/* Footer */}
         <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', flexShrink: 0 }}>
-          {isStructured && !photosComplete && !saving && (
+          {customerMissing && !saving && (
+            <span style={{ fontSize: 11.5, color: '#ef4444', marginInlineEnd: 'auto', lineHeight: 1.4 }}>
+              {t('errors.customerRequired')}
+            </span>
+          )}
+          {!customerMissing && isStructured && !photosComplete && !saving && (
             <span style={{ fontSize: 11.5, color: '#9ca3af', marginInlineEnd: 'auto', lineHeight: 1.4 }}>
-              {missingCount} more photo{missingCount > 1 ? 's' : ''} needed to save
+              {t('form.photosNeeded', { count: missingCount })}
             </span>
           )}
           <button type="button" onClick={onClose}
@@ -1517,8 +1606,8 @@ const AddOperationModal: React.FC<{
           <button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={saving || (isStructured && !photosComplete)}
-            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: (saving || (isStructured && !photosComplete)) ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: (saving || (isStructured && !photosComplete)) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
+            disabled={saveBlocked}
+            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: saveBlocked ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: saveBlocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             {saving ? (
               <>
@@ -1526,7 +1615,9 @@ const AddOperationModal: React.FC<{
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                 </svg>
                 {saveStep === 'uploading'
-                  ? (uploadTotal > 0 ? `Uploading ${uploadDone} / ${uploadTotal}…` : t('form.uploading'))
+                  ? (uploadTotal > 0
+                      ? t('form.uploadingProgress', { done: uploadDone, total: uploadTotal })
+                      : t('form.uploading'))
                   : t('form.saving')}
               </>
             ) : isEdit ? t('form.saveChanges') : t('form.saveOperation')}

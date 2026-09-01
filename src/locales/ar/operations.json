@@ -78,7 +78,17 @@
     "bookingId": "رقم الحجز",
     "optional": "(اختياري)",
     "photos": "الصور",
-    "checklistOptional": "اختيارية عند التعديل — التسليمات المسجّلة قبل وجود هذه القائمة تبقى بلا إجابة."
+    "checklistOptional": "اختيارية عند التعديل — التسليمات المسجّلة قبل وجود هذه القائمة تبقى بلا إجابة.",
+    "customersFromCar": "من حجوزات هذه السيارة",
+    "allCustomers": "كل العملاء",
+    "selectCustomerRequired": "اختر العميل — إلزامي",
+    "photosNeeded_zero": "لا صور ناقصة",
+    "photosNeeded_one": "تنقص صورة واحدة للحفظ",
+    "photosNeeded_two": "تنقص صورتان للحفظ",
+    "photosNeeded_few": "تنقص {{count}} صور للحفظ",
+    "photosNeeded_many": "تنقص {{count}} صورة للحفظ",
+    "photosNeeded_other": "تنقص {{count}} صورة للحفظ",
+    "uploadingProgress": "جارٍ الرفع {{done}} / {{total}}…"
   },
   "errors": {
     "selectCar": "اختر السيارة.",
@@ -94,7 +104,8 @@
     "photosMissing_two": "ما زالت صورتان ناقصتان: {{items}}.",
     "photosMissing_few": "ما زالت {{count}} صور ناقصة: {{items}}.",
     "photosMissing_many": "ما زالت {{count}} صورة ناقصة: {{items}}.",
-    "photosMissing_other": "ما زالت {{count}} صورة ناقصة: {{items}}."
+    "photosMissing_other": "ما زالت {{count}} صورة ناقصة: {{items}}.",
+    "customerRequired": "يرجى اختيار عميل مربوط لعمليات التسليم والاستلام."
   },
   "delete": {
     "title": "حذف العملية؟",
