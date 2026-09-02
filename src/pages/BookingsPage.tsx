@@ -7,6 +7,7 @@ import { sortCarsByModel } from '../lib/car-picker';
 import { localisedCountryName } from '../lib/countries';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
+import { useSectionAccess } from '../lib/SectionAccessContext';
 import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
@@ -339,10 +340,12 @@ interface RowProps {
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
   onPrint: () => void;
+  /** Absent when the signed-in user may not extend — the button is not rendered. */
+  onExtend?: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit, onPrint,
+  booking, isSelected, isEven, onSelect, onToggle, onEdit, onPrint, onExtend,
 }) => {
   const { t } = useTranslation('bookings');
   const dateLocale = useDateLocale();
@@ -401,6 +404,16 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 16px 9px 8px', textAlign: 'end' }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+        {/* A cancelled booking has nothing left to extend. */}
+        {onExtend && booking.status !== 'cancelled' && (
+          <ActionBtn onClick={onExtend} title={t('extend.action')} hoverColor="#16a34a">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+              <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M12 13v5M9.5 15.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </ActionBtn>
+        )}
         <ActionBtn onClick={onPrint} title={t('table.printContract')} hoverColor="#8b5cf6">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -2143,6 +2156,239 @@ const Field: React.FC<{ label: string; required?: boolean; children: React.React
 
 // ─── Delete confirm modal ─────────────────────────────────────────────────────
 
+// ─── Extend booking ───────────────────────────────────────────────────────────
+
+/** The one row `extend_booking` returns. Only the balance is shown to the user. */
+interface ExtendResult {
+  booking_id: number;
+  old_end_date: string;
+  new_end_date: string;
+  rental_logged: number | string;
+  payment_logged: number | string;
+  new_balance: number | string;
+}
+
+const nextDayOf = (isoDate: string): string => {
+  const d = new Date(`${isoDate}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return toDateStr(d);
+};
+
+/**
+ * Extending a booking is one RPC and nothing else.
+ *
+ * `extend_booking` is SECURITY DEFINER and does the whole thing in a
+ * transaction: moves `end_date`, forces `status` to confirmed, writes the rental
+ * and the payment into `customer_accounting_ledger`, and hands back the new
+ * balance. The calendar follows through its own trigger. Writing any of that
+ * from here would be a second, divergent implementation of a money path — so
+ * this component only gathers four values and reports what came back.
+ */
+const ExtendBookingModal: React.FC<{
+  booking: Booking;
+  onClose: () => void;
+  onExtended: (newEndDate: string, newBalance: number | null) => void;
+}> = ({ booking, onClose, onExtended }) => {
+  const { t } = useTranslation('bookings');
+  const { t: tc } = useTranslation('common');
+
+  // Not editable, and not sent: the function derives the same day itself. It is
+  // shown so the person can see which period they are actually paying for.
+  const periodStart = nextDayOf(booking.end_date);
+
+  const [newEndDate, setNewEndDate] = useState('');
+  const [rentalAmount, setRentalAmount] = useState('');
+  const [paidAmount, setPaidAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const rentalNum = Number(rentalAmount);
+  const paidNum   = paidAmount.trim() === '' ? 0 : Number(paidAmount);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!newEndDate) { setFormError(t('extend.errors.endRequired')); return; }
+    if (newEndDate <= booking.end_date) {
+      setFormError(t('extend.errors.endNotAfter', { current: booking.end_date }));
+      return;
+    }
+    if (!Number.isFinite(rentalNum) || rentalNum <= 0) {
+      setFormError(t('extend.errors.rentalPositive'));
+      return;
+    }
+    if (!Number.isFinite(paidNum) || paidNum < 0) {
+      setFormError(t('extend.errors.paidNegative'));
+      return;
+    }
+
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase.rpc('extend_booking', {
+      p_booking_id:    booking.id,
+      p_new_end_date:  newEndDate,
+      p_rental_amount: rentalNum,
+      p_paid_amount:   paidNum,
+      p_created_by:    user?.id ?? null,
+    });
+    setSaving(false);
+
+    if (error) { setFormError(error.message || t('extend.errors.failed')); return; }
+
+    // The function returns a TABLE, which PostgREST hands back as an array.
+    const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
+    const balance = result?.new_balance == null ? null : Number(result.new_balance);
+    onExtended(newEndDate, Number.isFinite(balance as number) ? balance : null);
+  };
+
+  const canSave = !saving && !!newEndDate && rentalAmount.trim() !== '';
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '24px 16px', overflowY: 'auto', animation: 'fadeIn 150ms ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 460,
+          marginTop: 'auto', marginBottom: 'auto',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+          animation: 'slideUp 180ms ease',
+        }}
+      >
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0' }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
+            {t('extend.title')}
+          </div>
+          <div dir="auto" style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>
+            {t('extend.subtitle', {
+              number: booking.booking_number,
+              customer: booking.customer_name || '—',
+            })}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ padding: '18px 24px 4px', display: 'grid', gap: 14 }}>
+          <Field label={t('extend.newPeriodStarts')}>
+            <input
+              type="date"
+              value={periodStart}
+              readOnly
+              tabIndex={-1}
+              style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', cursor: 'not-allowed' }}
+            />
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+              {t('extend.newPeriodHint')} {t('extend.currentEnd')}: {booking.end_date}
+            </div>
+          </Field>
+
+          <Field label={t('extend.newEndDate')} required>
+            <input
+              type="date"
+              value={newEndDate}
+              min={periodStart}
+              onChange={e => setNewEndDate(e.target.value)}
+              onFocus={focusBlue} onBlur={blurGray}
+              style={INPUT_STYLE}
+            />
+          </Field>
+
+          <Field label={t('extend.rentalAmount')} required>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              dir="ltr"
+              value={rentalAmount}
+              onChange={e => setRentalAmount(e.target.value)}
+              onFocus={focusBlue} onBlur={blurGray}
+              style={INPUT_STYLE}
+            />
+          </Field>
+
+          <Field label={t('extend.paidAmount')}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              dir="ltr"
+              value={paidAmount}
+              onChange={e => setPaidAmount(e.target.value)}
+              onFocus={focusBlue} onBlur={blurGray}
+              style={INPUT_STYLE}
+            />
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{t('extend.paidHint')}</div>
+          </Field>
+
+          <div style={{
+            fontSize: 12, lineHeight: 1.55, color: '#6b7280',
+            background: '#f9fafb', border: '1px solid #f0f0f0',
+            borderRadius: 9, padding: '9px 12px',
+          }}>
+            {t('extend.insuranceNote')}
+          </div>
+
+          {formError && (
+            <div style={{
+              padding: '9px 12px', background: '#fef2f2', border: '1px solid #fecaca',
+              borderRadius: 9, fontSize: 12.5, color: '#ef4444',
+            }}>
+              {formError}
+            </div>
+          )}
+        </form>
+
+        <div style={{
+          padding: '14px 24px 20px', display: 'flex', gap: 10,
+          justifyContent: 'flex-end', borderTop: '1px solid #f0f0f0', marginTop: 16,
+        }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              minHeight: 44, padding: '0 18px', borderRadius: 10,
+              border: '1.5px solid #e5e7eb', background: '#fff',
+              fontSize: 13, fontWeight: 600, color: '#374151',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {tc('actions.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit as unknown as React.MouseEventHandler}
+            disabled={!canSave}
+            style={{
+              minHeight: 44, padding: '0 22px', borderRadius: 10, border: 'none',
+              background: canSave ? '#4ba6ea' : '#93c5fd',
+              fontSize: 13, fontWeight: 700, color: '#fff',
+              cursor: canSave ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
+            }}
+          >
+            {saving ? tc('actions.saving') : t('extend.submit')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 // ─── Replacement sheets ───────────────────────────────────────────────────────
 
 /** The real statuses car_availability can return. Nothing else is ever rendered. */
@@ -2187,8 +2433,21 @@ interface CarBookingOption {
   end_date: string;
 }
 
-/** A stored sheet, plus the identity fields the reprint list needs. */
-type ReplacementSheetRecord = ReplacementSheet & { id: number; created_at: string };
+/**
+ * A stored sheet, plus the identity fields the reprint list needs and the three
+ * raw ids editing needs. They are kept off `ReplacementSheet` itself, which is
+ * the print contract and has no business knowing about foreign keys.
+ *
+ * `calendar_block_id` is nullable: nothing in the database forces a sheet to
+ * have a calendar block, so editing has to cope with a sheet that has none.
+ */
+type ReplacementSheetRecord = ReplacementSheet & {
+  id: number;
+  created_at: string;
+  original_car_id: number | null;
+  replacement_car_id: number | null;
+  calendar_block_id: number | null;
+};
 
 /**
  * replacement_sheets has two FKs to cars, so both embeds are disambiguated by constraint
@@ -2196,6 +2455,7 @@ type ReplacementSheetRecord = ReplacementSheet & { id: number; created_at: strin
  */
 const SHEET_SELECT = `
   id, created_at, sheet_number, customer_id, original_booking_id,
+  original_car_id, replacement_car_id, calendar_block_id,
   start_date, end_date, km_at_handover, fuel_at_handover, notes,
   customers(first_name, last_name),
   original_booking:bookings(booking_number),
@@ -2211,6 +2471,9 @@ interface SheetRowRaw {
   sheet_number: string | null;
   customer_id: string | null;
   original_booking_id: number | null;
+  original_car_id: number | null;
+  replacement_car_id: number | null;
+  calendar_block_id: number | null;
   start_date: string;
   end_date: string;
   km_at_handover: number | string | null;
@@ -2252,6 +2515,9 @@ function mapSheetRow(row: SheetRowRaw): ReplacementSheetRecord {
     km_at_handover:          km == null ? null : Number(km),
     fuel_at_handover:        row.fuel_at_handover,
     notes:                   row.notes,
+    original_car_id:         row.original_car_id,
+    replacement_car_id:      row.replacement_car_id,
+    calendar_block_id:       row.calendar_block_id,
   };
 }
 
@@ -2379,23 +2645,33 @@ const WARN_STYLE: React.CSSProperties = {
 const ReplacementFormModal: React.FC<{
   onClose: () => void;
   onSaved: (sheet: ReplacementSheetRecord) => void;
-}> = ({ onClose, onSaved }) => {
+  /**
+   * Present = edit an existing sheet. The original booking, its customer and the
+   * original car are the facts the sheet was raised about, so they are shown but
+   * never re-picked; `sheet_number` is likewise left alone, generated once at
+   * creation.
+   */
+  sheet?: ReplacementSheetRecord;
+}> = ({ onClose, onSaved, sheet }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const isEdit = !!sheet;
   const [cars, setCars]               = useState<ReplacementCarOption[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
 
-  const [originalCarId, setOriginalCarId] = useState('');
+  const [originalCarId, setOriginalCarId] = useState(
+    sheet?.original_car_id != null ? String(sheet.original_car_id) : '');
   const [carBookings, setCarBookings]         = useState<CarBookingOption[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingId, setBookingId]             = useState('');
 
-  const [replacementCarId, setReplacementCarId] = useState('');
-  const [startDate, setStartDate] = useState(todayStr());
-  const [endDate,   setEndDate]   = useState('');
-  const [km,        setKm]        = useState('');
-  const [fuel,      setFuel]      = useState('');
-  const [notes,     setNotes]     = useState('');
+  const [replacementCarId, setReplacementCarId] = useState(
+    sheet?.replacement_car_id != null ? String(sheet.replacement_car_id) : '');
+  const [startDate, setStartDate] = useState(sheet?.start_date ?? todayStr());
+  const [endDate,   setEndDate]   = useState(sheet?.end_date ?? '');
+  const [km,        setKm]        = useState(sheet?.km_at_handover != null ? String(sheet.km_at_handover) : '');
+  const [fuel,      setFuel]      = useState(sheet?.fuel_at_handover ?? '');
+  const [notes,     setNotes]     = useState(sheet?.notes ?? '');
 
   const [saving, setSaving]       = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -2434,6 +2710,8 @@ const ReplacementFormModal: React.FC<{
 
   // ── Bookings for the chosen plate — every booking, newest first, no status filter ──
   useEffect(() => {
+    // Edit mode never re-picks the booking, and this effect would wipe the seed.
+    if (isEdit) return;
     setBookingId('');
     setCarBookings([]);
     if (!originalCarId) return;
@@ -2465,14 +2743,15 @@ const ReplacementFormModal: React.FC<{
       setBookingsLoading(false);
     })();
     return () => { active = false; };
-  }, [originalCarId]);
+  }, [originalCarId, isEdit]);
 
   const selectedBooking = carBookings.find(b => String(b.id) === bookingId) ?? null;
 
-  // Return date defaults to the original booking's end date, and stays editable after.
+  // Return date defaults to the original booking's end date, and stays editable
+  // after. In edit mode the stored date is the truth and is never overwritten.
   useEffect(() => {
-    if (selectedBooking) setEndDate(selectedBooking.end_date);
-  }, [selectedBooking]);
+    if (!isEdit && selectedBooking) setEndDate(selectedBooking.end_date);
+  }, [selectedBooking, isEdit]);
 
   const originalCar    = cars.find(c => String(c.id) === originalCarId) ?? null;
   const replacementCar = cars.find(c => String(c.id) === replacementCarId) ?? null;
@@ -2494,12 +2773,86 @@ const ReplacementFormModal: React.FC<{
     e.preventDefault();
     setFormError(null);
 
-    if (!originalCarId)                  { setFormError(t('replacement.errors.originalCar')); return; }
-    if (!selectedBooking)                { setFormError(t('replacement.errors.booking')); return; }
-    if (!selectedBooking.customer_id)    { setFormError(t('replacement.errors.noCustomer')); return; }
+    // Shared by both modes — the fields anyone may change.
     if (!replacementCarId)               { setFormError(t('replacement.errors.replacementCar')); return; }
     if (!startDate || !endDate)          { setFormError(t('replacement.errors.datesRequired')); return; }
     if (endDate < startDate)             { setFormError(t('replacement.errors.returnBeforeHandover')); return; }
+
+    // ── Edit ─────────────────────────────────────────────────────────────────
+    if (sheet) {
+      setSaving(true);
+
+      /**
+       * Nothing in the database keeps `replacement_sheets` and `car_calendar` in
+       * step — no trigger, no foreign key. The only tie is
+       * `replacement_sheets.calendar_block_id` pointing at a `car_calendar` row,
+       * and it is this code's job to move both. Miss the second write and the
+       * calendar goes on reserving the old car for the old dates, which is
+       * exactly how a car ends up handed to two people.
+       */
+      const carChanged   = String(sheet.replacement_car_id ?? '') !== replacementCarId;
+      const datesChanged = sheet.start_date !== startDate || sheet.end_date !== endDate;
+      const needsCalendarSync = carChanged || datesChanged;
+
+      const { data: updated, error: updateError } = await supabase
+        .from('replacement_sheets')
+        .update({
+          replacement_car_id: Number(replacementCarId),
+          start_date:         startDate,
+          end_date:           endDate,
+          km_at_handover:     km.trim()   !== '' ? Number(km)  : null,
+          fuel_at_handover:   fuel.trim() !== '' ? fuel.trim()  : null,
+          notes:              notes.trim() !== '' ? notes.trim() : null,
+          // sheet_number, original_booking_id, customer_id and original_car_id
+          // are deliberately absent: they identify the sheet, not its contents.
+        })
+        .eq('id', sheet.id)
+        .select(SHEET_SELECT)
+        .single();
+
+      if (updateError || !updated) {
+        setSaving(false);
+        setFormError(updateError?.message ?? t('replacement.errors.saveEdit'));
+        return;
+      }
+
+      if (needsCalendarSync) {
+        if (sheet.calendar_block_id == null) {
+          // Nothing forces a sheet to have a block, so say so rather than
+          // inventing one — a stray block would reserve a car nobody asked for.
+          setSaving(false);
+          setFormError(t('replacement.errors.noCalendarBlock'));
+          return;
+        }
+
+        const { error: calendarError } = await supabase
+          .from('car_calendar')
+          .update({
+            car_id:     Number(replacementCarId),
+            start_date: startDate,
+            end_date:   endDate,
+          })
+          .eq('id', sheet.calendar_block_id);
+
+        if (calendarError) {
+          // The sheet is already saved, so this is not a failure to undo — it is
+          // a split the person has to know about. The modal stays open with the
+          // sheet's own fields intact so they can see what is now out of step.
+          setSaving(false);
+          setFormError(`${t('replacement.errors.calendarOutOfSync')} (${calendarError.message})`);
+          return;
+        }
+      }
+
+      setSaving(false);
+      onSaved(mapSheetRow(updated as unknown as SheetRowRaw));
+      return;
+    }
+
+    // ── Create ───────────────────────────────────────────────────────────────
+    if (!originalCarId)                  { setFormError(t('replacement.errors.originalCar')); return; }
+    if (!selectedBooking)                { setFormError(t('replacement.errors.booking')); return; }
+    if (!selectedBooking.customer_id)    { setFormError(t('replacement.errors.noCustomer')); return; }
 
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -2588,10 +2941,12 @@ const ReplacementFormModal: React.FC<{
         }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              {t('replacementCarButton')}
+              {isEdit ? t('replacement.editTitle') : t('replacementCarButton')}
             </div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {t('replacement.subtitle')}
+            <div dir="auto" style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+              {isEdit
+                ? t('replacement.editSubtitle', { number: sheet?.sheet_number ?? '—' })
+                : t('replacement.subtitle')}
             </div>
           </div>
           <button
@@ -2616,18 +2971,31 @@ const ReplacementFormModal: React.FC<{
             />
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label={t('replacement.originalCar')} required>
-                <CarSearchSelect
-                  cars={cars}
-                  value={originalCarId}
-                  onChange={setOriginalCarId}
-                  loading={carsLoading}
-                />
+              <Field label={t('replacement.originalCar')} required={!isEdit}>
+                {isEdit ? (
+                  <div dir="auto" style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+                    {sheet?.original_plate ?? '—'}
+                    {sheet?.original_model ? ` — ${sheet.original_model}` : ''}
+                  </div>
+                ) : (
+                  <CarSearchSelect
+                    cars={cars}
+                    value={originalCarId}
+                    onChange={setOriginalCarId}
+                    loading={carsLoading}
+                  />
+                )}
               </Field>
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
-              <Field label={t('replacement.originalBooking')} required>
+              <Field label={t('replacement.originalBooking')} required={!isEdit}>
+                {isEdit ? (
+                  <div dir="auto" style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+                    {sheet?.customer_name || '—'}
+                    {sheet?.original_booking_number ? ` · ${sheet.original_booking_number}` : ''}
+                  </div>
+                ) : (
                 <select
                   value={bookingId}
                   onChange={e => setBookingId(e.target.value)}
@@ -2651,8 +3019,9 @@ const ReplacementFormModal: React.FC<{
                     </option>
                   ))}
                 </select>
+                )}
               </Field>
-              {noBookings && (
+              {!isEdit && noBookings && (
                 <div style={WARN_STYLE}>
                   <span>
                     No bookings found for this car. A replacement sheet needs a customer, so pick a
@@ -2780,7 +3149,9 @@ const ReplacementFormModal: React.FC<{
               onMouseEnter={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
               onMouseLeave={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
             >
-              {saving ? 'Saving…' : t('replacement.createPrint')}
+              {saving
+                ? tc('actions.saving')
+                : isEdit ? t('replacement.saveChanges') : t('replacement.createPrint')}
             </button>
           </div>
         </form>
@@ -2814,6 +3185,23 @@ const BookingsPage: React.FC = () => {
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking }>(null);
+  const [extendTarget, setExtendTarget]    = useState<Booking | null>(null);
+  const [editingSheet, setEditingSheet]    = useState<ReplacementSheetRecord | null>(null);
+
+  /**
+   * Extending writes rental and payment rows into `customer_accounting_ledger`,
+   * so unlike Edit it is a money action, and the team dashboard has far more
+   * staff on it than the admin one does.
+   *
+   * `booking_extend` is deliberately NOT registered in `restricted_sections`
+   * today, and a section absent from that table is public — so this reads true
+   * for everyone and the button behaves exactly as it would with no gate at all.
+   * What it buys is the switch: registering the key and granting it in
+   * `staff_sections` restricts the button from the database alone, with no code
+   * change and no deploy. See the note in the pull request.
+   */
+  const { canAccess } = useSectionAccess();
+  const canExtend = canAccess('booking_extend');
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [sheets, setSheets]               = useState<ReplacementSheetRecord[]>([]);
   const [sheetsLoading, setSheetsLoading] = useState(true);
@@ -3220,6 +3608,7 @@ const BookingsPage: React.FC = () => {
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
                     onPrint={() => printBookingContract(booking)}
+                    onExtend={canExtend ? () => setExtendTarget(booking) : undefined}
                   />
                 ))}
               </tbody>
@@ -3322,6 +3711,32 @@ const BookingsPage: React.FC = () => {
                         {s.start_date} → {s.end_date}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'end', borderBottom: '1px solid #f9fafb' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                          onClick={() => setEditingSheet(s)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            minHeight: 44, padding: '0 14px', borderRadius: 9,
+                            border: '1px solid #e5e7eb', background: '#fff',
+                            fontSize: 13, fontWeight: 600, color: '#374151',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'border-color 150ms ease, color 150ms ease',
+                          }}
+                          onMouseEnter={e => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea';
+                          }}
+                          onMouseLeave={e => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#374151';
+                          }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          {t('replacement.edit')}
+                        </button>
                         <button
                           onClick={() => printReplacementSheet(s)}
                           style={{
@@ -3347,6 +3762,7 @@ const BookingsPage: React.FC = () => {
                           </svg>
                           {t('reprint')}
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -3358,6 +3774,44 @@ const BookingsPage: React.FC = () => {
       </div>
 
       {/* ── Modals ── */}
+      {extendTarget && (
+        <ExtendBookingModal
+          booking={extendTarget}
+          onClose={() => setExtendTarget(null)}
+          onExtended={(newEndDate, newBalance) => {
+            setExtendTarget(null);
+            showToast(
+              newBalance == null
+                ? t('extend.toast.done', { date: newEndDate })
+                : t('extend.toast.doneWithBalance', {
+                    date: newEndDate,
+                    balance: newBalance.toLocaleString('en-US', {
+                      minimumFractionDigits: 2, maximumFractionDigits: 2,
+                    }),
+                  }),
+              'success',
+            );
+            // The function moved end_date and forced status to confirmed, so
+            // both the list and the month counters are stale until refetched.
+            fetchStats(selectedMonth);
+            fetchBookings(selectedMonth);
+          }}
+        />
+      )}
+      {editingSheet && (
+        <ReplacementFormModal
+          sheet={editingSheet}
+          onClose={() => setEditingSheet(null)}
+          onSaved={updated => {
+            setEditingSheet(null);
+            showToast(t('toast.updated'), 'success');
+            fetchSheets();
+            // Reprinting is not implied by an edit — the person may only have
+            // been correcting a note. They can reprint from the row.
+            void updated;
+          }}
+        />
+      )}
       {replacementOpen && (
         <ReplacementFormModal
           onClose={() => setReplacementOpen(false)}

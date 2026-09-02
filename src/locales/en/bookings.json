@@ -134,7 +134,11 @@
       "datesRequired": "Handover and return dates are both required.",
       "returnBeforeHandover": "Return date cannot be before the handover date.",
       "blockCalendar": "Could not block the replacement car calendar.",
-      "saveSheet": "Could not save the replacement sheet."
+      "saveSheet": "Could not save the replacement sheet.",
+      "saveEdit": "Couldn't save the changes",
+      "calendarOutOfSync": "The sheet was saved but its calendar block could not be moved — the calendar still shows the old car or dates. Please fix it before handing the car over.",
+      "calendarRolledBack": "The sheet could not be saved, so the calendar block was put back the way it was. Nothing changed.",
+      "noCalendarBlock": "The sheet was saved, but it has no calendar block linked, so nothing was reserved on the calendar."
     },
     "originalToReplacement": "Original → Replacement",
     "notParking": "This car is currently <1>{{status}}</1>, not Parking. You can still hand it over, but its calendar may overlap.",
@@ -142,7 +146,12 @@
     "selectCar": "Select car…",
     "originalBooking": "Original Booking / Customer",
     "subtitle": "Hand a substitute vehicle to a customer and block its calendar",
-    "sameCarWarn": "This is the same car as the original. Double-check before saving."
+    "sameCarWarn": "This is the same car as the original. Double-check before saving.",
+    "editTitle": "Edit Replacement",
+    "editSubtitle": "Sheet {{number}} — the sheet number and the original booking do not change.",
+    "edit": "Edit",
+    "saveChanges": "Save changes",
+    "loadingSheet": "Loading sheet…"
   },
   "customerLanguages": {
     "ar": "Arabic",
@@ -161,5 +170,30 @@
   "convertHint": "Values will be converted to TRY before saving",
   "noSheets": "No replacement sheets yet.",
   "reprint": "Reprint",
-  "loadingSheets": "Loading replacement sheets…"
+  "loadingSheets": "Loading replacement sheets…",
+  "extend": {
+    "action": "Extend",
+    "title": "Extend Booking",
+    "subtitle": "Booking {{number}} · {{customer}}",
+    "newPeriodStarts": "New Period Starts",
+    "newPeriodHint": "The day after the current end date — not editable.",
+    "newEndDate": "New End Date",
+    "rentalAmount": "Rental Amount (TRY)",
+    "paidAmount": "Paid Amount (TRY)",
+    "paidHint": "Leave empty for 0.",
+    "insuranceNote": "Insurance carries over from the original booking — nothing new is charged for it.",
+    "submit": "Extend Booking",
+    "currentEnd": "Current end date",
+    "errors": {
+      "endRequired": "A new end date is required.",
+      "endNotAfter": "New end date must be after {{current}}",
+      "rentalPositive": "Rental amount must be greater than 0.",
+      "paidNegative": "Paid amount cannot be negative.",
+      "failed": "Couldn't extend the booking"
+    },
+    "toast": {
+      "done": "Booking extended to {{date}}",
+      "doneWithBalance": "Booking extended to {{date}} · new balance {{balance}} TRY"
+    }
+  }
 }
