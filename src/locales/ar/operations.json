@@ -37,7 +37,9 @@
     "dashboard": "لوحة القيادة",
     "exterior": "الخارج",
     "interior": "الداخل",
-    "tapToCapture": "اضغط للتصوير"
+    "tapToAdd": "اضغط للإضافة",
+    "scratch": "خدش {{n}}",
+    "addScratch": "أضف خدش {{n}}"
   },
   "form": {
     "editTitle": "تعديل العملية",
@@ -72,8 +74,8 @@
     "location": "المكان",
     "note": "ملاحظة",
     "autoFilled": "يُملأ تلقائياً عند اختيار العميل",
-    "tapPosition": "اضغط على موضع لتصويره",
-    "replaceRetake": "استبدال / إعادة تصوير",
+    "tapPosition": "اضغط على موضع لإضافة صورته",
+    "replace": "استبدال",
     "remove": "إزالة",
     "bookingId": "رقم الحجز",
     "optional": "(اختياري)",
@@ -88,7 +90,14 @@
     "photosNeeded_few": "تنقص {{count}} صور للحفظ",
     "photosNeeded_many": "تنقص {{count}} صورة للحفظ",
     "photosNeeded_other": "تنقص {{count}} صورة للحفظ",
-    "uploadingProgress": "جارٍ الرفع {{done}} / {{total}}…"
+    "uploadingProgress": "جارٍ الرفع {{done}} / {{total}}…",
+    "photosCaptured": "أُضيفت {{done}} من {{total}} صور",
+    "photosSelected_zero": "لم تُختَر صور — اضغط للإضافة",
+    "photosSelected_one": "صورة واحدة مختارة — اضغط لإضافة المزيد",
+    "photosSelected_two": "صورتان مختارتان — اضغط لإضافة المزيد",
+    "photosSelected_few": "{{count}} صور مختارة — اضغط لإضافة المزيد",
+    "photosSelected_many": "{{count}} صورة مختارة — اضغط لإضافة المزيد",
+    "photosSelected_other": "{{count}} صورة مختارة — اضغط لإضافة المزيد"
   },
   "errors": {
     "selectCar": "اختر السيارة.",

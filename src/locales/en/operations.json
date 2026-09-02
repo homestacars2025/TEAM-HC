@@ -37,7 +37,9 @@
     "dashboard": "Dashboard",
     "exterior": "Exterior",
     "interior": "Interior",
-    "tapToCapture": "Tap to capture"
+    "tapToAdd": "Tap to add",
+    "scratch": "Scratch {{n}}",
+    "addScratch": "Add scratch {{n}}"
   },
   "form": {
     "editTitle": "Edit Operation",
@@ -72,8 +74,8 @@
     "location": "Location",
     "note": "Note",
     "autoFilled": "Auto-filled when a customer is selected",
-    "tapPosition": "Tap a position to capture that photo",
-    "replaceRetake": "Replace / Retake",
+    "tapPosition": "Tap a position to add that photo",
+    "replace": "Replace",
     "remove": "Remove",
     "bookingId": "Booking ID",
     "optional": "(optional)",
@@ -84,7 +86,10 @@
     "selectCustomerRequired": "Select the customer — required",
     "photosNeeded_one": "{{count}} more photo needed to save",
     "photosNeeded_other": "{{count}} more photos needed to save",
-    "uploadingProgress": "Uploading {{done}} / {{total}}…"
+    "uploadingProgress": "Uploading {{done}} / {{total}}…",
+    "photosCaptured": "{{done}} / {{total}} photos added",
+    "photosSelected_one": "{{count}} photo selected — click to add more",
+    "photosSelected_other": "{{count}} photos selected — click to add more"
   },
   "errors": {
     "selectCar": "Please select a car.",

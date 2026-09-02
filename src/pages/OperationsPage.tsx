@@ -471,7 +471,7 @@ const PhotoSlotCard: React.FC<{
           <>
             <img src={previewUrl} alt={label} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(15,17,23,0.62)', color: '#fff', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.3px', padding: '4px 0', textAlign: 'center' }}>
-              {t('form.replaceRetake')}
+              {t('form.replace')}
             </span>
           </>
         ) : diagram ? (
@@ -491,7 +491,7 @@ const PhotoSlotCard: React.FC<{
               <path d="M4 8a2 2 0 012-2h1.6a2 2 0 001.7-.9l.6-1a1 1 0 01.9-.5h2.4a1 1 0 01.9.5l.6 1a2 2 0 001.7.9H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
               <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
             </svg>
-            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af' }}>{t('slots.tapToCapture')}</span>
+            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#9ca3af' }}>{t('slots.tapToAdd')}</span>
           </>
         )}
       </button>
@@ -518,11 +518,23 @@ const PhotoSlotCard: React.FC<{
         </button>
       )}
 
+      {/*
+        No `capture` attribute on purpose.
+        `capture="environment"` does not *prefer* the rear camera — on iOS and
+        Android it opens it directly and removes the gallery and Files options
+        altogether, so a photo taken a minute earlier, or one sent over by a
+        colleague, could not be attached at all. Without the attribute the
+        browser shows the chooser and the camera is simply one of the choices,
+        which is what a delivery done away from the desk actually needs.
+
+        `multiple` is deliberately absent here too: this input backs one named
+        position (front bumper, dashboard, a single scratch), so it takes one
+        file. The free-form uploader below keeps its `multiple`.
+      */}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={e => {
           const file = e.target.files?.[0];
@@ -1451,7 +1463,7 @@ const AddOperationModal: React.FC<{
                   {t('sections.vehiclePhotos')} <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <span style={{ fontSize: 12, fontWeight: 700, color: photosComplete ? '#16a34a' : '#4ba6ea', whiteSpace: 'nowrap' }}>
-                  {capturedCount} / {PHOTO_SLOTS.length} photos captured
+                  {t('form.photosCaptured', { done: capturedCount, total: PHOTO_SLOTS.length })}
                 </span>
               </div>
 
@@ -1505,7 +1517,7 @@ const AddOperationModal: React.FC<{
                   {scratchFiles.map((_, i) => (
                     <PhotoSlotCard
                       key={`scratch-${i}`}
-                      label={`Scratch ${i + 1}`}
+                      label={t('slots.scratch', { n: i + 1 })}
                       previewUrl={scratchPreviews[i]}
                       onPick={file => setScratchFiles(prev => prev.map((f, idx) => (idx === i ? file : f)))}
                       onRemove={() => setScratchFiles(prev => prev.filter((_, idx) => idx !== i))}
@@ -1513,7 +1525,7 @@ const AddOperationModal: React.FC<{
                   ))}
                   {scratchFiles.length < MAX_SCRATCH_PHOTOS && (
                     <PhotoSlotCard
-                      label={`Add scratch ${scratchFiles.length + 1}`}
+                      label={t('slots.addScratch', { n: scratchFiles.length + 1 })}
                       onPick={file => setScratchFiles(prev => [...prev, file])}
                     />
                   )}
@@ -1543,7 +1555,9 @@ const AddOperationModal: React.FC<{
                 <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>
-                {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''} selected — click to add more` : t('form.clickToSelect')}
+                {photos.length > 0
+                  ? t('form.photosSelected', { count: photos.length })
+                  : t('form.clickToSelect')}
               </span>
               <span style={{ fontSize: 11, color: '#9ca3af' }}>{t('form.accepted')}</span>
               <input
