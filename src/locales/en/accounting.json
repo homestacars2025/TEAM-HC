@@ -1,0 +1,149 @@
+{
+  "title": "Accounting",
+  "subtitle": "Rental sheets, company & employee expenses, and customer balances.",
+  "loading": "Loading…",
+  "tabs": {
+    "cars": "Car Rental Sheets",
+    "expenses": "Company & Employee Expenses",
+    "customers": "Customers"
+  },
+  "month": {
+    "previous": "Previous month",
+    "next": "Next month"
+  },
+  "direction": {
+    "IN": "IN",
+    "OUT": "OUT"
+  },
+  "categories": {
+    "rentCollection": "Rent Collection",
+    "wash": "Wash",
+    "oil": "Oil",
+    "petrol": "Petrol",
+    "hgs": "HGS",
+    "maintenance": "Maintenance",
+    "depositFromManager": "Deposit from Manager",
+    "refund": "Refund",
+    "marketing": "Marketing",
+    "operations": "Operations",
+    "branch": "Branch",
+    "food": "Food",
+    "custodyFromManager": "Custody from Manager",
+    "gps": "GPS",
+    "other": "Other"
+  },
+  "table": {
+    "direction": "Direction",
+    "category": "Category",
+    "note": "Note",
+    "receipt": "Receipt",
+    "amount": "Amount",
+    "actions": "Actions"
+  },
+  "summary": {
+    "totalIn": "Total In",
+    "totalOut": "Total Out",
+    "net": "Net",
+    "balance": "Balance",
+    "in": "In",
+    "out": "Out"
+  },
+  "form": {
+    "selectCar": "Select a car…",
+    "employee": "Employee",
+    "selectEmployee": "Select an employee…",
+    "noteOptional": "Note (optional)",
+    "notePlaceholder": "Add a note…",
+    "descriptionOptional": "Description (optional)",
+    "descriptionPlaceholder": "Add a description…",
+    "uploadingReceipt": "Uploading receipt…",
+    "saveTransaction": "Save Transaction",
+    "saveExpense": "Save Expense",
+    "saveEntry": "Save Entry"
+  },
+  "cars": {
+    "search": "Search plate or model…",
+    "noCars": "No cars found.",
+    "selectCar": "Select a car",
+    "pickCar": "Pick a car from the list to view its sheet",
+    "addTransaction": "Add Transaction",
+    "runningTotal": "Running total ({{month}}):",
+    "noCarSelected": "No car selected.",
+    "noTransactions": "No transactions for this car this month.",
+    "addTitle": "Add Car Transaction",
+    "editTitle": "Edit Car Transaction",
+    "deleteTitle": "Delete transaction?",
+    "deleteMessage": "This car transaction will be permanently removed. This cannot be undone."
+  },
+  "expenses": {
+    "company": "Company Expenses",
+    "wallets": "Employee Wallets",
+    "addExpense": "Add Expense",
+    "empty": "No company expenses this month.",
+    "addTitle": "Add Company Expense",
+    "editTitle": "Edit Company Expense",
+    "deleteTitle": "Delete expense?",
+    "deleteMessage": "This company expense will be permanently removed. This cannot be undone."
+  },
+  "wallets": {
+    "addEntry": "Add Wallet Entry",
+    "empty": "No employee wallets yet.",
+    "unknown": "Unknown",
+    "employee": "Employee",
+    "history": "{{name}} — Wallet History",
+    "noTransactions": "No wallet transactions.",
+    "receipt": "receipt",
+    "addTitle": "Add Wallet Entry",
+    "editTitle": "Edit Wallet Entry",
+    "deleteTitle": "Delete wallet entry?",
+    "deleteMessage": "This wallet transaction will be permanently removed. This cannot be undone."
+  },
+  "customers": {
+    "movedTitle": "Customer balances moved to Customer Wallets",
+    "movedBody": "Balances, the full ledger, invoices and transaction entry now live on one page — with a TRY / USD view that converts each entry at the rate stored when it was recorded.",
+    "open": "Open Customer Wallets"
+  },
+  "receipt": {
+    "optional": "Receipt (optional)",
+    "upload": "Upload a receipt…",
+    "attach": "Attach a receipt — JPG, PNG, WEBP or PDF",
+    "unsupported": "Unsupported file — use JPG, PNG, WEBP or PDF.",
+    "tooLarge": "File is too large — the maximum size is 10 MB.",
+    "pendingUpload": "{{size}} KB · uploads when you save",
+    "replace": "Replace",
+    "current": "Current receipt",
+    "viewPdf": "View PDF",
+    "viewImage": "View image",
+    "view": "View",
+    "viewReceipt": "View receipt",
+    "openInNewTab": "Open in new tab",
+    "alt": "Receipt",
+    "previewAlt": "Receipt preview"
+  },
+  "confirm": {
+    "confirm": "Confirm",
+    "deleting": "Deleting…"
+  },
+  "toast": {
+    "txnAdded": "Transaction added",
+    "txnUpdated": "Transaction updated",
+    "txnDeleted": "Transaction deleted",
+    "txnSaveError": "Could not save transaction",
+    "txnUpdateError": "Could not update transaction",
+    "txnDeleteError": "Could not delete transaction",
+    "receiptSavedWarning": "Transaction saved, but the receipt could not be uploaded: {{error}}",
+    "receiptUpdatedWarning": "Transaction updated, but the receipt could not be uploaded: {{error}}",
+    "expenseAdded": "Expense added",
+    "expenseUpdated": "Expense updated",
+    "expenseDeleted": "Expense deleted",
+    "expenseSaveError": "Could not save expense",
+    "expenseUpdateError": "Could not update expense",
+    "expenseDeleteError": "Could not delete expense",
+    "walletAdded": "Wallet entry added",
+    "walletUpdated": "Wallet entry updated",
+    "walletDeleted": "Wallet entry deleted",
+    "walletSaveError": "Could not save wallet entry",
+    "walletUpdateError": "Could not update wallet entry",
+    "walletDeleteError": "Could not delete wallet entry"
+  }
+}

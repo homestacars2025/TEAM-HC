@@ -34,6 +34,7 @@ const TRANSLATED = [
   'ModelGroupsPage.tsx',
   'CustomerWalletsPage.tsx',
   'KabisPage.tsx',
+  'AccountingPage.tsx',
 ];
 
 /**

@@ -1,0 +1,149 @@
+{
+  "title": "المحاسبة",
+  "subtitle": "كشوفات الإيجار، ومصاريف الشركة والموظفين، وأرصدة العملاء.",
+  "loading": "جارٍ التحميل…",
+  "tabs": {
+    "cars": "كشوفات سيارات الإيجار",
+    "expenses": "مصاريف الشركة والموظفين",
+    "customers": "العملاء"
+  },
+  "month": {
+    "previous": "الشهر السابق",
+    "next": "الشهر التالي"
+  },
+  "direction": {
+    "IN": "وارد",
+    "OUT": "صادر"
+  },
+  "categories": {
+    "rentCollection": "تحصيل إيجار",
+    "wash": "غسيل",
+    "oil": "زيت",
+    "petrol": "وقود",
+    "hgs": "رسوم HGS",
+    "maintenance": "صيانة",
+    "depositFromManager": "إيداع من المدير",
+    "refund": "استرجاع",
+    "marketing": "تسويق",
+    "operations": "عمليات",
+    "branch": "الفرع",
+    "food": "طعام",
+    "custodyFromManager": "عهدة من المدير",
+    "gps": "GPS",
+    "other": "أخرى"
+  },
+  "table": {
+    "direction": "الاتجاه",
+    "category": "التصنيف",
+    "note": "ملاحظة",
+    "receipt": "الإيصال",
+    "amount": "المبلغ",
+    "actions": "إجراءات"
+  },
+  "summary": {
+    "totalIn": "إجمالي الوارد",
+    "totalOut": "إجمالي الصادر",
+    "net": "الصافي",
+    "balance": "الرصيد",
+    "in": "وارد",
+    "out": "صادر"
+  },
+  "form": {
+    "selectCar": "اختر سيارة…",
+    "employee": "الموظف",
+    "selectEmployee": "اختر موظفاً…",
+    "noteOptional": "ملاحظة (اختياري)",
+    "notePlaceholder": "أضف ملاحظة…",
+    "descriptionOptional": "الوصف (اختياري)",
+    "descriptionPlaceholder": "أضف وصفاً…",
+    "uploadingReceipt": "جارٍ رفع الإيصال…",
+    "saveTransaction": "حفظ المعاملة",
+    "saveExpense": "حفظ المصروف",
+    "saveEntry": "حفظ القيد"
+  },
+  "cars": {
+    "search": "ابحث باللوحة أو الموديل…",
+    "noCars": "لا توجد سيارات.",
+    "selectCar": "اختر سيارة",
+    "pickCar": "اختر سيارة من القائمة لعرض كشفها",
+    "addTransaction": "إضافة معاملة",
+    "runningTotal": "المجموع التراكمي ({{month}}):",
+    "noCarSelected": "لم تُختر أي سيارة.",
+    "noTransactions": "لا توجد معاملات لهذه السيارة هذا الشهر.",
+    "addTitle": "إضافة معاملة سيارة",
+    "editTitle": "تعديل معاملة السيارة",
+    "deleteTitle": "حذف المعاملة؟",
+    "deleteMessage": "ستُحذف معاملة السيارة هذه نهائياً. لا يمكن التراجع عن ذلك."
+  },
+  "expenses": {
+    "company": "مصاريف الشركة",
+    "wallets": "محافظ الموظفين",
+    "addExpense": "إضافة مصروف",
+    "empty": "لا توجد مصاريف للشركة هذا الشهر.",
+    "addTitle": "إضافة مصروف للشركة",
+    "editTitle": "تعديل مصروف الشركة",
+    "deleteTitle": "حذف المصروف؟",
+    "deleteMessage": "سيُحذف مصروف الشركة هذا نهائياً. لا يمكن التراجع عن ذلك."
+  },
+  "wallets": {
+    "addEntry": "إضافة قيد محفظة",
+    "empty": "لا توجد محافظ موظفين بعد.",
+    "unknown": "غير معروف",
+    "employee": "موظف",
+    "history": "{{name}} — سجل المحفظة",
+    "noTransactions": "لا توجد معاملات في المحفظة.",
+    "receipt": "الإيصال",
+    "addTitle": "إضافة قيد محفظة",
+    "editTitle": "تعديل قيد المحفظة",
+    "deleteTitle": "حذف قيد المحفظة؟",
+    "deleteMessage": "ستُحذف معاملة المحفظة هذه نهائياً. لا يمكن التراجع عن ذلك."
+  },
+  "customers": {
+    "movedTitle": "انتقلت أرصدة العملاء إلى محافظ العملاء",
+    "movedBody": "الأرصدة والسجل الكامل والفواتير وإدخال المعاملات أصبحت في صفحة واحدة — مع عرض TRY / USD يحوّل كل قيد بسعر الصرف المحفوظ وقت تسجيله.",
+    "open": "فتح محافظ العملاء"
+  },
+  "receipt": {
+    "optional": "الإيصال (اختياري)",
+    "upload": "ارفع إيصالاً…",
+    "attach": "أرفق إيصالاً — JPG أو PNG أو WEBP أو PDF",
+    "unsupported": "ملف غير مدعوم — استخدم JPG أو PNG أو WEBP أو PDF.",
+    "tooLarge": "الملف كبير جداً — الحد الأقصى 10 ميغابايت.",
+    "pendingUpload": "{{size}} كيلوبايت · يُرفع عند الحفظ",
+    "replace": "استبدال",
+    "current": "الإيصال الحالي",
+    "viewPdf": "عرض PDF",
+    "viewImage": "عرض الصورة",
+    "view": "عرض",
+    "viewReceipt": "عرض الإيصال",
+    "openInNewTab": "فتح في علامة تبويب جديدة",
+    "alt": "إيصال",
+    "previewAlt": "معاينة الإيصال"
+  },
+  "confirm": {
+    "confirm": "تأكيد",
+    "deleting": "جارٍ الحذف…"
+  },
+  "toast": {
+    "txnAdded": "تمت إضافة المعاملة",
+    "txnUpdated": "تم تحديث المعاملة",
+    "txnDeleted": "تم حذف المعاملة",
+    "txnSaveError": "تعذّر حفظ المعاملة",
+    "txnUpdateError": "تعذّر تحديث المعاملة",
+    "txnDeleteError": "تعذّر حذف المعاملة",
+    "receiptSavedWarning": "حُفظت المعاملة، لكن تعذّر رفع الإيصال: {{error}}",
+    "receiptUpdatedWarning": "حُدّثت المعاملة، لكن تعذّر رفع الإيصال: {{error}}",
+    "expenseAdded": "تمت إضافة المصروف",
+    "expenseUpdated": "تم تحديث المصروف",
+    "expenseDeleted": "تم حذف المصروف",
+    "expenseSaveError": "تعذّر حفظ المصروف",
+    "expenseUpdateError": "تعذّر تحديث المصروف",
+    "expenseDeleteError": "تعذّر حذف المصروف",
+    "walletAdded": "تمت إضافة قيد المحفظة",
+    "walletUpdated": "تم تحديث قيد المحفظة",
+    "walletDeleted": "تم حذف قيد المحفظة",
+    "walletSaveError": "تعذّر حفظ قيد المحفظة",
+    "walletUpdateError": "تعذّر تحديث قيد المحفظة",
+    "walletDeleteError": "تعذّر حذف قيد المحفظة"
+  }
+}

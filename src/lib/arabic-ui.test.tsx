@@ -172,3 +172,110 @@ describe('every key the Car Issues page asks for exists in both languages', () =
     expect(i18n.t('carIssues:title')).toBe(i18n.t('sidebar:nav.carIssues'));
   });
 });
+
+describe('every key the Accounting page asks for exists in both languages', () => {
+  // Read off AccountingPage: every `t('...')`, plus the three template forms it builds.
+  const KEYS = [
+    'title', 'subtitle', 'loading',
+    'tabs.cars', 'tabs.expenses', 'tabs.customers', 'month.previous', 'month.next',
+    'direction.IN', 'direction.OUT',
+    'table.direction', 'table.category', 'table.note', 'table.receipt', 'table.amount', 'table.actions',
+    'summary.totalIn', 'summary.totalOut', 'summary.net', 'summary.balance', 'summary.in', 'summary.out',
+    'form.selectCar', 'form.employee', 'form.selectEmployee', 'form.noteOptional', 'form.notePlaceholder',
+    'form.descriptionOptional', 'form.descriptionPlaceholder', 'form.uploadingReceipt',
+    'form.saveTransaction', 'form.saveExpense', 'form.saveEntry',
+    'cars.search', 'cars.noCars', 'cars.selectCar', 'cars.pickCar', 'cars.addTransaction',
+    'cars.runningTotal', 'cars.noCarSelected', 'cars.noTransactions',
+    'cars.addTitle', 'cars.editTitle', 'cars.deleteTitle', 'cars.deleteMessage',
+    'expenses.company', 'expenses.wallets', 'expenses.addExpense', 'expenses.empty',
+    'expenses.addTitle', 'expenses.editTitle', 'expenses.deleteTitle', 'expenses.deleteMessage',
+    'wallets.addEntry', 'wallets.empty', 'wallets.unknown', 'wallets.employee', 'wallets.history',
+    'wallets.noTransactions', 'wallets.receipt', 'wallets.addTitle', 'wallets.editTitle',
+    'wallets.deleteTitle', 'wallets.deleteMessage',
+    'customers.movedTitle', 'customers.movedBody', 'customers.open',
+    'receipt.optional', 'receipt.upload', 'receipt.attach', 'receipt.unsupported', 'receipt.tooLarge',
+    'receipt.pendingUpload', 'receipt.replace', 'receipt.current', 'receipt.viewPdf', 'receipt.viewImage',
+    'receipt.view', 'receipt.viewReceipt', 'receipt.openInNewTab', 'receipt.alt', 'receipt.previewAlt',
+    'confirm.confirm', 'confirm.deleting',
+    'toast.txnAdded', 'toast.txnUpdated', 'toast.txnDeleted',
+    'toast.txnSaveError', 'toast.txnUpdateError', 'toast.txnDeleteError',
+    'toast.receiptSavedWarning', 'toast.receiptUpdatedWarning',
+    'toast.expenseAdded', 'toast.expenseUpdated', 'toast.expenseDeleted',
+    'toast.expenseSaveError', 'toast.expenseUpdateError', 'toast.expenseDeleteError',
+    'toast.walletAdded', 'toast.walletUpdated', 'toast.walletDeleted',
+    'toast.walletSaveError', 'toast.walletUpdateError', 'toast.walletDeleteError',
+  ];
+  const SHARED = [
+    'fields.car', 'fields.date', 'fields.description',
+    'actions.cancel', 'actions.close', 'actions.edit', 'actions.delete',
+    'actions.remove', 'actions.saving', 'actions.saveChanges',
+  ];
+
+  /**
+   * The wording the owner signed off on, keyed by the value the database stores.
+   * Pinned so a later edit cannot quietly call the same thing two names.
+   */
+  const CATEGORIES: Record<string, [key: string, arabic: string]> = {
+    'Rent Collection': ['rentCollection', 'تحصيل إيجار'],
+    Wash: ['wash', 'غسيل'],
+    Oil: ['oil', 'زيت'],
+    Petrol: ['petrol', 'وقود'],
+    HGS: ['hgs', 'رسوم HGS'],
+    Maintenance: ['maintenance', 'صيانة'],
+    'Deposit from Manager': ['depositFromManager', 'إيداع من المدير'],
+    Refund: ['refund', 'استرجاع'],
+    Marketing: ['marketing', 'تسويق'],
+    Operations: ['operations', 'عمليات'],
+    Branch: ['branch', 'الفرع'],
+    Food: ['food', 'طعام'],
+    'Custody from Manager': ['custodyFromManager', 'عهدة من المدير'],
+    GPS: ['gps', 'GPS'],
+    Other: ['other', 'أخرى'],
+  };
+
+  test.each(['en', 'ar'])('%s has every Accounting key', async (lng) => {
+    await i18n.changeLanguage(lng);
+    const categoryKeys = Object.values(CATEGORIES).map(([k]) => `categories.${k}`);
+    expect([...KEYS, ...categoryKeys].filter(k => !i18n.exists(`accounting:${k}`))).toEqual([]);
+    expect(SHARED.filter(k => !i18n.exists(`common:${k}`))).toEqual([]);
+  });
+
+  test('Arabic is actually Arabic', async () => {
+    await i18n.changeLanguage('ar');
+    const arabic = /[؀-ۿ]/;
+    expect(KEYS.filter(k => !arabic.test(i18n.t(`accounting:${k}`) as string))).toEqual([]);
+    expect(SHARED.filter(k => !arabic.test(i18n.t(`common:${k}`) as string))).toEqual([]);
+  });
+
+  test('categories keep their English stored value and show the agreed Arabic', async () => {
+    await i18n.changeLanguage('en');
+    for (const [stored, [key]] of Object.entries(CATEGORIES)) {
+      expect(i18n.t(`accounting:categories.${key}`)).toBe(stored);
+    }
+    await i18n.changeLanguage('ar');
+    for (const [key, arabic] of Object.values(CATEGORIES)) {
+      expect(i18n.t(`accounting:categories.${key}`)).toBe(arabic);
+    }
+  });
+
+  test('the vocabulary matches Customer Wallets', async () => {
+    await i18n.changeLanguage('ar');
+    expect(i18n.t('accounting:title')).toBe(i18n.t('sidebar:nav.accounting'));
+    expect(i18n.t('accounting:direction.IN')).toBe(i18n.t('wallets:direction.IN'));
+    expect(i18n.t('accounting:direction.OUT')).toBe(i18n.t('wallets:direction.OUT'));
+    expect(i18n.t('accounting:categories.refund')).toBe(i18n.t('wallets:types.refund'));
+    expect(i18n.t('accounting:categories.hgs')).toBe(i18n.t('wallets:types.hgs'));
+    expect(i18n.t('accounting:summary.balance')).toBe(i18n.t('wallets:table.balance'));
+    expect(i18n.t('accounting:toast.txnAdded')).toBe(i18n.t('wallets:toast.added'));
+    // Wash and Cleaning are different services and stay different words.
+    expect(i18n.t('accounting:categories.wash')).not.toBe(i18n.t('wallets:types.cleaning'));
+  });
+
+  test('the staff Accounting page names no investor and no commission, in either language', () => {
+    // Privacy rule for this page: those belong to the admin project only.
+    const en = JSON.stringify(require('../locales/en/accounting.json'));
+    const ar = JSON.stringify(require('../locales/ar/accounting.json'));
+    expect(en).not.toMatch(/investor|commission/i);
+    expect(ar).not.toMatch(/مستثمر|عمول/);
+  });
+});

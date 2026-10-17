@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 /* ────────────────────────────────────────────────────────────────────────────
    AccountingPage — restricted view for staff accountants.
@@ -97,6 +99,34 @@ const WALLET_CATEGORIES: Record<Direction, string[]> = {
   OUT: ['Wash', 'Maintenance', 'GPS', 'Branch', 'Other'],
 };
 
+/**
+ * Stored value → `categories.<key>`. The database keeps the English value; only
+ * the label is translated, and a legacy value not listed here shows as stored.
+ */
+const CATEGORY_KEYS: Record<string, string> = {
+  'Rent Collection': 'rentCollection',
+  Wash: 'wash',
+  Oil: 'oil',
+  Petrol: 'petrol',
+  HGS: 'hgs',
+  Maintenance: 'maintenance',
+  'Deposit from Manager': 'depositFromManager',
+  Refund: 'refund',
+  Marketing: 'marketing',
+  Operations: 'operations',
+  Branch: 'branch',
+  Food: 'food',
+  'Custody from Manager': 'custodyFromManager',
+  GPS: 'gps',
+  Other: 'other',
+};
+
+function categoryLabel(t: TFunction, value: string | null): string {
+  if (!value) return '—';
+  const key = CATEGORY_KEYS[value];
+  return key ? t(`categories.${key}`) : value;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function pad(n: number): string { return String(n).padStart(2, '0'); }
@@ -113,15 +143,21 @@ function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
 
-function formatDateDisplay(s: string | null): string {
+function formatDateDisplay(s: string | null, locale: string): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatMonthLabel(d: Date): string {
-  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+function formatMonthLabel(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+}
+
+/** Western digits in Arabic, matching Bookings and Calendar. */
+function useDateLocale(): string {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
 }
 
 async function uploadReceipt(bucket: string, file: File): Promise<string | null> {
@@ -207,7 +243,7 @@ const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
   if (!toast) return null;
   return ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', bottom: 28, right: 28, zIndex: 2000,
+      position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 2000,
       display: 'flex', alignItems: 'center', gap: 10,
       background: toast.type === 'success' ? '#0f1117' : '#ef4444',
       color: '#fff', borderRadius: 12, padding: '12px 20px',
@@ -259,13 +295,17 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-const Spinner: React.FC = () => (
-  <div style={{ padding: '52px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-    Loading…
-  </div>
-);
+const Spinner: React.FC = () => {
+  const { t } = useTranslation('accounting');
+  return (
+    <div style={{ padding: '52px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+      {t('loading')}
+    </div>
+  );
+};
 
 const DirectionBadge: React.FC<{ direction: Direction }> = ({ direction }) => {
+  const { t } = useTranslation('accounting');
   const isIn = direction === 'IN';
   return (
     <span style={{
@@ -275,14 +315,14 @@ const DirectionBadge: React.FC<{ direction: Direction }> = ({ direction }) => {
       borderRadius: 20, padding: '3px 10px',
     }}>
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: isIn ? COLOR_IN : COLOR_OUT }} />
-      {direction}
+      {t(`direction.${direction}`)}
     </span>
   );
 };
 
 // ─── Th cell ──────────────────────────────────────────────────────────────────
 
-const Th: React.FC<{ children?: React.ReactNode; align?: 'left' | 'right' }> = ({ children, align = 'left' }) => (
+const Th: React.FC<{ children?: React.ReactNode; align?: 'start' | 'end' }> = ({ children, align = 'start' }) => (
   <th style={{
     padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280',
     background: '#fafafa', borderBottom: '1px solid #ebebeb', textAlign: align,
@@ -303,6 +343,9 @@ const CarSheetsTab: React.FC<{
   monthDate: Date;
   notify: (t: ToastState) => void;
 }> = ({ monthDate, notify }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const { fmt } = useCurrency();
   const monthKey = monthKeyOf(monthDate);
 
@@ -402,8 +445,8 @@ const CarSheetsTab: React.FC<{
     const { error } = await supabase.from('financial_transactions').delete().eq('id', deleteTxn.id);
     setDeleting(false);
     setDeleteTxn(null);
-    if (error) { notify({ message: 'Could not delete transaction', type: 'error' }); return; }
-    notify({ message: 'Transaction deleted', type: 'success' });
+    if (error) { notify({ message: t('toast.txnDeleteError'), type: 'error' }); return; }
+    notify({ message: t('toast.txnDeleted'), type: 'success' });
     await loadTxns();
   };
 
@@ -415,12 +458,12 @@ const CarSheetsTab: React.FC<{
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search plate or model…"
+            placeholder={t('cars.search')}
             style={{ ...inputStyle, height: 38 }}
           />
         </div>
         <div style={{ maxHeight: 560, overflowY: 'auto' }}>
-          {cars.length === 0 && <EmptyState label="No cars found." />}
+          {cars.length === 0 && <EmptyState label={t('cars.noCars')} />}
           {filteredCars.map(car => {
             const active = car.id === selectedCarId;
             const net = netByCar[car.id] ?? 0;
@@ -429,7 +472,7 @@ const CarSheetsTab: React.FC<{
                 key={car.id}
                 onClick={() => setSelectedCarId(car.id)}
                 style={{
-                  width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                  width: '100%', textAlign: 'start', border: 'none', cursor: 'pointer',
                   padding: '11px 14px', borderBottom: '1px solid #f3f4f6', fontFamily: 'inherit',
                   background: active ? 'rgba(75,166,234,0.08)' : '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
@@ -462,17 +505,17 @@ const CarSheetsTab: React.FC<{
         }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>
-              {selectedCar ? selectedCar.plate_number : 'Select a car'}
+              {selectedCar ? selectedCar.plate_number : t('cars.selectCar')}
             </div>
             <div style={{ fontSize: 12.5, color: '#9ca3af' }}>
-              {selectedCar ? (selectedCar.model_name || '—') : 'Pick a car from the list to view its sheet'}
+              {selectedCar ? (selectedCar.model_name || '—') : t('cars.pickCar')}
             </div>
           </div>
           <button style={primaryBtn} onClick={() => setShowAdd(true)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
-            Add Transaction
+            {t('cars.addTransaction')}
           </button>
         </div>
 
@@ -481,7 +524,7 @@ const CarSheetsTab: React.FC<{
             padding: '14px 18px', borderBottom: '1px solid #f0f0f0',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280' }}>Running total ({formatMonthLabel(monthDate)}):</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280' }}>{t('cars.runningTotal', { month: formatMonthLabel(monthDate, dateLocale) })}</span>
             <span style={{ fontSize: 18, fontWeight: 800, color: carTotal >= 0 ? COLOR_IN : COLOR_OUT }}>
               {carTotal >= 0 ? '+' : '−'}{fmt(carTotal)}
             </span>
@@ -490,39 +533,39 @@ const CarSheetsTab: React.FC<{
 
         <div style={{ overflowX: 'auto' }}>
           {loading ? <Spinner /> : !selectedCar ? (
-            <EmptyState label="No car selected." />
+            <EmptyState label={t('cars.noCarSelected')} />
           ) : carTxns.length === 0 ? (
-            <EmptyState label="No transactions for this car this month." />
+            <EmptyState label={t('cars.noTransactions')} />
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
               <thead>
                 <tr>
-                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Note</Th><Th>Receipt</Th><Th align="right">Amount</Th><Th align="right">Actions</Th>
+                  <Th>{tc('fields.date')}</Th><Th>{t('table.direction')}</Th><Th>{t('table.category')}</Th><Th>{t('table.note')}</Th><Th>{t('table.receipt')}</Th><Th align="end">{t('table.amount')}</Th><Th align="end">{t('table.actions')}</Th>
                 </tr>
               </thead>
               <tbody>
-                {carTxns.map(t => (
-                  <tr key={t.id}>
-                    <td style={tdStyle}>{formatDateDisplay(t.date)}</td>
-                    <td style={tdStyle}><DirectionBadge direction={t.direction} /></td>
-                    <td style={tdStyle}>{t.category || '—'}</td>
-                    <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{t.note || '—'}</td>
+                {carTxns.map(txn => (
+                  <tr key={txn.id}>
+                    <td style={tdStyle}>{formatDateDisplay(txn.date, dateLocale)}</td>
+                    <td style={tdStyle}><DirectionBadge direction={txn.direction} /></td>
+                    <td style={tdStyle}>{categoryLabel(t, txn.category)}</td>
+                    <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 260 }}>{txn.note || '—'}</td>
                     <td style={tdStyle}>
-                      {t.receipt_url
-                        ? <ReceiptChip url={t.receipt_url} onOpen={() => openReceipt(t.receipt_url!)} />
+                      {txn.receipt_url
+                        ? <ReceiptChip url={txn.receipt_url} onOpen={() => openReceipt(txn.receipt_url!)} />
                         : <span style={{ color: '#d1d5db' }}>—</span>}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: t.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      {t.direction === 'IN' ? '+' : '−'}{fmt(t.amount)}
+                    <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: txn.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
+                      {txn.direction === 'IN' ? '+' : '−'}{fmt(txn.amount)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setEditTxn(t)} title="Edit" style={rowActionBtn}>
+                        <button onClick={() => setEditTxn(txn)} title={tc('actions.edit')} style={rowActionBtn}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </button>
-                        <button onClick={() => setDeleteTxn(t)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                        <button onClick={() => setDeleteTxn(txn)} title={tc('actions.delete')} style={{ ...rowActionBtn, color: COLOR_OUT }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -547,10 +590,10 @@ const CarSheetsTab: React.FC<{
             setSelectedCarId(carId);
             notify(warning
               ? { message: warning, type: 'error' }
-              : { message: 'Transaction added', type: 'success' });
+              : { message: t('toast.txnAdded'), type: 'success' });
             await loadTxns();
           }}
-          onError={() => notify({ message: 'Could not save transaction', type: 'error' })}
+          onError={() => notify({ message: t('toast.txnSaveError'), type: 'error' })}
         />
       )}
       {editTxn && (
@@ -561,18 +604,18 @@ const CarSheetsTab: React.FC<{
             setEditTxn(null);
             notify(warning
               ? { message: warning, type: 'error' }
-              : { message: 'Transaction updated', type: 'success' });
+              : { message: t('toast.txnUpdated'), type: 'success' });
             await loadTxns();
           }}
-          onError={() => notify({ message: 'Could not update transaction', type: 'error' })}
+          onError={() => notify({ message: t('toast.txnUpdateError'), type: 'error' })}
         />
       )}
       {viewReceipt && <ReceiptLightbox url={viewReceipt} onClose={() => setViewReceipt(null)} />}
       {deleteTxn && (
         <ConfirmDialog
-          title="Delete transaction?"
-          message="This car transaction will be permanently removed. This cannot be undone."
-          confirmLabel="Delete"
+          title={t('cars.deleteTitle')}
+          message={t('cars.deleteMessage')}
+          confirmLabel={tc('actions.delete')}
           busy={deleting}
           onConfirm={handleDelete}
           onClose={() => setDeleteTxn(null)}
@@ -589,6 +632,8 @@ const AddCarTxnModal: React.FC<{
   onSaved: (carId: number, warning?: string) => void;
   onError: () => void;
 }> = ({ cars, defaultCarId, onClose, onSaved, onError }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [carId, setCarId] = useState<number | ''>(defaultCarId ?? '');
   const [direction, setDirection] = useState<Direction>('IN');
   const [category, setCategory] = useState<string>(CAR_CATEGORIES.IN[0]);
@@ -621,7 +666,7 @@ const AddCarTxnModal: React.FC<{
       try {
         receipt_url = await uploadTransactionReceipt(car.plate_number || String(car.id), receiptFile);
       } catch (e) {
-        warning = `Transaction saved, but the receipt could not be uploaded: ${(e as Error).message}`;
+        warning = t('toast.receiptSavedWarning', { error: (e as Error).message });
       }
       setUploading(false);
     }
@@ -645,12 +690,12 @@ const AddCarTxnModal: React.FC<{
   };
 
   return (
-    <Modal title="Add Car Transaction" onClose={onClose}>
+    <Modal title={t('cars.addTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label style={labelStyle}>Car</label>
+          <label style={labelStyle}>{tc('fields.car')}</label>
           <select value={carId} onChange={e => setCarId(e.target.value ? Number(e.target.value) : '')} style={inputStyle}>
-            <option value="">Select a car…</option>
+            <option value="">{t('form.selectCar')}</option>
             {cars.map(c => (
               <option key={c.id} value={c.id}>
                 {c.plate_number}{c.model_name ? ` — ${c.model_name}` : ''}
@@ -660,7 +705,7 @@ const AddCarTxnModal: React.FC<{
         </div>
 
         <div>
-          <label style={labelStyle}>Direction</label>
+          <label style={labelStyle}>{t('table.direction')}</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {(['IN', 'OUT'] as Direction[]).map(d => {
               const on = direction === d;
@@ -672,34 +717,34 @@ const AddCarTxnModal: React.FC<{
                   border: on ? `1.5px solid ${c}` : '1px solid #e5e7eb',
                   background: on ? (d === 'IN' ? 'rgba(22,163,74,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
                   color: on ? c : '#6b7280',
-                }}>{d}</button>
+                }}>{t(`direction.${d}`)}</button>
               );
             })}
           </div>
         </div>
 
         <div>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('table.category')}</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {CAR_CATEGORIES[direction].map(c => <option key={c} value={c}>{c}</option>)}
+            {CAR_CATEGORIES[direction].map(c => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
           </select>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Amount</label>
+            <label style={labelStyle}>{t('table.amount')}</label>
             <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
               placeholder="0.00" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Date</label>
+            <label style={labelStyle}>{tc('fields.date')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
         <div>
-          <label style={labelStyle}>Note (optional)</label>
-          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.noteOptional')}</label>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder={t('form.notePlaceholder')} style={inputStyle} />
         </div>
 
         <ReceiptField
@@ -712,7 +757,7 @@ const AddCarTxnModal: React.FC<{
 
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
           disabled={!canSave || saving} onClick={handleSave}>
-          {uploading ? 'Uploading receipt…' : saving ? 'Saving…' : 'Save Transaction'}
+          {uploading ? t('form.uploadingReceipt') : saving ? tc('actions.saving') : t('form.saveTransaction')}
         </button>
       </div>
     </Modal>
@@ -725,6 +770,8 @@ const EditCarTxnModal: React.FC<{
   onSaved: (warning?: string) => void;
   onError: () => void;
 }> = ({ txn, onClose, onSaved, onError }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [direction, setDirection] = useState<Direction>(txn.direction);
   const [category, setCategory] = useState<string>(txn.category ?? CAR_CATEGORIES[txn.direction][0]);
   const [amount, setAmount] = useState(String(txn.amount));
@@ -760,7 +807,7 @@ const EditCarTxnModal: React.FC<{
       try {
         receipt_url = await uploadTransactionReceipt(txn.plate_number || String(txn.car_id), receiptFile);
       } catch (e) {
-        warning = `Transaction updated, but the receipt could not be uploaded: ${(e as Error).message}`;
+        warning = t('toast.receiptUpdatedWarning', { error: (e as Error).message });
       }
       setUploading(false);
     }
@@ -782,32 +829,32 @@ const EditCarTxnModal: React.FC<{
   };
 
   return (
-    <Modal title="Edit Car Transaction" onClose={onClose}>
+    <Modal title={t('cars.editTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <DirectionPicker direction={direction} onChange={chooseDirection} />
 
         <div>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('table.category')}</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            {categoryOptions.map(c => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
           </select>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Amount</label>
+            <label style={labelStyle}>{t('table.amount')}</label>
             <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
               placeholder="0.00" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Date</label>
+            <label style={labelStyle}>{tc('fields.date')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
         <div>
-          <label style={labelStyle}>Note (optional)</label>
-          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.noteOptional')}</label>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder={t('form.notePlaceholder')} style={inputStyle} />
         </div>
 
         <ReceiptField
@@ -820,7 +867,7 @@ const EditCarTxnModal: React.FC<{
 
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
           disabled={!canSave || saving} onClick={handleSave}>
-          {uploading ? 'Uploading receipt…' : saving ? 'Saving…' : 'Save Changes'}
+          {uploading ? t('form.uploadingReceipt') : saving ? tc('actions.saving') : tc('actions.saveChanges')}
         </button>
       </div>
     </Modal>
@@ -836,11 +883,12 @@ const ExpensesTab: React.FC<{
   userId: string | null;
   notify: (t: ToastState) => void;
 }> = ({ monthDate, userId, notify }) => {
+  const { t } = useTranslation('accounting');
   const [sub, setSub] = useState<'company' | 'wallets'>('company');
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {([['company', 'Company Expenses'], ['wallets', 'Employee Wallets']] as const).map(([k, label]) => {
+        {([['company', t('expenses.company')], ['wallets', t('expenses.wallets')]] as const).map(([k, label]) => {
           const on = sub === k;
           return (
             <button key={k} onClick={() => setSub(k)} style={{
@@ -865,6 +913,9 @@ const CompanyExpensesSection: React.FC<{
   userId: string | null;
   notify: (t: ToastState) => void;
 }> = ({ monthDate, userId, notify }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const { fmt } = useCurrency();
   const [rows, setRows] = useState<CompanyExpense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -902,56 +953,56 @@ const CompanyExpensesSection: React.FC<{
     const { error } = await supabase.from('company_expenses').delete().eq('id', deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
-    if (error) { notify({ message: 'Could not delete expense', type: 'error' }); return; }
-    notify({ message: 'Expense deleted', type: 'success' });
+    if (error) { notify({ message: t('toast.expenseDeleteError'), type: 'error' }); return; }
+    notify({ message: t('toast.expenseDeleted'), type: 'success' });
     await load();
   };
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <SummaryPill label="Total In" value={fmt(totals.tin)} color={COLOR_IN} />
-        <SummaryPill label="Total Out" value={fmt(totals.tout)} color={COLOR_OUT} />
-        <SummaryPill label="Net" value={`${totals.net >= 0 ? '+' : '−'}${fmt(totals.net)}`} color={totals.net >= 0 ? COLOR_IN : COLOR_OUT} />
+        <SummaryPill label={t('summary.totalIn')} value={fmt(totals.tin)} color={COLOR_IN} />
+        <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
+        <SummaryPill label={t('summary.net')} value={`${totals.net >= 0 ? '+' : '−'}${fmt(totals.net)}`} color={totals.net >= 0 ? COLOR_IN : COLOR_OUT} />
         <div style={{ flex: 1 }} />
         <button style={primaryBtn} onClick={() => setShowAdd(true)}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
-          Add Expense
+          {t('expenses.addExpense')}
         </button>
       </div>
 
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label="No company expenses this month." /> : (
+          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label={t('expenses.empty')} /> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
               <thead>
                 <tr>
-                  <Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Description</Th><Th>Receipt</Th><Th align="right">Amount</Th><Th align="right">Actions</Th>
+                  <Th>{tc('fields.date')}</Th><Th>{t('table.direction')}</Th><Th>{t('table.category')}</Th><Th>{tc('fields.description')}</Th><Th>{t('table.receipt')}</Th><Th align="end">{t('table.amount')}</Th><Th align="end">{t('table.actions')}</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(r => (
                   <tr key={r.id}>
-                    <td style={tdStyle}>{formatDateDisplay(r.expense_date)}</td>
+                    <td style={tdStyle}>{formatDateDisplay(r.expense_date, dateLocale)}</td>
                     <td style={tdStyle}><DirectionBadge direction={r.direction} /></td>
-                    <td style={tdStyle}>{r.category}</td>
+                    <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 280 }}>{r.description || '—'}</td>
                     <td style={tdStyle}>{r.receipt_url
-                      ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>View</a>
+                      ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>{t('receipt.view')}</a>
                       : '—'}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
+                    <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setEditRow(r)} title="Edit" style={rowActionBtn}>
+                        <button onClick={() => setEditRow(r)} title={tc('actions.edit')} style={rowActionBtn}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </button>
-                        <button onClick={() => setDeleteTarget(r)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                        <button onClick={() => setDeleteTarget(r)} title={tc('actions.delete')} style={{ ...rowActionBtn, color: COLOR_OUT }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -970,23 +1021,23 @@ const CompanyExpensesSection: React.FC<{
         <AddCompanyExpenseModal
           userId={userId}
           onClose={() => setShowAdd(false)}
-          onSaved={async () => { setShowAdd(false); notify({ message: 'Expense added', type: 'success' }); await load(); }}
-          onError={() => notify({ message: 'Could not save expense', type: 'error' })}
+          onSaved={async () => { setShowAdd(false); notify({ message: t('toast.expenseAdded'), type: 'success' }); await load(); }}
+          onError={() => notify({ message: t('toast.expenseSaveError'), type: 'error' })}
         />
       )}
       {editRow && (
         <EditCompanyExpenseModal
           row={editRow}
           onClose={() => setEditRow(null)}
-          onSaved={async () => { setEditRow(null); notify({ message: 'Expense updated', type: 'success' }); await load(); }}
-          onError={() => notify({ message: 'Could not update expense', type: 'error' })}
+          onSaved={async () => { setEditRow(null); notify({ message: t('toast.expenseUpdated'), type: 'success' }); await load(); }}
+          onError={() => notify({ message: t('toast.expenseUpdateError'), type: 'error' })}
         />
       )}
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete expense?"
-          message="This company expense will be permanently removed. This cannot be undone."
-          confirmLabel="Delete"
+          title={t('expenses.deleteTitle')}
+          message={t('expenses.deleteMessage')}
+          confirmLabel={tc('actions.delete')}
           busy={deleting}
           onConfirm={handleDelete}
           onClose={() => setDeleteTarget(null)}
@@ -1007,6 +1058,8 @@ const EditCompanyExpenseModal: React.FC<{
   const [amount, setAmount] = useState(String(row.amount));
   const [description, setDescription] = useState(row.description ?? '');
   const [date, setDate] = useState(row.expense_date);
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [saving, setSaving] = useState(false);
 
   const chooseDirection = (d: Direction) => { setDirection(d); setCategory(COMPANY_CATEGORIES[d][0]); };
@@ -1034,31 +1087,31 @@ const EditCompanyExpenseModal: React.FC<{
   };
 
   return (
-    <Modal title="Edit Company Expense" onClose={onClose}>
+    <Modal title={t('expenses.editTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <DirectionPicker direction={direction} onChange={chooseDirection} />
         <div>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('table.category')}</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            {categoryOptions.map(c => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
           </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Amount</label>
+            <label style={labelStyle}>{t('table.amount')}</label>
             <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Date</label>
+            <label style={labelStyle}>{tc('fields.date')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.descriptionOptional')}</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? tc('actions.saving') : tc('actions.saveChanges')}
         </button>
       </div>
     </Modal>
@@ -1071,6 +1124,8 @@ const AddCompanyExpenseModal: React.FC<{
   onSaved: () => void;
   onError: () => void;
 }> = ({ userId, onClose, onSaved, onError }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [direction, setDirection] = useState<Direction>('OUT');
   const [category, setCategory] = useState(COMPANY_CATEGORIES.OUT[0]);
   const [amount, setAmount] = useState('');
@@ -1105,32 +1160,32 @@ const AddCompanyExpenseModal: React.FC<{
   };
 
   return (
-    <Modal title="Add Company Expense" onClose={onClose}>
+    <Modal title={t('expenses.addTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <DirectionPicker direction={direction} onChange={chooseDirection} />
         <div>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('table.category')}</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {COMPANY_CATEGORIES[direction].map(c => <option key={c} value={c}>{c}</option>)}
+            {COMPANY_CATEGORIES[direction].map(c => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
           </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Amount</label>
+            <label style={labelStyle}>{t('table.amount')}</label>
             <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Date</label>
+            <label style={labelStyle}>{tc('fields.date')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.descriptionOptional')}</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
         <FileField file={file} onChange={setFile} />
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Expense'}
+          {saving ? tc('actions.saving') : t('form.saveExpense')}
         </button>
       </div>
     </Modal>
@@ -1141,6 +1196,7 @@ const EmployeeWalletsSection: React.FC<{
   userId: string | null;
   notify: (t: ToastState) => void;
 }> = ({ userId, notify }) => {
+  const { t } = useTranslation('accounting');
   const { fmt } = useCurrency();
   const [balances, setBalances] = useState<WalletBalance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1166,17 +1222,17 @@ const EmployeeWalletsSection: React.FC<{
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
-          Add Wallet Entry
+          {t('wallets.addEntry')}
         </button>
       </div>
 
       {loading ? <Spinner /> : balances.length === 0 ? (
-        <div style={{ ...cardStyle }}><EmptyState label="No employee wallets yet." /></div>
+        <div style={{ ...cardStyle }}><EmptyState label={t('wallets.empty')} /></div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {balances.map(b => (
             <button key={b.employee_id} onClick={() => setOpenEmployee(b)} style={{
-              ...cardStyle, padding: 18, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+              ...cardStyle, padding: 18, textAlign: 'start', cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', flexDirection: 'column', gap: 12,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1188,17 +1244,17 @@ const EmployeeWalletsSection: React.FC<{
                 }}>
                   {(b.full_name || '?').trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117' }}>{b.full_name || 'Unknown'}</div>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117' }}>{b.full_name || t('wallets.unknown')}</div>
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Balance</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('summary.balance')}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: b.balance >= 0 ? COLOR_IN : COLOR_OUT }}>
                   {b.balance >= 0 ? '+' : '−'}{fmt(b.balance)}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#6b7280' }}>
-                <span>In <b style={{ color: COLOR_IN }}>{fmt(b.total_in)}</b></span>
-                <span>Out <b style={{ color: COLOR_OUT }}>{fmt(b.total_out)}</b></span>
+                <span>{t('summary.in')} <b style={{ color: COLOR_IN }}>{fmt(b.total_in)}</b></span>
+                <span>{t('summary.out')} <b style={{ color: COLOR_OUT }}>{fmt(b.total_out)}</b></span>
               </div>
             </button>
           ))}
@@ -1217,8 +1273,8 @@ const EmployeeWalletsSection: React.FC<{
         <AddWalletEntryModal
           userId={userId}
           onClose={() => setShowAdd(false)}
-          onSaved={async () => { setShowAdd(false); notify({ message: 'Wallet entry added', type: 'success' }); await load(); }}
-          onError={() => notify({ message: 'Could not save wallet entry', type: 'error' })}
+          onSaved={async () => { setShowAdd(false); notify({ message: t('toast.walletAdded'), type: 'success' }); await load(); }}
+          onError={() => notify({ message: t('toast.walletSaveError'), type: 'error' })}
         />
       )}
     </div>
@@ -1231,6 +1287,9 @@ const WalletHistoryModal: React.FC<{
   onChanged: () => void | Promise<void>;
   onClose: () => void;
 }> = ({ employee, notify, onChanged, onClose }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const { fmt } = useCurrency();
   const [rows, setRows] = useState<WalletTxn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1256,8 +1315,8 @@ const WalletHistoryModal: React.FC<{
     const { error } = await supabase.from('employee_wallets').delete().eq('id', deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
-    if (error) { notify({ message: 'Could not delete wallet entry', type: 'error' }); return; }
-    notify({ message: 'Wallet entry deleted', type: 'success' });
+    if (error) { notify({ message: t('toast.walletDeleteError'), type: 'error' }); return; }
+    notify({ message: t('toast.walletDeleted'), type: 'success' });
     await load();
     await onChanged();
   };
@@ -1270,40 +1329,40 @@ const WalletHistoryModal: React.FC<{
   }, [rows]);
 
   return (
-    <Modal title={`${employee.full_name || 'Employee'} — Wallet History`} onClose={onClose} maxWidth={680}>
+    <Modal title={t('wallets.history', { name: employee.full_name || t('wallets.employee') })} onClose={onClose} maxWidth={680}>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <SummaryPill label="Balance" value={`${totals.balance >= 0 ? '+' : '−'}${fmt(totals.balance)}`} color={totals.balance >= 0 ? COLOR_IN : COLOR_OUT} />
-        <SummaryPill label="Total In" value={fmt(totals.tin)} color={COLOR_IN} />
-        <SummaryPill label="Total Out" value={fmt(totals.tout)} color={COLOR_OUT} />
+        <SummaryPill label={t('summary.balance')} value={`${totals.balance >= 0 ? '+' : '−'}${fmt(totals.balance)}`} color={totals.balance >= 0 ? COLOR_IN : COLOR_OUT} />
+        <SummaryPill label={t('summary.totalIn')} value={fmt(totals.tin)} color={COLOR_IN} />
+        <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
       </div>
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label="No wallet transactions." /> : (
+          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label={t('wallets.noTransactions')} /> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
               <thead>
-                <tr><Th>Date</Th><Th>Direction</Th><Th>Category</Th><Th>Description</Th><Th align="right">Amount</Th><Th align="right">Actions</Th></tr>
+                <tr><Th>{tc('fields.date')}</Th><Th>{t('table.direction')}</Th><Th>{t('table.category')}</Th><Th>{tc('fields.description')}</Th><Th align="end">{t('table.amount')}</Th><Th align="end">{t('table.actions')}</Th></tr>
               </thead>
               <tbody>
                 {rows.map(r => (
                   <tr key={r.id}>
-                    <td style={tdStyle}>{formatDateDisplay(r.transaction_date)}</td>
+                    <td style={tdStyle}>{formatDateDisplay(r.transaction_date, dateLocale)}</td>
                     <td style={tdStyle}><DirectionBadge direction={r.direction} /></td>
-                    <td style={tdStyle}>{r.category}</td>
+                    <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 220 }}>
                       {r.description || '—'}
-                      {r.receipt_url && <> · <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', textDecoration: 'none' }}>receipt</a></>}
+                      {r.receipt_url && <> · <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', textDecoration: 'none' }}>{t('wallets.receipt')}</a></>}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
+                    <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setEditRow(r)} title="Edit" style={rowActionBtn}>
+                        <button onClick={() => setEditRow(r)} title={tc('actions.edit')} style={rowActionBtn}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </button>
-                        <button onClick={() => setDeleteTarget(r)} title="Delete" style={{ ...rowActionBtn, color: COLOR_OUT }}>
+                        <button onClick={() => setDeleteTarget(r)} title={tc('actions.delete')} style={{ ...rowActionBtn, color: COLOR_OUT }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -1322,15 +1381,15 @@ const WalletHistoryModal: React.FC<{
         <EditWalletTxnModal
           row={editRow}
           onClose={() => setEditRow(null)}
-          onSaved={async () => { setEditRow(null); notify({ message: 'Wallet entry updated', type: 'success' }); await load(); await onChanged(); }}
-          onError={() => notify({ message: 'Could not update wallet entry', type: 'error' })}
+          onSaved={async () => { setEditRow(null); notify({ message: t('toast.walletUpdated'), type: 'success' }); await load(); await onChanged(); }}
+          onError={() => notify({ message: t('toast.walletUpdateError'), type: 'error' })}
         />
       )}
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete wallet entry?"
-          message="This wallet transaction will be permanently removed. This cannot be undone."
-          confirmLabel="Delete"
+          title={t('wallets.deleteTitle')}
+          message={t('wallets.deleteMessage')}
+          confirmLabel={tc('actions.delete')}
           busy={deleting}
           onConfirm={handleDelete}
           onClose={() => setDeleteTarget(null)}
@@ -1351,6 +1410,8 @@ const EditWalletTxnModal: React.FC<{
   const [amount, setAmount] = useState(String(row.amount));
   const [description, setDescription] = useState(row.description ?? '');
   const [date, setDate] = useState(row.transaction_date);
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [saving, setSaving] = useState(false);
 
   const chooseDirection = (d: Direction) => { setDirection(d); setCategory(WALLET_CATEGORIES[d][0]); };
@@ -1378,31 +1439,31 @@ const EditWalletTxnModal: React.FC<{
   };
 
   return (
-    <Modal title="Edit Wallet Entry" onClose={onClose}>
+    <Modal title={t('wallets.editTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <DirectionPicker direction={direction} onChange={chooseDirection} />
         <div>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('table.category')}</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            {categoryOptions.map(c => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
           </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Amount</label>
+            <label style={labelStyle}>{t('table.amount')}</label>
             <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Date</label>
+            <label style={labelStyle}>{tc('fields.date')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.descriptionOptional')}</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? tc('actions.saving') : tc('actions.saveChanges')}
         </button>
       </div>
     </Modal>
@@ -1415,6 +1476,8 @@ const AddWalletEntryModal: React.FC<{
   onSaved: () => void;
   onError: () => void;
 }> = ({ userId, onClose, onSaved, onError }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [employeeId, setEmployeeId] = useState('');
   const [direction, setDirection] = useState<Direction>('IN');
@@ -1462,39 +1525,39 @@ const AddWalletEntryModal: React.FC<{
   };
 
   return (
-    <Modal title="Add Wallet Entry" onClose={onClose}>
+    <Modal title={t('wallets.addTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label style={labelStyle}>Employee</label>
+          <label style={labelStyle}>{t('form.employee')}</label>
           <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={inputStyle}>
-            <option value="">Select an employee…</option>
+            <option value="">{t('form.selectEmployee')}</option>
             {employees.map(e => <option key={e.employee_id} value={e.employee_id}>{e.full_name || e.employee_id}</option>)}
           </select>
         </div>
         <DirectionPicker direction={direction} onChange={chooseDirection} />
         <div>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('table.category')}</label>
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {WALLET_CATEGORIES[direction].map(c => <option key={c} value={c}>{c}</option>)}
+            {WALLET_CATEGORIES[direction].map(c => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
           </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Amount</label>
+            <label style={labelStyle}>{t('table.amount')}</label>
             <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Date</label>
+            <label style={labelStyle}>{tc('fields.date')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
         <div>
-          <label style={labelStyle}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" style={inputStyle} />
+          <label style={labelStyle}>{t('form.descriptionOptional')}</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
         <FileField file={file} onChange={setFile} />
         <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
-          {saving ? 'Saving…' : 'Save Entry'}
+          {saving ? tc('actions.saving') : t('form.saveEntry')}
         </button>
       </div>
     </Modal>
@@ -1510,7 +1573,9 @@ const AddWalletEntryModal: React.FC<{
 //  deliberately holds no add/edit/delete code of its own.
 // ════════════════════════════════════════════════════════════════════════════
 
-const CustomersMovedPanel: React.FC = () => (
+const CustomersMovedPanel: React.FC = () => {
+  const { t } = useTranslation('accounting');
+  return (
   <div style={{ ...cardStyle, padding: '48px 28px', textAlign: 'center' }}>
     <div style={{
       width: 52, height: 52, borderRadius: 14, background: 'rgba(75,166,234,0.1)',
@@ -1524,20 +1589,20 @@ const CustomersMovedPanel: React.FC = () => (
       </svg>
     </div>
     <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#0f1117' }}>
-      Customer balances moved to Customer Wallets
+      {t('customers.movedTitle')}
     </h3>
     <p style={{ margin: '0 auto 22px', fontSize: 14, color: '#6b7280', lineHeight: 1.6, maxWidth: 460 }}>
-      Balances, the full ledger, invoices and transaction entry now live on one page — with a
-      TRY / USD view that converts each entry at the rate stored when it was recorded.
+      {t('customers.movedBody')}
     </p>
     <Link to="/dashboard/customer-wallets" style={{ ...primaryBtn, textDecoration: 'none' }}>
-      Open Customer Wallets
+      {t('customers.open')}
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path className="hc-flip-path" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </Link>
   </div>
-);
+  );
+};
 
 const rowActionBtn: React.CSSProperties = {
   width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff',
@@ -1551,22 +1616,26 @@ const ConfirmDialog: React.FC<{
   busy?: boolean;
   onConfirm: () => void;
   onClose: () => void;
-}> = ({ title, message, confirmLabel = 'Confirm', busy, onConfirm, onClose }) => (
+}> = ({ title, message, confirmLabel, busy, onConfirm, onClose }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
+  return (
   <Modal title={title} onClose={onClose} maxWidth={420}>
     <p style={{ margin: '0 0 22px', fontSize: 14, color: '#4b5563', lineHeight: 1.55 }}>{message}</p>
     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
       <button onClick={onClose} style={{
         height: 42, padding: '0 18px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff',
         color: '#4b5563', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-      }}>Cancel</button>
+      }}>{tc('actions.cancel')}</button>
       <button onClick={onConfirm} disabled={busy} style={{
         height: 42, padding: '0 18px', borderRadius: 10, border: 'none', background: COLOR_OUT,
         color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         opacity: busy ? 0.6 : 1,
-      }}>{busy ? 'Deleting…' : confirmLabel}</button>
+      }}>{busy ? t('confirm.deleting') : confirmLabel ?? t('confirm.confirm')}</button>
     </div>
   </Modal>
-);
+  );
+};
 
 // ─── Small shared form widgets ────────────────────────────────────────────────
 
@@ -1577,9 +1646,11 @@ const SummaryPill: React.FC<{ label: string; value: string; color: string }> = (
   </div>
 );
 
-const DirectionPicker: React.FC<{ direction: Direction; onChange: (d: Direction) => void }> = ({ direction, onChange }) => (
+const DirectionPicker: React.FC<{ direction: Direction; onChange: (d: Direction) => void }> = ({ direction, onChange }) => {
+  const { t } = useTranslation('accounting');
+  return (
   <div>
-    <label style={labelStyle}>Direction</label>
+    <label style={labelStyle}>{t('table.direction')}</label>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       {(['IN', 'OUT'] as Direction[]).map(d => {
         const on = direction === d;
@@ -1590,16 +1661,19 @@ const DirectionPicker: React.FC<{ direction: Direction; onChange: (d: Direction)
             border: on ? `1.5px solid ${c}` : '1px solid #e5e7eb',
             background: on ? (d === 'IN' ? 'rgba(22,163,74,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
             color: on ? c : '#6b7280',
-          }}>{d}</button>
+          }}>{t(`direction.${d}`)}</button>
         );
       })}
     </div>
   </div>
-);
+  );
+};
 
-const FileField: React.FC<{ file: File | null; onChange: (f: File | null) => void }> = ({ file, onChange }) => (
+const FileField: React.FC<{ file: File | null; onChange: (f: File | null) => void }> = ({ file, onChange }) => {
+  const { t } = useTranslation('accounting');
+  return (
   <div>
-    <label style={labelStyle}>Receipt (optional)</label>
+    <label style={labelStyle}>{t('receipt.optional')}</label>
     <label style={{
       ...inputStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
       color: file ? '#0f1117' : '#9ca3af', overflow: 'hidden',
@@ -1608,13 +1682,14 @@ const FileField: React.FC<{ file: File | null; onChange: (f: File | null) => voi
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {file ? file.name : 'Upload a receipt…'}
+        {file ? file.name : t('receipt.upload')}
       </span>
       <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }}
         onChange={e => onChange(e.target.files?.[0] ?? null)} />
     </label>
   </div>
-);
+  );
+};
 
 // ─── Car transaction receipt widgets ─────────────────────────────────────────
 
@@ -1639,19 +1714,24 @@ const DocTile: React.FC = () => (
 );
 
 /** Row indicator — only rendered for transactions that have a receipt. */
-const ReceiptChip: React.FC<{ url: string; onOpen: () => void }> = ({ url, onOpen }) => (
-  <button onClick={onOpen} title="View receipt" style={{
+const ReceiptChip: React.FC<{ url: string; onOpen: () => void }> = ({ url, onOpen }) => {
+  const { t } = useTranslation('accounting');
+  return (
+  <button onClick={onOpen} title={t('receipt.viewReceipt')} style={{
     ...receiptSmallBtn, gap: 5, color: '#2e8fd4', borderColor: 'rgba(75,166,234,0.35)',
     background: 'rgba(75,166,234,0.08)',
   }}>
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
       <path d="M4 4a2 2 0 012-2h8l6 6v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
-    {isPdfUrl(url) ? 'PDF' : 'View'}
+    {isPdfUrl(url) ? 'PDF' : t('receipt.view')}
   </button>
-);
+  );
+};
 
 const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -1666,7 +1746,7 @@ const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, 
     }}>
       <img
         src={url}
-        alt="Receipt"
+        alt={t('receipt.alt')}
         onClick={e => e.stopPropagation()}
         style={{
           maxWidth: '100%', maxHeight: '78vh', borderRadius: 14,
@@ -1676,8 +1756,8 @@ const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, 
       <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 8 }}>
         <a href={url} target="_blank" rel="noreferrer" style={{
           ...receiptSmallBtn, height: 34, padding: '0 14px', textDecoration: 'none', color: '#0f1117',
-        }}>Open in new tab</a>
-        <button onClick={onClose} style={{ ...receiptSmallBtn, height: 34, padding: '0 14px' }}>Close</button>
+        }}>{t('receipt.openInNewTab')}</a>
+        <button onClick={onClose} style={{ ...receiptSmallBtn, height: 34, padding: '0 14px' }}>{tc('actions.close')}</button>
       </div>
     </div>,
     document.body,
@@ -1695,6 +1775,8 @@ const ReceiptField: React.FC<{
   onRemoveExisting: () => void;
   disabled?: boolean;
 }> = ({ file, existingUrl, onFileChange, onRemoveExisting, disabled }) => {
+  const { t } = useTranslation('accounting');
+  const { t: tc } = useTranslation('common');
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1708,11 +1790,11 @@ const ReceiptField: React.FC<{
   const pick = (picked: File | null) => {
     if (!picked) return;
     if (!RECEIPT_TYPES.includes(picked.type)) {
-      setError('Unsupported file — use JPG, PNG, WEBP or PDF.');
+      setError(t('receipt.unsupported'));
       return;
     }
     if (picked.size > RECEIPT_MAX_BYTES) {
-      setError('File is too large — the maximum size is 10 MB.');
+      setError(t('receipt.tooLarge'));
       return;
     }
     setError(null);
@@ -1741,22 +1823,22 @@ const ReceiptField: React.FC<{
   if (file) {
     body = frame(<>
       {preview
-        ? <img src={preview} alt="Receipt preview" style={receiptThumb} />
+        ? <img src={preview} alt={t('receipt.previewAlt')} style={receiptThumb} />
         : <DocTile />}
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {file.name}
         </div>
         <div style={{ fontSize: 11.5, color: '#9ca3af' }}>
-          {(file.size / 1024).toFixed(0)} KB · uploads when you save
+          {t('receipt.pendingUpload', { size: (file.size / 1024).toFixed(0) })}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
         <label style={{ ...receiptSmallBtn, cursor: disabled ? 'default' : 'pointer' }}>
-          Replace{hiddenInput}
+          {t('receipt.replace')}{hiddenInput}
         </label>
         <button type="button" disabled={disabled} onClick={() => onFileChange(null)}
-          style={{ ...receiptSmallBtn, color: COLOR_OUT }}>Remove</button>
+          style={{ ...receiptSmallBtn, color: COLOR_OUT }}>{tc('actions.remove')}</button>
       </div>
     </>);
   } else if (existingUrl) {
@@ -1764,20 +1846,20 @@ const ReceiptField: React.FC<{
     body = frame(<>
       {pdf
         ? <DocTile />
-        : <img src={existingUrl} alt="Current receipt" style={receiptThumb} />}
+        : <img src={existingUrl} alt={t('receipt.current')} style={receiptThumb} />}
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>Current receipt</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{t('receipt.current')}</div>
         <a href={existingUrl} target="_blank" rel="noreferrer"
           style={{ fontSize: 11.5, color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>
-          View {pdf ? 'PDF' : 'image'}
+          {pdf ? t('receipt.viewPdf') : t('receipt.viewImage')}
         </a>
       </div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
         <label style={{ ...receiptSmallBtn, cursor: disabled ? 'default' : 'pointer' }}>
-          Replace{hiddenInput}
+          {t('receipt.replace')}{hiddenInput}
         </label>
         <button type="button" disabled={disabled} onClick={onRemoveExisting}
-          style={{ ...receiptSmallBtn, color: COLOR_OUT }}>Remove</button>
+          style={{ ...receiptSmallBtn, color: COLOR_OUT }}>{tc('actions.remove')}</button>
       </div>
     </>);
   } else {
@@ -1790,7 +1872,7 @@ const ReceiptField: React.FC<{
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          Attach a receipt — JPG, PNG, WEBP or PDF
+          {t('receipt.attach')}
         </span>
         {hiddenInput}
       </label>
@@ -1799,7 +1881,7 @@ const ReceiptField: React.FC<{
 
   return (
     <div>
-      <label style={labelStyle}>Receipt (optional)</label>
+      <label style={labelStyle}>{t('receipt.optional')}</label>
       {body}
       {error && <div style={{ marginTop: 6, fontSize: 12, color: COLOR_OUT }}>{error}</div>}
     </div>
@@ -1810,13 +1892,11 @@ const ReceiptField: React.FC<{
 //  Page shell
 // ════════════════════════════════════════════════════════════════════════════
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'cars', label: 'Car Rental Sheets' },
-  { key: 'expenses', label: 'Company & Employee Expenses' },
-  { key: 'customers', label: 'Customers' },
-];
+const TABS: Tab[] = ['cars', 'expenses', 'customers'];
 
 const AccountingPage: React.FC = () => {
+  const { t } = useTranslation('accounting');
+  const dateLocale = useDateLocale();
   const [tab, setTab] = useState<Tab>('cars');
   const [monthDate, setMonthDate] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [toast, setToast] = useState<ToastState>(null);
@@ -1842,18 +1922,18 @@ const AccountingPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117' }}>Accounting</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>Rental sheets, company &amp; employee expenses, and customer balances.</p>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117' }}>{t('title')}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>{t('subtitle')}</p>
         </div>
 
         {!monthNavDisabled && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => setMonthDate(d => addMonths(d, -1))} style={monthNavBtn} aria-label="Previous month">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <button onClick={() => setMonthDate(d => addMonths(d, -1))} style={monthNavBtn} aria-label={t('month.previous')}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path className="hc-flip-path" d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <div style={{ minWidth: 150, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#0f1117' }}>{formatMonthLabel(monthDate)}</div>
-            <button onClick={() => setMonthDate(d => addMonths(d, 1))} style={monthNavBtn} aria-label="Next month">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div style={{ minWidth: 150, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#0f1117' }}>{formatMonthLabel(monthDate, dateLocale)}</div>
+            <button onClick={() => setMonthDate(d => addMonths(d, 1))} style={monthNavBtn} aria-label={t('month.next')}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path className="hc-flip-path" d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           </div>
         )}
@@ -1861,14 +1941,14 @@ const AccountingPage: React.FC = () => {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid #ebebeb', flexWrap: 'wrap' }}>
-        {TABS.map(t => {
-          const on = tab === t.key;
+        {TABS.map(key => {
+          const on = tab === key;
           return (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{
+            <button key={key} onClick={() => setTab(key)} style={{
               padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#2e8fd4' : '#6b7280',
               borderBottom: on ? '2px solid #4ba6ea' : '2px solid transparent', marginBottom: -1,
-            }}>{t.label}</button>
+            }}>{t(`tabs.${key}`)}</button>
           );
         })}
       </div>
