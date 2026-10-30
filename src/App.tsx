@@ -18,7 +18,7 @@ import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
 import TasksPage from './pages/TasksPage';
 /*
- * Media is a restricted section with its own UI stack (Base UI, dnd-kit, motion,
+ * Media has its own UI stack (Base UI, dnd-kit, motion,
  * date-fns, lucide). Loading it lazily keeps roughly 170 kB out of the initial
  * bundle for everyone who never opens it.
  */
@@ -37,8 +37,8 @@ const MediaChunkFallback: React.FC = () => (
   </div>
 );
 import ProtectedRoute from './components/ProtectedRoute';
-import RequireSection from './components/RequireSection';
-import { SectionAccessProvider } from './lib/SectionAccessContext';
+import RequirePage, { RedirectToFirstPage } from './components/RequirePage';
+import { PageAccessProvider } from './contexts/PageAccessContext';
 
 const App: React.FC = () => {
   return (
@@ -53,52 +53,44 @@ const App: React.FC = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <SectionAccessProvider>
+              <PageAccessProvider>
                 <Layout />
-              </SectionAccessProvider>
+              </PageAccessProvider>
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="cars" replace />} />
-          <Route path="cars" element={<CarsPage />} />
-          <Route path="cars/tracking" element={<CarTrackingPage />} />
-          <Route path="car-issues" element={<CarIssuesPage />} />
-          <Route path="model-groups" element={<ModelGroupsPage />} />
-          <Route path="kgm" element={<KGMPage />} />
-          <Route path="bookings" element={<BookingsPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
-          <Route path="fines" element={<FinesPage />} />
-          <Route path="operations" element={<OperationsPage />} />
-          <Route path="customer-wallets" element={<CustomerWalletsPage />} />
-          {/* Unrestricted: tasks are scoped to the caller's role by the RPC itself. */}
-          <Route path="tasks" element={<TasksPage />} />
-          <Route
-            path="accounting"
-            element={<RequireSection section="accounting"><AccountingPage /></RequireSection>}
-          />
-          <Route
-            path="kabis"
-            element={<RequireSection section="kabis"><KabisPage /></RequireSection>}
-          />
-          {/* One guard on the parent covers the whole Media subtree, including
-              any page added to it later. */}
+          <Route index element={<RedirectToFirstPage />} />
+          <Route path="cars" element={<RequirePage page="cars"><CarsPage /></RequirePage>} />
+          <Route path="cars/tracking" element={<RequirePage page="car_tracking"><CarTrackingPage /></RequirePage>} />
+          <Route path="car-issues" element={<RequirePage page="car_issues"><CarIssuesPage /></RequirePage>} />
+          <Route path="model-groups" element={<RequirePage page="model_groups"><ModelGroupsPage /></RequirePage>} />
+          <Route path="kgm" element={<RequirePage page="kgm"><KGMPage /></RequirePage>} />
+          <Route path="bookings" element={<RequirePage page="bookings"><BookingsPage /></RequirePage>} />
+          <Route path="calendar" element={<RequirePage page="calendar"><CalendarPage /></RequirePage>} />
+          <Route path="fines" element={<RequirePage page="fines"><FinesPage /></RequirePage>} />
+          <Route path="operations" element={<RequirePage page="operations"><OperationsPage /></RequirePage>} />
+          <Route path="customer-wallets" element={<RequirePage page="customer_wallets"><CustomerWalletsPage /></RequirePage>} />
+          <Route path="tasks" element={<RequirePage page="tasks"><TasksPage /></RequirePage>} />
+          <Route path="accounting" element={<RequirePage page="accounting"><AccountingPage /></RequirePage>} />
+          <Route path="kabis" element={<RequirePage page="kabis"><KabisPage /></RequirePage>} />
+          {/* Each Media page has its own key, so the guard sits on the children. */}
           <Route
             path="media"
             element={
-              <RequireSection section="media">
-                <Suspense fallback={<MediaChunkFallback />}>
-                  <MediaLayout />
-                </Suspense>
-              </RequireSection>
+              <Suspense fallback={<MediaChunkFallback />}>
+                <MediaLayout />
+              </Suspense>
             }
           >
-            <Route index element={<Navigate to="ideas" replace />} />
-            <Route path="ideas" element={<MediaIdeasPage />} />
-            <Route path="calendar" element={<MediaCalendarPage />} />
-            <Route path="influencers" element={<MediaInfluencersPage />} />
+            <Route index element={<RedirectToFirstPage within="/dashboard/media/" />} />
+            <Route path="ideas" element={<RequirePage page="media_ideas"><MediaIdeasPage /></RequirePage>} />
+            <Route path="calendar" element={<RequirePage page="media_calendar"><MediaCalendarPage /></RequirePage>} />
+            <Route path="influencers" element={<RequirePage page="media_influencers"><MediaInfluencersPage /></RequirePage>} />
           </Route>
+          <Route path="*" element={<RedirectToFirstPage />} />
         </Route>
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* ProtectedRoute sends a signed-out visitor on to /login. */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </LanguageProvider>
     </BrowserRouter>

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNotifText, useUiDir } from '../lib/notifications/renderI18n';
 import { useTimeFormat } from '../lib/relative-time';
 import { useInbox } from '../lib/InboxContext';
+import { usePageAccess } from '../contexts/PageAccessContext';
 import {
   getMyNotifications, markAllNotificationsRead, markNotificationRead,
 } from '../lib/queries/tasks';
@@ -90,24 +91,21 @@ const styleFor = (c: NotificationCategory): CategoryStyle => CATEGORY[c] ?? CATE
 
 /**
  * Notification links are written for the whole product ("/cars/24"), not for
- * this dashboard, and TEAM has no per-car page. Rather than navigating to a
- * route that would bounce to the login redirect, anything unrecognised lands on
- * the tasks page — where the matching task is waiting anyway.
+ * this dashboard, and TEAM has no per-car page. Anything the reader cannot open —
+ * a route TEAM lacks, or a page they have no access to — lands on `fallback`
+ * rather than on a dead route or a "no access" screen.
  *
- * Adding the route later is enough to make its links work: no change here.
+ * `canOpen` comes from `app_pages`, so a page added there works here with no
+ * change to this file.
  */
-const TEAM_PATHS = new Set([
-  '/dashboard/bookings', '/dashboard/calendar', '/dashboard/cars',
-  '/dashboard/cars/tracking', '/dashboard/car-issues', '/dashboard/model-groups',
-  '/dashboard/operations', '/dashboard/kgm', '/dashboard/fines',
-  '/dashboard/customer-wallets', '/dashboard/accounting', '/dashboard/kabis',
-  '/dashboard/tasks',
-]);
-
-export function resolveNotificationPath(link: string | null | undefined): string {
-  if (!link) return '/dashboard/tasks';
+export function resolveNotificationPath(
+  link: string | null | undefined,
+  canOpen: (path: string) => boolean,
+  fallback: string,
+): string {
+  if (!link) return fallback;
   const path = link.startsWith('/dashboard') ? link : `/dashboard${link.startsWith('/') ? '' : '/'}${link}`;
-  return TEAM_PATHS.has(path) ? path : '/dashboard/tasks';
+  return canOpen(path) ? path : fallback;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -119,12 +117,16 @@ const TasksBell: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { unreadCount, refresh } = useInbox();
+  const { pages, canAccessPage, canAccessRoute, firstAllowedRoute } = usePageAccess();
   const { t } = useTranslation('notifications');
   const notifText = useNotifText();
   const { relative } = useTimeFormat();
   // Follows the UI language rather than a baked-in value, so the panel flips
   // with `i18n.changeLanguage` and never sits RTL inside an English dashboard.
   const dir = useUiDir();
+
+  const tasksRoute = canAccessPage('tasks') ? pages.find(p => p.key === 'tasks')?.route : undefined;
+  const fallbackRoute = tasksRoute ?? firstAllowedRoute ?? '/dashboard';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,8 +164,8 @@ const TasksBell: React.FC = () => {
       await markNotificationRead(n.id);
       refresh();
     }
-    navigate(resolveNotificationPath(n.link));
-  }, [navigate, refresh]);
+    navigate(resolveNotificationPath(n.link, canAccessRoute, fallbackRoute));
+  }, [navigate, refresh, canAccessRoute, fallbackRoute]);
 
   const handleMarkAll = useCallback(async () => {
     setItems(prev => prev.map(x => ({ ...x, is_read: true })));
@@ -321,19 +323,21 @@ const TasksBell: React.FC = () => {
             )}
           </div>
 
-          <button
-            onClick={() => { setOpen(false); navigate('/dashboard/tasks'); }}
-            style={{
-              display: 'block', width: '100%', padding: '11px 14px',
-              border: 'none', borderTop: '1px solid #f3f4f6', background: '#fbfcfd',
-              cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 12.5, fontWeight: 700, color: BRAND,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f3f7fb'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fbfcfd'; }}
-          >
-            {t('bell.viewAll')}
-          </button>
+          {tasksRoute && (
+            <button
+              onClick={() => { setOpen(false); navigate(tasksRoute); }}
+              style={{
+                display: 'block', width: '100%', padding: '11px 14px',
+                border: 'none', borderTop: '1px solid #f3f4f6', background: '#fbfcfd',
+                cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 12.5, fontWeight: 700, color: BRAND,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f3f7fb'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fbfcfd'; }}
+            >
+              {t('bell.viewAll')}
+            </button>
+          )}
         </div>
       )}
 

@@ -10,17 +10,43 @@ import { FF_LANGUAGE_SWITCHER } from './featureFlags';
  * signing in: the restricted sidebar sections, and the Add Car dialog.
  */
 
-// Granted every restricted section, which is what an admin sees.
-jest.mock('./SectionAccessContext', () => ({
-  useSectionAccess: () => ({
-    loading: false,
-    restricted: new Set(['kabis', 'accounting', 'media']),
-    allowed: new Set(['kabis', 'accounting', 'media']),
-    canAccess: () => true,
-    refresh: async () => {},
-  }),
-  SectionAccessProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
+// Every page granted, which is what an admin sees.
+jest.mock('../contexts/PageAccessContext', () => {
+  const page = (key: string, route: string, group_key: string, sort_order: number) =>
+    ({ key, route, group_key, sort_order, label_en: key, label_ar: key });
+  const pages = [
+    page('tasks', '/dashboard/tasks', 'main', 1),
+    page('bookings', '/dashboard/bookings', 'main', 2),
+    page('calendar', '/dashboard/calendar', 'main', 3),
+    page('cars', '/dashboard/cars', 'fleet', 10),
+    page('car_tracking', '/dashboard/cars/tracking', 'fleet', 11),
+    page('car_issues', '/dashboard/car-issues', 'fleet', 12),
+    page('model_groups', '/dashboard/model-groups', 'fleet', 13),
+    page('operations', '/dashboard/operations', 'operations', 20),
+    page('kgm', '/dashboard/kgm', 'operations', 21),
+    page('fines', '/dashboard/fines', 'operations', 22),
+    page('kabis', '/dashboard/kabis', 'operations', 23),
+    page('accounting', '/dashboard/accounting', 'finance', 30),
+    page('customer_wallets', '/dashboard/customer-wallets', 'finance', 31),
+    page('media_ideas', '/dashboard/media/ideas', 'media', 40),
+    page('media_calendar', '/dashboard/media/calendar', 'media', 41),
+    page('media_influencers', '/dashboard/media/influencers', 'media', 42),
+  ];
+  return {
+    usePageAccess: () => ({
+      pages,
+      allowedPages: new Set(pages.map(p => p.key)),
+      canAccessPage: () => true,
+      canAccessRoute: () => true,
+      firstAllowedRoute: pages[0].route,
+      department: { key: 'operations', label: 'العمليات' },
+      isDepartmentHead: true,
+      loading: false,
+      error: null,
+      refresh: async () => {},
+    }),
+  };
+});
 
 // The badge counts poll over the network; the labels under test do not need them.
 jest.mock('./InboxContext', () => ({
@@ -56,6 +82,7 @@ describe('restricted sidebar sections in Arabic', () => {
 
     // The Media group heading and its three pages.
     expect(screen.getByText('الوسائط')).toBeInTheDocument();
+    expect(screen.getByText('المالية')).toBeInTheDocument();
     expect(screen.getByText('الأفكار')).toBeInTheDocument();
     expect(screen.getByText('المؤثرون')).toBeInTheDocument();
     expect(screen.getByText('المحاسبة')).toBeInTheDocument();
@@ -66,7 +93,7 @@ describe('restricted sidebar sections in Arabic', () => {
 
   test('no English label leaks through in Arabic', () => {
     mountSidebar();
-    for (const leaked of ['Accounting', 'Ideas', 'Influencers', 'Media', 'Car Issues', 'Sign out']) {
+    for (const leaked of ['Accounting', 'Ideas', 'Influencers', 'Media', 'Finance', 'Car Issues', 'Sign out']) {
       expect(screen.queryByText(leaked)).toBeNull();
     }
   });

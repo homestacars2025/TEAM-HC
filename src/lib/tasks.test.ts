@@ -146,21 +146,34 @@ describe('due labels', () => {
 });
 
 describe('notification link resolution', () => {
-  test('a path this dashboard actually has is followed', () => {
-    expect(resolveNotificationPath('/cars')).toBe('/dashboard/cars');
-    // The link every kabis notification carries; TEAM does have this page.
-    expect(resolveNotificationPath('/kabis')).toBe('/dashboard/kabis');
-    expect(resolveNotificationPath('/dashboard/kabis')).toBe('/dashboard/kabis');
+  const TASKS = '/dashboard/tasks';
+  const allowed = new Set(['/dashboard/cars', '/dashboard/kabis', TASKS]);
+  const canOpen = (path: string) => allowed.has(path);
+  const resolve = (link: string | null | undefined) => resolveNotificationPath(link, canOpen, TASKS);
+
+  test('a path this reader can open is followed', () => {
+    expect(resolve('/cars')).toBe('/dashboard/cars');
+    // The link every kabis notification carries.
+    expect(resolve('/kabis')).toBe('/dashboard/kabis');
+    expect(resolve('/dashboard/kabis')).toBe('/dashboard/kabis');
   });
 
-  test('a path TEAM does not have lands on the tasks page, not a dead route', () => {
-    expect(resolveNotificationPath('/cars/24')).toBe('/dashboard/tasks');
-    expect(resolveNotificationPath('/reports/monthly')).toBe('/dashboard/tasks');
+  test('a path TEAM does not have lands on the fallback, not a dead route', () => {
+    expect(resolve('/cars/24')).toBe(TASKS);
+    expect(resolve('/reports/monthly')).toBe(TASKS);
+  });
+
+  test('a real page this reader has no access to also lands on the fallback', () => {
+    expect(resolve('/accounting')).toBe(TASKS);
+  });
+
+  test('the fallback is whatever the caller says it is', () => {
+    expect(resolveNotificationPath('/accounting', canOpen, '/dashboard/cars')).toBe('/dashboard/cars');
   });
 
   test('a missing link is not a crash', () => {
-    expect(resolveNotificationPath(null)).toBe('/dashboard/tasks');
-    expect(resolveNotificationPath(undefined)).toBe('/dashboard/tasks');
-    expect(resolveNotificationPath('')).toBe('/dashboard/tasks');
+    expect(resolve(null)).toBe(TASKS);
+    expect(resolve(undefined)).toBe(TASKS);
+    expect(resolve('')).toBe(TASKS);
   });
 });

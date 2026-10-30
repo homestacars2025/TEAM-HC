@@ -4,6 +4,17 @@
     "message": "You will be logged out in <b>{{seconds}} seconds</b> due to inactivity.",
     "stay": "Stay logged in"
   },
+  "pageAccess": {
+    "noAccessTitle": "No access to this page",
+    "noAccessBody": "You don't have permission to open this page. Ask your admin if you need it.",
+    "goToMyPage": "Go to my dashboard",
+    "noPages": "Your account has no pages assigned yet — contact your admin",
+    "signOut": "Sign out",
+    "refreshFailed": "Couldn't refresh permissions — retrying",
+    "retry": "Retry",
+    "errorTitle": "Couldn't load your access",
+    "errorBody": "Check your connection and try again."
+  },
   "alerts": {
     "total": "{{count}} total",
     "upcoming": "{{count}} upcoming",

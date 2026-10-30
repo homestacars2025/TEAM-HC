@@ -10,9 +10,8 @@ import { Toaster } from '../../components/ui/sonner';
  * the rest of the dashboard — which predates Tailwind here and styles inline —
  * is completely unaffected.
  *
- * Guarding at the layout covers every page in the subtree, including any added
- * later. Hiding the sidebar link is presentation only; the route guard wrapped
- * around this component is what stops someone who types the URL.
+ * Each page below this layout has its own `RequirePage` guard in App.tsx, because
+ * Media access is granted page by page. A page added here needs one too.
  */
 export default function MediaLayout() {
   return (

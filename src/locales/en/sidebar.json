@@ -3,6 +3,7 @@
     "main": "Main",
     "fleet": "Fleet",
     "operations": "Operations",
+    "finance": "Finance",
     "media": "Media"
   },
   "nav": {
@@ -35,6 +36,9 @@
     "enShort": "EN",
     "arShort": "AR"
   },
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "departmentHead": "Head",
   "collapse": "Collapse sidebar",
   "expand": "Expand sidebar",
   "signOut": "Sign out",

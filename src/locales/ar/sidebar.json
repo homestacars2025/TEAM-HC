@@ -3,6 +3,7 @@
     "main": "الرئيسية",
     "fleet": "الأسطول",
     "operations": "العمليات",
+    "finance": "المالية",
     "media": "الوسائط"
   },
   "nav": {
@@ -35,6 +36,9 @@
     "enShort": "EN",
     "arShort": "ع"
   },
+  "openMenu": "فتح القائمة",
+  "closeMenu": "إغلاق القائمة",
+  "departmentHead": "رئيس القسم",
   "collapse": "طي القائمة",
   "expand": "توسيع القائمة",
   "signOut": "تسجيل الخروج",

@@ -145,3 +145,13 @@ html[dir="rtl"] .hc-flip-path {
 
 /* Sonner sits in a portal outside .media-scope, so it carries the tokens itself. */
 .cn-toast { font-family: inherit; }
+
+/* ─── Sidebar drawer ─────────────────────────────────────────────────────────
+   Below 1024px the sidebar is off-canvas, on the inline-start edge. The closed
+   offset depends on direction, so it cannot be a logical property.            */
+
+@media (max-width: 1023.98px) {
+  .hc-sidebar { transition: transform 220ms ease-out, visibility 220ms; }
+  .hc-sidebar[data-open="false"] { transform: translateX(-100%); visibility: hidden; }
+  html[dir="rtl"] .hc-sidebar[data-open="false"] { transform: translateX(100%); }
+}

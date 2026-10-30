@@ -7,7 +7,6 @@ import { sortCarsByModel } from '../lib/car-picker';
 import { localisedCountryName } from '../lib/countries';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
-import { useSectionAccess } from '../lib/SectionAccessContext';
 import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
@@ -3188,20 +3187,6 @@ const BookingsPage: React.FC = () => {
   const [extendTarget, setExtendTarget]    = useState<Booking | null>(null);
   const [editingSheet, setEditingSheet]    = useState<ReplacementSheetRecord | null>(null);
 
-  /**
-   * Extending writes rental and payment rows into `customer_accounting_ledger`,
-   * so unlike Edit it is a money action, and the team dashboard has far more
-   * staff on it than the admin one does.
-   *
-   * `booking_extend` is deliberately NOT registered in `restricted_sections`
-   * today, and a section absent from that table is public — so this reads true
-   * for everyone and the button behaves exactly as it would with no gate at all.
-   * What it buys is the switch: registering the key and granting it in
-   * `staff_sections` restricts the button from the database alone, with no code
-   * change and no deploy. See the note in the pull request.
-   */
-  const { canAccess } = useSectionAccess();
-  const canExtend = canAccess('booking_extend');
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [sheets, setSheets]               = useState<ReplacementSheetRecord[]>([]);
   const [sheetsLoading, setSheetsLoading] = useState(true);
@@ -3608,7 +3593,7 @@ const BookingsPage: React.FC = () => {
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
                     onPrint={() => printBookingContract(booking)}
-                    onExtend={canExtend ? () => setExtendTarget(booking) : undefined}
+                    onExtend={() => setExtendTarget(booking)}
                   />
                 ))}
               </tbody>

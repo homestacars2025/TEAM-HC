@@ -1913,7 +1913,7 @@ const AccountingPage: React.FC = () => {
     if (t) window.setTimeout(() => setToast(null), 2600);
   }, []);
 
-  // Access is enforced by <RequireSection section="accounting"> on the route.
+  // Access is enforced by <RequirePage page="accounting"> on the route.
 
   const monthNavDisabled = tab === 'customers'; // customers ledger is not month-scoped
 

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
+import clsx from 'clsx';
 import Sidebar from './Sidebar';
 import TasksBell from './TasksBell';
 import { InboxProvider } from '../lib/InboxContext';
+import { usePageAccess } from '../contexts/PageAccessContext';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
 // ─── Inactivity Warning Modal ─────────────────────────────────────────────────
@@ -78,12 +80,36 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) => {
 
 const Layout: React.FC = () => {
   const { showWarning, stayLoggedIn } = useInactivityTimeout();
+  const { t } = useTranslation('sidebar');
+  const { t: tc } = useTranslation('common');
+  const { refreshFailed, refresh } = usePageAccess();
+  const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   return (
     // Both badge counts are polled once here, for the bell and the sidebar alike.
     <InboxProvider>
     <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-secondary)' }}>
-      <Sidebar />
+      <Sidebar mobileOpen={menuOpen} onMobileClose={() => setMenuOpen(false)} />
+
+      {/* Drawer backdrop. Below 1024px only; the sidebar is in the flow above that. */}
+      <div
+        aria-hidden="true"
+        onClick={() => setMenuOpen(false)}
+        className={clsx(
+          'fixed inset-0 z-[490] bg-[rgba(15,17,23,0.4)] transition-opacity duration-200 lg:hidden',
+          menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      />
 
       {/*
         Content column. The top bar reserves its own strip of height rather than
@@ -98,8 +124,34 @@ const Layout: React.FC = () => {
           unread rows are simply part of this badge now.
         */}
         <header className="app-topbar">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label={t('openMenu')}
+            aria-expanded={menuOpen}
+            className="me-auto flex size-11 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-black/[0.04] lg:hidden"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+            </svg>
+          </button>
           <TasksBell />
         </header>
+        {refreshFailed && (
+          <div
+            role="status"
+            className="flex shrink-0 flex-wrap items-center justify-center gap-x-2 border-b border-amber-200 bg-amber-50 px-4 py-1 text-[13px] text-amber-800"
+          >
+            <span>{tc('pageAccess.refreshFailed')}</span>
+            <button
+              type="button"
+              onClick={() => { refresh(); }}
+              className="min-h-11 cursor-pointer font-semibold underline underline-offset-2 lg:min-h-0"
+            >
+              {tc('pageAccess.retry')}
+            </button>
+          </div>
+        )}
         <main style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <Outlet />
         </main>

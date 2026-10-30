@@ -42,9 +42,8 @@ describe('extend booking', () => {
     expect(SRC).toContain("onExtend && booking.status !== 'cancelled'");
   });
 
-  test('extending is gated on a section key, so it can be restricted without a deploy', () => {
-    expect(SRC).toContain("canAccess('booking_extend')");
-    expect(SRC).toContain('onExtend={canExtend ? () => setExtendTarget(booking) : undefined}');
+  test('the button is not gated: anyone who can open Bookings can extend', () => {
+    expect(SRC).toContain('onExtend={() => setExtendTarget(booking)}');
   });
 });
 
