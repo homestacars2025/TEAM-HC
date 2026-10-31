@@ -928,7 +928,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
                 borderRadius: 20, padding: '3px 10px',
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-                {t(`status.${status}`)}
+                {t(`status.${fine.status}`)}
               </span>
             </div>
             <button onClick={onClose} style={{

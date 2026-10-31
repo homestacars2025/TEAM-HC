@@ -488,7 +488,7 @@ const CarSheetsTab: React.FC<{
                 </span>
                 {net !== 0 && (
                   <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? COLOR_IN : COLOR_OUT, flexShrink: 0 }}>
-                    {net >= 0 ? '+' : '−'}{fmt(net)}
+                    <bdi dir="ltr">{net >= 0 ? '+' : '−'}{fmt(net)}</bdi>
                   </span>
                 )}
               </button>
@@ -526,7 +526,7 @@ const CarSheetsTab: React.FC<{
           }}>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280' }}>{t('cars.runningTotal', { month: formatMonthLabel(monthDate, dateLocale) })}</span>
             <span style={{ fontSize: 18, fontWeight: 800, color: carTotal >= 0 ? COLOR_IN : COLOR_OUT }}>
-              {carTotal >= 0 ? '+' : '−'}{fmt(carTotal)}
+              <bdi dir="ltr">{carTotal >= 0 ? '+' : '−'}{fmt(carTotal)}</bdi>
             </span>
           </div>
         )}
@@ -1249,7 +1249,7 @@ const EmployeeWalletsSection: React.FC<{
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('summary.balance')}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: b.balance >= 0 ? COLOR_IN : COLOR_OUT }}>
-                  {b.balance >= 0 ? '+' : '−'}{fmt(b.balance)}
+                  <bdi dir="ltr">{b.balance >= 0 ? '+' : '−'}{fmt(b.balance)}</bdi>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#6b7280' }}>
@@ -1642,7 +1642,7 @@ const ConfirmDialog: React.FC<{
 const SummaryPill: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
   <div style={{ ...cardStyle, padding: '10px 16px', minWidth: 130 }}>
     <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{label}</div>
-    <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
+    <div style={{ fontSize: 18, fontWeight: 800, color }}><bdi dir="ltr">{value}</bdi></div>
   </div>
 );
 

@@ -40,7 +40,8 @@
 }
 
 [lang="ar"] {
-  --font-sans: var(--font-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+  /* Plex has no ş, ğ or İ, so Turkish names and addresses need Geist behind it. */
+  --font-sans: var(--font-plex-arabic), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", "GeistMono", var(--font-plex-arabic), ui-monospace, monospace;
 }
 

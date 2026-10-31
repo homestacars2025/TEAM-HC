@@ -54,6 +54,11 @@ describe('the font standard', () => {
     }
   });
 
+  test('Turkish letters in the Arabic UI reach Geist, not a system font', () => {
+    const arabicStack = read('index.css').match(/\[lang="ar"\] \{[\s\S]*?--font-sans: ([^;]+);/)?.[1];
+    expect(arabicStack?.split(',').map(f => f.trim()).slice(0, 2)).toEqual(['var(--font-plex-arabic)', 'var(--font-geist-sans)']);
+  });
+
   test('tracking is switched off for Arabic, including inline letter-spacing', () => {
     expect(read('index.css')).toMatch(/html\[lang="ar"\] \*\s*\{\s*letter-spacing: normal !important;/);
   });
