@@ -166,7 +166,6 @@ const ProfilePage: React.FC = () => {
 
   const hasPhoto = !!profile?.avatar_url;
   const genderLabel = profile?.gender === 'male' || profile?.gender === 'female' ? t(`gender.${profile.gender}`) : t('gender.unset');
-  const roleLabel = profile?.role === 'admin' || profile?.role === 'staff' ? t(`role.${profile.role}`) : (profile?.role ?? '—');
 
   return (
     <div className="flex max-w-3xl flex-col gap-6 p-4 sm:p-6 lg:p-10">
@@ -181,7 +180,6 @@ const ProfilePage: React.FC = () => {
           <div className="truncate text-lg font-semibold text-[#0f1117]">{profile?.full_name || ts('profileFallback')}</div>
           {email && <div dir="ltr" className="truncate text-sm text-gray-500 sm:text-start">{email}</div>}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 sm:justify-start">
-            <span className="rounded-full bg-black/[0.05] px-2.5 text-xs font-medium leading-[22px] text-gray-600">{roleLabel}</span>
             {department && <span className="rounded-full bg-black/[0.05] px-2.5 text-xs font-medium leading-[22px] text-gray-600">{department.label}</span>}
             {isDepartmentHead && <span className="rounded-full bg-[var(--accent-soft)] px-2.5 text-xs font-semibold leading-[22px] text-[var(--accent-strong)]">{ts('departmentHead')}</span>}
           </div>
@@ -227,7 +225,6 @@ const ProfilePage: React.FC = () => {
             </div>
           </Field>
           <ReadOnly label={t('fields.email')} value={email ?? '—'} latin />
-          <ReadOnly label={t('fields.role')} value={roleLabel} />
           <ReadOnly label={t('fields.department')} value={department?.label ?? '—'} />
           <ReadOnly label={t('fields.gender')} value={genderLabel} />
         </div>

@@ -229,7 +229,7 @@ describe('every string in the shell exists in both languages', () => {
     home: ['greeting.morning', 'greeting.afternoon', 'greeting.evening', 'greetingPlain.morning', 'greetingPlain.afternoon', 'greetingPlain.evening', 'schedule.delivery', 'schedule.pickup'],
     myWallet: ['period.month', 'period.all', 'type.salary', 'type.bonus', 'type.advance', 'type.deduction', 'type.payout', 'earned.month', 'earned.all', 'paid.month', 'paid.all'],
     custody: ['period.month', 'period.all'],
-    profile: ['gender.male', 'gender.female', 'role.admin', 'role.staff'],
+    profile: ['gender.male', 'gender.female'],
     settings: [],
   };
 

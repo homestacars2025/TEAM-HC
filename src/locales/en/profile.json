@@ -17,13 +17,8 @@
     "fullName": "Full name",
     "phone": "Phone",
     "email": "Email",
-    "role": "Role",
     "department": "Department",
     "gender": "Gender"
-  },
-  "role": {
-    "admin": "Admin",
-    "staff": "Staff"
   },
   "gender": {
     "male": "Male",
