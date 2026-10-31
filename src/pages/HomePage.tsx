@@ -11,7 +11,7 @@ import { custodyBalance, custodyTotals, getMyCustodyMovements, type CustodyMovem
 import { getMyWalletEntries, walletBalance, walletTotals, type WalletEntry } from '../lib/queries/staffWallet';
 import { useTimeFormat } from '../lib/relative-time';
 import type { MyNotification, MyTask } from '../lib/types/tasks';
-import GoalsHomeCard from '../components/goals/GoalsHomeCard';
+import GoalsPanel from '../components/goals/GoalsPanel';
 import NotificationRow, { useOpenNotification } from '../components/NotificationRow';
 import { pageIcons } from '../components/pageNav';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
@@ -271,6 +271,8 @@ const HomePage: React.FC = () => {
         </p>
       </header>
 
+      <GoalsPanel />
+
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
         {canAccessPage('tasks') && (
           <StatCard
@@ -352,8 +354,6 @@ const HomePage: React.FC = () => {
           )}
         />
       </div>
-
-      <GoalsHomeCard />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <div className="min-w-0 lg:col-span-2">

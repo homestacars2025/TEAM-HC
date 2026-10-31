@@ -119,12 +119,21 @@ describe('both languages', () => {
   });
 
   test('every key the goals components ask for exists', () => {
-    const files = ['GoalRing', 'GoalSheet', 'GoalsPanel', 'GoalsHomeCard'].map(f => read(`components/goals/${f}.tsx`)).join('\n');
+    const files = ['GoalRing', 'GoalSheet', 'GoalsPanel'].map(f => read(`components/goals/${f}.tsx`)).join('\n');
     const keys = Array.from(files.matchAll(/[^\w.]t\('([^']+)'/g)).map(m => m[1]).filter(k => !k.startsWith('hint.'));
     for (const lng of ['en', 'ar']) {
       expect(keys.filter(k => !i18n.exists(`goals:${k}`, { lng, fallbackLng: [] }))).toEqual([]);
     }
   });
+});
+
+test('performance lives on Home, not on Tasks', () => {
+  expect(read('pages/HomePage.tsx')).toContain('<GoalsPanel />');
+  expect(read('pages/TasksPage.tsx')).not.toMatch(/goals\/|GoalsPanel/);
+  // Directly under the greeting, above the stat cards.
+  const home = read('pages/HomePage.tsx');
+  expect(home.indexOf('<GoalsPanel />')).toBeGreaterThan(home.indexOf('</header>'));
+  expect(home.indexOf('<GoalsPanel />')).toBeLessThan(home.indexOf('<StatCard\n'));
 });
 
 test('goals are read through the RPCs only', () => {

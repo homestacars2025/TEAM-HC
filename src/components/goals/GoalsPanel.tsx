@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGoals } from '../../hooks/useGoals';
 import { istanbulDate } from '../../lib/istanbulTime';
@@ -113,14 +113,18 @@ const GoalsPanel: React.FC = () => {
   const monthLabel = new Date(`${month}T00:00:00`).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
   const hints = useMemo(() => (metrics ? redHints(metrics, gaps ?? []) : []), [metrics, gaps]);
   const openMetric = metrics?.find(m => m.metric_key === openKey) ?? null;
-  const closeSheet = React.useCallback(() => setOpenKey(null), []);
+  const closeSheet = useCallback(() => setOpenKey(null), []);
 
-  // Someone with no goals sees nothing, unless they have browsed to an empty month
-  // and need the switcher to get back.
-  if (metrics && metrics.length === 0 && isCurrent) return null;
+  // This sits right under the greeting, so someone with no goals must not see a
+  // placeholder appear and vanish: nothing shows until there is a ring to show.
+  // Once there has been one, the section stays, so a month with no goals keeps the
+  // switcher that leads back.
+  const hasGoals = useRef(false);
+  if (metrics && metrics.length > 0) hasGoals.current = true;
+  if (!hasGoals.current && !failed) return null;
 
   return (
-    <section className="mb-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:p-5">
+    <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:p-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t(isCurrent ? 'title' : 'titlePast')}</h2>
         <div className="flex items-center gap-1">

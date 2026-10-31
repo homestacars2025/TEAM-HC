@@ -1,12 +1,10 @@
 {
-  "title": "أهدافي هذا الشهر",
-  "titlePast": "أهدافي",
-  "homeTitle": "أهدافي",
-  "viewDetails": "عرض التفاصيل",
+  "title": "أدائي هذا الشهر",
+  "titlePast": "أدائي",
   "previousMonth": "الشهر السابق",
   "nextMonth": "الشهر التالي",
   "target": "الهدف: {{target}}",
-  "failed": "تعذّر تحميل أهدافك.",
+  "failed": "تعذّر تحميل أدائك.",
   "emptyMonth": "لم تُحدَّد أهداف لهذا الشهر.",
   "status": {
     "green": "ضمن الهدف",

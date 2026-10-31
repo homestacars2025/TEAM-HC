@@ -73,12 +73,10 @@ export const RingArc: React.FC<{ metric: GoalMetric; size: number }> = ({ metric
 interface GoalRingProps {
   metric: GoalMetric;
   size: number;
-  onOpen?: (metric: GoalMetric) => void;
-  /** Label only, for the Home card. */
-  compact?: boolean;
+  onOpen: (metric: GoalMetric) => void;
 }
 
-const GoalRing: React.FC<GoalRingProps> = ({ metric, size, onOpen, compact }) => {
+const GoalRing: React.FC<GoalRingProps> = ({ metric, size, onOpen }) => {
   const { t } = useTranslation('goals');
   const text = useMetricText()(metric);
 
@@ -86,29 +84,18 @@ const GoalRing: React.FC<GoalRingProps> = ({ metric, size, onOpen, compact }) =>
     ? `${metric.numerator ?? 0} / ${metric.denominator ?? 0}`
     : t('target', { target: metric.target });
 
-  const body = (
-    <>
-      <RingArc metric={metric} size={size} />
-      <span className={`mt-2 block max-w-full text-center font-medium leading-snug text-gray-700 ${compact ? 'text-xs' : 'text-[13px]'}`}>
-        {text.label}
-      </span>
-      {!compact && (
-        <bdi dir="ltr" className="mt-0.5 block text-xs text-gray-500">{sub}</bdi>
-      )}
-    </>
-  );
-
-  const shell = 'flex min-w-0 flex-col items-center rounded-2xl p-2';
-  if (!onOpen) return <div className={shell}>{body}</div>;
-
   return (
     <button
       type="button"
       onClick={() => onOpen(metric)}
       aria-label={`${text.label}: ${formatGoalValue(metric)}. ${t(`status.${metric.status}`)}`}
-      className={`${shell} cursor-pointer transition-colors hover:bg-black/[0.03]`}
+      className="flex min-w-0 cursor-pointer flex-col items-center rounded-2xl p-2 transition-colors hover:bg-black/[0.03]"
     >
-      {body}
+      <RingArc metric={metric} size={size} />
+      <span className="mt-2 block max-w-full text-center text-[13px] font-medium leading-snug text-gray-700">
+        {text.label}
+      </span>
+      <bdi dir="ltr" className="mt-0.5 block text-xs text-gray-500">{sub}</bdi>
     </button>
   );
 };

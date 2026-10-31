@@ -1,12 +1,10 @@
 {
-  "title": "My goals this month",
-  "titlePast": "My goals",
-  "homeTitle": "My goals",
-  "viewDetails": "View details",
+  "title": "My performance this month",
+  "titlePast": "My performance",
   "previousMonth": "Previous month",
   "nextMonth": "Next month",
   "target": "Target: {{target}}",
-  "failed": "Could not load your goals.",
+  "failed": "Could not load your performance.",
   "emptyMonth": "No goals were set for this month.",
   "status": {
     "green": "On target",
