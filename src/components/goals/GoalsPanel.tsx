@@ -122,7 +122,7 @@ const MonthButton: React.FC<{ label: string; disabled: boolean; onClick: () => v
     onClick={onClick}
     disabled={disabled}
     aria-label={label}
-    className="flex size-11 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-black/[0.04] disabled:cursor-default disabled:opacity-30 sm:size-9"
+    className="flex size-11 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-black/[0.04] disabled:cursor-default disabled:opacity-30 sm:size-8"
   >
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path className="hc-flip-path" d={path} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -176,14 +176,14 @@ const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPres
     <section className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t(isCurrent ? 'title' : 'titlePast')}</h2>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {score !== null && (
-            <span aria-label={`${t('score')}: ${score}%`} className={`me-1 rounded-full px-2.5 text-[13px] font-bold leading-6 ${SCORE_PILL[scoreTone(score)]}`}>
+            <span aria-label={`${t('score')}: ${score}%`} className={`me-0.5 rounded-full px-2.5 text-[13px] font-bold leading-6 ${SCORE_PILL[scoreTone(score)]}`}>
               <bdi dir="ltr">{score}%</bdi>
             </span>
           )}
           <MonthButton label={t('previousMonth')} disabled={month <= oldestMonth} onClick={() => setMonth(m => shiftMonth(m, -1))} path="M15 18l-6-6 6-6" />
-          <span className="min-w-[96px] text-center text-[13px] font-semibold text-gray-700">{monthLabel}</span>
+          <span className="min-w-[88px] text-center text-[13px] font-semibold text-gray-700">{monthLabel}</span>
           <MonthButton label={t('nextMonth')} disabled={isCurrent} onClick={() => setMonth(m => shiftMonth(m, 1))} path="M9 18l6-6-6-6" />
         </div>
       </header>
