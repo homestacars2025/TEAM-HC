@@ -232,7 +232,6 @@ const inputStyle: React.CSSProperties = {
 
 const cardStyle: React.CSSProperties = {
   background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
 };
 
 // ─── Reusable bits ────────────────────────────────────────────────────────────
@@ -261,7 +260,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
         backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
         justifyContent: 'center', padding: 20,
       }}>
-        <div onClick={e => e.stopPropagation()} style={{
+        <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth,
           maxHeight: '92vh', display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 80px rgba(0,0,0,0.2)',
@@ -451,7 +450,7 @@ const CarSheetsTab: React.FC<{
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: 20, alignItems: 'start' }}>
       {/* Car list */}
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ padding: 14, borderBottom: '1px solid #f0f0f0' }}>
           <input
             value={search}
@@ -496,7 +495,7 @@ const CarSheetsTab: React.FC<{
       </div>
 
       {/* Detail */}
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{
           padding: '16px 18px', borderBottom: '1px solid #f0f0f0',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
@@ -975,7 +974,7 @@ const CompanyExpensesSection: React.FC<{
         </Button>
       </div>
 
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label={t('expenses.empty')} /> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
@@ -1230,7 +1229,7 @@ const EmployeeWalletsSection: React.FC<{
       </div>
 
       {loading || !staffProfiles ? <Spinner /> : balances.length === 0 ? (
-        <div style={{ ...cardStyle }}><EmptyState label={t('wallets.empty')} /></div>
+        <div className="surface-depth" style={{ ...cardStyle }}><EmptyState label={t('wallets.empty')} /></div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {balances.map(b => (
@@ -1331,7 +1330,7 @@ const WalletHistoryModal: React.FC<{
         <SummaryPill label={t('summary.totalIn')} value={fmt(totals.tin)} color={COLOR_IN} />
         <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
       </div>
-      <div style={{ ...cardStyle, overflow: 'hidden' }}>
+      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label={t('wallets.noTransactions')} /> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
@@ -1572,7 +1571,7 @@ const AddWalletEntryModal: React.FC<{
 const CustomersMovedPanel: React.FC = () => {
   const { t } = useTranslation('accounting');
   return (
-  <div style={{ ...cardStyle, padding: '48px 28px', textAlign: 'center' }}>
+  <div className="surface-depth" style={{ ...cardStyle, padding: '48px 28px', textAlign: 'center' }}>
     <div style={{
       width: 52, height: 52, borderRadius: 14, background: 'rgba(75,166,234,0.1)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
@@ -1629,7 +1628,7 @@ const ConfirmDialog: React.FC<{
 // ─── Small shared form widgets ────────────────────────────────────────────────
 
 const SummaryPill: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
-  <div style={{ ...cardStyle, padding: '10px 16px', minWidth: 130 }}>
+  <div className="surface-depth" style={{ ...cardStyle, padding: '10px 16px', minWidth: 130 }}>
     <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{label}</div>
     <div style={{ fontSize: 18, fontWeight: 800, color }}><bdi dir="ltr">{value}</bdi></div>
   </div>

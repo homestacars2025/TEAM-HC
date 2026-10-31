@@ -53,7 +53,7 @@ const SettingsPage: React.FC = () => {
         <p className="mt-1 text-sm text-gray-500">{t('subtitle')}</p>
       </header>
 
-      <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
+      <section className="surface-depth rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
         {canSwitch && (
           <Row label={t('language.label')} hint={t('language.hint')}>
             <div className="grid grid-cols-2 gap-2">

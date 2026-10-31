@@ -87,7 +87,7 @@ export function PostsListView({ posts, goals, formats, colorMode, onSaveField, o
   );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
+    <div className="surface-depth overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1320px] border-collapse text-start">
           <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm">

@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import StaffAvatar from '../components/StaffAvatar';
 import type { StaffAvatarProfile } from '../lib/staffAvatar';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -338,7 +339,7 @@ function hasChecklist(op: Operation): boolean {
 const StatCard: React.FC<{ label: string; value: number; bg: string; loading: boolean }> = ({
   label, value, bg, loading,
 }) => (
-  <div style={{ background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff', display: 'flex', flexDirection: 'column', gap: 6 }}>
+  <div className="surface-depth" style={{ background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff', display: 'flex', flexDirection: 'column', gap: 6 }}>
     <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.82 }}>{label}</div>
     <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>{loading ? '—' : value}</div>
   </div>
@@ -1217,7 +1218,7 @@ const AddOperationModal: React.FC<{
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 150ms ease' }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 600, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'slideUp 180ms ease' }}
       >
@@ -1666,7 +1667,7 @@ const ConfirmDeleteDialog: React.FC<{
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 1300, background: 'rgba(15,17,23,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 150ms ease' }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 400, padding: '28px 28px 24px', boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'slideUp 180ms ease', textAlign: 'center' }}
       >
@@ -1777,7 +1778,7 @@ const PhotosModal: React.FC<{ operation: Operation; onClose: () => void }> = ({ 
         onClick={e => { if (e.target === e.currentTarget) onClose(); }}
         style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(15,17,23,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 150ms ease' }}
       >
-        <div
+        <div className="surface-depth surface-float"
           onClick={e => e.stopPropagation()}
           style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 680, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.22)', animation: 'slideUp 180ms ease' }}
         >
@@ -2155,7 +2156,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(15,17,23,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 150ms ease' }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 560, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'slideUp 180ms ease' }}
       >
@@ -2628,16 +2629,26 @@ const OperationsPage: React.FC = () => {
 
         <div style={{ flex: 1, minWidth: 0 }} />
 
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value as OperationType | '')}
-          style={{ height: 36, padding: '0 12px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none', fontFamily: 'inherit', color: '#374151', background: '#fff', cursor: 'pointer' }}
-        >
-          <option value="">{t('table.allTypes')}</option>
-          {activeTypes.map(ty => (
-            <option key={ty} value={ty}>{t(`types.${ty}`)}</option>
-          ))}
-        </select>
+        <FilterBar
+          fields={[{
+            key: 'type',
+            label: tc('filterBar.type'),
+            activeLabel: typeFilter ? t(`types.${typeFilter}`) : null,
+            onClear: () => setTypeFilter(''),
+            control: (
+            <select
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value as OperationType | '')}
+              style={{ height: 36, padding: '0 12px', fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none', fontFamily: 'inherit', color: '#374151', background: '#fff', cursor: 'pointer' }}
+            >
+              <option value="">{t('table.allTypes')}</option>
+              {activeTypes.map(ty => (
+                <option key={ty} value={ty}>{t(`types.${ty}`)}</option>
+              ))}
+            </select>
+            ),
+          }]}
+        />
 
         <div style={{ position: 'relative' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -2658,7 +2669,7 @@ const OperationsPage: React.FC = () => {
       </div>
 
       {/* ── Table ── */}
-      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <div className="surface-depth" style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
         {error && (
           <div style={{ padding: '16px 20px', color: '#ef4444', fontSize: 13, borderBottom: '1px solid #fef2f2', background: '#fef2f2' }}>
             {error}

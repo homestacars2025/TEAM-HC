@@ -206,7 +206,13 @@ html[dir="rtl"] .hc-flip-path {
    offset depends on direction, so it cannot be a logical property.            */
 
 @media (max-width: 1023.98px) {
-  .hc-sidebar { transition: transform 220ms ease-out, visibility 220ms; }
+  /* `dvh` follows Safari's toolbars, where plain `vh` would run underneath them. */
+  .hc-sidebar {
+    height: 100vh;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    transition: transform 220ms ease-out, visibility 220ms;
+  }
   .hc-sidebar[data-open="false"] { transform: translateX(-100%); visibility: hidden; }
   html[dir="rtl"] .hc-sidebar[data-open="false"] { transform: translateX(100%); }
 }
@@ -452,7 +458,7 @@ html[dir="rtl"] .hc-flip-path {
 }
 
 @media (hover: hover) {
-  .hc-stat:hover { box-shadow: 0 14px 32px -18px rgb(15 17 23 / 0.2); }
+  .hc-stat:hover { --depth-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 14px 32px -14px rgba(16, 24, 40, 0.22); }
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
@@ -653,8 +659,8 @@ html[dir="rtl"] .hc-flip-path {
 
 .hc-fab {
   position: fixed;
-  inset-block-end: calc(20px + env(safe-area-inset-bottom));
-  inset-inline-end: 20px;
+  inset-block-end: calc(16px + env(safe-area-inset-bottom));
+  inset-inline-start: 16px;
   z-index: 40;
   width: 56px;
   height: 56px;
@@ -674,4 +680,243 @@ html[dir="rtl"] .hc-flip-path {
 
 @media (prefers-reduced-motion: reduce) {
   .hc-expense-sheet, .hc-row-new { animation: none; }
+}
+
+/* ─── App frame ─────────────────────────────────────────────────────────────────
+   viewport-fit=cover lets the page run behind the notch and the toolbars, so the
+   frame takes the insets back. All four are 0 anywhere that has none.            */
+
+.hc-shell {
+  display: flex;
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  background: var(--surface);
+}
+
+.hc-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.hc-sidebar-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+/* The floating button must never sit on top of the last row. */
+@media (max-width: 639.98px) {
+  .hc-fab-page { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+}
+
+/* ─── Depth ─────────────────────────────────────────────────────────────────────
+   Light falls from the top of the reading side. `--depth-fill` is for a tile with a
+   gradient of its own. On a white card the highlights have nothing to lighten, so
+   there the shadow does the work.                                                 */
+
+:root { --depth-from: 15% 0%; }
+html[dir="rtl"] { --depth-from: 85% 0%; }
+
+.surface-depth {
+  --depth-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(16, 24, 40, 0.12);
+  background-image: radial-gradient(at var(--depth-from), rgba(255, 255, 255, 0.55), transparent 55%), var(--depth-fill, none) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), var(--depth-shadow);
+}
+
+/* Sheets and dropdowns float over the page, so they keep more lift. */
+.surface-float { --depth-shadow: 0 24px 64px -16px rgba(16, 24, 40, 0.28); }
+
+/* ─── Custody tiles ─────────────────────────────────────────────────────────── */
+
+.hc-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hc-tile {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 20px;
+  background-color: var(--tile-to);
+  color: var(--tile-ink);
+  --depth-fill: linear-gradient(145deg, var(--tile-from) 0%, var(--tile-to) 100%);
+}
+
+.hc-tiles > .hc-tile:first-child {
+  grid-column: 1 / -1;
+  aspect-ratio: 2;
+}
+
+.hc-tile-balance { --tile-from: #EAF3FD; --tile-to: #D6E7FA; --tile-ink: #1F4E8C; --tile-chip: #6EA4E7; }
+.hc-tile-received { --tile-from: #EAF7EF; --tile-to: #D3EEDC; --tile-ink: #166534; --tile-chip: #22C55E; }
+.hc-tile-spent, .hc-tile-negative { --tile-from: #FDEEEE; --tile-to: #F8D9D9; --tile-ink: #991B1B; --tile-chip: #EF4444; }
+
+.hc-tile-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tile-chip);
+  color: #fff;
+}
+
+.hc-tile-label {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+.hc-tile-bottom { margin-top: auto; min-width: 0; }
+
+/* Sized from the tile's own width and the length of the number, so it always fits
+   on one line. `100cqi` includes the padding, hence taking it back out. */
+.hc-tile-value {
+  font-size: clamp(12px, calc((100cqi - 28px) / (var(--chars) * 0.62)), 34px);
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.hc-tile-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  opacity: 0.7;
+}
+
+@media (min-width: 640px) {
+  /* Capped: on a very wide screen a square that fills its column pushes the list off it. */
+  .hc-tiles {
+    grid-template-columns: repeat(3, minmax(0, 360px));
+    gap: 16px;
+  }
+
+  .hc-tile { padding: 18px; }
+  .hc-tiles > .hc-tile:first-child { grid-column: auto; aspect-ratio: 1; }
+  .hc-tile-value { font-size: clamp(12px, calc((100cqi - 36px) / (var(--chars) * 0.62)), 34px); }
+}
+
+/* ─── Mobile filters ────────────────────────────────────────────────────────── */
+
+.hc-filterbar {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hc-filter-open,
+.hc-filter-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hc-filter-open {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: #0f1117;
+}
+
+.hc-filter-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent-strong);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.hc-filter-chips {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.hc-filter-chips::-webkit-scrollbar { display: none; }
+
+.hc-filter-chip {
+  padding: 0 12px;
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.hc-filter-sheet {
+  width: 100%;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 10px 20px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background-color: var(--surface);
+  animation: hc-expense-rise 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A page's filter control keeps its look on a computer; here it takes the full row
+   and a size that doesn't make iPhone zoom in on focus. */
+.hc-filter-field select,
+.hc-filter-field [role="combobox"] {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 48px !important;
+  flex: none !important;
+  font-size: 16px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-filter-sheet { animation: none; }
+}
+
+/* The month sits dead centre on a computer, which a phone has no room for. */
+@media (max-width: 639.98px) {
+  .hc-cal-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+    height: auto !important;
+    padding: 10px 16px !important;
+  }
+
+  .hc-cal-month {
+    position: static !important;
+    width: 100%;
+    justify-content: center;
+    transform: none !important;
+  }
+
+  .hc-cal-tools {
+    width: 100%;
+    margin-inline-start: 0 !important;
+  }
+
+  .hc-cal-tools input { width: 100% !important; }
+  .hc-cal-tools > div:first-child { flex: 1 1 0; min-width: 0; }
+  .hc-cal-tools .hc-filterbar { flex: 0 1 auto; }
 }

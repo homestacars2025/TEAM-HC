@@ -33,7 +33,7 @@ const Notice: React.FC<{
   children: React.ReactNode;
 }> = ({ tone, title, body, children }) => (
   <div className="flex min-h-[60vh] items-center justify-center p-4 sm:p-6">
-    <div className="w-full max-w-sm rounded-2xl border border-[#ebebeb] bg-white p-6 text-center shadow-sm sm:p-8">
+    <div className="surface-depth w-full max-w-sm rounded-2xl border border-[#ebebeb] bg-white p-6 text-center sm:p-8">
       <div className={`mx-auto mb-4 flex size-12 items-center justify-center rounded-xl ${tone === 'error' ? 'bg-red-50 text-red-500' : 'bg-[#4ba6ea]/10 text-[#3A74C2]'}`}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />

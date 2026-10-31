@@ -148,21 +148,20 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
   const handleLeave = () => {
     if (!ref.current) return;
     ref.current.style.transform = 'translateY(0)';
-    ref.current.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border-subtle)';
+    ref.current.style.boxShadow = '';
   };
 
   const pct = total > 0 && card.key !== 'all' ? Math.round((count / total) * 100) : null;
 
   return (
-    <div
+    <div className="surface-depth"
       ref={ref}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
       style={{
-        background: '#ffffff',
+        border: '1px solid var(--border-subtle)', background: '#ffffff',
         borderRadius: 16,
         overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border-subtle)',
         transition: 'transform 200ms ease, box-shadow 200ms ease',
         cursor: 'default',
         display: 'flex',
@@ -231,11 +230,10 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
 };
 
 const SkeletonCard: React.FC = () => (
-  <div style={{
+  <div className="surface-depth" style={{
     background: '#ffffff',
     borderRadius: 16,
     overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border-subtle)',
   }}>
     <div style={{ height: 4, background: '#f3f4f6' }} />
     <div style={{ padding: '24px' }}>
@@ -326,7 +324,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
         animation: 'fadeIn 160ms ease',
       }}
     >
-      <div style={{
+      <div className="surface-depth surface-float" style={{
         background: '#fff', borderRadius: 16, width: '100%', maxWidth: 460,
         boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
         animation: 'slideUp 200ms ease',
@@ -746,7 +744,7 @@ const CarsPage: React.FC = () => {
         </div>
 
         {/* Table card */}
-        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div className="surface-depth" style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
               <thead>

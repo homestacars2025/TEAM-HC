@@ -65,7 +65,7 @@ const PasswordCard: React.FC = () => {
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 sm:p-6">
+    <form onSubmit={submit} className="surface-depth flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 sm:p-6">
       <h2 className="text-[15px] font-semibold text-[#0f1117]">{t('password.title')}</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t('password.new')} htmlFor="profile-new-password">
@@ -173,7 +173,7 @@ const ProfilePage: React.FC = () => {
         <p className="mt-1 text-sm text-gray-500">{t('subtitle')}</p>
       </header>
 
-      <section className="flex flex-col items-center gap-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 text-center sm:flex-row sm:items-center sm:p-6 sm:text-start">
+      <section className="surface-depth flex flex-col items-center gap-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 text-center sm:flex-row sm:items-center sm:p-6 sm:text-start">
         <StaffAvatar profile={profile} size={96} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-lg font-semibold text-[#0f1117]">{profile?.full_name || ts('profileFallback')}</div>
@@ -209,7 +209,7 @@ const ProfilePage: React.FC = () => {
         </div>
       </section>
 
-      <form onSubmit={saveDetails} className="flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 sm:p-6">
+      <form onSubmit={saveDetails} className="surface-depth flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5 sm:p-6">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t('details')}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t('fields.fullName')} htmlFor="profile-full-name">

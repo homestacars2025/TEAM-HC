@@ -50,7 +50,7 @@ const NotificationToasts: React.FC = () => {
           else openNotification(n);
         };
         return (
-          <div key={n.id} role="status" className="hc-toast-in pointer-events-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3.5 shadow-[0_12px_40px_rgba(15,17,23,0.14)]">
+          <div key={n.id} role="status" className="surface-depth surface-float hc-toast-in pointer-events-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3.5 shadow-[0_12px_40px_rgba(15,17,23,0.14)]">
             <div className="flex items-start gap-3">
               <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--accent)]" />
               <div className="min-w-0 flex-1">

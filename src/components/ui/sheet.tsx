@@ -39,7 +39,7 @@ function SheetContent({
         data-side={side}
         className={cn(
           'media-scope fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground',
-          'shadow-lg transition duration-200 ease-in-out',
+          'surface-depth surface-float transition duration-200 ease-in-out',
           'data-[ending-style]:opacity-0 data-[starting-style]:opacity-0',
 
           // `right`/`left` name the *inline* edges, so a sheet always enters from

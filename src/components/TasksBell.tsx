@@ -116,10 +116,9 @@ const TasksBell: React.FC = () => {
         // correctly whatever <html dir> the surrounding chrome is using.
         <div
           dir={dir}
-          className="tb-panel"
+          className="tb-panel surface-depth surface-float"
           style={{
             background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 16,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
             overflow: 'hidden',
             animation: 'tbFade 140ms ease',
             textAlign: dir === 'rtl' ? 'right' : 'left',

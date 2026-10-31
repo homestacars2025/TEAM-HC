@@ -47,7 +47,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ title, body, confirmLabel
         aria-labelledby="hc-confirm-title"
         aria-describedby="hc-confirm-body"
         onKeyDown={onKeyDown}
-        className="w-full max-w-sm rounded-2xl bg-[var(--surface)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.22)]"
+        className="surface-depth surface-float w-full max-w-sm rounded-2xl bg-[var(--surface)] p-5"
       >
         <h2 id="hc-confirm-title" className="text-[17px] font-semibold text-[#0f1117]">{title}</h2>
         <p id="hc-confirm-body" className="mt-1.5 text-sm leading-relaxed text-gray-500">{body}</p>

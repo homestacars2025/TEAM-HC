@@ -101,7 +101,7 @@ const Shell: React.FC = () => {
   }, [menuOpen]);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--surface)' }}>
+    <div className="hc-shell">
       <Sidebar collapsed={collapsed} mobileOpen={menuOpen} onMobileClose={() => setMenuOpen(false)} />
 
       {/* Drawer backdrop. Below 1024px only; the sidebar is in the flow above that. */}
@@ -136,7 +136,7 @@ const Shell: React.FC = () => {
             </button>
           </div>
         )}
-        <main style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <main className="hc-main">
           <Outlet />
         </main>
       </div>

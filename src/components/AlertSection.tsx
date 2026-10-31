@@ -209,7 +209,7 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
         animation: 'fadeIn 150ms ease',
       }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{
           background: '#ffffff',
@@ -398,7 +398,7 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
   const hasMore = rows.length > MAX_VISIBLE;
 
   return (
-    <div style={{
+    <div className="surface-depth" style={{
       background: '#ffffff',
       borderRadius: 16,
       border: '1px solid var(--border-subtle)',

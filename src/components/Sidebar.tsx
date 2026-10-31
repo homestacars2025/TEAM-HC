@@ -193,7 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
     <aside
       data-open={mobileOpen}
       className={clsx(
-        'hc-sidebar fixed inset-y-0 start-0 z-[500] flex h-dvh w-72 max-w-[85vw] flex-col overflow-hidden',
+        'hc-sidebar fixed inset-y-0 start-0 z-[500] flex w-72 max-w-[85vw] flex-col overflow-hidden',
         'border-e border-[var(--border-subtle)] bg-[var(--surface)]',
         'lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:max-w-none lg:shrink-0 lg:transition-[width] lg:duration-200 lg:ease-out',
         rail ? 'lg:w-[68px]' : 'lg:w-64',
@@ -231,7 +231,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-2">
         {loading && (
           <div aria-hidden className="flex flex-col gap-2 p-1">
             {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-8 animate-pulse rounded-lg bg-black/[0.04]" />)}
@@ -276,7 +276,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
       </nav>
 
       {canSwitch && (
-        <div className="shrink-0 border-t border-[var(--border-subtle)] p-2">
+        <div className="hc-sidebar-foot shrink-0 border-t border-[var(--border-subtle)] px-2 pt-2">
           <LanguagePill compact={rail} />
         </div>
       )}

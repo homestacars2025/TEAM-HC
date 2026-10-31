@@ -34,6 +34,19 @@ describe('surfaces', () => {
     expect(read('pages/FinesPage.tsx')).toContain('.fine-row td { border-bottom: 1px solid var(--border-subtle); }');
   });
 
+  test('depth is defined once, with the light on the reading side', () => {
+    const css = read('index.css');
+    expect(css.match(/^\.surface-depth \{/gm)).toHaveLength(1);
+    expect(css).toContain('html[dir="rtl"] { --depth-from: 85% 0%; }');
+  });
+
+  test('the phone frame follows the visible height and the safe areas', () => {
+    const css = read('index.css');
+    expect(css).toContain('height: 100dvh;');
+    expect(css).toContain('.hc-sidebar-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }');
+    expect(fs.readFileSync(path.join(SRC, '..', 'public', 'index.html'), 'utf8')).toContain('viewport-fit=cover');
+  });
+
   test('the sidebar border sits on the inner edge, so it flips in RTL', () => {
     expect(read('components/Sidebar.tsx')).toContain('border-e border-[var(--border-subtle)] bg-[var(--surface)]');
   });

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -384,7 +385,7 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, animation: 'fadeIn 150ms ease',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 600,
         maxHeight: '92vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
@@ -710,7 +711,7 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, animation: 'fadeIn 150ms ease',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 600,
         maxHeight: '92vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
@@ -892,7 +893,7 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, animation: 'fadeIn 150ms ease',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 540,
         maxHeight: '90vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
@@ -1074,7 +1075,7 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, animation: 'fadeIn 150ms ease',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 440,
         boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
         animation: 'slideUp 180ms ease',
@@ -1180,7 +1181,7 @@ const DeleteModal: React.FC<{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, animation: 'fadeIn 150ms ease',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 400,
         boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
         animation: 'slideUp 180ms ease', padding: '26px',
@@ -1378,9 +1379,8 @@ const FinesPage: React.FC = () => {
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 28 }}>
         {/* Total Fines */}
-        <div style={{
-          background: '#fff', borderRadius: 14, padding: '20px 22px',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
+        <div className="surface-depth" style={{
+          background: '#fff', borderRadius: 14, padding: '20px 22px', border: '1px solid var(--border-subtle)',
           position: 'relative', overflow: 'hidden',
           transition: 'transform 180ms ease, box-shadow 180ms ease',
         }}
@@ -1414,9 +1414,8 @@ const FinesPage: React.FC = () => {
         </div>
 
         {/* Total Unpaid */}
-        <div style={{
-          background: '#fff', borderRadius: 14, padding: '20px 22px',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
+        <div className="surface-depth" style={{
+          background: '#fff', borderRadius: 14, padding: '20px 22px', border: '1px solid var(--border-subtle)',
           position: 'relative', overflow: 'hidden',
           transition: 'transform 180ms ease, box-shadow 180ms ease',
         }}
@@ -1450,9 +1449,8 @@ const FinesPage: React.FC = () => {
       </div>
 
       {/* Toolbar */}
-      <div style={{
-        background: '#fff', borderRadius: 14, padding: '16px 18px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
+      <div className="surface-depth" style={{
+        background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border-subtle)',
         marginBottom: 16,
         display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
       }}>
@@ -1479,19 +1477,29 @@ const FinesPage: React.FC = () => {
         </div>
 
         {/* Status filter */}
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value as FilterStatus)}
-          style={{
-            height: 38, padding: '0 12px', fontSize: 13, color: '#374151',
-            background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 9,
-            outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
-          }}
-        >
-          <option value="all">{t('status.all')}</option>
-          <option value="paid">{t('status.paid')}</option>
-          <option value="unpaid">{t('status.unpaid')}</option>
-        </select>
+        <FilterBar
+          fields={[{
+            key: 'status',
+            label: tc('filterBar.status'),
+            activeLabel: filterStatus === 'all' ? null : t(`status.${filterStatus}`),
+            onClear: () => setFilterStatus('all'),
+            control: (
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value as FilterStatus)}
+              style={{
+                height: 38, padding: '0 12px', fontSize: 13, color: '#374151',
+                background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 9,
+                outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              <option value="all">{t('status.all')}</option>
+              <option value="paid">{t('status.paid')}</option>
+              <option value="unpaid">{t('status.unpaid')}</option>
+            </select>
+            ),
+          }]}
+        />
 
         <div style={{ flex: 1 }} />
 
@@ -1508,9 +1516,8 @@ const FinesPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div style={{
-        background: '#fff', borderRadius: 14, overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
+      <div className="surface-depth" style={{
+        background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border-subtle)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>

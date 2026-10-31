@@ -148,5 +148,8 @@
       "receiptTooLarge": "That file is too large. A PDF can be up to 10 MB.",
       "receiptUnreadable": "This image can't be read. Try a JPEG or PNG."
     }
+  },
+  "tile": {
+    "current": "Current balance"
   }
 }

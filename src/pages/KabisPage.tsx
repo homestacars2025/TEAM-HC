@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import StaffAvatar from '../components/StaffAvatar';
 import type { StaffAvatarProfile } from '../lib/staffAvatar';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
 const StatCard: React.FC<{
   label: string; value: number; bg: string; loading: boolean; hint?: string;
 }> = ({ label, value, bg, loading, hint }) => (
-  <div style={{
+  <div className="surface-depth" style={{
     background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
     display: 'flex', flexDirection: 'column', gap: 6,
   }}>
@@ -231,7 +232,7 @@ const ConfirmModal: React.FC<{
         padding: 20, animation: 'kbFade 150ms ease',
       }}
     >
-      <div style={{
+      <div className="surface-depth surface-float" style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 440,
         boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'kbSlideUp 180ms ease',
       }}>
@@ -484,11 +485,10 @@ const KabisPage: React.FC = () => {
       </div>
 
       {/* ── Filters ── */}
-      <div style={{
+      <div className="surface-depth" style={{
         background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
         padding: '12px 14px', marginBottom: 16,
         display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}>
         <div style={{ flex: '1 1 240px', minWidth: 0 }}>
           <input
@@ -502,28 +502,47 @@ const KabisPage: React.FC = () => {
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as 'all' | KabisStatus)}
-          style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
-          onFocus={onFocus} onBlur={onBlur}
-        >
-          <option value="all">{t('status.all')}</option>
-          <option value="pending">{t('status.pending')}</option>
-          <option value="checked_in">{t('status.checked_in')}</option>
-          <option value="checked_out">{t('status.checked_out')}</option>
-        </select>
-
-        <select
-          value={actionFilter}
-          onChange={e => setActionFilter(e.target.value as 'all' | KabisAction)}
-          style={{ ...INPUT_STYLE, width: 'auto', minWidth: 130, cursor: 'pointer', flex: '0 1 auto' }}
-          onFocus={onFocus} onBlur={onBlur}
-        >
-          <option value="all">{t('action.all')}</option>
-          <option value="delivery">{t('action.delivery')}</option>
-          <option value="pickup">{t('action.pickup')}</option>
-        </select>
+        <FilterBar
+          fields={[
+            {
+              key: 'status',
+              label: tc('filterBar.status'),
+              activeLabel: statusFilter === 'all' ? null : t(`status.${statusFilter}`),
+              onClear: () => setStatusFilter('all'),
+              control: (
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as 'all' | KabisStatus)}
+                style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
+                onFocus={onFocus} onBlur={onBlur}
+              >
+                <option value="all">{t('status.all')}</option>
+                <option value="pending">{t('status.pending')}</option>
+                <option value="checked_in">{t('status.checked_in')}</option>
+                <option value="checked_out">{t('status.checked_out')}</option>
+              </select>
+              ),
+            },
+            {
+              key: 'action',
+              label: tc('filterBar.type'),
+              activeLabel: actionFilter === 'all' ? null : t(`action.${actionFilter}`),
+              onClear: () => setActionFilter('all'),
+              control: (
+              <select
+                value={actionFilter}
+                onChange={e => setActionFilter(e.target.value as 'all' | KabisAction)}
+                style={{ ...INPUT_STYLE, width: 'auto', minWidth: 130, cursor: 'pointer', flex: '0 1 auto' }}
+                onFocus={onFocus} onBlur={onBlur}
+              >
+                <option value="all">{t('action.all')}</option>
+                <option value="delivery">{t('action.delivery')}</option>
+                <option value="pickup">{t('action.pickup')}</option>
+              </select>
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* ── Highlight banner ── */}
@@ -564,14 +583,14 @@ const KabisPage: React.FC = () => {
           </Button>
         </div>
       ) : loading ? (
-        <div style={{
+        <div className="surface-depth" style={{
           background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14,
         }}>
           {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{
+        <div className="surface-depth" style={{
           background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center',
         }}>
@@ -590,9 +609,9 @@ const KabisPage: React.FC = () => {
             {t('showing', { shown: filtered.length, count: entries.length })}
           </div>
 
-          <div style={{
+          <div className="surface-depth" style={{
             background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
-            overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            overflow: 'hidden',
           }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>

@@ -37,7 +37,7 @@ export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, 
         ? t('colorMode.accentTitle', { dimension: t(`colorMode.${colorMode}`), label: accent.label })
         : undefined}
       className={cn(
-        'group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5',
+        'surface-depth group/idea relative flex flex-col gap-3.5 rounded-2xl border border-black/[0.07] bg-white p-5',
         // `bg-clip-padding` keeps the white surface from bleeding under the rail.
         'border-s-[3px] bg-clip-padding',
         'transition-all duration-200 hover:-translate-y-0.5 hover:border-black/[0.1] hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.16)]',

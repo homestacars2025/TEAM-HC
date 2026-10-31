@@ -184,7 +184,7 @@ const GoalsPanel: React.FC<GoalsPanelProps> = ({ onPresence, onSettled }) => {
   const score = metrics ? performanceScore(metrics) : null;
 
   return (
-    <section className="flex flex-col rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
+    <section className="surface-depth flex flex-col rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t(isCurrent ? 'title' : 'titlePast')}</h2>
         <div className="flex items-center gap-0.5">

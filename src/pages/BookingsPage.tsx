@@ -14,6 +14,7 @@ import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -166,7 +167,7 @@ const STATUS_CONFIG: Record<BookingStatus, { color: string; bg: string }> = {
 const StatCard: React.FC<{ label: string; value: number; bg: string; loading: boolean }> = ({
   label, value, bg, loading,
 }) => (
-  <div style={{
+  <div className="surface-depth" style={{
     background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
     display: 'flex', flexDirection: 'column', gap: 6,
   }}>
@@ -1517,7 +1518,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         animation: 'fadeIn 150ms ease',
       }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth: 720,
@@ -2255,7 +2256,7 @@ const ExtendBookingModal: React.FC<{
         padding: '24px 16px', overflowY: 'auto', animation: 'fadeIn 150ms ease',
       }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth: 460,
@@ -2908,7 +2909,7 @@ const ReplacementFormModal: React.FC<{
         animation: 'fadeIn 150ms ease',
       }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth: 640,
@@ -3436,12 +3437,11 @@ const BookingsPage: React.FC = () => {
         </div>
 
         {/* ── Search + filter bar ── */}
-        <div style={{
+        <div className="surface-depth" style={{
           background: '#fff', borderRadius: 14,
           border: '1px solid var(--border-subtle)', padding: '12px 14px',
           marginBottom: 16,
           display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
           <div style={{ flex: '1 1 220px', position: 'relative', minWidth: 0 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -3466,19 +3466,29 @@ const BookingsPage: React.FC = () => {
             />
           </div>
 
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as BookingStatus | '')}
-            style={{ height: 40, padding: '0 12px', fontSize: 13, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, outline: 'none', fontFamily: 'inherit', cursor: 'pointer', minWidth: 136 }}
-            onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
-            onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#f0f0f0'; }}
-          >
-            <option value="">{t('filters.allStatuses')}</option>
-            <option value="confirmed">{t('status.confirmed')}</option>
-            <option value="pending">{t('status.pending')}</option>
-            <option value="cancelled">{t('status.cancelled')}</option>
-            <option value="completed">{t('status.completed')}</option>
-          </select>
+          <FilterBar
+            fields={[{
+              key: 'status',
+              label: tc('filterBar.status'),
+              activeLabel: statusFilter ? t(`status.${statusFilter}`) : null,
+              onClear: () => setStatusFilter(''),
+              control: (
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as BookingStatus | '')}
+                  style={{ height: 40, padding: '0 12px', fontSize: 13, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, outline: 'none', fontFamily: 'inherit', cursor: 'pointer', minWidth: 136 }}
+                  onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
+                  onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#f0f0f0'; }}
+                >
+                  <option value="">{t('filters.allStatuses')}</option>
+                  <option value="confirmed">{t('status.confirmed')}</option>
+                  <option value="pending">{t('status.pending')}</option>
+                  <option value="cancelled">{t('status.cancelled')}</option>
+                  <option value="completed">{t('status.completed')}</option>
+                </select>
+              ),
+            }]}
+          />
 
           <button
             onClick={handleExport}
@@ -3504,7 +3514,7 @@ const BookingsPage: React.FC = () => {
         )}
 
         {/* ── Table ── */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div className="surface-depth" style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
               <thead>
@@ -3589,9 +3599,9 @@ const BookingsPage: React.FC = () => {
         </div>
 
         {/* ── Replacement sheets ── */}
-        <div style={{
+        <div className="surface-depth" style={{
           background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
-          marginTop: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          marginTop: 20, overflow: 'hidden',
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,

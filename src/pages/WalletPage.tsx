@@ -10,6 +10,7 @@ import { PeriodToggle, ReceiptThumb, SummaryCard, selectClass, type Period } fro
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, formatDateDisplay, useDateLocale } from './AccountingPage';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 /**
  * The signed-in person's salary and bonuses, read-only: entries are written from
@@ -136,18 +137,38 @@ const WalletPage: React.FC = () => {
         <SummaryCard label={t(`paid.${period}`)} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.paid)}</bdi>} />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
+      <section className="surface-depth overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
         <header className="flex flex-col gap-3 border-b border-[var(--border-subtle)] p-4 md:flex-row md:items-center md:justify-between md:px-5">
           <h2 className="text-[15px] font-semibold text-[#0f1117]">{t('movements')}</h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
-            <select aria-label={t('filters.month')} value={month} onChange={e => setMonth(e.target.value)} className={selectClass}>
-              <option value="all">{t('filters.allMonths')}</option>
-              {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
-            </select>
-            <select aria-label={t('filters.type')} value={type} onChange={e => setType(e.target.value as 'all' | EntryType)} className={selectClass}>
-              <option value="all">{t('filters.allTypes')}</option>
-              {ENTRY_TYPES.map(option => <option key={option} value={option}>{t(`type.${option}`)}</option>)}
-            </select>
+            <FilterBar
+              fields={[
+                {
+                  key: 'month',
+                  label: t('filters.month'),
+                  activeLabel: month === 'all' ? null : monthLabel(month),
+                  onClear: () => setMonth('all'),
+                  control: (
+                    <select aria-label={t('filters.month')} value={month} onChange={e => setMonth(e.target.value)} className={selectClass}>
+                      <option value="all">{t('filters.allMonths')}</option>
+                      {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+                    </select>
+                  ),
+                },
+                {
+                  key: 'type',
+                  label: t('filters.type'),
+                  activeLabel: type === 'all' ? null : t(`type.${type}`),
+                  onClear: () => setType('all'),
+                  control: (
+                    <select aria-label={t('filters.type')} value={type} onChange={e => setType(e.target.value as 'all' | EntryType)} className={selectClass}>
+                      <option value="all">{t('filters.allTypes')}</option>
+                      {ENTRY_TYPES.map(option => <option key={option} value={option}>{t(`type.${option}`)}</option>)}
+                    </select>
+                  ),
+                },
+              ]}
+            />
           </div>
         </header>
 

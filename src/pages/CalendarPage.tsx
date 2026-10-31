@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
   const flipLeft = x + 260 > window.innerWidth;
   const kind = blockTypeToKind(entry.block_type);
   return (
-    <div style={{
+    <div className="surface-depth surface-float" style={{
       position: 'fixed',
       left: flipLeft ? x - 248 : x + 14,
       top: y - 16,
@@ -282,7 +283,7 @@ const BlockPopup: React.FC<{
   };
 
   return (
-    <div
+    <div className="surface-depth surface-float"
       onClick={e => e.stopPropagation()}
       style={{
         position: 'fixed',
@@ -545,7 +546,7 @@ const ActionMenu: React.FC<{
   ];
 
   return (
-    <div style={{
+    <div className="surface-depth surface-float" style={{
       position: 'fixed',
       left, top,
       zIndex: 9999,
@@ -915,7 +916,7 @@ const CalendarPage: React.FC = () => {
       </div>
 
       {/* ── Controls bar ─────────────────────────────────────────────────── */}
-      <div style={{
+      <div className="hc-cal-bar" style={{
         height: 56,
         flexShrink: 0,
         borderTop: `1px solid ${BORDER_SOFT}`,
@@ -928,7 +929,7 @@ const CalendarPage: React.FC = () => {
       }}>
 
         {/* Center: month nav */}
-        <div style={{
+        <div className="hc-cal-month" style={{
           position: 'absolute',
           left: '50%',
           transform: 'translateX(-50%)',
@@ -1004,7 +1005,7 @@ const CalendarPage: React.FC = () => {
         </div>
 
         {/* Right: search + filter */}
-        <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="hc-cal-tools" style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
 
           {/* Search pill */}
           <div style={{ position: 'relative' }}>
@@ -1033,21 +1034,31 @@ const CalendarPage: React.FC = () => {
           </div>
 
           {/* Filter pill */}
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as CalendarStatus | 'all')}
-            style={{
-              height: 38, paddingInlineStart: 16, paddingInlineEnd: 34,
-              borderRadius: 24, border: 'none',
-              background: '#f7f7f7', fontSize: 13.5, color: TEXT_DARK,
-              cursor: 'pointer', outline: 'none', fontFamily: FONT,
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aaaaaa' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' fill='none'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
-            }}
-          >
-            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
-          </select>
+          <FilterBar
+            fields={[{
+              key: 'status',
+              label: t('common:filterBar.status'),
+              activeLabel: statusFilter === 'all' ? null : t(STATUS_OPTIONS.find(o => o.value === statusFilter)?.labelKey ?? ''),
+              onClear: () => setStatusFilter('all'),
+              control: (
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as CalendarStatus | 'all')}
+                  style={{
+                    height: 38, paddingInlineStart: 16, paddingInlineEnd: 34,
+                    borderRadius: 24, border: 'none',
+                    background: '#f7f7f7', fontSize: 13.5, color: TEXT_DARK,
+                    cursor: 'pointer', outline: 'none', fontFamily: FONT,
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aaaaaa' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' fill='none'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+                  }}
+                >
+                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
+                </select>
+              ),
+            }]}
+          />
         </div>
       </div>
 

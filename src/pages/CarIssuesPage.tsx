@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import Button from '../components/Button';
+import FilterBar from '../components/FilterBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -232,7 +233,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 const StatCard: React.FC<{ label: string; value: number; bg: string; loading: boolean }> = ({
   label, value, bg, loading,
 }) => (
-  <div style={{
+  <div className="surface-depth" style={{
     background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
     display: 'flex', flexDirection: 'column', gap: 6,
   }}>
@@ -318,7 +319,7 @@ const ModalShell: React.FC<{
         animation: 'ciFadeIn 150ms ease',
       }}
     >
-      <div
+      <div className="surface-depth surface-float"
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth,
@@ -946,7 +947,7 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
   const status = asStatus(issue.status);
 
   return (
-    <button
+    <button className="surface-depth"
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -955,7 +956,7 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
         textAlign: 'start', width: '100%', padding: 0,
         background: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 14,
         cursor: 'pointer', fontFamily: 'inherit', overflow: 'hidden',
-        boxShadow: hover ? '0 8px 24px rgba(0,0,0,0.09)' : '0 1px 3px rgba(0,0,0,0.04)',
+        boxShadow: hover ? '0 8px 24px rgba(0,0,0,0.09)' : undefined,
         transform: hover ? 'translateY(-2px)' : 'translateY(0)',
         transition: 'box-shadow 160ms ease, transform 160ms ease',
       }}
@@ -1173,11 +1174,10 @@ const CarIssuesPage: React.FC = () => {
       </div>
 
       {/* ── Filters ── */}
-      <div style={{
+      <div className="surface-depth" style={{
         background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
         padding: '12px 14px', marginBottom: 18,
         display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}>
         <div style={{ flex: '1 1 220px', position: 'relative', minWidth: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -1195,26 +1195,45 @@ const CarIssuesPage: React.FC = () => {
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as 'all' | IssueStatus)}
-          style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
-          onFocus={focusBlue} onBlur={blurGray}
-        >
-          <option value="all">{t('filters.allStatuses')}</option>
-          <option value="open">{t('status.open')}</option>
-          <option value="resolved">{t('status.resolved')}</option>
-        </select>
-
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value as 'all' | IssueType)}
-          style={{ ...INPUT_STYLE, width: 'auto', minWidth: 150, cursor: 'pointer', flex: '0 1 auto' }}
-          onFocus={focusBlue} onBlur={blurGray}
-        >
-          <option value="all">{t('filters.allTypes')}</option>
-          {TYPE_ORDER.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
-        </select>
+        <FilterBar
+          fields={[
+            {
+              key: 'status',
+              label: tc('filterBar.status'),
+              activeLabel: statusFilter === 'all' ? null : t(`status.${statusFilter}`),
+              onClear: () => setStatusFilter('all'),
+              control: (
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as 'all' | IssueStatus)}
+                style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
+                onFocus={focusBlue} onBlur={blurGray}
+              >
+                <option value="all">{t('filters.allStatuses')}</option>
+                <option value="open">{t('status.open')}</option>
+                <option value="resolved">{t('status.resolved')}</option>
+              </select>
+              ),
+            },
+            {
+              key: 'type',
+              label: tc('filterBar.type'),
+              activeLabel: typeFilter === 'all' ? null : t(`types.${typeFilter}`),
+              onClear: () => setTypeFilter('all'),
+              control: (
+              <select
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value as 'all' | IssueType)}
+                style={{ ...INPUT_STYLE, width: 'auto', minWidth: 150, cursor: 'pointer', flex: '0 1 auto' }}
+                onFocus={focusBlue} onBlur={blurGray}
+              >
+                <option value="all">{t('filters.allTypes')}</option>
+                {TYPE_ORDER.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
+              </select>
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* ── Body ── */}
@@ -1227,14 +1246,14 @@ const CarIssuesPage: React.FC = () => {
           <GhostButton onClick={fetchIssues}>{tc('actions.tryAgain')}</GhostButton>
         </div>
       ) : loading ? (
-        <div style={{
+        <div className="surface-depth" style={{
           background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14,
         }}>
           {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{
+        <div className="surface-depth" style={{
           background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center',
         }}>

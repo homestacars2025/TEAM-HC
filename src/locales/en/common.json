@@ -76,5 +76,13 @@
     "select": "Select country",
     "search": "Search countries…",
     "empty": "No country found."
+  },
+  "filterBar": {
+    "open": "Filter",
+    "openActive": "Filter, {{count}} active",
+    "apply": "Apply",
+    "remove": "Remove {{label}}",
+    "status": "Status",
+    "type": "Type"
   }
 }

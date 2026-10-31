@@ -90,7 +90,7 @@ export function PostsMonthView({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setDraggingId(null)}
     >
-      <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
+      <div className="surface-depth overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
         <div className="grid grid-cols-7 border-b border-[var(--border-subtle)] bg-[var(--surface)]">
           {d.weekdaysShort.map((name, i) => (
             <div

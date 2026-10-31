@@ -9,7 +9,8 @@ import {
   custodyBalance, custodyTotals, deleteCustodyExpense, getMyCustodyMovements, withRunningCustody,
   type CustodyMovement, type CustodyMovementWithBalance,
 } from '../lib/queries/custody';
-import { ReceiptThumb, PeriodToggle, SummaryCard, selectClass, type Period } from '../components/WalletParts';
+import { ReceiptThumb, PeriodToggle, selectClass, type Period } from '../components/WalletParts';
+import FilterBar from '../components/FilterBar';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, categoryLabel, formatDateDisplay, useDateLocale } from './AccountingPage';
 import Button from '../components/Button';
@@ -47,6 +48,38 @@ const Amount: React.FC<{ movement: CustodyMovementWithBalance }> = ({ movement }
 
 const Running: React.FC<{ value: number }> = ({ value }) => (
   <bdi dir="ltr" className="hc-num text-gray-600">{value < 0 ? '−' : ''}{formatTRY(value)}</bdi>
+);
+
+type TileTone = 'balance' | 'received' | 'spent' | 'negative';
+
+const TILE_ICONS: Record<TileTone, React.ReactNode> = {
+  balance: <><rect x="3" y="6" width="18" height="13" rx="3" stroke="currentColor" strokeWidth="2" /><path d="M16 12.5h2M3 10h13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
+  received: <path d="M12 4v13M6.5 11.5L12 17l5.5-5.5M5 20h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />,
+  spent: <path d="M12 20V7M6.5 12.5L12 7l5.5 5.5M5 4h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />,
+  negative: <path d="M12 7.5v6M12 17h.01M10.3 3.9L2.6 17.2A2 2 0 004.3 20h15.4a2 2 0 001.7-2.8L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
+};
+
+interface CustodyTileProps {
+  tone: TileTone;
+  label: string;
+  /** `null` while loading. */
+  value: string | null;
+  sub: string;
+}
+
+const CustodyTile: React.FC<CustodyTileProps> = ({ tone, label, value, sub }) => (
+  <div className={`hc-tile hc-tile-${tone} surface-depth`}>
+    <span aria-hidden="true" className="hc-tile-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">{TILE_ICONS[tone]}</svg>
+    </span>
+    <div className="hc-tile-label">{label}</div>
+    <div className="hc-tile-bottom">
+      <div className="hc-tile-value" style={{ '--chars': (value ?? '—').length } as React.CSSProperties}>
+        <bdi dir="ltr">{value ?? '—'}</bdi>
+      </div>
+      <div className="hc-tile-sub">{sub}</div>
+    </div>
+  </div>
 );
 
 const PlusIcon: React.FC<{ size: number }> = ({ size }) => (
@@ -234,7 +267,7 @@ const CustodyPage: React.FC = () => {
   const loading = rows === null;
 
   return (
-    <div className="flex flex-col gap-6 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-10">
+    <div className="hc-fab-page flex flex-col gap-6 p-4 sm:p-6 lg:p-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-[#0f1117] sm:text-[28px]">{t('title')}</h1>
@@ -242,45 +275,82 @@ const CustodyPage: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <PeriodToggle value={period} onChange={setPeriod} monthLabel={t('period.month')} allLabel={t('period.all')} />
-          <Button disabled={loading} onClick={() => setAdding(true)}>
+          <Button disabled={loading} onClick={() => setAdding(true)} className="max-sm:!hidden">
             <PlusIcon size={16} />
             {t('expense.add')}
           </Button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <SummaryCard
+      <div className="hc-tiles">
+        <CustodyTile
+          tone={balance < 0 ? 'negative' : 'balance'}
           label={t('balance')}
-          valueClass={balance < 0 ? COLOR_OUT : undefined}
-          value={loading ? '—' : <bdi dir="ltr">{balance < 0 ? '−' : ''}{formatTRY(balance)}</bdi>}
+          value={loading ? null : `${balance < 0 ? '−' : ''}${formatTRY(balance)}`}
+          sub={t('tile.current')}
         />
-        <SummaryCard label={t('received')} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.received)}</bdi>} />
-        <SummaryCard label={t('spent')} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.spent)}</bdi>} />
+        <CustodyTile tone="received" label={t('received')} value={loading ? null : formatTRY(totals.received)} sub={t(`period.${period}`)} />
+        <CustodyTile tone="spent" label={t('spent')} value={loading ? null : formatTRY(totals.spent)} sub={t(`period.${period}`)} />
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
+      <section className="surface-depth overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
         <header className="flex flex-col gap-3 border-b border-[var(--border-subtle)] p-4 md:flex-row md:items-center md:justify-between md:px-5">
           <h2 className="text-[15px] font-semibold text-[#0f1117]">{t('movements')}</h2>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
-            <select aria-label={t('filters.month')} value={month} onChange={e => setMonth(e.target.value)} className={selectClass}>
-              <option value="all">{t('filters.allMonths')}</option>
-              {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
-            </select>
-            <select aria-label={t('filters.direction')} value={direction} onChange={e => setDirection(e.target.value as DirectionFilter)} className={selectClass}>
-              <option value="all">{t('filters.allDirections')}</option>
-              <option value="IN">{t('direction.IN')}</option>
-              <option value="OUT">{t('direction.OUT')}</option>
-            </select>
-            <select aria-label={t('filters.category')} value={category} onChange={e => setCategory(e.target.value)} className={selectClass}>
-              <option value="all">{t('filters.allCategories')}</option>
-              {categories.map(c => <option key={c} value={c}>{labelFor(c)}</option>)}
-            </select>
-            <select aria-label={t('filters.target')} value={target} onChange={e => setTarget(e.target.value)} className={selectClass}>
-              <option value="all">{t('filters.allTargets')}</option>
-              <option value="company">{t('company')}</option>
-              {targets.map(car => <option key={car.id} value={String(car.id)}>{formatPlate(car.plate)}</option>)}
-            </select>
+            <FilterBar
+              fields={[
+                {
+                  key: 'month',
+                  label: t('filters.month'),
+                  activeLabel: month === 'all' ? null : monthLabel(month),
+                  onClear: () => setMonth('all'),
+                  control: (
+                    <select aria-label={t('filters.month')} value={month} onChange={e => setMonth(e.target.value)} className={selectClass}>
+                      <option value="all">{t('filters.allMonths')}</option>
+                      {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+                    </select>
+                  ),
+                },
+                {
+                  key: 'direction',
+                  label: t('filters.direction'),
+                  activeLabel: direction === 'all' ? null : t(`direction.${direction}`),
+                  onClear: () => setDirection('all'),
+                  control: (
+                    <select aria-label={t('filters.direction')} value={direction} onChange={e => setDirection(e.target.value as DirectionFilter)} className={selectClass}>
+                      <option value="all">{t('filters.allDirections')}</option>
+                      <option value="IN">{t('direction.IN')}</option>
+                      <option value="OUT">{t('direction.OUT')}</option>
+                    </select>
+                  ),
+                },
+                {
+                  key: 'category',
+                  label: t('filters.category'),
+                  activeLabel: category === 'all' ? null : labelFor(category),
+                  onClear: () => setCategory('all'),
+                  control: (
+                    <select aria-label={t('filters.category')} value={category} onChange={e => setCategory(e.target.value)} className={selectClass}>
+                      <option value="all">{t('filters.allCategories')}</option>
+                      {categories.map(c => <option key={c} value={c}>{labelFor(c)}</option>)}
+                    </select>
+                  ),
+                },
+                {
+                  key: 'target',
+                  label: t('filters.target'),
+                  activeLabel: target === 'all' ? null : target === 'company' ? t('company') : formatPlate(targets.find(car => String(car.id) === target)?.plate ?? ''),
+                  onClear: () => setTarget('all'),
+                  control: (
+                    <select aria-label={t('filters.target')} value={target} onChange={e => setTarget(e.target.value)} className={selectClass}>
+                      <option value="all">{t('filters.allTargets')}</option>
+                      <option value="company">{t('company')}</option>
+                      {targets.map(car => <option key={car.id} value={String(car.id)}>{formatPlate(car.plate)}</option>)}
+                    </select>
+                  ),
+                },
+              ]}
+            />
           </div>
         </header>
 
@@ -349,7 +419,7 @@ const CustodyPage: React.FC = () => {
       </section>
 
       {!loading && (
-        <Button onClick={() => setAdding(true)} aria-label={t('expense.add')} className="hc-fab lg:!hidden">
+        <Button onClick={() => setAdding(true)} aria-label={t('expense.add')} className="hc-fab sm:!hidden">
           <PlusIcon size={24} />
         </Button>
       )}
@@ -373,7 +443,7 @@ const CustodyPage: React.FC = () => {
       )}
 
       {toast && ReactDOM.createPortal(
-        <div role={toast.failed ? 'alert' : 'status'} className={`hc-toast-in fixed inset-x-3 bottom-[92px] z-[9400] mx-auto max-w-sm rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white shadow-lg lg:bottom-6 ${toast.failed ? 'bg-red-600' : 'bg-[#0f1117]'}`}>
+        <div role={toast.failed ? 'alert' : 'status'} className={`hc-toast-in fixed inset-x-3 bottom-[calc(84px+env(safe-area-inset-bottom))] z-[9400] mx-auto max-w-sm rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white shadow-lg sm:bottom-6 ${toast.failed ? 'bg-red-600' : 'bg-[#0f1117]'}`}>
           {toast.text}
         </div>,
         document.body,

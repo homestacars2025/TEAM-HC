@@ -251,7 +251,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
         backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
         justifyContent: 'center', padding: 20,
       }}>
-        <div onClick={e => e.stopPropagation()} style={{
+        <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
           background: '#fff', borderRadius: 18, width: '100%', maxWidth,
           maxHeight: '92vh', display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 80px rgba(0,0,0,0.2)',
@@ -658,7 +658,7 @@ const CW_STYLES = `
 
 /* ── Stat cards ── */
 .cw-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
-.cw-stat { background:var(--cw-card); border:1px solid var(--cw-border); border-radius:20px; padding:20px 22px; box-shadow:var(--cw-shadow); }
+.cw-stat { background:var(--cw-card); border:1px solid var(--cw-border); border-radius:20px; padding:20px 22px;  }
 .cw-stat-label { font-size:11px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--cw-muted); }
 .cw-stat-value { margin-top:8px; font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1.1; }
 .cw-stat-hint { margin-top:4px; font-size:12.5px; color:var(--cw-muted); }
@@ -687,7 +687,7 @@ const CW_STYLES = `
 .cw-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; }
 .cw-tile {
   appearance:none; border:1px solid var(--cw-border); text-align:left; font-family:inherit; color:inherit; cursor:pointer;
-  background:var(--cw-card); border-radius:20px; box-shadow:var(--cw-shadow); padding:18px;
+  background:var(--cw-card); border-radius:20px; padding:18px;
   display:flex; flex-direction:column; gap:12px;
   transition:box-shadow 160ms ease, transform 160ms ease;
 }
@@ -1094,7 +1094,7 @@ const CarTile: React.FC<{
   return (
   <button
     type="button"
-    className="cw-tile"
+    className="cw-tile surface-depth"
     onClick={e => onOpen(e.currentTarget)}
     aria-label={`${car.plate} — open customers and transactions`}
   >
@@ -1484,17 +1484,17 @@ const CustomerWalletsPage: React.FC = () => {
 
       {/* Summary */}
       <div className="cw-stats">
-        <div className="cw-stat">
+        <div className="cw-stat surface-depth">
           <div className="cw-stat-label">{t('owedToUs')}</div>
           <div className="cw-stat-value cw-num cw-neg">{formatMoney(totals.owed, currency)}</div>
           <div className="cw-stat-hint">{t('balanceCount', { count: totals.debtors })}</div>
         </div>
-        <div className="cw-stat">
+        <div className="cw-stat surface-depth">
           <div className="cw-stat-label">{t('inCredit')}</div>
           <div className="cw-stat-value cw-num cw-pos">{formatMoney(totals.credit, currency)}</div>
           <div className="cw-stat-hint">{t('balanceCount', { count: totals.inCredit })}</div>
         </div>
-        <div className="cw-stat">
+        <div className="cw-stat surface-depth">
           <div className="cw-stat-label">{t('netPosition')}</div>
           <div className={`cw-stat-value cw-num ${toneClass(totals.net)}`}>{formatSigned(totals.net, currency)}</div>
           <div className="cw-stat-hint">{t('carCount', { count: filtered.length })}</div>

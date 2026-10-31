@@ -189,7 +189,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         role="dialog"
         aria-modal="true"
         aria-label={t('search.title')}
-        className="flex max-h-[calc(100dvh-24px)] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:max-h-[66vh]"
+        className="surface-depth surface-float flex max-h-[calc(100dvh-24px)] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:max-h-[66vh]"
       >
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] px-4">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0 text-gray-400" aria-hidden="true">

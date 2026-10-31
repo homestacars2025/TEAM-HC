@@ -85,7 +85,7 @@ const GoalSheet: React.FC<GoalSheetProps> = ({ metric, gaps, onClose }) => {
         role="dialog"
         aria-modal="true"
         aria-label={text.label}
-        className="hc-sheet absolute inset-y-0 end-0 flex w-full flex-col bg-[var(--surface)] shadow-[0_0_60px_rgba(0,0,0,0.18)] sm:w-[440px]"
+        className="hc-sheet surface-depth surface-float absolute inset-y-0 end-0 flex w-full flex-col bg-[var(--surface)] shadow-[0_0_60px_rgba(0,0,0,0.18)] sm:w-[440px]"
       >
         <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5">
           <h2 className="truncate text-[15px] font-semibold text-[#0f1117]">{text.label}</h2>

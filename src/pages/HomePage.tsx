@@ -65,7 +65,7 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, color, art, eager, value, sub, valueClass, action }) => (
-  <article className={`hc-stat hc-art-${art} rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)]`}>
+  <article className={`hc-stat hc-art-${art} surface-depth rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)]`}>
     <div className="flex items-center gap-2 [grid-column:1/-1]">
       <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
       <h2 className="text-[13px] font-medium leading-snug text-gray-600">{title}</h2>
@@ -92,7 +92,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, color, art, eager, value, su
 );
 
 const Section: React.FC<{ title: string; action?: React.ReactNode; art?: HomeArtName; children: React.ReactNode }> = ({ title, action, art, children }) => (
-  <section className="overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)]">
+  <section className="surface-depth overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)]">
     <header className={`relative flex items-center justify-between gap-3 overflow-hidden border-b border-[var(--border-subtle)] ps-5 ${art ? 'min-h-[88px] pe-[127px]' : 'min-h-14 pe-5'}`}>
       <h2 className="text-[15px] font-semibold text-[#0f1117]">{title}</h2>
       {action}

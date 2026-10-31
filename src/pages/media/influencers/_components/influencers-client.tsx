@@ -17,6 +17,7 @@ import { MediaEmptyState } from '../../_components/media-empty-state';
 import { updateInfluencerStatus } from '../../_actions';
 import { InfluencerFormSheet } from './influencer-form-sheet';
 import { StatusSelect } from './status-select';
+import FilterBar from '../../../../components/FilterBar';
 
 const ANY = '_any';
 
@@ -122,30 +123,58 @@ export function InfluencersClient({ influencers: initial }: { influencers: Media
             />
           </div>
 
-          <FilterSelect
-            value={typeFilter}
-            onChange={setTypeFilter}
-            options={INFLUENCER_TYPES.map((ty) => ({ value: ty.value, label: t(`influencerType.${ty.value}`) }))}
-            allLabel={t('influencers.allTypes')}
-            ariaLabel={t('influencers.filterTypeAria')}
-          />
-          <FilterSelect
-            value={countryFilter}
-            onChange={setCountryFilter}
-            options={countryOptions.map((c) => ({ value: c, label: countryName(c) }))}
-            allLabel={t('influencers.allCountries')}
-            ariaLabel={t('influencers.filterCountryAria')}
-          />
-          <FilterSelect
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={MESSAGING_STATUSES.map((m) => ({ value: m.value, label: t(`messagingStatus.${m.value}`) }))}
-            allLabel={t('influencers.allStatuses')}
-            ariaLabel={t('influencers.filterStatusAria')}
+          <FilterBar
+            fields={[
+            {
+              key: 'type',
+              label: t('influencers.filterTypeAria'),
+              activeLabel: typeFilter === ANY ? null : t(`influencerType.${typeFilter}`),
+              onClear: () => setTypeFilter(ANY),
+              control: (
+                <FilterSelect
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  options={INFLUENCER_TYPES.map((ty) => ({ value: ty.value, label: t(`influencerType.${ty.value}`) }))}
+                  allLabel={t('influencers.allTypes')}
+                  ariaLabel={t('influencers.filterTypeAria')}
+                />
+              ),
+            },
+            {
+              key: 'country',
+              label: t('influencers.filterCountryAria'),
+              activeLabel: countryFilter === ANY ? null : countryName(countryFilter),
+              onClear: () => setCountryFilter(ANY),
+              control: (
+                <FilterSelect
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                  options={countryOptions.map((c) => ({ value: c, label: countryName(c) }))}
+                  allLabel={t('influencers.allCountries')}
+                  ariaLabel={t('influencers.filterCountryAria')}
+                />
+              ),
+            },
+            {
+              key: 'status',
+              label: t('influencers.filterStatusAria'),
+              activeLabel: statusFilter === ANY ? null : t(`messagingStatus.${statusFilter}`),
+              onClear: () => setStatusFilter(ANY),
+              control: (
+                <FilterSelect
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  options={MESSAGING_STATUSES.map((m) => ({ value: m.value, label: t(`messagingStatus.${m.value}`) }))}
+                  allLabel={t('influencers.allStatuses')}
+                  ariaLabel={t('influencers.filterStatusAria')}
+                />
+              ),
+            },
+            ]}
           />
 
           {isFiltered && (
-            <Button variant="ghost" size="sm" className="text-black/50" onClick={clearFilters}>
+            <Button variant="ghost" size="sm" className="text-black/50 max-sm:hidden" onClick={clearFilters}>
               {tc('actions.clear')}
             </Button>
           )}
@@ -180,7 +209,7 @@ export function InfluencersClient({ influencers: initial }: { influencers: Media
           />
         )
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
+        <div className="surface-depth overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1080px] border-collapse text-start">
               <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm">

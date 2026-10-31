@@ -17,7 +17,7 @@ export function MediaEmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-4 rounded-2xl',
+        'surface-depth flex flex-col items-center justify-center gap-4 rounded-2xl',
         'border border-dashed border-black/[0.09] bg-[var(--surface)] px-6 py-16 text-center',
         className,
       )}

@@ -89,7 +89,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, now, leaving = false, highlig
       <div className="min-h-0 overflow-hidden p-px">
         <article
           data-task={task.id}
-          className={`hc-task-card relative flex gap-3 overflow-hidden rounded-[16px] border bg-[var(--surface)] p-4 ${highlighted ? 'border-[var(--accent)]' : 'border-[var(--border-subtle)]'} ${isMissed ? 'opacity-60' : ''}`}
+          className={`hc-task-card surface-depth relative flex gap-3 overflow-hidden rounded-[16px] border bg-[var(--surface)] p-4 ${highlighted ? 'border-[var(--accent)]' : 'border-[var(--border-subtle)]'} ${isMissed ? 'opacity-60' : ''}`}
         >
           {stripe && <span data-priority={task.priority} className={`absolute inset-y-0 start-0 w-1 ${stripe}`} />}
 

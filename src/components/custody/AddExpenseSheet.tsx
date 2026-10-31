@@ -226,7 +226,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
         noValidate
         onSubmit={submit}
         onKeyDown={onKeyDown}
-        className="hc-expense-sheet"
+        className="hc-expense-sheet surface-depth surface-float"
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-3">
           <h2 id={labels.title} className="text-[17px] font-semibold text-[#0f1117]">{t('expense.title')}</h2>

@@ -61,7 +61,7 @@ const TaskProofSheet: React.FC<TaskProofSheetProps> = ({ task, onCancel, onConfi
       className="fixed inset-0 z-[9000] flex items-end justify-center bg-[rgba(15,17,23,0.45)] sm:items-center sm:p-4"
       onMouseDown={e => { if (e.target === e.currentTarget && !saving) onCancel(); }}
     >
-      <div role="dialog" aria-modal="true" aria-label={t('proof.title')} className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:rounded-2xl sm:p-6">
+      <div role="dialog" aria-modal="true" aria-label={t('proof.title')} className="surface-depth surface-float flex max-h-[92dvh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:rounded-2xl sm:p-6">
         <span aria-hidden className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-gray-200 sm:hidden" />
         <h2 className="text-[17px] font-semibold text-[#0f1117]">{t('proof.title')}</h2>
         <p className="mt-0.5 text-sm text-gray-500">{task.title}</p>

@@ -191,7 +191,7 @@ const FormModal: React.FC<FormModalProps> = ({ mode, initial, onClose, onSaved, 
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24, animation: 'fadeIn 150ms ease',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="surface-depth surface-float" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 18, width: '100%', maxWidth: 560,
         maxHeight: '90vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
@@ -646,7 +646,7 @@ const ModelGroupsPage: React.FC = () => {
 
       {/* Row list — grouped by category */}
       {loading && (
-        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div className="surface-depth" style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
         </div>
       )}
@@ -684,12 +684,11 @@ const ModelGroupsPage: React.FC = () => {
               <div style={{ flex: 1, height: 1, background: '#ebebeb' }} />
             </div>
             {/* Rows container */}
-            <div style={{
+            <div className="surface-depth" style={{
               background: '#fff',
               borderRadius: 16,
               border: '1px solid #f0f0f0',
               overflow: 'hidden',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             }}>
               {section.map((group, idx) => (
                 <div key={group.id} style={{ borderBottom: idx < section.length - 1 ? '1px solid #f5f5f5' : 'none' }}>

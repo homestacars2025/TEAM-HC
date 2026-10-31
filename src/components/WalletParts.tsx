@@ -9,7 +9,7 @@ export const selectClass =
   'h-11 min-w-0 cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[#0f1117] outline-none focus:border-[var(--accent)] sm:h-10';
 
 export const SummaryCard: React.FC<{ label: string; value: React.ReactNode; hint?: string; valueClass?: string }> = ({ label, value, hint, valueClass }) => (
-  <div className="min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5">
+  <div className="surface-depth min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5">
     <div className="text-[13px] font-medium text-gray-600">{label}</div>
     <div className={`mt-2 truncate text-[26px] font-semibold leading-tight sm:text-[28px] ${valueClass ?? 'text-[#0f1117]'}`}>{value}</div>
     {hint && <div className="mt-1 text-xs text-gray-500">{hint}</div>}
