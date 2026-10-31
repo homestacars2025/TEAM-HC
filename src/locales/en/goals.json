@@ -18,13 +18,12 @@
     "past": "All your indicators were green in {{month}} 🎉"
   },
   "hint": {
-    "generic": "{{label}} is below target",
     "delivery_docs_one": "{{count}} delivery missing {{item}}",
     "delivery_docs_other": "{{count}} deliveries missing {{item}}",
     "pickup_docs_one": "{{count}} pickup missing {{item}}",
     "pickup_docs_other": "{{count}} pickups missing {{item}}",
-    "custody_receipts_one": "{{count}} custody expense with no receipt",
-    "custody_receipts_other": "{{count}} custody expenses with no receipt"
+    "custody_receipts_one": "{{count}} expense with no receipt",
+    "custody_receipts_other": "{{count}} expenses with no receipt"
   },
   "gaps": {
     "title": "What's missing",
@@ -57,5 +56,9 @@
       "rear_seats": "Rear seats",
       "trunk": "Trunk"
     }
+  },
+  "score": "My performance",
+  "statusShort": {
+    "progress": "Ongoing"
   }
 }

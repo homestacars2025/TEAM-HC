@@ -241,6 +241,17 @@ html[dir="rtl"] .hc-flip-path {
   100% { opacity: 0; transform: translateY(90px) rotate(320deg); }
 }
 
+/* The tip of a ring on its second lap appears once the lap has reached it. */
+.hc-ring-tip {
+  opacity: 0;
+  animation: hc-ring-tip 200ms ease-out forwards;
+  filter: drop-shadow(0 0 3px rgba(15, 17, 23, 0.45));
+}
+
+@keyframes hc-ring-tip {
+  to { opacity: 1; }
+}
+
 /* Marking a task done: the circle fills, the check draws, the card folds away. */
 .hc-task-fold {
   display: grid;
@@ -333,6 +344,7 @@ html[dir="rtl"] .hc-flip-path {
   .hc-task-circle[data-done="true"] .hc-task-tick, .hc-badge-bounce, .hc-toast-in { animation: none; }
   .hc-task-card:hover { transform: none; }
   .hc-ring-fill { transition: none; }
+  .hc-ring-tip { animation: none; opacity: 1; }
   .hc-sheet { animation: none; }
   .hc-confetti { display: none; }
 }

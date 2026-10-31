@@ -3,7 +3,7 @@ import path from 'path';
 import i18n from '../i18n';
 import { gapLink } from '../components/goals/GoalSheet';
 import {
-  allGreen, firstOfMonth, formatGoalValue, redHints, ringFraction, shiftMonth,
+  allGreen, firstOfMonth, formatGoalProgress, formatGoalValue, gapHints, performanceScore, ringFraction, ringLaps, shiftMonth,
   type GoalGap, type GoalMetric,
 } from './queries/goals';
 
@@ -52,29 +52,78 @@ describe('the celebration', () => {
   });
 });
 
-describe('the red hint', () => {
+describe('the second lap', () => {
+  test('work beyond the target keeps going, as in 61 of 50', () => {
+    expect(ringLaps(metric({ kind: 'count', numerator: 61, target: 50 }))).toBeCloseTo(1.22);
+  });
+
+  test('a percentage over its target laps too', () => {
+    expect(ringLaps(metric({ value: 100, target: 80 }))).toBe(1.25);
+  });
+
+  test('stops at two laps, and is zero with nothing to measure', () => {
+    expect(ringLaps(metric({ kind: 'count', numerator: 500, target: 50 }))).toBe(2);
+    expect(ringLaps(metric({ value: null, status: 'none' }))).toBe(0);
+    expect(ringLaps(metric({ target: 0 }))).toBe(0);
+  });
+});
+
+describe('the overall score', () => {
+  test('averages the ratios, each capped at 100%', () => {
+    expect(performanceScore([
+      metric({ kind: 'count', numerator: 61, target: 50, status: 'green' }),
+      metric({ value: 50, target: 100, status: 'red' }),
+    ])).toBe(75);
+  });
+
+  test('a metric with no data sits out instead of counting as zero', () => {
+    expect(performanceScore([
+      metric({ value: 80, target: 100, status: 'red' }),
+      metric({ value: null, status: 'none' }),
+    ])).toBe(80);
+  });
+
+  test('nothing measurable means no score, not 0%', () => {
+    expect(performanceScore([metric({ value: null, status: 'none' })])).toBeNull();
+    expect(performanceScore([])).toBeNull();
+  });
+});
+
+describe('legend values', () => {
+  test('a count reads against its target, a percentage against its total', () => {
+    expect(formatGoalProgress(metric({ kind: 'count', numerator: 61, target: 50 }))).toBe('61 / 50');
+    expect(formatGoalProgress(metric({ numerator: 4, denominator: 16, value: 25 }))).toBe('4 / 16 (25%)');
+    expect(formatGoalProgress(metric({ value: null, status: 'none' }))).toBe('—');
+  });
+});
+
+describe('the hint line', () => {
   const gaps = [
     gap({ ref_id: 1, missing: ['customer_card', 'air_freshener'] }),
     gap({ ref_id: 2, missing: ['customer_card'] }),
     gap({ ref_id: 3, missing: ['customer_card', 'tutanak'] }),
-    gap({ ref_id: 4, metric_key: 'pickup_docs', missing: ['km'] }),
+    gap({ ref_id: 4, metric_key: 'custody_receipts', ref_type: 'custody', missing: ['receipt'] }),
   ];
+  const delivery = metric({});
+  const custody = metric({ metric_key: 'custody_receipts', status: 'amber' });
 
-  test('names what is missing most often, within that metric only', () => {
-    expect(redHints([metric({})], gaps)).toEqual([{ metricKey: 'delivery_docs', count: 3, item: 'customer_card' }]);
+  test('names what is missing most often, per metric, whatever its status', () => {
+    expect(gapHints([delivery, custody], gaps)).toEqual([
+      { metricKey: 'delivery_docs', count: 3, item: 'customer_card' },
+      { metricKey: 'custody_receipts', count: 1, item: 'receipt' },
+    ]);
   });
 
-  test('only red metrics get one', () => {
-    expect(redHints([metric({ status: 'amber' }), metric({ status: 'green' })], gaps)).toEqual([]);
-  });
-
-  test('a red metric with no list still gets a line, with no item to name', () => {
-    expect(redHints([metric({})], [])).toEqual([{ metricKey: 'delivery_docs', count: 0, item: null }]);
+  test('says nothing when nothing is missing', () => {
+    expect(gapHints([delivery, custody], [])).toEqual([]);
   });
 
   test('reads like the brief in Arabic', () => {
     const t = i18n.getFixedT('ar', 'goals');
-    expect(t('hint.delivery_docs', { count: 3, item: 'كرت العميل' })).toBe('3 تسليمات ناقصها كرت العميل');
+    expect(t('hint.delivery_docs', { count: 12, item: 'كرت العميل' })).toBe('12 تسليماً ناقصها كرت العميل');
+    expect(t('hint.custody_receipts', { count: 1 })).toBe('مصروف بلا إيصال');
+    expect(t('score')).toBe('أدائي');
+    expect(t('statusShort.progress')).toBe('جارٍ');
   });
 });
 
@@ -119,7 +168,7 @@ describe('both languages', () => {
   });
 
   test('every key the goals components ask for exists', () => {
-    const files = ['GoalRing', 'GoalSheet', 'GoalsPanel'].map(f => read(`components/goals/${f}.tsx`)).join('\n');
+    const files = ['GoalRing', 'GoalSheet', 'GoalsPanel', 'ActivityRings'].map(f => read(`components/goals/${f}.tsx`)).join('\n');
     const keys = Array.from(files.matchAll(/[^\w.]t\('([^']+)'/g)).map(m => m[1]).filter(k => !k.startsWith('hint.'));
     for (const lng of ['en', 'ar']) {
       expect(keys.filter(k => !i18n.exists(`goals:${k}`, { lng, fallbackLng: [] }))).toEqual([]);
@@ -127,17 +176,17 @@ describe('both languages', () => {
   });
 });
 
-test('performance lives on Home, not on Tasks', () => {
-  expect(read('pages/HomePage.tsx')).toContain('<GoalsPanel />');
-  expect(read('pages/TasksPage.tsx')).not.toMatch(/goals\/|GoalsPanel/);
-  // Directly under the greeting, above the stat cards.
+test('performance lives on Home, beside the cards, not on Tasks', () => {
   const home = read('pages/HomePage.tsx');
-  expect(home.indexOf('<GoalsPanel />')).toBeGreaterThan(home.indexOf('</header>'));
-  expect(home.indexOf('<GoalsPanel />')).toBeLessThan(home.indexOf('<StatCard\n'));
+  expect(home).toContain('<GoalsPanel onPresence={setShowsPerformance} />');
+  expect(read('pages/TasksPage.tsx')).not.toMatch(/goals\/|GoalsPanel/);
+  // First in the card grid, then the two cards it sits beside.
+  expect(home.indexOf('<GoalsPanel')).toBeLessThan(home.indexOf('<StatCard\n'));
+  expect(home.indexOf("title={t('cards.custody.title')}")).toBeLessThan(home.indexOf("title={t('cards.operations.title')}"));
 });
 
 test('goals are read through the RPCs only', () => {
   const source = read('lib/queries/goals.ts');
-  expect(source).not.toContain('.from(');
+  expect(source).not.toMatch(/\.from\('/);
   expect(source).not.toContain('p_profile');
 });

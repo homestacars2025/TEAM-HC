@@ -27,6 +27,15 @@ const LIST_LIMIT = 5;
  */
 const FIVE_CARDS = 'xl:grid-cols-6 xl:[&>*]:col-span-2 xl:[&>*:nth-last-child(-n+2)]:col-span-3 sm:max-xl:[&>*:last-child]:col-span-2';
 
+/**
+ * With performance in the grid it takes the first two columns and two rows, so the
+ * cards fill a 2×2 beside it. Any card left over takes the rest of the width below.
+ */
+const LEFTOVER_CARD: Record<number, string> = {
+  3: 'sm:max-xl:[&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-2',
+  5: 'sm:max-xl:[&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-4',
+};
+
 const ArrowIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path className="hc-flip-path" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
@@ -66,13 +75,13 @@ const StatCard: React.FC<StatCardProps> = ({ title, color, tint, icon, value, su
 
     <div className="flex items-center gap-2 pe-16">
       <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
-      <h2 className="truncate text-[13px] font-medium text-gray-600">{title}</h2>
+      <h2 className="text-[13px] font-medium leading-snug text-gray-600">{title}</h2>
     </div>
 
     <div className={`mt-3 truncate text-[28px] font-semibold leading-tight text-[#0f1117] ${valueClass ?? ''}`}>
       {value ?? <Bone className="h-8 w-20" />}
     </div>
-    <div className="mt-1 min-h-5 truncate text-[13px] text-gray-500">{sub}</div>
+    <div className="mt-1 min-h-5 text-[13px] leading-snug text-gray-500">{sub}</div>
 
     <div className="mt-auto flex justify-end pt-2">{action}</div>
   </article>
@@ -196,6 +205,7 @@ const HomePage: React.FC = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[] | null>(null);
   const [scheduleFailed, setScheduleFailed] = useState(false);
   const [scheduleAttempt, setScheduleAttempt] = useState(0);
+  const [showsPerformance, setShowsPerformance] = useState(false);
 
   const today = useMemo(() => istanbulDate(), []);
   const canOpenOperations = canAccessPage('operations');
@@ -275,9 +285,9 @@ const HomePage: React.FC = () => {
         </p>
       </header>
 
-      <GoalsPanel />
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${showsPerformance ? `xl:grid-cols-4 ${LEFTOVER_CARD[cardCount] ?? ''}` : cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
+        <GoalsPanel onPresence={setShowsPerformance} />
 
-      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
         {canAccessPage('tasks') && (
           <StatCard
             title={t('cards.tasks.title')}
@@ -289,6 +299,21 @@ const HomePage: React.FC = () => {
               ? <span className="font-medium text-red-600">{t('cards.tasks.overdue', { count: counts.overdue })}</span>
               : t('cards.tasks.noOverdue'))}
             action={<Link to="/dashboard/tasks" aria-label={t('cards.open', { title: t('cards.tasks.title') })} className={arrowClass}><ArrowIcon /></Link>}
+          />
+        )}
+
+        {canOpenCustody && (
+          <StatCard
+            title={t('cards.custody.title')}
+            color="#0d9488"
+            tint="rgba(20,184,166,0.10)"
+            icon={pageIcons.custody}
+            valueClass={heldInCustody !== null && heldInCustody < 0 ? '!text-red-600' : undefined}
+            value={custodyFailed ? '—' : heldInCustody === null ? null : (
+              <bdi dir="ltr">{heldInCustody < 0 ? '−' : ''}{formatTRY(heldInCustody)}</bdi>
+            )}
+            sub={custodyFailed ? t('cards.unavailable') : custody && t('cards.custody.received', { amount: formatTRY(custodyTotals(custody, thisMonth).received) })}
+            action={<Link to="/dashboard/custody" aria-label={t('cards.open', { title: t('cards.custody.title') })} className={arrowClass}><ArrowIcon /></Link>}
           />
         )}
 
@@ -316,21 +341,6 @@ const HomePage: React.FC = () => {
             )}
             sub={walletFailed ? t('cards.unavailable') : wallet && t('cards.wallet.earned', { amount: formatTRY(walletTotals(wallet, thisMonth).earned) })}
             action={<Link to="/dashboard/wallet" aria-label={t('cards.open', { title: t('cards.wallet.title') })} className={arrowClass}><ArrowIcon /></Link>}
-          />
-        )}
-
-        {canOpenCustody && (
-          <StatCard
-            title={t('cards.custody.title')}
-            color="#0d9488"
-            tint="rgba(20,184,166,0.10)"
-            icon={pageIcons.custody}
-            valueClass={heldInCustody !== null && heldInCustody < 0 ? '!text-red-600' : undefined}
-            value={custodyFailed ? '—' : heldInCustody === null ? null : (
-              <bdi dir="ltr">{heldInCustody < 0 ? '−' : ''}{formatTRY(heldInCustody)}</bdi>
-            )}
-            sub={custodyFailed ? t('cards.unavailable') : custody && t('cards.custody.received', { amount: formatTRY(custodyTotals(custody, thisMonth).received) })}
-            action={<Link to="/dashboard/custody" aria-label={t('cards.open', { title: t('cards.custody.title') })} className={arrowClass}><ArrowIcon /></Link>}
           />
         )}
 

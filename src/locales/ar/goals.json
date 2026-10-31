@@ -18,7 +18,6 @@
     "past": "كانت كل مؤشراتك خضراء في {{month}} 🎉"
   },
   "hint": {
-    "generic": "{{label}} دون الهدف",
     "delivery_docs_zero": "لا تسليمات ناقصها {{item}}",
     "delivery_docs_one": "تسليم واحد ناقصه {{item}}",
     "delivery_docs_two": "تسليمان ناقصهما {{item}}",
@@ -32,11 +31,11 @@
     "pickup_docs_many": "{{count}} استلاماً ناقصها {{item}}",
     "pickup_docs_other": "{{count}} استلام ناقصها {{item}}",
     "custody_receipts_zero": "لا مصاريف بلا إيصال",
-    "custody_receipts_one": "مصروف واحد من الوديعة بلا إيصال",
-    "custody_receipts_two": "مصروفان من الوديعة بلا إيصال",
-    "custody_receipts_few": "{{count}} مصاريف من الوديعة بلا إيصال",
-    "custody_receipts_many": "{{count}} مصروفاً من الوديعة بلا إيصال",
-    "custody_receipts_other": "{{count}} مصروف من الوديعة بلا إيصال"
+    "custody_receipts_one": "مصروف بلا إيصال",
+    "custody_receipts_two": "مصروفان بلا إيصال",
+    "custody_receipts_few": "{{count}} مصاريف بلا إيصال",
+    "custody_receipts_many": "{{count}} مصروفاً بلا إيصال",
+    "custody_receipts_other": "{{count}} مصروف بلا إيصال"
   },
   "gaps": {
     "title": "ما الناقص",
@@ -69,5 +68,9 @@
       "rear_seats": "المقاعد الخلفية",
       "trunk": "صندوق السيارة"
     }
+  },
+  "score": "أدائي",
+  "statusShort": {
+    "progress": "جارٍ"
   }
 }

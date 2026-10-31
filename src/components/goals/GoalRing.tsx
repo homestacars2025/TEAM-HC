@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../lib/LanguageContext';
 import { formatGoalValue, ringFraction, type GoalMetric, type GoalStatus } from '../../lib/queries/goals';
 
@@ -69,35 +68,3 @@ export const RingArc: React.FC<{ metric: GoalMetric; size: number }> = ({ metric
     </div>
   );
 };
-
-interface GoalRingProps {
-  metric: GoalMetric;
-  size: number;
-  onOpen: (metric: GoalMetric) => void;
-}
-
-const GoalRing: React.FC<GoalRingProps> = ({ metric, size, onOpen }) => {
-  const { t } = useTranslation('goals');
-  const text = useMetricText()(metric);
-
-  const sub = metric.kind === 'percent'
-    ? `${metric.numerator ?? 0} / ${metric.denominator ?? 0}`
-    : t('target', { target: metric.target });
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(metric)}
-      aria-label={`${text.label}: ${formatGoalValue(metric)}. ${t(`status.${metric.status}`)}`}
-      className="flex min-w-0 cursor-pointer flex-col items-center rounded-2xl p-2 transition-colors hover:bg-black/[0.03]"
-    >
-      <RingArc metric={metric} size={size} />
-      <span className="mt-2 block max-w-full text-center text-[13px] font-medium leading-snug text-gray-700">
-        {text.label}
-      </span>
-      <bdi dir="ltr" className="mt-0.5 block text-xs text-gray-500">{sub}</bdi>
-    </button>
-  );
-};
-
-export default GoalRing;

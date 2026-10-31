@@ -37,7 +37,7 @@ export interface GoalHint {
   metricKey: string;
   /** How many records share the most common missing item. */
   count: number;
-  item: string | null;
+  item: string;
 }
 
 export async function getGoalProgress(month: string): Promise<GoalMetric[]> {
@@ -68,21 +68,45 @@ export function formatGoalValue(metric: Pick<GoalMetric, 'kind' | 'numerator' | 
 export const allGreen = (metrics: GoalMetric[]): boolean =>
   metrics.length > 0 && metrics.every(m => m.status === 'green');
 
-/** One line per red metric, naming whatever is missing most often. */
-export function redHints(metrics: GoalMetric[], gaps: GoalGap[]): GoalHint[] {
-  return metrics.filter(m => m.status === 'red').map(metric => {
+/** Goes past 1 for work beyond the target, which draws as a second lap. Stops at 2. */
+export function ringLaps(metric: Pick<GoalMetric, 'kind' | 'numerator' | 'value' | 'target'>): number {
+  const reached = metric.kind === 'count' ? metric.numerator : metric.value;
+  if (reached == null || !(metric.target > 0)) return 0;
+  return Math.min(Math.max(reached / metric.target, 0), 2);
+}
+
+/**
+ * The average of the ratios, each capped at 100%. A metric with nothing to measure
+ * has no ratio, so it sits out: nobody should lose a quarter of their score for
+ * having no custody expenses this month. `null` when nothing can be measured.
+ */
+export function performanceScore(metrics: GoalMetric[]): number | null {
+  const measured = metrics.filter(m => m.status !== 'none');
+  if (measured.length === 0) return null;
+  const total = measured.reduce((sum, m) => sum + ringFraction(m), 0);
+  return Math.round((total / measured.length) * 100);
+}
+
+/** "61 / 50" for a count, "4 / 16 (25%)" for a percentage. */
+export function formatGoalProgress(metric: GoalMetric): string {
+  if (metric.kind === 'count') return `${metric.numerator ?? 0} / ${metric.target}`;
+  if (metric.status === 'none' || metric.value == null) return '—';
+  return `${metric.numerator ?? 0} / ${metric.denominator ?? 0} (${formatGoalValue(metric)})`;
+}
+
+/** One entry per metric with gaps, naming whatever is missing most often. */
+export function gapHints(metrics: GoalMetric[], gaps: GoalGap[]): GoalHint[] {
+  const hints: GoalHint[] = [];
+  for (const metric of metrics) {
     const tally = new Map<string, number>();
     for (const gap of gaps) {
       if (gap.metric_key !== metric.metric_key) continue;
       for (const item of gap.missing) tally.set(item, (tally.get(item) ?? 0) + 1);
     }
-    let item: string | null = null;
-    let count = 0;
-    tally.forEach((seen, key) => {
-      if (seen > count) { item = key; count = seen; }
-    });
-    return { metricKey: metric.metric_key, count, item };
-  });
+    const top = Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0];
+    if (top) hints.push({ metricKey: metric.metric_key, item: top[0], count: top[1] });
+  }
+  return hints;
 }
 
 // ─── Months ───────────────────────────────────────────────────────────────────

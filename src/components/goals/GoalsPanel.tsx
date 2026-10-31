@@ -3,17 +3,20 @@ import { useTranslation } from 'react-i18next';
 import { useGoals } from '../../hooks/useGoals';
 import { istanbulDate } from '../../lib/istanbulTime';
 import {
-  GOAL_MONTHS_BACK, allGreen, firstOfMonth, redHints, shiftMonth,
-  type GoalHint, type GoalMetric,
+  GOAL_MONTHS_BACK, allGreen, firstOfMonth, formatGoalProgress, gapHints, performanceScore, shiftMonth,
+  type GoalHint, type GoalMetric, type GoalStatus,
 } from '../../lib/queries/goals';
 import { useDateLocale } from '../../pages/AccountingPage';
 import Confetti from '../Confetti';
-import GoalRing, { useMetricText } from './GoalRing';
+import ActivityRings, { ringColor } from './ActivityRings';
+import { useMetricText } from './GoalRing';
 import GoalSheet, { useMissingLabel } from './GoalSheet';
 
 const CONFETTI_KEY = 'hc_goal_confetti';
 
-/** Once per session: seeing it on every visit to Tasks would stop meaning anything. */
+const VALUE_CLASS: Partial<Record<GoalStatus, string>> = { red: 'text-red-600', amber: 'text-amber-600' };
+
+/** Once per session: seeing it on every visit would stop meaning anything. */
 function claimConfetti(): boolean {
   try {
     if (sessionStorage.getItem(CONFETTI_KEY)) return false;
@@ -40,30 +43,70 @@ const Celebration: React.FC<{ current: boolean; monthLabel: string }> = ({ curre
   );
 };
 
-const RedHint: React.FC<{ hint: GoalHint; metric: GoalMetric; onOpen: (metric: GoalMetric) => void }> = ({ hint, metric, onOpen }) => {
+const StatusMark: React.FC<{ status: GoalStatus }> = ({ status }) => {
   const { t } = useTranslation('goals');
-  const missingLabel = useMissingLabel();
-  const { label } = useMetricText()(metric);
+  const label = t(`status.${status}`);
 
-  const message = hint.item
-    ? t(`hint.${hint.metricKey}`, {
-      count: hint.count,
-      item: missingLabel(hint.item).toLocaleLowerCase('en'),
-      defaultValue: t('hint.generic', { label }),
-    })
-    : t('hint.generic', { label });
+  if (status === 'green') {
+    return (
+      <span title={label} className="flex size-[22px] items-center justify-center rounded-full bg-green-100 text-green-700">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'amber' || status === 'red') {
+    return (
+      <span title={label} className={`flex size-[22px] items-center justify-center rounded-full text-[13px] font-bold ${status === 'red' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>!</span>
+    );
+  }
+  if (status === 'progress') {
+    return <span title={label} className="text-xs font-semibold text-[var(--accent-strong)]">{t('statusShort.progress')}</span>;
+  }
+  return <span title={label} className="text-sm text-gray-400">—</span>;
+};
+
+const LegendRow: React.FC<{ metric: GoalMetric; onOpen: (metric: GoalMetric) => void }> = ({ metric, onOpen }) => {
+  const { t } = useTranslation('goals');
+  const { label } = useMetricText()(metric);
+  const progress = formatGoalProgress(metric);
 
   return (
     <button
       type="button"
       onClick={() => onOpen(metric)}
-      className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-start text-sm font-medium text-red-700 transition-colors hover:border-red-200"
+      aria-label={`${label}: ${progress}. ${t(`status.${metric.status}`)}`}
+      className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-start transition-colors hover:bg-black/[0.03]"
     >
-      <span className="min-w-0">{message}</span>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden="true">
-        <path className="hc-flip-path" d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+      <span className="size-2.5 shrink-0 rounded-full" style={{ background: ringColor(metric.metric_key) }} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12.5px] font-medium leading-tight text-gray-600">{label}</span>
+        {/* Inline, so the digits read left to right but the line still starts under the name. */}
+        <span className={`block text-[15px] font-semibold leading-snug ${VALUE_CLASS[metric.status] ?? 'text-[#0f1117]'}`}>
+          <bdi dir="ltr">{progress}</bdi>
+        </span>
+      </span>
+      <span className="shrink-0"><StatusMark status={metric.status} /></span>
     </button>
+  );
+};
+
+const HintLine: React.FC<{ hints: GoalHint[]; onOpen: (metricKey: string) => void }> = ({ hints, onOpen }) => {
+  const { t } = useTranslation('goals');
+  const missingLabel = useMissingLabel();
+
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-xl bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">
+      {hints.map((hint, index) => (
+        <React.Fragment key={hint.metricKey}>
+          {index > 0 && <span aria-hidden className="text-red-300">·</span>}
+          <button type="button" onClick={() => onOpen(hint.metricKey)} className="min-h-7 cursor-pointer text-start hover:underline">
+            {t(`hint.${hint.metricKey}`, { count: hint.count, item: missingLabel(hint.item).toLocaleLowerCase('en'), defaultValue: missingLabel(hint.item) })}
+          </button>
+        </React.Fragment>
+      ))}
+    </p>
   );
 };
 
@@ -81,7 +124,16 @@ const MonthButton: React.FC<{ label: string; disabled: boolean; onClick: () => v
   </button>
 );
 
-const GoalsPanel: React.FC = () => {
+const Skeleton: React.FC = () => (
+  <div aria-busy className="mt-4 flex flex-col items-center gap-6 sm:flex-row">
+    <div className="size-[188px] shrink-0 animate-pulse rounded-full bg-black/[0.05] sm:size-[236px]" />
+    <div className="flex w-full flex-col gap-3">
+      {[0, 1, 2, 3].map(i => <div key={i} className="h-10 animate-pulse rounded-lg bg-black/[0.05]" />)}
+    </div>
+  </div>
+);
+
+const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPresence }) => {
   const { t } = useTranslation('goals');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
@@ -94,25 +146,32 @@ const GoalsPanel: React.FC = () => {
 
   const isCurrent = month === currentMonth;
   const monthLabel = new Date(`${month}T00:00:00`).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
-  const hints = useMemo(() => (metrics ? redHints(metrics, gaps ?? []) : []), [metrics, gaps]);
+  const hints = useMemo(() => (metrics ? gapHints(metrics, gaps ?? []) : []), [metrics, gaps]);
+  const ordered = useMemo(() => (metrics ? [...metrics].sort((a, b) => a.sort_order - b.sort_order) : []), [metrics]);
   const openMetric = metrics?.find(m => m.metric_key === openKey) ?? null;
   const closeSheet = useCallback(() => setOpenKey(null), []);
+  const openByMetric = useCallback((metric: GoalMetric) => setOpenKey(metric.metric_key), []);
 
-  // This sits right under the greeting, so someone with no goals must not see a
-  // placeholder appear and vanish: nothing shows until there is a ring to show.
-  // Once there has been one, the section stays, so a month with no goals keeps the
-  // switcher that leads back.
+  // Someone with no goals must not see a placeholder appear and vanish, so nothing
+  // shows until there is a ring to show. Once there has been one, the card stays, so
+  // a month with no goals keeps the switcher that leads back.
   const hasGoals = useRef(false);
   if (metrics && metrics.length > 0) hasGoals.current = true;
-  if (!hasGoals.current && !failed) return null;
+  const shown = hasGoals.current || failed;
+
+  useEffect(() => { onPresence(shown); }, [shown, onPresence]);
+
+  if (!shown) return null;
+
+  const everythingGreen = !!metrics && allGreen(metrics);
 
   return (
-    <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:p-5">
+    <section className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t(isCurrent ? 'title' : 'titlePast')}</h2>
         <div className="flex items-center gap-1">
           <MonthButton label={t('previousMonth')} disabled={month <= oldestMonth} onClick={() => setMonth(m => shiftMonth(m, -1))} path="M15 18l-6-6 6-6" />
-          <span className="min-w-[116px] text-center text-[13px] font-semibold text-gray-700">{monthLabel}</span>
+          <span className="min-w-[110px] text-center text-[13px] font-semibold text-gray-700">{monthLabel}</span>
           <MonthButton label={t('nextMonth')} disabled={isCurrent} onClick={() => setMonth(m => shiftMonth(m, 1))} path="M9 18l6-6-6-6" />
         </div>
       </header>
@@ -125,34 +184,21 @@ const GoalsPanel: React.FC = () => {
           </button>
         </div>
       ) : !metrics ? (
-        <div aria-busy className="mt-4 grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:justify-around">
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} className="flex flex-col items-center gap-2 p-2">
-              <div className="size-[104px] animate-pulse rounded-full bg-black/[0.05]" />
-              <div className="h-4 w-20 animate-pulse rounded bg-black/[0.05]" />
-            </div>
-          ))}
-        </div>
+        <Skeleton />
       ) : metrics.length === 0 ? (
         <p className="py-8 text-center text-[13px] text-gray-500">{t('emptyMonth')}</p>
       ) : (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-3 sm:flex sm:flex-wrap sm:justify-around">
-            {metrics.map(metric => (
-              <GoalRing key={metric.metric_key} metric={metric} size={104} onOpen={m => setOpenKey(m.metric_key)} />
-            ))}
+          <div className="mt-3 flex flex-1 flex-col items-center gap-5 sm:flex-row sm:gap-6">
+            {/* Keyed so that changing month sweeps the rings in again. */}
+            <ActivityRings key={month} metrics={ordered} score={performanceScore(ordered)} allGreen={everythingGreen} />
+            <div className="flex w-full min-w-0 flex-col gap-0.5">
+              {ordered.map(metric => <LegendRow key={metric.metric_key} metric={metric} onOpen={openByMetric} />)}
+            </div>
           </div>
 
-          {allGreen(metrics) && <Celebration current={isCurrent} monthLabel={monthLabel} />}
-
-          {hints.length > 0 && (
-            <div className="mt-4 flex flex-col gap-2">
-              {hints.map(hint => {
-                const metric = metrics.find(m => m.metric_key === hint.metricKey);
-                return metric && <RedHint key={hint.metricKey} hint={hint} metric={metric} onOpen={m => setOpenKey(m.metric_key)} />;
-              })}
-            </div>
-          )}
+          {hints.length > 0 && <HintLine hints={hints} onOpen={setOpenKey} />}
+          {everythingGreen && <Celebration current={isCurrent} monthLabel={monthLabel} />}
         </>
       )}
 
