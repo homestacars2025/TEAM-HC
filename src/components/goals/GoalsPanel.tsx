@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useGoals } from '../../hooks/useGoals';
 import { istanbulDate } from '../../lib/istanbulTime';
 import {
-  GOAL_MONTHS_BACK, allGreen, firstOfMonth, formatGoalProgress, gapHints, performanceScore, shiftMonth,
+  GOAL_MONTHS_BACK, allGreen, firstOfMonth, formatGoalProgress, gapHints, performanceScore, scoreTone, shiftMonth,
   type GoalHint, type GoalMetric, type GoalStatus,
 } from '../../lib/queries/goals';
 import { useDateLocale } from '../../pages/AccountingPage';
@@ -13,6 +13,12 @@ import { useMetricText } from './GoalRing';
 import GoalSheet, { useMissingLabel } from './GoalSheet';
 
 const CONFETTI_KEY = 'hc_goal_confetti';
+
+const SCORE_PILL: Record<ReturnType<typeof scoreTone>, string> = {
+  green: 'bg-green-100 text-green-700',
+  amber: 'bg-amber-100 text-amber-700',
+  red: 'bg-red-100 text-red-700',
+};
 
 const VALUE_CLASS: Partial<Record<GoalStatus, string>> = { red: 'text-red-600', amber: 'text-amber-600' };
 
@@ -77,7 +83,7 @@ const LegendRow: React.FC<{ metric: GoalMetric; onOpen: (metric: GoalMetric) => 
       type="button"
       onClick={() => onOpen(metric)}
       aria-label={`${label}: ${progress}. ${t(`status.${metric.status}`)}`}
-      className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-start transition-colors hover:bg-black/[0.03]"
+      className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-1.5 py-1.5 text-start transition-colors hover:bg-black/[0.03]"
     >
       <span className="size-2.5 shrink-0 rounded-full" style={{ background: ringColor(metric.metric_key) }} />
       <span className="min-w-0 flex-1">
@@ -126,7 +132,7 @@ const MonthButton: React.FC<{ label: string; disabled: boolean; onClick: () => v
 
 const Skeleton: React.FC = () => (
   <div aria-busy className="mt-4 flex flex-col items-center gap-6 sm:flex-row">
-    <div className="size-[188px] shrink-0 animate-pulse rounded-full bg-black/[0.05] sm:size-[236px]" />
+    <div className="size-[210px] shrink-0 animate-pulse rounded-full bg-black/[0.05] sm:size-[240px]" />
     <div className="flex w-full flex-col gap-3">
       {[0, 1, 2, 3].map(i => <div key={i} className="h-10 animate-pulse rounded-lg bg-black/[0.05]" />)}
     </div>
@@ -164,14 +170,20 @@ const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPres
   if (!shown) return null;
 
   const everythingGreen = !!metrics && allGreen(metrics);
+  const score = metrics ? performanceScore(metrics) : null;
 
   return (
     <section className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t(isCurrent ? 'title' : 'titlePast')}</h2>
         <div className="flex items-center gap-1">
+          {score !== null && (
+            <span aria-label={`${t('score')}: ${score}%`} className={`me-1 rounded-full px-2.5 text-[13px] font-bold leading-6 ${SCORE_PILL[scoreTone(score)]}`}>
+              <bdi dir="ltr">{score}%</bdi>
+            </span>
+          )}
           <MonthButton label={t('previousMonth')} disabled={month <= oldestMonth} onClick={() => setMonth(m => shiftMonth(m, -1))} path="M15 18l-6-6 6-6" />
-          <span className="min-w-[110px] text-center text-[13px] font-semibold text-gray-700">{monthLabel}</span>
+          <span className="min-w-[96px] text-center text-[13px] font-semibold text-gray-700">{monthLabel}</span>
           <MonthButton label={t('nextMonth')} disabled={isCurrent} onClick={() => setMonth(m => shiftMonth(m, 1))} path="M9 18l6-6-6-6" />
         </div>
       </header>
@@ -189,9 +201,9 @@ const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPres
         <p className="py-8 text-center text-[13px] text-gray-500">{t('emptyMonth')}</p>
       ) : (
         <>
-          <div className="mt-3 flex flex-1 flex-col items-center gap-5 sm:flex-row sm:gap-6">
+          <div className="mt-3 flex flex-1 flex-col items-center gap-5 sm:flex-row sm:gap-4">
             {/* Keyed so that changing month sweeps the rings in again. */}
-            <ActivityRings key={month} metrics={ordered} score={performanceScore(ordered)} allGreen={everythingGreen} />
+            <ActivityRings key={month} metrics={ordered} />
             <div className="flex w-full min-w-0 flex-col gap-0.5">
               {ordered.map(metric => <LegendRow key={metric.metric_key} metric={metric} onOpen={openByMetric} />)}
             </div>

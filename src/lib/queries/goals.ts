@@ -87,6 +87,11 @@ export function performanceScore(metrics: GoalMetric[]): number | null {
   return Math.round((total / measured.length) * 100);
 }
 
+export function scoreTone(score: number): 'green' | 'amber' | 'red' {
+  if (score >= 100) return 'green';
+  return score >= 80 ? 'amber' : 'red';
+}
+
 /** "61 / 50" for a count, "4 / 16 (25%)" for a percentage. */
 export function formatGoalProgress(metric: GoalMetric): string {
   if (metric.kind === 'count') return `${metric.numerator ?? 0} / ${metric.target}`;

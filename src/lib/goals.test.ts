@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import i18n from '../i18n';
+import { ringColor, ringShapes } from '../components/goals/ActivityRings';
 import { gapLink } from '../components/goals/GoalSheet';
 import {
-  allGreen, firstOfMonth, formatGoalProgress, formatGoalValue, gapHints, performanceScore, ringFraction, ringLaps, shiftMonth,
+  allGreen, firstOfMonth, formatGoalProgress, formatGoalValue, gapHints, performanceScore, ringFraction, ringLaps, scoreTone, shiftMonth,
   type GoalGap, type GoalMetric,
 } from './queries/goals';
 
@@ -86,6 +87,32 @@ describe('the overall score', () => {
   test('nothing measurable means no score, not 0%', () => {
     expect(performanceScore([metric({ value: null, status: 'none' })])).toBeNull();
     expect(performanceScore([])).toBeNull();
+  });
+});
+
+describe('the score pill', () => {
+  test('green at 100, amber from 80, red below', () => {
+    expect([100, 99, 80, 79, 0].map(scoreTone)).toEqual(['green', 'amber', 'amber', 'red', 'red']);
+  });
+});
+
+describe('ring geometry', () => {
+  test('four rings leave a 22% hole with 3px between them', () => {
+    const rings = ringShapes(240, 4);
+    const inner = rings[3];
+    expect(((inner.radius - inner.stroke / 2) * 2) / 240).toBeCloseTo(0.22);
+    expect(rings[0].radius - rings[1].radius - rings[0].stroke).toBeCloseTo(3);
+    expect(rings[0].radius + rings[0].stroke / 2).toBeCloseTo(120);
+  });
+
+  test('strokes stop growing at 11% with fewer rings, so the hole opens up instead', () => {
+    expect(ringShapes(240, 2)[0].stroke).toBeCloseTo(26.4);
+    expect(ringShapes(240, 1)[0].stroke).toBeCloseTo(26.4);
+  });
+
+  test('the legend dots use the ring start colours', () => {
+    expect(['operations_count', 'delivery_docs', 'pickup_docs', 'custody_receipts'].map(ringColor))
+      .toEqual(['#FA114F', '#78E40F', '#00C7E6', '#FF9500']);
   });
 });
 

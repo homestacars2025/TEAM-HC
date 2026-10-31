@@ -1,130 +1,166 @@
-import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useRef } from 'react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ringLaps, type GoalMetric } from '../../lib/queries/goals';
 
-/** Each ring's colour is its identity, so status never changes it. */
-const RING_COLORS: Record<string, { color: string; deep: string }> = {
-  operations_count: { color: '#6EA4E7', deep: '#3A74C2' },
-  delivery_docs: { color: '#8B5CF6', deep: '#6D28D9' },
-  pickup_docs: { color: '#14B8A6', deep: '#0F766E' },
-  custody_receipts: { color: '#F59E0B', deep: '#B45309' },
+/**
+ * Drawn on a canvas because each ring's gradient has to follow its own arc, which
+ * SVG strokes cannot do. There is nothing but rings in here: the numbers are in the
+ * legend and the card header.
+ */
+
+type RingColors = readonly [start: string, end: string];
+
+const RING_COLORS: Record<string, RingColors> = {
+  operations_count: ['#FA114F', '#FF5E9E'],
+  delivery_docs: ['#78E40F', '#C6FF3A'],
+  pickup_docs: ['#00C7E6', '#3BF5D2'],
+  custody_receipts: ['#FF9500', '#FFD60A'],
 };
 
 /** For a metric added to the database before this map catches up. */
-const FALLBACK_RING = { color: '#9CA3AF', deep: '#6B7280' };
+const FALLBACK_COLORS: RingColors = ['#9CA3AF', '#D1D5DB'];
 
-export const ringColor = (metricKey: string): string => (RING_COLORS[metricKey] ?? FALLBACK_RING).color;
+export const ringColor = (metricKey: string): string => (RING_COLORS[metricKey] ?? FALLBACK_COLORS)[0];
 
-const GAP = 4;
-const STAGGER_MS = 80;
-/** Matches `.hc-ring-fill` in index.css, so a second lap starts as the first ends. */
-const LAP_MS = 900;
+const WIDE_DIAMETER = 240;
+const NARROW_DIAMETER = 210;
+const MAX_STROKE_RATIO = 0.11;
+const HOLE_RATIO = 0.22;
+const GAP = 3;
+/** The hex alpha for the 14% track. */
+const TRACK_ALPHA = '24';
 
-interface RingProps {
-  metric: GoalMetric;
-  index: number;
+const SWEEP_MS = 1100;
+const STAGGER_MS = 90;
+const TAU = Math.PI * 2;
+/** 12 o'clock. */
+const START_ANGLE = -Math.PI / 2;
+
+export interface RingShape {
   radius: number;
   stroke: number;
-  centre: number;
-  drawn: boolean;
 }
 
-const Ring: React.FC<RingProps> = ({ metric, index, radius, stroke, centre, drawn }) => {
-  const { color, deep } = RING_COLORS[metric.metric_key] ?? FALLBACK_RING;
-  const circumference = 2 * Math.PI * radius;
-  const laps = ringLaps(metric);
-  const firstLap = drawn ? Math.min(laps, 1) : 0;
-  const secondLap = drawn ? Math.max(laps - 1, 0) : 0;
-  const delay = index * STAGGER_MS;
-  const tipAngle = 2 * Math.PI * Math.max(laps - 1, 0);
-
-  const arc = (fraction: number, tone: string, extraDelay: number) => (
-    <circle
-      className="hc-ring-fill"
-      cx={centre} cy={centre} r={radius}
-      fill="none"
-      stroke={tone}
-      strokeWidth={stroke}
-      strokeLinecap="round"
-      strokeDasharray={circumference}
-      strokeDashoffset={circumference * (1 - fraction)}
-      // A round cap paints a dot even at zero length.
-      opacity={laps > 0 ? 1 : 0}
-      style={{ transitionDelay: `${delay + extraDelay}ms` }}
-    />
-  );
-
-  return (
-    <g data-ring={metric.metric_key} data-laps={laps.toFixed(2)}>
-      <circle cx={centre} cy={centre} r={radius} fill="none" stroke={color} strokeOpacity={0.15} strokeWidth={stroke} />
-      {arc(firstLap, color, 0)}
-      {laps > 1 && arc(secondLap, deep, LAP_MS)}
-      {laps > 1 && drawn && (
-        <circle
-          className="hc-ring-tip"
-          cx={centre + radius * Math.cos(tipAngle)}
-          cy={centre + radius * Math.sin(tipAngle)}
-          r={stroke / 2}
-          fill={deep}
-          style={{ animationDelay: `${delay + LAP_MS * 2}ms` }}
-        />
-      )}
-    </g>
-  );
-};
-
-interface ActivityRingsProps {
-  metrics: GoalMetric[];
-  /** 0 to 100, or `null` when nothing can be measured yet. */
-  score: number | null;
-  allGreen: boolean;
+/**
+ * Outer ring first. The hole is fixed and the strokes share what is left, up to a
+ * maximum, so with fewer rings they stop growing and the hole opens up instead.
+ */
+export function ringShapes(diameter: number, count: number): RingShape[] {
+  const gaps = 2 * (count - 1) * GAP;
+  const fitted = ((1 - HOLE_RATIO) * diameter - gaps) / (2 * count);
+  const stroke = Math.min(fitted, diameter * MAX_STROKE_RATIO);
+  return Array.from({ length: count }, (_, index) => ({
+    radius: diameter / 2 - stroke / 2 - index * (stroke + GAP),
+    stroke,
+  }));
 }
 
-const ActivityRings: React.FC<ActivityRingsProps> = ({ metrics, score, allGreen }) => {
-  const { t } = useTranslation('goals');
+const easeOut = (t: number) => 1 - (1 - t) ** 3;
+
+function strokeRing(ctx: CanvasRenderingContext2D, centre: number, ring: RingShape, style: string | CanvasGradient, from: number, to: number) {
+  ctx.beginPath();
+  ctx.arc(centre, centre, ring.radius, from, to);
+  ctx.lineWidth = ring.stroke;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = style;
+  ctx.stroke();
+}
+
+function arcGradient(ctx: CanvasRenderingContext2D, centre: number, from: number, colors: RingColors, span: number) {
+  // Safari before 16.1 has no conic gradient. A flat ring beats no ring.
+  if (!ctx.createConicGradient) return colors[0];
+  const gradient = ctx.createConicGradient(from, centre, centre);
+  gradient.addColorStop(0, colors[0]);
+  gradient.addColorStop(span, colors[1]);
+  gradient.addColorStop(1, colors[1]);
+  return gradient;
+}
+
+function drawRing(ctx: CanvasRenderingContext2D, centre: number, ring: RingShape, colors: RingColors, laps: number, scale: number) {
+  ctx.lineCap = 'butt';
+  strokeRing(ctx, centre, ring, `${colors[0]}${TRACK_ALPHA}`, 0, TAU);
+  if (laps <= 0) return;
+
+  const tip = START_ANGLE + TAU * laps;
+
+  if (laps < 1) {
+    strokeRing(ctx, centre, ring, arcGradient(ctx, centre, START_ANGLE, colors, laps), START_ANGLE, tip);
+    // The gradient's tail would otherwise tint the rounded start of the ring.
+    ctx.beginPath();
+    ctx.arc(centre + ring.radius * Math.cos(START_ANGLE), centre + ring.radius * Math.sin(START_ANGLE), ring.stroke / 2, 0, TAU);
+    ctx.fillStyle = colors[0];
+    ctx.fill();
+  } else {
+    // Full circle and beyond: the colour runs one whole turn ending at the tip, so
+    // the seam between its two ends sits underneath the tip, out of sight.
+    strokeRing(ctx, centre, ring, arcGradient(ctx, centre, tip, colors, 1), 0, TAU);
+  }
+
+  // The tip, lifted off the ring by a shadow falling ahead of it. Kept inside the
+  // ring so that it never smudges the neighbours.
+  const inner = ring.radius - ring.stroke / 2;
+  const outer = ring.radius + ring.stroke / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(centre, centre, outer, 0, TAU);
+  ctx.arc(centre, centre, inner, 0, TAU, true);
+  ctx.clip();
+  ctx.shadowColor = 'rgba(15, 17, 23, 0.45)';
+  ctx.shadowBlur = 7 * scale;
+  ctx.shadowOffsetX = -Math.sin(tip) * 3 * scale;
+  ctx.shadowOffsetY = Math.cos(tip) * 3 * scale;
+  ctx.beginPath();
+  ctx.arc(centre + ring.radius * Math.cos(tip), centre + ring.radius * Math.sin(tip), ring.stroke / 2, 0, TAU);
+  ctx.fillStyle = colors[1];
+  ctx.fill();
+  ctx.restore();
+}
+
+const ActivityRings: React.FC<{ metrics: GoalMetric[] }> = ({ metrics }) => {
   const wide = useMediaQuery('(min-width: 640px)');
-  const stroke = wide ? 14 : 11;
-  const hole = wide ? 46 : 40;
-  const size = 2 * (hole + metrics.length * (stroke + GAP));
-  const centre = size / 2;
+  const still = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const diameter = wide ? WIDE_DIAMETER : NARROW_DIAMETER;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Starts empty and fills after first paint, which is what gives it the sweep.
-  const [drawn, setDrawn] = useState(false);
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setDrawn(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
 
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" style={{ transform: 'rotate(-90deg)' }}>
-        {metrics.map((metric, index) => (
-          <Ring
-            key={metric.metric_key}
-            metric={metric}
-            index={index}
-            radius={centre - stroke / 2 - index * (stroke + GAP)}
-            stroke={stroke}
-            centre={centre}
-            drawn={drawn}
-          />
-        ))}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        {allGreen ? (
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" role="img" aria-label={t('status.green')}>
-            <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <>
-            <bdi dir="ltr" className="text-[22px] font-semibold leading-none text-[#0f1117]">{score === null ? '—' : `${score}%`}</bdi>
-            <span className="mt-1 text-[10.5px] font-medium text-gray-500">{t('score')}</span>
-          </>
-        )}
-      </div>
-    </div>
-  );
+    const scale = window.devicePixelRatio || 1;
+    canvas.width = diameter * scale;
+    canvas.height = diameter * scale;
+    ctx.scale(scale, scale);
+
+    const shapes = ringShapes(diameter, metrics.length);
+    const targets = metrics.map(ringLaps);
+    const colors = metrics.map(metric => RING_COLORS[metric.metric_key] ?? FALLBACK_COLORS);
+    const total = SWEEP_MS + STAGGER_MS * metrics.length;
+
+    const paint = (elapsed: number) => {
+      ctx.clearRect(0, 0, diameter, diameter);
+      shapes.forEach((shape, index) => {
+        const progress = Math.min(Math.max((elapsed - index * STAGGER_MS) / SWEEP_MS, 0), 1);
+        drawRing(ctx, diameter / 2, shape, colors[index], targets[index] * easeOut(progress), scale);
+      });
+    };
+
+    if (still) {
+      paint(total);
+      return;
+    }
+
+    let frame = 0;
+    const begun = performance.now();
+    const tick = (now: number) => {
+      paint(now - begun);
+      if (now - begun < total) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [metrics, diameter, still]);
+
+  return <canvas ref={canvasRef} aria-hidden="true" className="shrink-0" style={{ width: diameter, height: diameter }} />;
 };
 
 export default ActivityRings;
