@@ -19,6 +19,11 @@ import enWallets from './locales/en/wallets.json';
 import enKabis from './locales/en/kabis.json';
 import enMedia from './locales/en/media.json';
 import enAccounting from './locales/en/accounting.json';
+import enShell from './locales/en/shell.json';
+import enHome from './locales/en/home.json';
+import enMyWallet from './locales/en/myWallet.json';
+import enProfile from './locales/en/profile.json';
+import enSettings from './locales/en/settings.json';
 import arCommon from './locales/ar/common.json';
 import arSidebar from './locales/ar/sidebar.json';
 import arNotifications from './locales/ar/notifications.json';
@@ -36,6 +41,11 @@ import arWallets from './locales/ar/wallets.json';
 import arKabis from './locales/ar/kabis.json';
 import arMedia from './locales/ar/media.json';
 import arAccounting from './locales/ar/accounting.json';
+import arShell from './locales/ar/shell.json';
+import arHome from './locales/ar/home.json';
+import arMyWallet from './locales/ar/myWallet.json';
+import arProfile from './locales/ar/profile.json';
+import arSettings from './locales/ar/settings.json';
 
 export const LANGUAGES = ['en', 'ar'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -57,8 +67,8 @@ export function dirFor(lang: Language): 'ltr' | 'rtl' {
  * those pages are translated.
  */
 const resources = {
-  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking, modelGroups: enModelGroups, wallets: enWallets, kabis: enKabis, media: enMedia, accounting: enAccounting },
-  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking, modelGroups: arModelGroups, wallets: arWallets, kabis: arKabis, media: arMedia, accounting: arAccounting },
+  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking, modelGroups: enModelGroups, wallets: enWallets, kabis: enKabis, media: enMedia, accounting: enAccounting, shell: enShell, home: enHome, myWallet: enMyWallet, profile: enProfile, settings: enSettings },
+  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking, modelGroups: arModelGroups, wallets: arWallets, kabis: arKabis, media: arMedia, accounting: arAccounting, shell: arShell, home: arHome, myWallet: arMyWallet, profile: arProfile, settings: arSettings },
 };
 
 i18n
@@ -68,7 +78,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...LANGUAGES],
-    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking', 'modelGroups', 'wallets', 'kabis', 'media', 'accounting'],
+    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking', 'modelGroups', 'wallets', 'kabis', 'media', 'accounting', 'shell', 'home', 'myWallet', 'profile', 'settings'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage'],

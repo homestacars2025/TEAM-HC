@@ -1,0 +1,20 @@
+{
+  "title": "Settings",
+  "subtitle": "Saved for your account on this device.",
+  "language": {
+    "label": "Language",
+    "hint": "The language of the whole dashboard."
+  },
+  "currency": {
+    "label": "Currency",
+    "hint": "Amounts are shown in this currency."
+  },
+  "sound": {
+    "label": "Notification sound",
+    "hint": "Play a soft sound when a new notification arrives."
+  },
+  "collapsed": {
+    "label": "Start with sidebar collapsed",
+    "hint": "Show icons only when the dashboard opens, on a computer."
+  }
+}

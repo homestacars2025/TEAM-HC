@@ -35,6 +35,10 @@ const TRANSLATED = [
   'CustomerWalletsPage.tsx',
   'KabisPage.tsx',
   'AccountingPage.tsx',
+  'HomePage.tsx',
+  'WalletPage.tsx',
+  'ProfilePage.tsx',
+  'SettingsPage.tsx',
 ];
 
 /**

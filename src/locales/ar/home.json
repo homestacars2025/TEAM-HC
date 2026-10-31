@@ -1,0 +1,68 @@
+{
+  "greeting": {
+    "morning": "صباح الخير، {{name}} 👋",
+    "afternoon": "مساء الخير، {{name}} 👋",
+    "evening": "مساء الخير، {{name}} 👋"
+  },
+  "greetingPlain": {
+    "morning": "صباح الخير 👋",
+    "afternoon": "مساء الخير 👋",
+    "evening": "مساء الخير 👋"
+  },
+  "summary": {
+    "tasks_zero": "لا مهام مستحقة",
+    "tasks_one": "مهمة واحدة مستحقة",
+    "tasks_two": "مهمتان مستحقتان",
+    "tasks_few": "{{count}} مهام مستحقة",
+    "tasks_many": "{{count}} مهمة مستحقة",
+    "tasks_other": "{{count}} مهمة مستحقة",
+    "unread_zero": "لا إشعارات غير مقروءة",
+    "unread_one": "إشعار واحد غير مقروء",
+    "unread_two": "إشعاران غير مقروءين",
+    "unread_few": "{{count}} إشعارات غير مقروءة",
+    "unread_many": "{{count}} إشعاراً غير مقروء",
+    "unread_other": "{{count}} إشعار غير مقروء"
+  },
+  "cards": {
+    "tasks": {
+      "title": "مهامي اليوم",
+      "overdue_zero": "لا مهام متأخرة",
+      "overdue_one": "مهمة واحدة متأخرة",
+      "overdue_two": "مهمتان متأخرتان",
+      "overdue_few": "{{count}} مهام متأخرة",
+      "overdue_many": "{{count}} مهمة متأخرة",
+      "overdue_other": "{{count}} مهمة متأخرة",
+      "noOverdue": "لا مهام متأخرة"
+    },
+    "operations": {
+      "title": "عمليات اليوم",
+      "sub": "تسليم: {{deliveries}} · استلام: {{pickups}}"
+    },
+    "wallet": {
+      "title": "محفظتي",
+      "received": "المستلم هذا الشهر: {{amount}}"
+    },
+    "notifications": {
+      "title": "الإشعارات",
+      "unread": "غير مقروءة",
+      "allRead": "لا جديد"
+    },
+    "open": "فتح {{title}}",
+    "unavailable": "تعذّر التحميل"
+  },
+  "sections": {
+    "tasks": "مهامي",
+    "schedule": "جدول اليوم",
+    "notifications": "آخر الإشعارات",
+    "viewAll": "عرض الكل"
+  },
+  "tasks": {
+    "empty": "لا توجد مهام مفتوحة"
+  },
+  "schedule": {
+    "delivery": "تسليم",
+    "pickup": "استلام",
+    "empty": "لا يوجد شيء مجدول اليوم",
+    "failed": "تعذّر تحميل جدول اليوم."
+  }
+}

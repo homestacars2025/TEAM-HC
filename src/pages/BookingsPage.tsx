@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { useUrlSearch } from '../hooks/useUrlSearch';
 import { sortCarsByModel } from '../lib/car-picker';
 import { localisedCountryName } from '../lib/countries';
 import type { Booking, BookingStatus } from '../types';
@@ -632,7 +634,7 @@ const COUNTRIES: Country[] = [
 
 // ─── Phone helpers ────────────────────────────────────────────────────────────
 
-function parseStoredPhone(stored: string): { dial: string; local: string } {
+export function parseStoredPhone(stored: string): { dial: string; local: string } {
   if (!stored) return { dial: '+90', local: '' };
   const normalized = stored.startsWith('+') ? stored : `+${stored}`;
   try {
@@ -651,7 +653,7 @@ function parseStoredPhone(stored: string): { dial: string; local: string } {
 
 // ─── Searchable dial-code picker ──────────────────────────────────────────────
 
-const DialCodePicker: React.FC<{
+export const DialCodePicker: React.FC<{
   value: string;
   onChange: (dial: string) => void;
 }> = ({ value, onChange }) => {
@@ -3173,12 +3175,19 @@ const BookingsPage: React.FC = () => {
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => getMonthStart(new Date()));
+  const [urlParams] = useSearchParams();
+  const urlMonth = urlParams.get('month');
+  useEffect(() => {
+    const match = /^(\d{4})-(\d{2})$/.exec(urlMonth ?? '');
+    if (match) setSelectedMonth(new Date(Number(match[1]), Number(match[2]) - 1, 1));
+  }, [urlMonth]);
   const [bookings, setBookings]           = useState<Booking[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [stats, setStats]                 = useState({ total: 0, confirmed: 0, pending: 0, completed: 0 });
   const [statsLoading, setStatsLoading]   = useState(true);
   const [search, setSearch]               = useState('');
+  useUrlSearch(setSearch);
   const [statusFilter, setStatusFilter]   = useState<BookingStatus | ''>('');
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());

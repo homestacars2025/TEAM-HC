@@ -17,6 +17,10 @@ import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import CustomerWalletsPage from './pages/CustomerWalletsPage';
 import TasksPage from './pages/TasksPage';
+import HomePage from './pages/HomePage';
+import WalletPage from './pages/WalletPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 /*
  * Media has its own UI stack (Base UI, dnd-kit, motion,
  * date-fns, lucide). Loading it lazily keeps roughly 170 kB out of the initial
@@ -60,6 +64,10 @@ const App: React.FC = () => {
           }
         >
           <Route index element={<RedirectToFirstPage />} />
+          <Route path="home" element={<RequirePage page="home"><HomePage /></RequirePage>} />
+          <Route path="wallet" element={<RequirePage page="wallet"><WalletPage /></RequirePage>} />
+          <Route path="profile" element={<RequirePage page="profile"><ProfilePage /></RequirePage>} />
+          <Route path="settings" element={<RequirePage page="settings"><SettingsPage /></RequirePage>} />
           <Route path="cars" element={<RequirePage page="cars"><CarsPage /></RequirePage>} />
           <Route path="cars/tracking" element={<RequirePage page="car_tracking"><CarTrackingPage /></RequirePage>} />
           <Route path="car-issues" element={<RequirePage page="car_issues"><CarIssuesPage /></RequirePage>} />

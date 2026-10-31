@@ -123,7 +123,7 @@ const CATEGORY_KEYS: Record<string, string> = {
   Other: 'other',
 };
 
-function categoryLabel(t: TFunction, value: string | null): string {
+export function categoryLabel(t: TFunction, value: string | null): string {
   if (!value) return '—';
   const key = CATEGORY_KEYS[value];
   return key ? t(`categories.${key}`) : value;
@@ -145,7 +145,7 @@ function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
 
-function formatDateDisplay(s: string | null, locale: string): string {
+export function formatDateDisplay(s: string | null, locale: string): string {
   if (!s) return '—';
   const d = new Date(s + 'T00:00:00');
   if (isNaN(d.getTime())) return '—';
@@ -157,7 +157,7 @@ function formatMonthLabel(d: Date, locale: string): string {
 }
 
 /** Western digits in Arabic, matching Bookings and Calendar. */
-function useDateLocale(): string {
+export function useDateLocale(): string {
   const { i18n } = useTranslation();
   return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
 }
@@ -178,7 +178,7 @@ const RECEIPT_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
 const RECEIPT_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
 
-function isPdfUrl(url: string): boolean {
+export function isPdfUrl(url: string): boolean {
   return url.split('?')[0].toLowerCase().endsWith('.pdf');
 }
 
@@ -1725,7 +1725,7 @@ const ReceiptChip: React.FC<{ url: string; onOpen: () => void }> = ({ url, onOpe
   );
 };
 
-const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+export const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   useEffect(() => {

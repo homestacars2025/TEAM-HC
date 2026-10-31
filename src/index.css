@@ -17,6 +17,11 @@
   --text-muted: #9ca3af;
   --surface: #FFFFFF;
   --border-subtle: #EBEBEB;
+  /* App shell accent. Strong is for blue text and for white text on blue. */
+  --accent: #6EA4E7;
+  --accent-strong: #3A74C2;
+  --accent-strong-hover: #2F62A6;
+  --accent-soft: rgba(110, 164, 231, 0.12);
   --border: #e5e7eb;
   --border-focus: #4ba6ea;
   --error: #ef4444;

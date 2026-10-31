@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
+import { useUrlSearch } from '../hooks/useUrlSearch';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { printCustomerInvoice } from '../lib/printCustomerInvoice';
 import { useTranslation } from 'react-i18next';
@@ -1283,6 +1284,7 @@ const CustomerWalletsPage: React.FC = () => {
 
   const [tab, setTab] = useState<RentalTab>('all');
   const [search, setSearch] = useState('');
+  useUrlSearch(setSearch);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [openCarKey, setOpenCarKey] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);

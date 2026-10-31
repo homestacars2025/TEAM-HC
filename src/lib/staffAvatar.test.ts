@@ -43,7 +43,7 @@ describe('staff avatars across the dashboard', () => {
   });
 
   it.each([
-    'components/Sidebar.tsx',
+    'components/AccountMenu.tsx',
     'pages/AccountingPage.tsx',
     'pages/OperationsPage.tsx',
     'pages/KabisPage.tsx',
@@ -56,6 +56,6 @@ describe('staff avatars across the dashboard', () => {
   });
 
   it('goes through the shared helper, so no screen picks its own picture', () => {
-    expect(read('components/Sidebar.tsx')).not.toMatch(/src=\{[^}]*avatar_url/);
+    expect(read('components/AccountMenu.tsx')).not.toMatch(/src=\{[^}]*avatar_url/);
   });
 });

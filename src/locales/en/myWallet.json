@@ -1,0 +1,36 @@
+{
+  "title": "My wallet",
+  "subtitle": "Your custody: what the finance manager gave you and what you paid from it.",
+  "balance": "Balance",
+  "received": "Total received",
+  "spent": "Total spent",
+  "period": {
+    "month": "This month",
+    "all": "All time"
+  },
+  "movements": "Movements",
+  "filters": {
+    "month": "Month",
+    "allMonths": "All months",
+    "direction": "Type",
+    "allDirections": "In and out",
+    "category": "Category",
+    "allCategories": "All categories"
+  },
+  "direction": {
+    "IN": "In",
+    "OUT": "Out"
+  },
+  "table": {
+    "date": "Date",
+    "category": "Category",
+    "description": "Description",
+    "amount": "Amount",
+    "receipt": "Receipt",
+    "running": "Balance"
+  },
+  "viewReceipt": "View receipt",
+  "empty": "No movements yet.",
+  "emptyFiltered": "No movements match these filters.",
+  "failed": "Could not load your wallet."
+}

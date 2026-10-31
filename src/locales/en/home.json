@@ -1,0 +1,56 @@
+{
+  "greeting": {
+    "morning": "Good morning, {{name}} 👋",
+    "afternoon": "Good afternoon, {{name}} 👋",
+    "evening": "Good evening, {{name}} 👋"
+  },
+  "greetingPlain": {
+    "morning": "Good morning 👋",
+    "afternoon": "Good afternoon 👋",
+    "evening": "Good evening 👋"
+  },
+  "summary": {
+    "tasks_one": "{{count}} task due",
+    "tasks_other": "{{count}} tasks due",
+    "unread_one": "{{count}} unread",
+    "unread_other": "{{count}} unread"
+  },
+  "cards": {
+    "tasks": {
+      "title": "My tasks today",
+      "overdue_one": "{{count}} overdue",
+      "overdue_other": "{{count}} overdue",
+      "noOverdue": "Nothing overdue"
+    },
+    "operations": {
+      "title": "Today's operations",
+      "sub": "Deliveries: {{deliveries}} · Pickups: {{pickups}}"
+    },
+    "wallet": {
+      "title": "My wallet",
+      "received": "Received this month: {{amount}}"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "unread": "Unread",
+      "allRead": "All caught up"
+    },
+    "open": "Open {{title}}",
+    "unavailable": "Could not load"
+  },
+  "sections": {
+    "tasks": "My tasks",
+    "schedule": "Today's schedule",
+    "notifications": "Latest notifications",
+    "viewAll": "View all"
+  },
+  "tasks": {
+    "empty": "No open tasks"
+  },
+  "schedule": {
+    "delivery": "Delivery",
+    "pickup": "Pickup",
+    "empty": "Nothing scheduled today",
+    "failed": "Could not load today's schedule."
+  }
+}

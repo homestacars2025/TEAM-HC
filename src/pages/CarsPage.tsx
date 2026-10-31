@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { useUrlSearch } from '../hooks/useUrlSearch';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 
@@ -489,6 +490,7 @@ const CarsPage: React.FC = () => {
   const [cars, setCars]             = useState<CarTableRow[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
   const [tableSearch, setTableSearch] = useState('');
+  useUrlSearch(setTableSearch);
   const [sortCol,  setSortCol]  = useState<'plate_number' | 'model' | 'year' | 'current_km' | 'status' | null>(null);
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('asc');
   const [totalCars, setTotalCars] = useState(0);

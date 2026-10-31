@@ -1,4 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
+import { playNotificationSound } from './notificationSound';
 import { getOpenTasksCount, getUnreadCount } from './queries/tasks';
 
 /**
@@ -21,17 +23,29 @@ interface InboxValue {
    * badges never lag behind a click by up to a full poll interval.
    */
   refresh: () => Promise<void>;
+  /** The bell's panel. Here rather than in the bell because Home opens it too. */
+  notificationsOpen: boolean;
+  setNotificationsOpen: (open: boolean) => void;
 }
 
 const InboxContext = createContext<InboxValue>({
   unreadCount: 0,
   openTasksCount: 0,
   refresh: async () => {},
+  notificationsOpen: false,
+  setNotificationsOpen: () => {},
 });
 
 export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [openTasksCount, setOpenTasksCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { settings } = useCurrentUser();
+
+  const soundOn = useRef(false);
+  soundOn.current = settings?.notificationSound ?? false;
+  /** Null until the first read, so loading the page is not mistaken for a new arrival. */
+  const lastUnread = useRef<number | null>(null);
 
   // A late response from a superseded request must not overwrite a fresher one.
   const mounted = useRef(true);
@@ -43,6 +57,8 @@ export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refresh = useCallback(async () => {
     const [unread, open] = await Promise.all([getUnreadCount(), getOpenTasksCount()]);
     if (!mounted.current) return;
+    if (soundOn.current && lastUnread.current !== null && unread > lastUnread.current) playNotificationSound();
+    lastUnread.current = unread;
     setUnreadCount(unread);
     setOpenTasksCount(open);
   }, []);
@@ -61,7 +77,7 @@ export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [refresh]);
 
   return (
-    <InboxContext.Provider value={{ unreadCount, openTasksCount, refresh }}>
+    <InboxContext.Provider value={{ unreadCount, openTasksCount, refresh, notificationsOpen, setNotificationsOpen }}>
       {children}
     </InboxContext.Provider>
   );

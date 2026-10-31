@@ -1,0 +1,48 @@
+{
+  "title": "My profile",
+  "subtitle": "Your details and sign-in.",
+  "photo": {
+    "upload": "Upload photo",
+    "replace": "Replace photo",
+    "remove": "Remove photo",
+    "hint": "JPG, PNG or WEBP, up to 5 MB.",
+    "unsupported": "Use a JPG, PNG or WEBP image.",
+    "tooLarge": "That image is over 5 MB.",
+    "failed": "Could not save your photo. Try again.",
+    "saved": "Photo updated",
+    "removed": "Photo removed"
+  },
+  "details": "Details",
+  "fields": {
+    "fullName": "Full name",
+    "phone": "Phone",
+    "email": "Email",
+    "role": "Role",
+    "department": "Department",
+    "gender": "Gender"
+  },
+  "role": {
+    "admin": "Admin",
+    "staff": "Staff"
+  },
+  "gender": {
+    "male": "Male",
+    "female": "Female",
+    "unset": "Not set"
+  },
+  "save": "Save changes",
+  "saved": "Saved",
+  "saveFailed": "Could not save your details. Try again.",
+  "nameRequired": "Enter your full name.",
+  "phoneInvalid": "Enter digits only.",
+  "password": {
+    "title": "Change password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "submit": "Update password",
+    "tooShort": "Use at least 8 characters.",
+    "mismatch": "The two passwords do not match.",
+    "saved": "Password updated",
+    "failed": "Could not update your password. Try again."
+  }
+}

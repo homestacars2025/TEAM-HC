@@ -4,8 +4,10 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import Sidebar from './Sidebar';
-import TasksBell from './TasksBell';
+import TopBar from './TopBar';
 import { InboxProvider } from '../lib/InboxContext';
+import { readBootCollapsed } from '../lib/userSettings';
+import { CurrentUserProvider, useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
 
@@ -78,15 +80,22 @@ const InactivityWarning: React.FC<{ onStay: () => void }> = ({ onStay }) => {
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
-const Layout: React.FC = () => {
+const Shell: React.FC = () => {
   const { showWarning, stayLoggedIn } = useInactivityTimeout();
-  const { t } = useTranslation('sidebar');
   const { t: tc } = useTranslation('common');
   const { refreshFailed, refresh } = usePageAccess();
+  const { settings } = useCurrentUser();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readBootCollapsed);
 
   useEffect(() => { setMenuOpen(false); }, [pathname]);
+
+  // Only this setting: changing the currency must not undo a manual collapse.
+  const startCollapsed = settings?.startCollapsed;
+  useEffect(() => {
+    if (startCollapsed !== undefined) setCollapsed(startCollapsed);
+  }, [startCollapsed]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -96,10 +105,8 @@ const Layout: React.FC = () => {
   }, [menuOpen]);
 
   return (
-    // Both badge counts are polled once here, for the bell and the sidebar alike.
-    <InboxProvider>
     <div style={{ display: 'flex', height: '100vh', background: 'var(--surface)' }}>
-      <Sidebar mobileOpen={menuOpen} onMobileClose={() => setMenuOpen(false)} />
+      <Sidebar collapsed={collapsed} mobileOpen={menuOpen} onMobileClose={() => setMenuOpen(false)} />
 
       {/* Drawer backdrop. Below 1024px only; the sidebar is in the flow above that. */}
       <div
@@ -111,32 +118,13 @@ const Layout: React.FC = () => {
         )}
       />
 
-      {/*
-        Content column. The top bar reserves its own strip of height rather than
-        floating over the pages: several pages put an action button or a month
-        switcher in their own top-right corner, and an overlaid bell would sit on
-        top of them. `main` scrolls beneath it, so the bell stays put.
-      */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/*
-          One bell. kabis notifications now arrive through notifications_v2 like
-          everything else, so the separate kabis bell has been removed — its
-          unread rows are simply part of this badge now.
-        */}
-        <header className="app-topbar">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            aria-label={t('openMenu')}
-            aria-expanded={menuOpen}
-            className="me-auto flex size-11 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-black/[0.04] lg:hidden"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-            </svg>
-          </button>
-          <TasksBell />
-        </header>
+        <TopBar
+          sidebarCollapsed={collapsed}
+          onToggleSidebar={() => setCollapsed(c => !c)}
+          onOpenMenu={() => setMenuOpen(true)}
+          menuOpen={menuOpen}
+        />
         {refreshFailed && (
           <div
             role="status"
@@ -158,28 +146,17 @@ const Layout: React.FC = () => {
       </div>
 
       {showWarning && <InactivityWarning onStay={stayLoggedIn} />}
-
-      <style>{`
-        .app-topbar {
-          height: 52px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 10px;
-          padding: 0 16px;
-          background: var(--surface);
-          border-bottom: 1px solid var(--border-subtle);
-          position: relative;
-          z-index: 300;
-        }
-        /* Right padding tracks the page padding so the bell lines up with page content. */
-        @media (min-width: 640px)  { .app-topbar { height: 56px; padding: 0 24px; } }
-        @media (min-width: 1024px) { .app-topbar { padding: 0 40px; } }
-      `}</style>
     </div>
-    </InboxProvider>
   );
 };
+
+const Layout: React.FC = () => (
+  // The inbox reads the sound setting, so the signed-in user comes first.
+  <CurrentUserProvider>
+    <InboxProvider>
+      <Shell />
+    </InboxProvider>
+  </CurrentUserProvider>
+);
 
 export default Layout;

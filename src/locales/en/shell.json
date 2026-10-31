@@ -1,0 +1,26 @@
+{
+  "search": {
+    "title": "Search",
+    "button": "Search…",
+    "placeholder": "Search cars, bookings, customers and pages",
+    "searching": "Searching…",
+    "failed": "Search failed. Try again.",
+    "empty": "No results for “{{query}}”",
+    "navigate": "Navigate",
+    "open": "Open",
+    "close": "Close",
+    "groups": {
+      "pages": "Pages",
+      "cars": "Cars",
+      "bookings": "Bookings",
+      "customers": "Customers"
+    }
+  },
+  "menu": {
+    "open": "Account menu",
+    "profile": "My profile",
+    "wallet": "My wallet",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  }
+}

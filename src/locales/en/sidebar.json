@@ -7,6 +7,10 @@
     "media": "Media"
   },
   "nav": {
+    "home": "Home",
+    "wallet": "My wallet",
+    "profile": "My profile",
+    "settings": "Settings",
     "bookings": "Bookings",
     "calendar": "Calendar",
     "cars": "Cars",
