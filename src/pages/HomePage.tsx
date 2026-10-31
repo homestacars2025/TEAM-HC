@@ -11,8 +11,8 @@ import { getMyWalletEntries, walletBalance, walletTotals, type WalletEntry } fro
 import { useTimeFormat } from '../lib/relative-time';
 import type { MyNotification, MyTask } from '../lib/types/tasks';
 import GoalsPanel from '../components/goals/GoalsPanel';
+import HomeArt, { type HomeArtName } from '../components/HomeArt';
 import NotificationRow, { useOpenNotification } from '../components/NotificationRow';
-import { pageIcons } from '../components/pageNav';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { useDateLocale } from './AccountingPage';
@@ -54,44 +54,48 @@ const Bone: React.FC<{ className: string }> = ({ className }) => (
 interface StatCardProps {
   title: string;
   color: string;
-  tint: string;
-  icon: React.ReactNode;
+  art: HomeArtName;
+  eager?: boolean;
   /** `null` while loading. */
-  value: React.ReactNode | null;
+  value: string | number | null;
   sub: React.ReactNode;
   valueClass?: string;
   action: React.ReactNode;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, color, tint, icon, value, sub, valueClass, action }) => (
-  <article className="relative flex min-h-[172px] flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5">
-    <span
-      aria-hidden
-      className="absolute -end-6 -top-6 flex size-[104px] items-end justify-start rounded-full pb-[22px] ps-[22px] [&_svg]:size-6"
-      style={{ background: tint, color }}
-    >
-      {icon}
-    </span>
-
-    <div className="flex items-center gap-2 pe-16">
+const StatCard: React.FC<StatCardProps> = ({ title, color, art, eager, value, sub, valueClass, action }) => (
+  <article className={`hc-stat hc-art-${art} rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)]`}>
+    <div className="flex items-center gap-2 [grid-column:1/-1]">
       <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
       <h2 className="text-[13px] font-medium leading-snug text-gray-600">{title}</h2>
     </div>
 
-    <div className={`mt-3 truncate text-[28px] font-semibold leading-tight text-[#0f1117] ${valueClass ?? ''}`}>
-      {value ?? <Bone className="h-8 w-20" />}
+    <div className="hc-stat-value">
+      {value === null ? <Bone className="h-[30px] w-20" /> : (
+        <span className={`font-semibold text-[#0f1117] ${valueClass ?? ''}`} style={{ '--chars': String(value).length } as React.CSSProperties}>
+          <bdi dir="ltr">{value}</bdi>
+        </span>
+      )}
     </div>
-    <div className="mt-1 min-h-5 text-[13px] leading-snug text-gray-500">{sub}</div>
 
-    <div className="mt-auto flex justify-end pt-2">{action}</div>
+    <div className="flex min-w-0 flex-col [grid-column:1]">
+      <div className="min-h-5 text-[13px] leading-snug text-gray-500 [overflow-wrap:anywhere]">{sub}</div>
+      <div className="mt-auto flex pt-1.5">{action}</div>
+    </div>
+
+    {/* A column of its own: the render may leave the card, but it can't reach the words. */}
+    <div aria-hidden className="hc-stat-art">
+      <HomeArt name={art} eager={eager} />
+    </div>
   </article>
 );
 
-const Section: React.FC<{ title: string; action?: React.ReactNode; children: React.ReactNode }> = ({ title, action, children }) => (
-  <section className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
-    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5">
+const Section: React.FC<{ title: string; action?: React.ReactNode; art?: HomeArtName; children: React.ReactNode }> = ({ title, action, art, children }) => (
+  <section className="overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)]">
+    <header className={`relative flex items-center justify-between gap-3 overflow-hidden border-b border-[var(--border-subtle)] ps-5 ${art ? 'min-h-[88px] pe-[127px]' : 'min-h-14 pe-5'}`}>
       <h2 className="text-[15px] font-semibold text-[#0f1117]">{title}</h2>
       {action}
+      {art && <span aria-hidden className="hc-section-art"><HomeArt name={art} /></span>}
     </header>
     {children}
   </section>
@@ -292,8 +296,8 @@ const HomePage: React.FC = () => {
           <StatCard
             title={t('cards.tasks.title')}
             color="var(--accent-strong)"
-            tint="var(--accent-soft)"
-            icon={pageIcons.tasks}
+            art="tasks"
+            eager
             value={tasksFailed ? '—' : counts?.today ?? null}
             sub={tasksFailed ? t('cards.unavailable') : counts && (counts.overdue > 0
               ? <span className="font-medium text-red-600">{t('cards.tasks.overdue', { count: counts.overdue })}</span>
@@ -306,12 +310,10 @@ const HomePage: React.FC = () => {
           <StatCard
             title={t('cards.custody.title')}
             color="#0d9488"
-            tint="rgba(20,184,166,0.10)"
-            icon={pageIcons.custody}
+            art="custody"
+            eager
             valueClass={heldInCustody !== null && heldInCustody < 0 ? '!text-red-600' : undefined}
-            value={custodyFailed ? '—' : heldInCustody === null ? null : (
-              <bdi dir="ltr">{heldInCustody < 0 ? '−' : ''}{formatTRY(heldInCustody)}</bdi>
-            )}
+            value={custodyFailed ? '—' : heldInCustody === null ? null : `${heldInCustody < 0 ? '−' : ''}${formatTRY(heldInCustody)}`}
             sub={custodyFailed ? t('cards.unavailable') : custody && t('cards.custody.received', { amount: formatTRY(custodyTotals(custody, thisMonth).received) })}
             action={<Link to="/dashboard/custody" aria-label={t('cards.open', { title: t('cards.custody.title') })} className={arrowClass}><ArrowIcon /></Link>}
           />
@@ -321,8 +323,7 @@ const HomePage: React.FC = () => {
           <StatCard
             title={t('cards.operations.title')}
             color="#059669"
-            tint="rgba(16,185,129,0.10)"
-            icon={pageIcons.operations}
+            art="operations"
             value={scheduleFailed ? '—' : schedule ? deliveries + pickups : null}
             sub={scheduleFailed ? t('cards.unavailable') : schedule && t('cards.operations.sub', { deliveries, pickups })}
             action={<Link to="/dashboard/operations" aria-label={t('cards.open', { title: t('cards.operations.title') })} className={arrowClass}><ArrowIcon /></Link>}
@@ -333,12 +334,9 @@ const HomePage: React.FC = () => {
           <StatCard
             title={t('cards.wallet.title')}
             color="#d97706"
-            tint="rgba(245,158,11,0.12)"
-            icon={pageIcons.wallet}
+            art="wallet"
             valueClass={balance !== null && balance < 0 ? '!text-red-600' : undefined}
-            value={walletFailed ? '—' : balance === null ? null : (
-              <bdi dir="ltr">{balance < 0 ? '−' : ''}{formatTRY(balance)}</bdi>
-            )}
+            value={walletFailed ? '—' : balance === null ? null : `${balance < 0 ? '−' : ''}${formatTRY(balance)}`}
             sub={walletFailed ? t('cards.unavailable') : wallet && t('cards.wallet.earned', { amount: formatTRY(walletTotals(wallet, thisMonth).earned) })}
             action={<Link to="/dashboard/wallet" aria-label={t('cards.open', { title: t('cards.wallet.title') })} className={arrowClass}><ArrowIcon /></Link>}
           />
@@ -347,13 +345,7 @@ const HomePage: React.FC = () => {
         <StatCard
           title={t('cards.notifications.title')}
           color="#7c3aed"
-          tint="rgba(139,92,246,0.11)"
-          icon={(
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          )}
+          art="notifications"
           value={unreadCount}
           sub={unreadCount > 0 ? t('cards.notifications.unread') : t('cards.notifications.allRead')}
           action={(
@@ -381,7 +373,7 @@ const HomePage: React.FC = () => {
 
         <div className="flex min-w-0 flex-col gap-6">
           {canSeeSchedule && (
-            <Section title={t('sections.schedule')}>
+            <Section title={t('sections.schedule')} art="schedule">
               <ScheduleList items={schedule} failed={scheduleFailed} onRetry={retrySchedule} />
             </Section>
           )}

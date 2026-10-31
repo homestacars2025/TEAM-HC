@@ -8,6 +8,7 @@ import {
 } from '../../lib/queries/goals';
 import { useDateLocale } from '../../pages/AccountingPage';
 import Confetti from '../Confetti';
+import HomeArt from '../HomeArt';
 import ActivityRings, { ringColor } from './ActivityRings';
 import { useMetricText } from './GoalRing';
 import GoalSheet, { useMissingLabel } from './GoalSheet';
@@ -42,9 +43,10 @@ const Celebration: React.FC<{ current: boolean; monthLabel: string }> = ({ curre
   }, [current]);
 
   return (
-    <div role="status" className="relative mt-4 overflow-hidden rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+    <div role="status" className="relative mt-4 flex items-center gap-3 overflow-hidden rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
       {burst && <Confetti pieces={26} />}
-      {current ? t('celebration.current') : t('celebration.past', { month: monthLabel })}
+      <HomeArt name="trophy" className="h-16 w-auto shrink-0" />
+      <span className="min-w-0">{current ? t('celebration.current') : t('celebration.past', { month: monthLabel })}</span>
     </div>
   );
 };
@@ -173,7 +175,7 @@ const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPres
   const score = metrics ? performanceScore(metrics) : null;
 
   return (
-    <section className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
+    <section className="flex flex-col rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:col-span-2 sm:p-5 xl:row-span-2">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-[#0f1117]">{t(isCurrent ? 'title' : 'titlePast')}</h2>
         <div className="flex items-center gap-0.5">

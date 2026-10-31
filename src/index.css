@@ -336,3 +336,141 @@ html[dir="rtl"] .hc-flip-path {
   .hc-sheet { animation: none; }
   .hc-confetti { display: none; }
 }
+
+/* ─── Home cards ─────────────────────────────────────────────────────────────
+   Title and value run the full width; below them, the words take the start
+   column and the render takes the end one. The render's box reaches past the
+   padding and the card's edge, so the rounded corner crops it, but its start
+   edge is the column's, which is what keeps it off the text.                  */
+
+.hc-stat {
+  --pad: 16px;
+  --value-max: 26px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34%;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 8px;
+  min-height: 146px;
+  padding: var(--pad);
+  overflow: hidden;
+  transition: box-shadow 300ms ease-out;
+}
+
+/* Long amounts shrink rather than getting cut off. */
+.hc-stat-value {
+  grid-column: 1 / -1;
+  container-type: inline-size;
+  margin-top: 4px;
+  min-height: 30px;
+}
+
+.hc-stat-value > span {
+  display: block;
+  white-space: nowrap;
+  font-size: min(var(--value-max), calc(100cqi / (var(--chars) * 0.6)));
+  line-height: 30px;
+}
+
+.hc-stat-art {
+  position: relative;
+  grid-column: 2;
+  grid-row: 3;
+  min-height: 60px;
+}
+
+/* A tint of the brand colour, so a white object lifts off the white card. */
+.hc-stat-art::before {
+  content: "";
+  position: absolute;
+  inset-block: -22% calc(-1 * var(--pad) - 30%);
+  inset-inline: -18% calc(-1 * var(--pad) - 30%);
+  background: radial-gradient(closest-side, rgb(110 164 231 / 0.06) 45%, rgb(110 164 231 / 0));
+}
+
+.hc-stat-art img {
+  position: absolute;
+  inset-block: auto calc(-1 * var(--pad) - var(--bleed-y, 0%));
+  inset-inline: var(--art-start, 0%) calc(-1 * var(--pad) - var(--bleed-x, 0%));
+  width: calc(100% - var(--art-start, 0%) + var(--pad) + var(--bleed-x, 0%));
+  max-width: none;
+  height: 68px;
+  object-fit: contain;
+  object-position: right bottom;
+  transform: rotate(var(--tilt, 0deg)) translateY(var(--lift, 0)) scale(var(--zoom, 1));
+  transform-origin: right bottom;
+  transition: transform 300ms ease-out;
+}
+
+[dir="rtl"] .hc-stat-art img {
+  object-position: left bottom;
+  transform-origin: left bottom;
+}
+
+/* Each object sits differently, so the grid reads as arranged and not repeated. */
+.hc-art-tasks { --bleed-x: 10%; --bleed-y: 8%; }
+.hc-art-custody { --bleed-x: 4%; --bleed-y: 2%; }
+.hc-art-operations { --bleed-x: 2%; --bleed-y: 8%; }
+.hc-art-wallet { --bleed-x: 4%; --tilt: -4deg; --art-start: 6%; }
+.hc-art-notifications { --bleed-x: -6%; --bleed-y: -14%; }
+[dir="rtl"] .hc-art-wallet { --bleed-x: 12%; --tilt: 4deg; }
+
+@media (min-width: 640px) {
+  .hc-stat {
+    --pad: 24px;
+    --value-max: 28px;
+    grid-template-columns: minmax(0, 1fr) min(var(--art-col, 44%), 190px);
+    min-height: 184px;
+  }
+
+  .hc-stat-value { min-height: 34px; }
+  .hc-stat-value > span { line-height: 34px; }
+  .hc-stat-art { min-height: 84px; }
+
+  .hc-stat-art img {
+    inset-block-start: var(--art-top, 0%);
+    height: calc(100% - var(--art-top, 0%) + var(--pad) + var(--bleed-y, 0%));
+  }
+
+  .hc-art-tasks { --bleed-x: 12%; --bleed-y: 14%; }
+  .hc-art-custody { --bleed-x: 5%; --bleed-y: 8%; }
+  .hc-art-operations { --art-col: 52%; --bleed-x: 3%; --bleed-y: 10%; --art-top: 8%; }
+  .hc-art-wallet { --art-col: 52%; --bleed-x: 5%; --bleed-y: 2%; --art-top: 8%; }
+  .hc-art-notifications { --bleed-x: -8%; --bleed-y: -12%; --art-top: -6%; }
+  [dir="rtl"] .hc-art-wallet { --bleed-x: 14%; }
+}
+
+@media (min-width: 1280px) {
+  .hc-stat { --pad: 20px; }
+}
+
+@media (hover: hover) {
+  .hc-stat:hover { box-shadow: 0 14px 32px -18px rgb(15 17 23 / 0.2); }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .hc-stat:hover .hc-stat-art img { --lift: -4px; --zoom: 1.03; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-stat-art img { transition: none; }
+}
+
+.hc-section-art {
+  position: absolute;
+  inset-block-end: -6px;
+  inset-inline-end: 12px;
+  pointer-events: none;
+}
+
+.hc-section-art::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(closest-side, rgb(110 164 231 / 0.06) 45%, rgb(110 164 231 / 0));
+}
+
+.hc-section-art img {
+  position: relative;
+  width: auto;
+  height: 82px;
+}
