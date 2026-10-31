@@ -30,7 +30,10 @@
     "food": "Food",
     "custodyFromManager": "Custody from Manager",
     "gps": "GPS",
-    "other": "Other"
+    "other": "Other",
+    "parking": "Parking",
+    "officeSupplies": "Office supplies",
+    "transport": "Transport"
   },
   "table": {
     "direction": "Direction",

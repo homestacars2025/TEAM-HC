@@ -121,6 +121,9 @@ const CATEGORY_KEYS: Record<string, string> = {
   Food: 'food',
   'Custody from Manager': 'custodyFromManager',
   GPS: 'gps',
+  Parking: 'parking',
+  'Office supplies': 'officeSupplies',
+  Transport: 'transport',
   Other: 'other',
 };
 

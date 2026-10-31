@@ -79,6 +79,7 @@ describe("today's schedule", () => {
 describe('custody arithmetic', () => {
   const move = (id: number, transaction_date: string, direction: 'IN' | 'OUT', amount: number): CustodyMovement => ({
     id, transaction_date, direction, amount, category: null, description: null, receipt_url: null,
+    created_at: null, created_by: null, expense_scope: null, car_id: null, posted_car_tx_id: null, posted_company_expense_id: null, car: null,
   });
   const rows = [
     move(1, '2026-09-30', 'IN', 1000),

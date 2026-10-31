@@ -30,7 +30,10 @@
     "food": "طعام",
     "custodyFromManager": "عهدة من المدير",
     "gps": "GPS",
-    "other": "أخرى"
+    "other": "أخرى",
+    "parking": "أوتوبارك",
+    "officeSupplies": "مستلزمات مكتب",
+    "transport": "مواصلات"
   },
   "table": {
     "direction": "الاتجاه",

@@ -1,24 +1,37 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
 import { istanbulDate } from '../lib/istanbulTime';
+import { EXPENSE_CATEGORIES, canDeleteExpense, expenseErrorKey, formatPlate } from '../lib/custodyExpense';
 import {
-  custodyBalance, custodyTotals, getMyCustodyMovements, withRunningCustody,
+  custodyBalance, custodyTotals, deleteCustodyExpense, getMyCustodyMovements, withRunningCustody,
   type CustodyMovement, type CustodyMovementWithBalance,
 } from '../lib/queries/custody';
 import { ReceiptThumb, PeriodToggle, SummaryCard, selectClass, type Period } from '../components/WalletParts';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, categoryLabel, formatDateDisplay, useDateLocale } from './AccountingPage';
 import Button from '../components/Button';
+import AddExpenseSheet from '../components/custody/AddExpenseSheet';
+import ConfirmDialog from '../components/custody/ConfirmDialog';
+import PlateChip from '../components/custody/PlateChip';
 
 /**
- * The signed-in employee's custody (الوديعة): company money they hold, read-only,
- * with entries recorded on the Accounting page. Salary and bonuses are My wallet.
- * Always in lira: this is cash that changed hands in lira, not a figure to convert.
+ * The signed-in employee's custody (الوديعة): company money they hold. Money in is
+ * recorded on the Accounting page; expenses are logged here by the person who spent
+ * it. Salary and bonuses are My wallet. Always in lira: this is cash that changed
+ * hands in lira, not a figure to convert.
  */
 
 type DirectionFilter = 'all' | 'IN' | 'OUT';
+
+/** `all`, `company`, or a car id as text. */
+type TargetFilter = string;
+
+const TOAST_MS = 3200;
+/** As long as the arrival animation, so a later filter change doesn't replay it. */
+const FRESH_MS = 1800;
 
 const COLOR_IN = 'text-emerald-600';
 const COLOR_OUT = 'text-red-600';
@@ -36,6 +49,38 @@ const Running: React.FC<{ value: number }> = ({ value }) => (
   <bdi dir="ltr" className="hc-num text-gray-600">{value < 0 ? '−' : ''}{formatTRY(value)}</bdi>
 );
 
+const PlusIcon: React.FC<{ size: number }> = ({ size }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+  </svg>
+);
+
+/** Who an expense was for. Money coming in was for nobody. */
+const Target: React.FC<{ movement: CustodyMovement }> = ({ movement }) => {
+  const { t } = useTranslation('custody');
+  if (movement.direction !== 'OUT') return <span className="text-gray-300">—</span>;
+  if (movement.car) return <PlateChip plate={movement.car.plate_number} />;
+  if (movement.expense_scope === 'company') return <span className="text-gray-700">{t('company')}</span>;
+  return <span className="text-gray-300">—</span>;
+};
+
+const DeleteButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const { t } = useTranslation('custody');
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t('deleteExpense')}
+      aria-label={t('deleteExpense')}
+      className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 sm:size-9"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+};
+
 const CustodyPage: React.FC = () => {
   const { t } = useTranslation('custody');
   const { t: ta } = useTranslation('accounting');
@@ -50,7 +95,14 @@ const CustodyPage: React.FC = () => {
   const [month, setMonth] = useState('all');
   const [direction, setDirection] = useState<DirectionFilter>('all');
   const [category, setCategory] = useState('all');
+  const [target, setTarget] = useState<TargetFilter>('all');
   const [receipt, setReceipt] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [freshId, setFreshId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<CustodyMovement | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [toast, setToast] = useState<{ text: string; failed: boolean } | null>(null);
+  const toastTimer = useRef(0);
 
   useEffect(() => {
     if (!userId) return;
@@ -62,7 +114,52 @@ const CustodyPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [userId, attempt]);
 
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  const showToast = useCallback((text: string, failed = false) => {
+    window.clearTimeout(toastTimer.current);
+    setToast({ text, failed });
+    toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS);
+  }, []);
+
+  /** Quietly, because a failure here must not replace the page with an error screen. */
+  const refresh = useCallback(() => {
+    if (!userId) return;
+    getMyCustodyMovements(userId).then(setRows).catch(() => {});
+  }, [userId]);
+
   const closeReceipt = useCallback(() => setReceipt(null), []);
+  const closeSheet = useCallback(() => setAdding(false), []);
+
+  const onExpenseSaved = useCallback((row: CustodyMovement) => {
+    setAdding(false);
+    setRows(prev => [...(prev ?? []), row]);
+    // It has to be seen arriving, whatever the list was filtered to.
+    setMonth('all');
+    setDirection('all');
+    setCategory('all');
+    setTarget('all');
+    setFreshId(row.id);
+    showToast(t('toastSaved'));
+    refresh();
+  }, [refresh, showToast, t]);
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      await deleteCustodyExpense(deleting.id);
+      const removed = deleting.id;
+      setRows(prev => (prev ?? []).filter(row => row.id !== removed));
+      showToast(t('toastDeleted'));
+    } catch (failure) {
+      const key = expenseErrorKey((failure as { message?: string })?.message);
+      showToast(t(`expense.errors.${key === 'tooLate' ? 'tooLate' : 'deleteFailed'}`), true);
+      refresh();
+    }
+    setDeleteBusy(false);
+    setDeleting(null);
+  };
 
   // A goal gap links here to show one entry. Both layouts render it, so the one
   // on screen is whichever has a box.
@@ -74,11 +171,36 @@ const CustodyPage: React.FC = () => {
       .find(el => el.offsetParent !== null)
       ?.scrollIntoView({ block: 'center' });
   }, [highlighted, rows]);
-  const highlightClass = (id: number) => (id === highlighted ? 'bg-[var(--accent-soft)]' : '');
+  const highlightClass = (id: number) => {
+    if (id === freshId) return 'hc-row-new';
+    return id === highlighted ? 'bg-[var(--accent-soft)]' : '';
+  };
+
+  // A back-dated expense lands lower down, so the list moves to meet it.
+  useEffect(() => {
+    if (freshId === null) return;
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-entry="${freshId}"]`))
+      .find(el => el.offsetParent !== null)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const timer = window.setTimeout(() => setFreshId(null), FRESH_MS);
+    return () => window.clearTimeout(timer);
+  }, [freshId]);
 
   const thisMonth = istanbulDate().slice(0, 7);
   const totals = useMemo(() => custodyTotals(rows ?? [], period === 'month' ? thisMonth : undefined), [rows, period, thisMonth]);
   const balance = useMemo(() => custodyBalance(rows ?? []), [rows]);
+
+  /** The expense's own wording where it has one: this page says بنزين, finance says وقود. */
+  const labelFor = useCallback((value: string | null) => {
+    const own = [...EXPENSE_CATEGORIES.car, ...EXPENSE_CATEGORIES.company].find(option => option.value === value);
+    return own ? t(`expense.categories.${own.key}`) : categoryLabel(ta, value);
+  }, [t, ta]);
+
+  const targets = useMemo(() => {
+    const plates = new Map<number, string>();
+    (rows ?? []).forEach(row => { if (row.car_id !== null && row.car) plates.set(row.car_id, row.car.plate_number); });
+    return Array.from(plates, ([id, plate]) => ({ id, plate })).sort((a, b) => a.plate.localeCompare(b.plate, 'en', { numeric: true }));
+  }, [rows]);
 
   const months = useMemo(
     () => Array.from(new Set((rows ?? []).map(r => r.transaction_date.slice(0, 7)))).sort().reverse(),
@@ -95,7 +217,8 @@ const CustodyPage: React.FC = () => {
     .filter(r => month === 'all' || r.transaction_date.startsWith(month))
     .filter(r => direction === 'all' || r.direction === direction)
     .filter(r => category === 'all' || r.category === category)
-    .reverse(), [rows, month, direction, category]);
+    .filter(r => target === 'all' || (target === 'company' ? r.expense_scope === 'company' : String(r.car_id) === target))
+    .reverse(), [rows, month, direction, category, target]);
 
   const monthLabel = (key: string) => new Date(`${key}-01T00:00:00`).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
 
@@ -111,13 +234,19 @@ const CustodyPage: React.FC = () => {
   const loading = rows === null;
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-10">
+    <div className="flex flex-col gap-6 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-[#0f1117] sm:text-[28px]">{t('title')}</h1>
           <p className="mt-1 text-sm text-gray-500">{t('subtitle')}</p>
         </div>
-        <PeriodToggle value={period} onChange={setPeriod} monthLabel={t('period.month')} allLabel={t('period.all')} />
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodToggle value={period} onChange={setPeriod} monthLabel={t('period.month')} allLabel={t('period.all')} />
+          <Button disabled={loading} onClick={() => setAdding(true)}>
+            <PlusIcon size={16} />
+            {t('expense.add')}
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -133,7 +262,7 @@ const CustodyPage: React.FC = () => {
       <section className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
         <header className="flex flex-col gap-3 border-b border-[var(--border-subtle)] p-4 md:flex-row md:items-center md:justify-between md:px-5">
           <h2 className="text-[15px] font-semibold text-[#0f1117]">{t('movements')}</h2>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:flex">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
             <select aria-label={t('filters.month')} value={month} onChange={e => setMonth(e.target.value)} className={selectClass}>
               <option value="all">{t('filters.allMonths')}</option>
               {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
@@ -145,7 +274,12 @@ const CustodyPage: React.FC = () => {
             </select>
             <select aria-label={t('filters.category')} value={category} onChange={e => setCategory(e.target.value)} className={selectClass}>
               <option value="all">{t('filters.allCategories')}</option>
-              {categories.map(c => <option key={c} value={c}>{categoryLabel(ta, c)}</option>)}
+              {categories.map(c => <option key={c} value={c}>{labelFor(c)}</option>)}
+            </select>
+            <select aria-label={t('filters.target')} value={target} onChange={e => setTarget(e.target.value)} className={selectClass}>
+              <option value="all">{t('filters.allTargets')}</option>
+              <option value="company">{t('company')}</option>
+              {targets.map(car => <option key={car.id} value={String(car.id)}>{formatPlate(car.plate)}</option>)}
             </select>
           </div>
         </header>
@@ -162,26 +296,30 @@ const CustodyPage: React.FC = () => {
           <>
             {/* The table needs the room a sidebar leaves only from here up. */}
             <div className="hidden overflow-x-auto xl:block">
-              <table className="w-full min-w-[720px] border-collapse text-sm">
+              <table className="w-full min-w-[860px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-[var(--border-subtle)] text-start text-xs font-medium text-gray-500">
                     <th scope="col" className="px-5 py-3 text-start font-medium">{t('table.date')}</th>
                     <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.category')}</th>
+                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.target')}</th>
                     <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.description')}</th>
                     <th scope="col" className="px-3 py-3 text-end font-medium">{t('table.amount')}</th>
                     <th scope="col" className="px-3 py-3 text-center font-medium">{t('table.receipt')}</th>
-                    <th scope="col" className="px-5 py-3 text-end font-medium">{t('table.running')}</th>
+                    <th scope="col" className="px-3 py-3 text-end font-medium">{t('table.running')}</th>
+                    <th scope="col" className="w-12 px-3 py-3"><span className="sr-only">{t('table.actions')}</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map(row => (
                     <tr key={row.id} data-entry={row.id} className={`border-b border-[var(--border-subtle)] last:border-b-0 ${highlightClass(row.id)}`}>
                       <td className="whitespace-nowrap px-5 py-3 text-gray-700">{formatDateDisplay(row.transaction_date, dateLocale)}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-gray-700">{categoryLabel(ta, row.category)}</td>
-                      <td className="max-w-[280px] px-3 py-3 text-gray-500">{row.description || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-gray-700">{labelFor(row.category)}</td>
+                      <td className="whitespace-nowrap px-3 py-3"><Target movement={row} /></td>
+                      <td className="max-w-[240px] px-3 py-3 text-gray-500">{row.description || '—'}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-end"><Amount movement={row} /></td>
                       <td className="px-3 py-2"><div className="flex justify-center"><ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} /></div></td>
-                      <td className="whitespace-nowrap px-5 py-3 text-end"><Running value={row.running} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 text-end"><Running value={row.running} /></td>
+                      <td className="px-3 py-1">{canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -192,8 +330,9 @@ const CustodyPage: React.FC = () => {
               {visible.map(row => (
                 <li key={row.id} data-entry={row.id} className={`flex items-start gap-3 border-b border-[var(--border-subtle)] p-4 last:border-b-0 ${highlightClass(row.id)}`}>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-[#0f1117]">{categoryLabel(ta, row.category)}</div>
-                    {row.description && <div className="mt-0.5 text-[13px] text-gray-500">{row.description}</div>}
+                    <div className="truncate text-sm font-medium text-[#0f1117]">{labelFor(row.category)}</div>
+                    {row.direction === 'OUT' && (row.car || row.expense_scope === 'company') && <div className="mt-1 text-[13px]"><Target movement={row} /></div>}
+                    {row.description && <div className="mt-1 text-[13px] text-gray-500">{row.description}</div>}
                     <div className="mt-1 text-xs text-gray-400">{formatDateDisplay(row.transaction_date, dateLocale)}</div>
                   </div>
                   <div className="shrink-0 text-end text-sm">
@@ -201,6 +340,7 @@ const CustodyPage: React.FC = () => {
                     <div className="mt-1 text-xs"><Running value={row.running} /></div>
                   </div>
                   {row.receipt_url && <ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} />}
+                  {canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}
                 </li>
               ))}
             </ul>
@@ -208,7 +348,36 @@ const CustodyPage: React.FC = () => {
         )}
       </section>
 
+      {!loading && (
+        <Button onClick={() => setAdding(true)} aria-label={t('expense.add')} className="hc-fab lg:!hidden">
+          <PlusIcon size={24} />
+        </Button>
+      )}
+
       {receipt && <ReceiptLightbox url={receipt} onClose={closeReceipt} />}
+
+      {adding && userId && rows && (
+        <AddExpenseSheet userId={userId} balance={balance} rows={rows} onClose={closeSheet} onSaved={onExpenseSaved} />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title={t('deleteConfirm.title')}
+          body={t('deleteConfirm.body')}
+          confirmLabel={deleteBusy ? t('deleteConfirm.deleting') : t('deleteConfirm.confirm')}
+          cancelLabel={tc('actions.cancel')}
+          busy={deleteBusy}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
+
+      {toast && ReactDOM.createPortal(
+        <div role={toast.failed ? 'alert' : 'status'} className={`hc-toast-in fixed inset-x-3 bottom-[92px] z-[9400] mx-auto max-w-sm rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white shadow-lg lg:bottom-6 ${toast.failed ? 'bg-red-600' : 'bg-[#0f1117]'}`}>
+          {toast.text}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 };
