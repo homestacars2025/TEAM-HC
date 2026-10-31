@@ -202,3 +202,47 @@ html[dir="rtl"] .hc-flip-path {
   .hc-sidebar[data-open="false"] { transform: translateX(-100%); visibility: hidden; }
   html[dir="rtl"] .hc-sidebar[data-open="false"] { transform: translateX(100%); }
 }
+
+/* Goal rings and the sheet they open. */
+.hc-ring-fill {
+  transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hc-sheet {
+  animation: hc-sheet-in 220ms ease-out;
+}
+
+[dir="rtl"] .hc-sheet {
+  animation-name: hc-sheet-in-rtl;
+}
+
+@keyframes hc-sheet-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes hc-sheet-in-rtl {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.hc-confetti {
+  position: absolute;
+  top: -8px;
+  width: 6px;
+  height: 9px;
+  border-radius: 1px;
+  opacity: 0;
+  animation: hc-confetti-fall 1600ms ease-in forwards;
+}
+
+@keyframes hc-confetti-fall {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(90px) rotate(320deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-ring-fill { transition: none; }
+  .hc-sheet { animation: none; }
+  .hc-confetti { display: none; }
+}

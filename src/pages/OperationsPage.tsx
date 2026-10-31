@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { supabase } from '../lib/supabase';
@@ -2421,6 +2422,26 @@ const OperationsPage: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<OperationType | ''>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editOp, setEditOp]         = useState<Operation | null>(null);
+
+  // A goal gap links here to fix one operation: its month, then its edit form.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const urlOp = urlParams.get('op');
+  const urlMonth = urlParams.get('month');
+  useEffect(() => {
+    const match = /^(\d{4})-(\d{2})$/.exec(urlMonth ?? '');
+    if (!match) return;
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    setSelectedMonth(m => (m.getFullYear() === year && m.getMonth() === month ? m : new Date(year, month, 1)));
+  }, [urlMonth]);
+  useEffect(() => {
+    const target = urlOp ? allOperations.find(op => String(op.id) === urlOp) : undefined;
+    if (!target) return;
+    setEditOp(target);
+    // Cleared so that closing the form does not open it again.
+    setUrlParams({}, { replace: true });
+  }, [urlOp, allOperations, setUrlParams]);
+
   const [deleteOp, setDeleteOp]     = useState<Operation | null>(null);
   const [deleting, setDeleting]     = useState(false);
   const [photosOp, setPhotosOp]     = useState<Operation | null>(null);

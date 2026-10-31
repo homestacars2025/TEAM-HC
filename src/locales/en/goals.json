@@ -1,0 +1,63 @@
+{
+  "title": "My goals this month",
+  "titlePast": "My goals",
+  "homeTitle": "My goals",
+  "viewDetails": "View details",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "target": "Target: {{target}}",
+  "failed": "Could not load your goals.",
+  "emptyMonth": "No goals were set for this month.",
+  "status": {
+    "green": "On target",
+    "amber": "Close to target",
+    "red": "Below target",
+    "progress": "In progress",
+    "none": "No data yet"
+  },
+  "celebration": {
+    "current": "All your indicators are green — you've earned this month's bonus 🎉",
+    "past": "All your indicators were green in {{month}} 🎉"
+  },
+  "hint": {
+    "generic": "{{label}} is below target",
+    "delivery_docs_one": "{{count}} delivery missing {{item}}",
+    "delivery_docs_other": "{{count}} deliveries missing {{item}}",
+    "pickup_docs_one": "{{count}} pickup missing {{item}}",
+    "pickup_docs_other": "{{count}} pickups missing {{item}}",
+    "custody_receipts_one": "{{count}} custody expense with no receipt",
+    "custody_receipts_other": "{{count}} custody expenses with no receipt"
+  },
+  "gaps": {
+    "title": "What's missing",
+    "none": "Nothing missing.",
+    "notApplicable": "This goal counts your work, so there is nothing to fix here.",
+    "failed": "Could not load the list. Try again later.",
+    "custodyHint": "Custody entries are recorded by finance. Send them the receipt so they can attach it."
+  },
+  "missing": {
+    "customer_card": "Customer card",
+    "air_freshener": "Air freshener",
+    "license": "License",
+    "tutanak": "Tutanak",
+    "km": "Kilometers",
+    "fuel": "Fuel",
+    "receipt": "Receipt",
+    "photo": "Photo: {{slot}}",
+    "photos": {
+      "front": "Front",
+      "rear": "Rear",
+      "left_side": "Left side",
+      "right_side": "Right side",
+      "corner_1": "Corner 1",
+      "corner_2": "Corner 2",
+      "corner_3": "Corner 3",
+      "corner_4": "Corner 4",
+      "dashboard": "Dashboard",
+      "odometer": "Odometer",
+      "front_seats": "Front seats",
+      "rear_seats": "Rear seats",
+      "trunk": "Trunk"
+    }
+  }
+}

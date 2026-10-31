@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
 import { istanbulDate } from '../lib/istanbulTime';
@@ -61,6 +62,18 @@ const CustodyPage: React.FC = () => {
   }, [userId, attempt]);
 
   const closeReceipt = useCallback(() => setReceipt(null), []);
+
+  // A goal gap links here to show one entry. Both layouts render it, so the one
+  // on screen is whichever has a box.
+  const [params] = useSearchParams();
+  const highlighted = Number(params.get('entry')) || null;
+  useEffect(() => {
+    if (!highlighted || !rows) return;
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-entry="${highlighted}"]`))
+      .find(el => el.offsetParent !== null)
+      ?.scrollIntoView({ block: 'center' });
+  }, [highlighted, rows]);
+  const highlightClass = (id: number) => (id === highlighted ? 'bg-[var(--accent-soft)]' : '');
 
   const thisMonth = istanbulDate().slice(0, 7);
   const totals = useMemo(() => custodyTotals(rows ?? [], period === 'month' ? thisMonth : undefined), [rows, period, thisMonth]);
@@ -163,7 +176,7 @@ const CustodyPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {visible.map(row => (
-                    <tr key={row.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
+                    <tr key={row.id} data-entry={row.id} className={`border-b border-[var(--border-subtle)] last:border-b-0 ${highlightClass(row.id)}`}>
                       <td className="whitespace-nowrap px-5 py-3 text-gray-700">{formatDateDisplay(row.transaction_date, dateLocale)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-gray-700">{categoryLabel(ta, row.category)}</td>
                       <td className="max-w-[280px] px-3 py-3 text-gray-500">{row.description || '—'}</td>
@@ -178,7 +191,7 @@ const CustodyPage: React.FC = () => {
 
             <ul className="xl:hidden">
               {visible.map(row => (
-                <li key={row.id} className="flex items-start gap-3 border-b border-[var(--border-subtle)] p-4 last:border-b-0">
+                <li key={row.id} data-entry={row.id} className={`flex items-start gap-3 border-b border-[var(--border-subtle)] p-4 last:border-b-0 ${highlightClass(row.id)}`}>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-[#0f1117]">{categoryLabel(ta, row.category)}</div>
                     {row.description && <div className="mt-0.5 text-[13px] text-gray-500">{row.description}</div>}

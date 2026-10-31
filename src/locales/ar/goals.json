@@ -1,0 +1,75 @@
+{
+  "title": "أهدافي هذا الشهر",
+  "titlePast": "أهدافي",
+  "homeTitle": "أهدافي",
+  "viewDetails": "عرض التفاصيل",
+  "previousMonth": "الشهر السابق",
+  "nextMonth": "الشهر التالي",
+  "target": "الهدف: {{target}}",
+  "failed": "تعذّر تحميل أهدافك.",
+  "emptyMonth": "لم تُحدَّد أهداف لهذا الشهر.",
+  "status": {
+    "green": "ضمن الهدف",
+    "amber": "قريب من الهدف",
+    "red": "دون الهدف",
+    "progress": "قيد التقدّم",
+    "none": "لا توجد بيانات بعد"
+  },
+  "celebration": {
+    "current": "كل مؤشراتك خضراء — أنت مستحق لمكافأة هذا الشهر 🎉",
+    "past": "كانت كل مؤشراتك خضراء في {{month}} 🎉"
+  },
+  "hint": {
+    "generic": "{{label}} دون الهدف",
+    "delivery_docs_zero": "لا تسليمات ناقصها {{item}}",
+    "delivery_docs_one": "تسليم واحد ناقصه {{item}}",
+    "delivery_docs_two": "تسليمان ناقصهما {{item}}",
+    "delivery_docs_few": "{{count}} تسليمات ناقصها {{item}}",
+    "delivery_docs_many": "{{count}} تسليماً ناقصها {{item}}",
+    "delivery_docs_other": "{{count}} تسليم ناقصها {{item}}",
+    "pickup_docs_zero": "لا استلامات ناقصها {{item}}",
+    "pickup_docs_one": "استلام واحد ناقصه {{item}}",
+    "pickup_docs_two": "استلامان ناقصهما {{item}}",
+    "pickup_docs_few": "{{count}} استلامات ناقصها {{item}}",
+    "pickup_docs_many": "{{count}} استلاماً ناقصها {{item}}",
+    "pickup_docs_other": "{{count}} استلام ناقصها {{item}}",
+    "custody_receipts_zero": "لا مصاريف بلا إيصال",
+    "custody_receipts_one": "مصروف واحد من الوديعة بلا إيصال",
+    "custody_receipts_two": "مصروفان من الوديعة بلا إيصال",
+    "custody_receipts_few": "{{count}} مصاريف من الوديعة بلا إيصال",
+    "custody_receipts_many": "{{count}} مصروفاً من الوديعة بلا إيصال",
+    "custody_receipts_other": "{{count}} مصروف من الوديعة بلا إيصال"
+  },
+  "gaps": {
+    "title": "ما الناقص",
+    "none": "لا يوجد شيء ناقص.",
+    "notApplicable": "هذا الهدف يحسب عملك، فلا يوجد ما يلزم إصلاحه هنا.",
+    "failed": "تعذّر تحميل القائمة. حاول لاحقاً.",
+    "custodyHint": "قيود الوديعة تسجّلها المالية. أرسل لهم الإيصال ليرفقوه."
+  },
+  "missing": {
+    "customer_card": "كرت العميل",
+    "air_freshener": "المعطّر",
+    "license": "الرخصة",
+    "tutanak": "التوتاناك",
+    "km": "الكيلومتر",
+    "fuel": "البنزين",
+    "receipt": "إيصال",
+    "photo": "صورة: {{slot}}",
+    "photos": {
+      "front": "الأمام",
+      "rear": "الخلف",
+      "left_side": "الجانب الأيسر",
+      "right_side": "الجانب الأيمن",
+      "corner_1": "الزاوية 1",
+      "corner_2": "الزاوية 2",
+      "corner_3": "الزاوية 3",
+      "corner_4": "الزاوية 4",
+      "dashboard": "لوحة القيادة",
+      "odometer": "عداد الكيلومترات",
+      "front_seats": "المقاعد الأمامية",
+      "rear_seats": "المقاعد الخلفية",
+      "trunk": "صندوق السيارة"
+    }
+  }
+}

@@ -8,6 +8,7 @@ import { useNotifText, useUiDir } from '../lib/notifications/renderI18n';
 import { claimTask, completeTask, getMyTasks } from '../lib/queries/tasks';
 import type { MyTask, TaskFilter, TaskPriority } from '../lib/types/tasks';
 import StaffAvatar from '../components/StaffAvatar';
+import GoalsPanel from '../components/goals/GoalsPanel';
 import { useStaffProfiles, type StaffProfiles } from '../hooks/useStaffProfiles';
 
 /**
@@ -404,6 +405,8 @@ const TasksPage: React.FC = () => {
           {t('subtitle')}
         </p>
       </div>
+
+      <GoalsPanel />
 
       {/* ── Tabs ── */}
       <div role="tablist" aria-label={t('tabs.aria')} style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
