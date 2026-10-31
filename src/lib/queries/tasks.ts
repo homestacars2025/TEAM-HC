@@ -11,9 +11,9 @@ import type {
  * access to separate — the whole surface is a handful of security-definer RPCs,
  * and each one already scopes itself to the caller's role.
  *
- * Reads log and return a neutral value rather than throwing: a failed count must
- * degrade to "no badge", never to a blank dashboard. Writes return a result
- * object so a refusal becomes a toast.
+ * Counts and notifications log and return a neutral value rather than throwing: a
+ * failed count must degrade to "no badge", never to a blank dashboard. Writes return
+ * a result object so a refusal becomes a toast.
  */
 
 // ─── Counts (the bell badge and the sidebar badge) ────────────────────────────
@@ -59,50 +59,57 @@ export async function markAllNotificationsRead(): Promise<TaskActionResult> {
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
-/** Already sorted by priority then oldest-first inside the function. */
-export async function getMyTasks(status: TaskFilter, limit = 50, offset = 0): Promise<MyTask[]> {
+export const TASK_PAGE_SIZE = 100;
+
+const MAX_PROOF_BYTES = 10 * 1024 * 1024;
+
+/** Overdue first, then soonest due. The caller decides what a failure looks like. */
+export async function getMyTasks(status: TaskFilter, limit = TASK_PAGE_SIZE, offset = 0): Promise<MyTask[]> {
   const { data, error } = await supabase.rpc('my_tasks', {
     p_status: status,
     p_limit: limit,
     p_offset: offset,
   });
-  if (error) {
-    console.error('[tasks] my_tasks:', error.message);
-    return [];
-  }
+  if (error) throw error;
   return (data ?? []) as MyTask[];
 }
 
 /**
- * Both write RPCs `raise exception` when their guarded UPDATE matches no row —
- * which is what a lost race looks like: someone claimed or completed it in the
- * seconds since the list was fetched. That is not a failure worth an alarming
- * message, so it gets its own code and the caller refreshes instead.
+ * `complete_task` raises on a refusal. Losing a race is the one worth naming: the
+ * task was marked missed or cancelled in the minutes since the list was fetched.
  *
  * Codes, not sentences: the wording is a translation key the component resolves.
  */
-function classify(message: string, verb: 'claim' | 'complete'): TaskActionResult {
-  if (/not claimable|not completable/i.test(message)) {
-    return { ok: false, code: verb === 'claim' ? 'raced_claim' : 'raced_complete' };
-  }
-  if (/row-level security|permission denied/i.test(message)) {
-    return { ok: false, code: 'forbidden' };
-  }
+export function classifyCompletion(message: string): TaskActionResult {
+  if (/not open/i.test(message)) return { ok: false, code: 'not_open' };
+  if (/proof photo required/i.test(message)) return { ok: false, code: 'proof_required' };
+  if (/not found|row-level security|permission denied/i.test(message)) return { ok: false, code: 'forbidden' };
   return { ok: false, error: message };
 }
 
-export async function claimTask(id: string): Promise<TaskActionResult> {
-  const { error } = await supabase.rpc('claim_task', { p_task_id: id });
-  if (error) return classify(error.message, 'claim');
-  return { ok: true };
-}
-
-export async function completeTask(id: string, notes?: string | null): Promise<TaskActionResult> {
+export async function completeTask(id: string, notes?: string | null, proofUrl?: string | null): Promise<TaskActionResult> {
   const trimmed = notes?.trim();
   const { error } = await supabase.rpc('complete_task', {
     p_task_id: id,
     p_notes: trimmed ? trimmed : null,
+    p_proof_url: proofUrl ?? null,
   });
-  if (error) return classify(error.message, 'complete');
+  if (error) return classifyCompletion(error.message);
   return { ok: true };
+}
+
+export const proofTooLarge = (file: File): boolean => file.size > MAX_PROOF_BYTES;
+
+/** `{user_id}/{task_id}/{time}.{ext}`. A new name each time, so nothing is overwritten. */
+export function proofPath(userId: string, taskId: string, file: Pick<File, 'name' | 'type'>, now = Date.now()): string {
+  const fromType = file.type.split('/')[1]?.replace('jpeg', 'jpg');
+  const fromName = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : undefined;
+  return `${userId}/${taskId}/${now}.${fromType || fromName || 'jpg'}`;
+}
+
+export async function uploadTaskProof(userId: string, taskId: string, file: File): Promise<string> {
+  const path = proofPath(userId, taskId, file);
+  const { error } = await supabase.storage.from('task-proofs').upload(path, file, { contentType: file.type || undefined });
+  if (error) throw error;
+  return supabase.storage.from('task-proofs').getPublicUrl(path).data.publicUrl;
 }

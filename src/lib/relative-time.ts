@@ -41,18 +41,24 @@ export function formatRelativeTime(t: TFunction, iso: string, locale: string): s
 }
 
 /**
- * A due date phrased from the reader's side. Overdue is named rather than
- * softened into an elapsed count — it is the case that has to stand out.
+ * A due date phrased from the reader's side, in the largest unit that reads
+ * naturally: minutes, then hours, then days. Overdue is named rather than softened
+ * into an elapsed count, because it is the case that has to stand out.
  */
 export function formatDue(t: TFunction, iso: string): { text: string; overdue: boolean } {
   const ms = new Date(iso).getTime();
   if (Number.isNaN(ms)) return { text: '', overdue: false };
 
-  const diffDays = Math.round((ms - Date.now()) / DAY_MS);
-  if (diffDays < 0) return { text: t('tasks:due.overdue', { count: -diffDays }), overdue: true };
-  if (diffDays === 0) return { text: t('tasks:due.today'), overdue: true };
-  if (diffDays === 1) return { text: t('tasks:due.tomorrow'), overdue: false };
-  return { text: t('tasks:due.in', { count: diffDays }), overdue: false };
+  const diff = ms - Date.now();
+  const overdue = diff < 0;
+  const distance = Math.abs(diff);
+  const minutes = Math.max(Math.round(distance / MINUTE_MS), 1);
+  const hours = Math.round(distance / HOUR_MS);
+
+  if (minutes < 60) return { text: t(overdue ? 'tasks:due.overdueMinutes' : 'tasks:due.inMinutes', { count: minutes }), overdue };
+  if (hours < 24) return { text: t(overdue ? 'tasks:due.overdueHours' : 'tasks:due.inHours', { count: hours }), overdue };
+  const days = Math.round(distance / DAY_MS);
+  return { text: t(overdue ? 'tasks:due.overdue' : 'tasks:due.in', { count: days }), overdue };
 }
 
 /** Both formatters bound to the active language, for use inside components. */

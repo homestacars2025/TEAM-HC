@@ -34,29 +34,29 @@ export interface MyNotification {
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 
-export type TaskStatus = 'open' | 'claimed' | 'done' | 'cancelled';
+export type TaskStatus = 'open' | 'claimed' | 'done' | 'missed' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type TaskKind = 'one_off' | 'recurring';
 
-/** The tab filter `my_tasks` accepts — `active` is open + claimed. */
-export type TaskFilter = 'active' | 'done' | 'all';
+/** What `my_tasks` accepts. `active` is everything still to be done. */
+export type TaskFilter = 'active' | 'done' | 'missed' | 'all';
 
 export interface MyTask {
   id: string;
-  /** Fallback only — render through `useNotifText`, never directly. */
   title: string;
   description: string | null;
-  i18n_key: string | null;
-  body_i18n_key: string | null;
-  vars: Record<string, unknown> | null;
-  category: string | null;
+  kind: TaskKind;
   status: TaskStatus;
   priority: TaskPriority;
-  claimed_by: string | null;
-  claimed_by_name: string | null;
-  entity_type: string | null;
-  entity_id: string | null;
   due_at: string | null;
+  is_overdue: boolean;
+  requires_proof: boolean;
+  proof_url: string | null;
+  completion_notes: string | null;
+  completed_at: string | null;
   created_at: string;
+  template_id: string | null;
+  created_by_name: string | null;
 }
 
 // ─── Action results ───────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export interface MyTask {
  * Known refusal reasons, as codes rather than sentences — the wording is a
  * translation key resolved in the component, not something the data layer picks.
  */
-export type TaskErrorCode = 'raced_claim' | 'raced_complete' | 'forbidden';
+export type TaskErrorCode = 'not_open' | 'proof_required' | 'forbidden';
 
 /** Mirrors the Media section's convention: actions resolve, they never throw. */
 export type TaskActionResult = {

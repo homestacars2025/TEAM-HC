@@ -63,5 +63,20 @@
     "days_zero": "{{count}} يوم",
     "hours_zero": "{{count}} ساعة",
     "minutes_zero": "{{count}} دقيقة"
+  },
+  "task": {
+    "assigned": {
+      "title": "مهمة جديدة: {{title}}",
+      "body": "الموعد: {{due}}",
+      "noDue": "بدون موعد"
+    },
+    "due_soon": {
+      "title": "قرب موعد المهمة: {{title}}",
+      "body": "باقي أقل من ساعتين"
+    },
+    "overdue": {
+      "title": "مهمة متأخرة: {{title}}",
+      "body": "فات موعدها"
+    }
   }
 }

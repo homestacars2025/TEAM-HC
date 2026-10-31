@@ -1,18 +1,28 @@
 {
   "eyebrow": "الفريق",
   "title": "مهامي",
-  "subtitle": "المهام الموجّهة لك — استلمها أو علّمها كمنجزة",
+  "subtitle": "المهام الموجّهة لك. علّمها كمنجزة عند الانتهاء.",
   "tabs": {
     "aria": "حالة المهام",
     "active": "نشطة",
-    "done": "منجزة"
+    "done": "منجزة",
+    "missed": "فائتة"
   },
-  "loading": "جارٍ التحميل…",
+  "failed": "تعذّر تحميل مهامك.",
+  "loadMore": "عرض المزيد",
+  "groups": {
+    "overdue": "متأخرة",
+    "today": "اليوم",
+    "upcoming": "القادمة",
+    "noDue": "بدون موعد"
+  },
   "empty": {
     "activeTitle": "ما عندك مهام — عاش! 🎉",
     "activeBody": "كل شي مخلّص. رح تشوف المهام الجديدة هون أول ما تنضاف.",
     "doneTitle": "ما في مهام منجزة بعد",
-    "doneBody": "أول ما تخلّص مهمة رح تنتقل لهون."
+    "doneBody": "أول ما تخلّص مهمة رح تنتقل لهون.",
+    "missedTitle": "لا توجد مهام فائتة",
+    "missedBody": "تظهر هنا المهام التي فات موعدها دون إنجاز."
   },
   "priority": {
     "urgent": "عاجلة",
@@ -20,43 +30,80 @@
     "normal": "عادية",
     "low": "منخفضة"
   },
-  "claimedBy": "مستلمة بواسطة {{name}}",
+  "kind": {
+    "recurring": "متكررة"
+  },
+  "from": "من {{name}}",
+  "showMore": "عرض المزيد",
+  "showLess": "عرض أقل",
+  "requiresProof": "تتطلب صورة",
+  "completedOn": "أُنجزت {{date}}",
+  "wasDue": "كان موعدها {{date}}",
+  "note": "ملاحظة",
+  "viewProof": "عرض صورة الإثبات",
   "actions": {
-    "claim": "أستلمها",
     "complete": "تمّت"
   },
   "due": {
-    "today": "تستحق اليوم",
-    "tomorrow": "تستحق غداً",
+    "overdue_zero": "متأخرة {{count}} يوم",
     "overdue_one": "متأخرة يوم",
     "overdue_two": "متأخرة يومين",
     "overdue_few": "متأخرة {{count}} أيام",
     "overdue_many": "متأخرة {{count}} يوماً",
-    "overdue_other": "متأخرة {{count}} يوماً",
-    "in_one": "تستحق بعد يوم",
-    "in_two": "تستحق بعد يومين",
-    "in_few": "تستحق بعد {{count}} أيام",
-    "in_many": "تستحق بعد {{count}} يوماً",
-    "in_other": "تستحق بعد {{count}} يوماً",
-    "in_zero": "تستحق بعد {{count}} يوم",
-    "overdue_zero": "متأخرة {{count}} يوم"
+    "overdue_other": "متأخرة {{count}} يوم",
+    "in_zero": "بعد {{count}} يوم",
+    "in_one": "بعد يوم",
+    "in_two": "بعد يومين",
+    "in_few": "بعد {{count}} أيام",
+    "in_many": "بعد {{count}} يوماً",
+    "in_other": "بعد {{count}} يوم",
+    "overdueHours_zero": "متأخرة {{count}} ساعة",
+    "overdueHours_one": "متأخرة ساعة",
+    "overdueHours_two": "متأخرة ساعتين",
+    "overdueHours_few": "متأخرة {{count}} ساعات",
+    "overdueHours_many": "متأخرة {{count}} ساعة",
+    "overdueHours_other": "متأخرة {{count}} ساعة",
+    "inHours_zero": "بعد {{count}} ساعة",
+    "inHours_one": "بعد ساعة",
+    "inHours_two": "بعد ساعتين",
+    "inHours_few": "بعد {{count}} ساعات",
+    "inHours_many": "بعد {{count}} ساعة",
+    "inHours_other": "بعد {{count}} ساعة",
+    "overdueMinutes_zero": "متأخرة {{count}} دقيقة",
+    "overdueMinutes_one": "متأخرة دقيقة",
+    "overdueMinutes_two": "متأخرة دقيقتين",
+    "overdueMinutes_few": "متأخرة {{count}} دقائق",
+    "overdueMinutes_many": "متأخرة {{count}} دقيقة",
+    "overdueMinutes_other": "متأخرة {{count}} دقيقة",
+    "inMinutes_zero": "بعد {{count}} دقيقة",
+    "inMinutes_one": "بعد دقيقة",
+    "inMinutes_two": "بعد دقيقتين",
+    "inMinutes_few": "بعد {{count}} دقائق",
+    "inMinutes_many": "بعد {{count}} دقيقة",
+    "inMinutes_other": "بعد {{count}} دقيقة"
   },
   "dialog": {
     "title": "إنجاز المهمة",
     "notesLabel": "ملاحظة",
     "notesOptional": "(اختيارية)",
     "notesPlaceholder": "مثلاً: رفعت الملف وتم التحقق منه",
+    "proofLabel": "صورة الإثبات",
+    "proofRequired": "(مطلوبة)",
+    "takePhoto": "التقط أو اختر صورة",
+    "replacePhoto": "استبدال الصورة",
+    "proofAlt": "معاينة صورة الإثبات",
+    "proofMissing": "أضف صورة لإنجاز هذه المهمة.",
+    "proofTooLarge": "حجم الصورة أكبر من 10 ميغابايت.",
+    "uploadFailed": "تعذّر رفع الصورة. حاول مرة أخرى.",
     "confirm": "تأكيد الإنجاز",
     "saving": "جارٍ الحفظ…",
     "cancel": "إلغاء"
   },
   "toast": {
-    "claimed": "استلمتها ✓",
     "completed": "تمّت المهمة 🎉",
-    "claimFailed": "تعذّر استلام المهمة",
     "completeFailed": "تعذّر إنجاز المهمة",
-    "racedClaim": "المهمة استُلمت للتو",
-    "racedComplete": "المهمة أُنجزت للتو",
+    "notOpen": "هذه المهمة لم تعد مفتوحة",
+    "proofRequired": "هذه المهمة تتطلب صورة",
     "forbidden": "ما عندك صلاحية لهذه المهمة"
   }
 }

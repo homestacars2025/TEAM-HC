@@ -51,5 +51,20 @@
     "hours_other": "{{count}}h ago",
     "days_one": "{{count}}d ago",
     "days_other": "{{count}}d ago"
+  },
+  "task": {
+    "assigned": {
+      "title": "New task: {{title}}",
+      "body": "Due {{due}}",
+      "noDue": "No due date"
+    },
+    "due_soon": {
+      "title": "Due soon: {{title}}",
+      "body": "Less than two hours left"
+    },
+    "overdue": {
+      "title": "Overdue: {{title}}",
+      "body": "Past its due time"
+    }
   }
 }

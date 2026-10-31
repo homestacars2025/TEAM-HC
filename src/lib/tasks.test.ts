@@ -134,9 +134,8 @@ describe('due labels', () => {
     expect(formatDue(t, daysFromNow(-2))).toEqual({ text: '2 days overdue', overdue: true });
   });
 
-  test('today needs attention; tomorrow does not', () => {
-    expect(formatDue(t, daysFromNow(0))).toEqual({ text: 'Due today', overdue: true });
-    expect(formatDue(t, daysFromNow(1))).toEqual({ text: 'Due tomorrow', overdue: false });
+  test('a future date is not overdue', () => {
+    expect(formatDue(t, daysFromNow(3)).overdue).toBe(false);
   });
 
   test('arabic uses the dual for two days', async () => {

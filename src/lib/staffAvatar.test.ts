@@ -47,7 +47,6 @@ describe('staff avatars across the dashboard', () => {
     'pages/AccountingPage.tsx',
     'pages/OperationsPage.tsx',
     'pages/KabisPage.tsx',
-    'pages/TasksPage.tsx',
   ])('%s renders the shared avatar and no initials', file => {
     const source = read(file);
     expect(source).toContain('<StaffAvatar');

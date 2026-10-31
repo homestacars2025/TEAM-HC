@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
 import { useInbox } from '../lib/InboxContext';
 import { BUSINESS_TIME_ZONE, dayPart, istanbulDate, istanbulHour } from '../lib/istanbulTime';
-import { useNotifText } from '../lib/notifications/renderI18n';
 import { getMyNotifications, getMyTasks } from '../lib/queries/tasks';
 import { countTasks, getTodaySchedule, type ScheduleItem } from '../lib/queries/schedule';
 import { custodyBalance, custodyTotals, getMyCustodyMovements, type CustodyMovement } from '../lib/queries/custody';
@@ -105,27 +104,29 @@ const PRIORITY_DOT: Record<string, string> = {
   urgent: '#dc2626', high: '#ea580c', normal: 'var(--accent)', low: '#9ca3af',
 };
 
-const TaskList: React.FC<{ tasks: MyTask[] | null }> = ({ tasks }) => {
+const TaskList: React.FC<{ tasks: MyTask[] | null; failed: boolean }> = ({ tasks, failed }) => {
   const { t } = useTranslation('home');
-  const notifText = useNotifText();
-  const { relative } = useTimeFormat();
+  const { due } = useTimeFormat();
 
+  if (failed) return <Empty>{t('tasks.failed')}</Empty>;
   if (!tasks) return <RowsLoading />;
   if (tasks.length === 0) return <Empty>{t('tasks.empty')}</Empty>;
 
   return (
     <ul>
       {tasks.slice(0, LIST_LIMIT).map(task => {
-        const body = notifText(task.body_i18n_key, task.vars, task.description);
+        const deadline = task.due_at ? due(task.due_at) : null;
         return (
           <li key={task.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
             <Link to="/dashboard/tasks" className="flex min-h-14 items-start gap-3 px-5 py-3 no-underline transition-colors hover:bg-black/[0.02]">
               <span className="mt-[7px] size-2 shrink-0 rounded-full" style={{ background: PRIORITY_DOT[task.priority] ?? PRIORITY_DOT.normal }} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-[#0f1117]">{notifText(task.i18n_key, task.vars, task.title)}</span>
-                {body && <span className="block truncate text-[13px] text-gray-500">{body}</span>}
+                <span className="block truncate text-sm font-medium text-[#0f1117]">{task.title}</span>
+                {task.description && <span className="block truncate text-[13px] text-gray-500">{task.description}</span>}
               </span>
-              <span className="shrink-0 pt-px text-xs text-gray-400">{relative(task.created_at)}</span>
+              {deadline && (
+                <span className={`shrink-0 pt-px text-xs ${deadline.overdue ? 'font-medium text-red-600' : 'text-gray-400'}`}>{deadline.text}</span>
+              )}
             </Link>
           </li>
         );
@@ -186,6 +187,7 @@ const HomePage: React.FC = () => {
   const openNotification = useOpenNotification();
 
   const [tasks, setTasks] = useState<MyTask[] | null>(null);
+  const [tasksFailed, setTasksFailed] = useState(false);
   const [notifications, setNotifications] = useState<MyNotification[] | null>(null);
   const [wallet, setWallet] = useState<WalletEntry[] | null>(null);
   const [walletFailed, setWalletFailed] = useState(false);
@@ -204,7 +206,9 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    getMyTasks('active', TASK_LIMIT).then(rows => { if (!cancelled) setTasks(rows); });
+    getMyTasks('active', TASK_LIMIT)
+      .then(rows => { if (!cancelled) setTasks(rows); })
+      .catch(() => { if (!cancelled) setTasksFailed(true); });
     return () => { cancelled = true; };
   }, []);
 
@@ -280,8 +284,8 @@ const HomePage: React.FC = () => {
             color="var(--accent-strong)"
             tint="var(--accent-soft)"
             icon={pageIcons.tasks}
-            value={counts?.today ?? null}
-            sub={counts && (counts.overdue > 0
+            value={tasksFailed ? '—' : counts?.today ?? null}
+            sub={tasksFailed ? t('cards.unavailable') : counts && (counts.overdue > 0
               ? <span className="font-medium text-red-600">{t('cards.tasks.overdue', { count: counts.overdue })}</span>
               : t('cards.tasks.noOverdue'))}
             action={<Link to="/dashboard/tasks" aria-label={t('cards.open', { title: t('cards.tasks.title') })} className={arrowClass}><ArrowIcon /></Link>}
@@ -361,7 +365,7 @@ const HomePage: React.FC = () => {
             title={t('sections.tasks')}
             action={<Link to="/dashboard/tasks" className="flex min-h-11 items-center text-[13px] font-semibold text-[var(--accent-strong)] no-underline">{t('sections.viewAll')}</Link>}
           >
-            <TaskList tasks={tasks} />
+            <TaskList tasks={tasks} failed={tasksFailed} />
           </Section>
         </div>
 

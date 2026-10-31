@@ -241,7 +241,26 @@ html[dir="rtl"] .hc-flip-path {
   100% { opacity: 0; transform: translateY(90px) rotate(320deg); }
 }
 
+/* A task being marked done: a check lands, then the card goes. */
+.hc-task-finishing {
+  animation: hc-task-out 300ms ease-in 420ms forwards;
+}
+
+.hc-task-check {
+  animation: hc-task-check 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes hc-task-check {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes hc-task-out {
+  to { opacity: 0; transform: scale(0.97); }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .hc-task-finishing, .hc-task-check { animation: none; }
   .hc-ring-fill { transition: none; }
   .hc-sheet { animation: none; }
   .hc-confetti { display: none; }

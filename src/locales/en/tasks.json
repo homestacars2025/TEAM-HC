@@ -1,18 +1,28 @@
 {
   "eyebrow": "Team",
   "title": "My tasks",
-  "subtitle": "Tasks assigned to you — claim one, or mark it done",
+  "subtitle": "Tasks assigned to you. Mark them done as you finish.",
   "tabs": {
     "aria": "Task status",
     "active": "Active",
-    "done": "Done"
+    "done": "Done",
+    "missed": "Missed"
   },
-  "loading": "Loading…",
+  "failed": "Could not load your tasks.",
+  "loadMore": "Load more",
+  "groups": {
+    "overdue": "Overdue",
+    "today": "Today",
+    "upcoming": "Upcoming",
+    "noDue": "No due date"
+  },
   "empty": {
     "activeTitle": "No tasks — nice work! 🎉",
     "activeBody": "Everything is cleared. New tasks will show up here as soon as they arrive.",
     "doneTitle": "Nothing completed yet",
-    "doneBody": "Tasks move here once you finish them."
+    "doneBody": "Tasks move here once you finish them.",
+    "missedTitle": "Nothing missed",
+    "missedBody": "Tasks that pass their deadline unfinished appear here."
   },
   "priority": {
     "urgent": "Urgent",
@@ -20,35 +30,56 @@
     "normal": "Normal",
     "low": "Low"
   },
-  "claimedBy": "Claimed by {{name}}",
+  "kind": {
+    "recurring": "Recurring"
+  },
+  "from": "From {{name}}",
+  "showMore": "Show more",
+  "showLess": "Show less",
+  "requiresProof": "Photo required",
+  "completedOn": "Completed {{date}}",
+  "wasDue": "Was due {{date}}",
+  "note": "Note",
+  "viewProof": "View proof photo",
   "actions": {
-    "claim": "Claim it",
-    "complete": "Done"
+    "complete": "Mark done"
   },
   "due": {
-    "today": "Due today",
-    "tomorrow": "Due tomorrow",
     "overdue_one": "{{count}} day overdue",
     "overdue_other": "{{count}} days overdue",
     "in_one": "Due in {{count}} day",
-    "in_other": "Due in {{count}} days"
+    "in_other": "Due in {{count}} days",
+    "overdueHours_one": "{{count}} hour overdue",
+    "overdueHours_other": "{{count}} hours overdue",
+    "inHours_one": "Due in {{count}} hour",
+    "inHours_other": "Due in {{count}} hours",
+    "overdueMinutes_one": "{{count}} minute overdue",
+    "overdueMinutes_other": "{{count}} minutes overdue",
+    "inMinutes_one": "Due in {{count}} minute",
+    "inMinutes_other": "Due in {{count}} minutes"
   },
   "dialog": {
-    "title": "Complete task",
+    "title": "Mark task done",
     "notesLabel": "Note",
     "notesOptional": "(optional)",
     "notesPlaceholder": "e.g. Uploaded the file and verified it",
-    "confirm": "Confirm completion",
+    "proofLabel": "Proof photo",
+    "proofRequired": "(required)",
+    "takePhoto": "Take or choose a photo",
+    "replacePhoto": "Replace photo",
+    "proofAlt": "Proof photo preview",
+    "proofMissing": "Add a photo to finish this task.",
+    "proofTooLarge": "That photo is over 10 MB.",
+    "uploadFailed": "Could not upload the photo. Try again.",
+    "confirm": "Mark done",
     "saving": "Saving…",
     "cancel": "Cancel"
   },
   "toast": {
-    "claimed": "Claimed ✓",
     "completed": "Task completed 🎉",
-    "claimFailed": "Couldn't claim the task",
     "completeFailed": "Couldn't complete the task",
-    "racedClaim": "Someone just claimed it",
-    "racedComplete": "It was just completed",
+    "notOpen": "This task is no longer open",
+    "proofRequired": "This task needs a photo",
     "forbidden": "You don't have access to this task"
   }
 }

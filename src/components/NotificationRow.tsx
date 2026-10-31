@@ -89,6 +89,20 @@ export function resolveNotificationPath(
   return canOpen(path) ? path : fallback;
 }
 
+// ─── Task events ──────────────────────────────────────────────────────────────
+
+/**
+ * Task notifications carry a title key but no body key, only stored Arabic wording,
+ * so the body is chosen here. A task with no due date sends no `due` to fill in.
+ */
+export function notificationBodyKey(n: Pick<MyNotification, 'body_i18n_key' | 'event_key' | 'vars'>): string | null {
+  if (n.body_i18n_key) return n.body_i18n_key;
+  if (n.event_key === 'task.assigned') return n.vars?.due ? 'task.assigned.body' : 'task.assigned.noDue';
+  if (n.event_key === 'task.due_soon') return 'task.due_soon.body';
+  if (n.event_key === 'task.overdue') return 'task.overdue.body';
+  return null;
+}
+
 // ─── Opening one ──────────────────────────────────────────────────────────────
 
 export function useOpenNotification(): (n: MyNotification) => Promise<void> {
@@ -122,7 +136,7 @@ const NotificationRow: React.FC<{ notification: MyNotification; onOpen: (n: MyNo
   // Never `n.title` / `n.body` directly — the stored wording is a fallback for a
   // key this build has no translation for.
   const title = notifText(n.i18n_key, n.vars, n.title);
-  const body = notifText(n.body_i18n_key, n.vars, n.body);
+  const body = notifText(notificationBodyKey(n), n.vars, n.body);
   const background = n.is_read ? 'var(--surface)' : UNREAD_BACKGROUND;
 
   return (
