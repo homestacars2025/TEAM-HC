@@ -2598,7 +2598,7 @@ const OperationsPage: React.FC = () => {
             key={tb.key}
             onClick={() => handleTabChange(tb.key)}
             style={{
-              padding: '8px 20px', borderRadius: 9, border: 'none',
+              padding: '8px clamp(10px, 4vw, 20px)', borderRadius: 9, border: 'none',
               fontSize: 13, fontWeight: tab === tb.key ? 700 : 500,
               color: tab === tb.key ? '#0f1117' : '#6b7280',
               background: tab === tb.key ? '#fff' : 'transparent',

@@ -40,6 +40,21 @@ describe('surfaces', () => {
     expect(css).toContain('html[dir="rtl"] { --depth-from: 85% 0%; }');
   });
 
+  test('stat tiles keep a compact size from 640px, on both money pages', () => {
+    const css = read('index.css');
+    expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 220px));');
+    expect(css).toContain('max-width: 692px;');
+    expect(css).toContain('.hc-tile { height: 140px; }');
+    for (const page of ['pages/CustodyPage.tsx', 'pages/WalletPage.tsx']) expect(read(page)).toContain('<StatTile');
+  });
+
+  test('the frame clips what is parked off-screen, but main can still scroll sideways', () => {
+    const css = read('index.css');
+    expect(css).toContain('contain: paint;');
+    // KGM's 998px table is reached by scrolling `main`.
+    expect(css).not.toMatch(/\.hc-main \{[^}]*overflow-x/);
+  });
+
   test('the phone frame follows the visible height and the safe areas', () => {
     const css = read('index.css');
     expect(css).toContain('height: 100dvh;');

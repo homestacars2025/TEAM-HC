@@ -737,7 +737,7 @@ const CarsPage: React.FC = () => {
                 paddingInlineStart: 32, paddingInlineEnd: 12, paddingTop: 8, paddingBottom: 8,
                 fontSize: 13, border: '1.5px solid #e5e7eb', borderRadius: 9,
                 outline: 'none', color: '#0f1117', background: '#fff',
-                width: 220, fontFamily: 'inherit',
+                width: 'min(220px, calc(100vw - 160px))', fontFamily: 'inherit',
               }}
             />
           </div>

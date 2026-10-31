@@ -6,7 +6,7 @@ import {
   ENTRY_TYPES, getMyMonthlySalary, getMyWalletEntries, signedAmount, walletBalance, walletTotals, withRunningBalance,
   type EntryType, type WalletEntry, type WalletEntryWithBalance,
 } from '../lib/queries/staffWallet';
-import { PeriodToggle, ReceiptThumb, SummaryCard, selectClass, type Period } from '../components/WalletParts';
+import { PeriodToggle, ReceiptThumb, StatTile, selectClass, type Period } from '../components/WalletParts';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, formatDateDisplay, useDateLocale } from './AccountingPage';
 import Button from '../components/Button';
@@ -126,15 +126,15 @@ const WalletPage: React.FC = () => {
         <PeriodToggle value={period} onChange={setPeriod} monthLabel={t('period.month')} allLabel={t('period.all')} />
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <SummaryCard
+      <div className="hc-tiles">
+        <StatTile
+          tone={balance < 0 ? 'negative' : 'balance'}
           label={t('balance')}
-          hint={t('balanceHint')}
-          valueClass={balance < 0 ? 'text-red-600' : undefined}
-          value={loading ? '—' : <bdi dir="ltr">{signedMoney(balance)}</bdi>}
+          value={loading ? null : signedMoney(balance)}
+          sub={t('balanceHint')}
         />
-        <SummaryCard label={t(`earned.${period}`)} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.earned)}</bdi>} />
-        <SummaryCard label={t(`paid.${period}`)} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.paid)}</bdi>} />
+        <StatTile tone="received" label={t(`earned.${period}`)} value={loading ? null : formatTRY(totals.earned)} sub={t(`period.${period}`)} />
+        <StatTile tone="paid" label={t(`paid.${period}`)} value={loading ? null : formatTRY(totals.paid)} sub={t(`period.${period}`)} />
       </div>
 
       <section className="surface-depth overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">

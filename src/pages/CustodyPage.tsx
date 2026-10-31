@@ -9,7 +9,7 @@ import {
   custodyBalance, custodyTotals, deleteCustodyExpense, getMyCustodyMovements, withRunningCustody,
   type CustodyMovement, type CustodyMovementWithBalance,
 } from '../lib/queries/custody';
-import { ReceiptThumb, PeriodToggle, selectClass, type Period } from '../components/WalletParts';
+import { ReceiptThumb, PeriodToggle, StatTile, selectClass, type Period } from '../components/WalletParts';
 import FilterBar from '../components/FilterBar';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, categoryLabel, formatDateDisplay, useDateLocale } from './AccountingPage';
@@ -48,38 +48,6 @@ const Amount: React.FC<{ movement: CustodyMovementWithBalance }> = ({ movement }
 
 const Running: React.FC<{ value: number }> = ({ value }) => (
   <bdi dir="ltr" className="hc-num text-gray-600">{value < 0 ? '−' : ''}{formatTRY(value)}</bdi>
-);
-
-type TileTone = 'balance' | 'received' | 'spent' | 'negative';
-
-const TILE_ICONS: Record<TileTone, React.ReactNode> = {
-  balance: <><rect x="3" y="6" width="18" height="13" rx="3" stroke="currentColor" strokeWidth="2" /><path d="M16 12.5h2M3 10h13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
-  received: <path d="M12 4v13M6.5 11.5L12 17l5.5-5.5M5 20h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />,
-  spent: <path d="M12 20V7M6.5 12.5L12 7l5.5 5.5M5 4h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />,
-  negative: <path d="M12 7.5v6M12 17h.01M10.3 3.9L2.6 17.2A2 2 0 004.3 20h15.4a2 2 0 001.7-2.8L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
-};
-
-interface CustodyTileProps {
-  tone: TileTone;
-  label: string;
-  /** `null` while loading. */
-  value: string | null;
-  sub: string;
-}
-
-const CustodyTile: React.FC<CustodyTileProps> = ({ tone, label, value, sub }) => (
-  <div className={`hc-tile hc-tile-${tone} surface-depth`}>
-    <span aria-hidden="true" className="hc-tile-icon">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">{TILE_ICONS[tone]}</svg>
-    </span>
-    <div className="hc-tile-label">{label}</div>
-    <div className="hc-tile-bottom">
-      <div className="hc-tile-value" style={{ '--chars': (value ?? '—').length } as React.CSSProperties}>
-        <bdi dir="ltr">{value ?? '—'}</bdi>
-      </div>
-      <div className="hc-tile-sub">{sub}</div>
-    </div>
-  </div>
 );
 
 const PlusIcon: React.FC<{ size: number }> = ({ size }) => (
@@ -283,14 +251,14 @@ const CustodyPage: React.FC = () => {
       </header>
 
       <div className="hc-tiles">
-        <CustodyTile
+        <StatTile
           tone={balance < 0 ? 'negative' : 'balance'}
           label={t('balance')}
           value={loading ? null : `${balance < 0 ? '−' : ''}${formatTRY(balance)}`}
           sub={t('tile.current')}
         />
-        <CustodyTile tone="received" label={t('received')} value={loading ? null : formatTRY(totals.received)} sub={t(`period.${period}`)} />
-        <CustodyTile tone="spent" label={t('spent')} value={loading ? null : formatTRY(totals.spent)} sub={t(`period.${period}`)} />
+        <StatTile tone="received" label={t('received')} value={loading ? null : formatTRY(totals.received)} sub={t(`period.${period}`)} />
+        <StatTile tone="spent" label={t('spent')} value={loading ? null : formatTRY(totals.spent)} sub={t(`period.${period}`)} />
       </div>
 
       <section className="surface-depth overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">

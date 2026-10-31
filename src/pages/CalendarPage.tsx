@@ -1063,7 +1063,7 @@ const CalendarPage: React.FC = () => {
       </div>
 
       {/* ── Legend bar ────────────────────────────────────────────────────── */}
-      <div style={{
+      <div className="hc-cal-legend" style={{
         height: 44,
         flexShrink: 0,
         borderBottom: `1px solid ${BORDER_SOFT}`,
