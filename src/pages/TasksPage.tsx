@@ -7,6 +7,8 @@ import { useInbox } from '../lib/InboxContext';
 import { useNotifText, useUiDir } from '../lib/notifications/renderI18n';
 import { claimTask, completeTask, getMyTasks } from '../lib/queries/tasks';
 import type { MyTask, TaskFilter, TaskPriority } from '../lib/types/tasks';
+import StaffAvatar from '../components/StaffAvatar';
+import { useStaffProfiles, type StaffProfiles } from '../hooks/useStaffProfiles';
 
 /**
  * The tasks targeted at the signed-in user's role.
@@ -168,9 +170,10 @@ const TaskCard: React.FC<{
   title: string;
   body: string;
   busy: boolean;
+  staffProfiles: StaffProfiles | null;
   onClaim: (t: MyTask) => void;
   onComplete: (t: MyTask) => void;
-}> = ({ task, title, body, busy, onClaim, onComplete }) => {
+}> = ({ task, title, body, busy, staffProfiles, onClaim, onComplete }) => {
   const { t } = useTranslation('tasks');
   const { relative, due: dueFormat } = useTimeFormat();
   const p = priorityColor(task.priority);
@@ -219,7 +222,8 @@ const TaskCard: React.FC<{
           </span>
         )}
         {task.status === 'claimed' && task.claimed_by_name && (
-          <span style={{ color: '#0284c7', fontWeight: 600 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#0284c7', fontWeight: 600 }}>
+            {staffProfiles && <StaffAvatar profile={task.claimed_by ? staffProfiles.get(task.claimed_by) : null} size={20} />}
             {t('claimedBy', { name: task.claimed_by_name })}
           </span>
         )}
@@ -294,6 +298,7 @@ const TasksPage: React.FC = () => {
 
   const [tab, setTab] = useState<TaskFilter>('active');
   const [tasks, setTasks] = useState<MyTask[]>([]);
+  const staffProfiles = useStaffProfiles();
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [completing, setCompleting] = useState<MyTask | null>(null);
@@ -453,6 +458,7 @@ const TasksPage: React.FC = () => {
               title={title}
               body={body}
               busy={busyId === task.id}
+              staffProfiles={staffProfiles}
               onClaim={handleClaim}
               onComplete={setCompleting}
             />

@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
+import StaffAvatar from '../components/StaffAvatar';
+import { useStaffProfiles } from '../hooks/useStaffProfiles';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -1202,6 +1204,7 @@ const EmployeeWalletsSection: React.FC<{
   const [loading, setLoading] = useState(true);
   const [openEmployee, setOpenEmployee] = useState<WalletBalance | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const staffProfiles = useStaffProfiles();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1226,7 +1229,7 @@ const EmployeeWalletsSection: React.FC<{
         </button>
       </div>
 
-      {loading ? <Spinner /> : balances.length === 0 ? (
+      {loading || !staffProfiles ? <Spinner /> : balances.length === 0 ? (
         <div style={{ ...cardStyle }}><EmptyState label={t('wallets.empty')} /></div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
@@ -1236,14 +1239,7 @@ const EmployeeWalletsSection: React.FC<{
               display: 'flex', flexDirection: 'column', gap: 12,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)',
-                  color: '#fff', fontSize: 13, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  {(b.full_name || '?').trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                </div>
+                <StaffAvatar profile={staffProfiles.get(b.employee_id)} size={38} />
                 <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117' }}>{b.full_name || t('wallets.unknown')}</div>
               </div>
               <div>

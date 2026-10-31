@@ -7,6 +7,8 @@ import { useCurrency, CURRENCIES, CURRENCY_SYMBOLS, type Currency } from '../lib
 import { useLanguage, LANGUAGES, LANGUAGE_SHORT, LANGUAGE_NAMES, type Language } from '../lib/LanguageContext';
 import { useInbox } from '../lib/InboxContext';
 import { usePageAccess, type AppPage } from '../contexts/PageAccessContext';
+import StaffAvatar from './StaffAvatar';
+import type { StaffAvatarProfile } from '../lib/staffAvatar';
 
 /**
  * The navigation is built from `app_pages`, filtered by `canAccessPage`: nothing
@@ -153,9 +155,8 @@ function readClosedGroups(): Set<string> {
   }
 }
 
-interface UserProfile {
+interface UserProfile extends StaffAvatarProfile {
   full_name: string | null;
-  avatar_url: string | null;
 }
 
 interface SidebarProps {
@@ -200,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
       if (!user || cancelled) return;
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url')
+        .select('full_name, avatar_url, gender')
         .eq('id', user.id)
         .single();
       if (!cancelled && data) setProfile(data as UserProfile);
@@ -248,10 +249,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
     if (key && i18n.exists(`sidebar:${key}`)) return t(key);
     return lang === 'ar' ? page.label_ar : page.label_en;
   };
-
-  const initials = profile?.full_name
-    ? profile.full_name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : '?';
 
   const departmentChip = department
     ? [department.label, isDepartmentHead ? t('departmentHead') : null].filter(Boolean).join(' · ')
@@ -519,12 +516,10 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
           title={rail ? [profile?.full_name, departmentChip].filter(Boolean).join(' — ') || undefined : undefined}
           className={clsx('mb-0.5 flex items-center rounded-lg py-2', rail ? 'justify-center' : 'gap-2 px-3')}
         >
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="size-8 shrink-0 rounded-full object-cover" />
+          {profile ? (
+            <StaffAvatar profile={profile} size={32} />
           ) : (
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#4ba6ea] to-[#2e8fd4]">
-              <span className="text-[11px] font-bold leading-none text-white">{initials}</span>
-            </div>
+            <div className="size-8 shrink-0 rounded-full bg-[var(--border-subtle)]" />
           )}
 
           {!rail && (

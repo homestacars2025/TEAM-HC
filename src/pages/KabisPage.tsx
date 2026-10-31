@@ -3,11 +3,15 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import StaffAvatar from '../components/StaffAvatar';
+import type { StaffAvatarProfile } from '../lib/staffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type KabisStatus = 'pending' | 'checked_in' | 'checked_out';
 type KabisAction = 'delivery' | 'pickup';
+
+interface EnteredByProfile extends StaffAvatarProfile { full_name: string | null; }
 
 interface KabisRow {
   id: number;
@@ -27,11 +31,12 @@ interface KabisRow {
   entered_by: string | null;
   entered_at: string | null;
   note: string | null;
-  entered_by_profile: { full_name: string | null } | { full_name: string | null }[] | null;
+  entered_by_profile: EnteredByProfile | EnteredByProfile[] | null;
 }
 
 interface KabisEntry extends Omit<KabisRow, 'entered_by_profile'> {
   entered_by_name: string | null;
+  entered_by_avatar: EnteredByProfile | null;
 }
 
 interface ToastState { message: string; kind: 'success' | 'error' }
@@ -41,7 +46,7 @@ const KABIS_SELECT = `
   id, created_at, operation_id, booking_id, car_id,
   customer_name, customer_id_number, booking_number, plate_number, km, operation_date,
   action_type, status, entered_by, entered_at, note,
-  entered_by_profile:profiles!kabis_entries_entered_by_fkey(full_name)
+  entered_by_profile:profiles!kabis_entries_entered_by_fkey(full_name, avatar_url, gender)
 `;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -132,7 +137,7 @@ function formatKm(v: number | string | null, kmUnit: string): string {
 function resolveRow(row: KabisRow): KabisEntry {
   const p = Array.isArray(row.entered_by_profile) ? row.entered_by_profile[0] : row.entered_by_profile;
   const { entered_by_profile, ...rest } = row;
-  return { ...rest, entered_by_name: p?.full_name ?? null };
+  return { ...rest, entered_by_name: p?.full_name ?? null, entered_by_avatar: p ?? null };
 }
 
 // ─── Small pieces ─────────────────────────────────────────────────────────────
@@ -657,7 +662,8 @@ const KabisPage: React.FC = () => {
                         <td style={td}>
                           <StatusBadge status={entry.status} />
                           {status !== 'pending' && (
-                            <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 5, lineHeight: 1.6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#9ca3af', marginTop: 5, lineHeight: 1.6 }}>
+                              {entry.entered_by_name && <StaffAvatar profile={entry.entered_by_avatar} size={20} />}
                               {t('by', { name: dash(entry.entered_by_name) })}
                             </div>
                           )}

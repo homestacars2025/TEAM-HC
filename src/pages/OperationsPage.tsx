@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { supabase } from '../lib/supabase';
+import StaffAvatar from '../components/StaffAvatar';
+import type { StaffAvatarProfile } from '../lib/staffAvatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,6 +17,7 @@ type TabKey = 'dp' | 'other';
 
 interface CarOption      { id: number; plate_number: string; model_group: { name: string } | null; }
 interface ProfileOption  { id: string; full_name: string | null; role: string; }
+interface HandlerProfile extends StaffAvatarProfile { full_name: string | null; }
 interface CustomerOption { id: string; first_name: string; last_name: string; }
 
 interface OperationRow {
@@ -38,7 +41,7 @@ interface OperationRow {
   checklist_air_freshener:   boolean | null;
   checklist_customer_card:   boolean | null;
   cars: { plate_number: string } | { plate_number: string }[] | null;
-  handler: { full_name: string | null } | { full_name: string | null }[] | null;
+  handler: HandlerProfile | HandlerProfile[] | null;
   customers: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
 }
 
@@ -72,6 +75,7 @@ interface Operation {
   customer_id: string | null;
   plate_number: string;
   handler_name: string | null;
+  handler_profile: HandlerProfile | null;
   customer_name: string | null;
   current_km: number | null;
   fuel_level: number | null;
@@ -305,6 +309,7 @@ function resolveOperation(row: OperationRow): Operation {
     customer_id:        row.customer_id,
     plate_number:       car?.plate_number ?? '—',
     handler_name:       hdlr?.full_name ?? null,
+    handler_profile:    hdlr ?? null,
     customer_name:      cust ? `${cust.first_name} ${cust.last_name}`.trim() : null,
     current_km:         row.current_km,
     fuel_level:         row.fuel_level,
@@ -2474,7 +2479,7 @@ const OperationsPage: React.FC = () => {
         current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
         checklist_license_present, checklist_tutanak_present, checklist_air_freshener, checklist_customer_card,
         cars!operations_car_id_fkey(plate_number),
-        handler:profiles!operations_performed_by_fkey(id, full_name),
+        handler:profiles!operations_performed_by_fkey(id, full_name, avatar_url, gender),
         customers(first_name, last_name)
       `)
       .gte('operation_date', toDateStr(getMonthStart(month)))
@@ -2689,7 +2694,12 @@ const OperationsPage: React.FC = () => {
                   <td style={{ ...td, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: 12, fontWeight: 600 }}>{op.plate_number}</td>
 
                   <td style={{ ...td, color: op.handler_name ? '#374151' : '#d1d5db' }}>
-                    {op.handler_name ?? '—'}
+                    {op.handler_name ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <StaffAvatar profile={op.handler_profile} size={24} />
+                        {op.handler_name}
+                      </span>
+                    ) : '—'}
                   </td>
 
                   {tab === 'dp' && (
