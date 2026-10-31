@@ -7,6 +7,7 @@ import {
   fold, getFleet, matchCars, searchBookings, searchCustomers,
   type BookingHit, type CarHit, type CustomerHit,
 } from '../lib/queries/search';
+import BannedBadge from './customers/BannedBadge';
 import { fallbackIcon, pageIcons, usePageLabel } from './pageNav';
 
 /**
@@ -22,6 +23,7 @@ interface Item {
   group: Group;
   label: string;
   sub?: string | null;
+  badge?: React.ReactNode;
   to: string;
   /** Plates and numbers read best in mono, left to right. */
   latin?: boolean;
@@ -144,6 +146,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       group: 'customers',
       label: customer.name || customer.phone || '—',
       sub: customer.phone,
+      badge: customer.banned ? <BannedBadge reason={customer.banReason} /> : undefined,
       to: withSearch(customersRoute, customer.name),
       icon: pageIcons.profile,
     })) : [];
@@ -244,6 +247,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                       <span className={`shrink-0 ${selected ? 'text-[var(--accent-strong)]' : 'text-gray-400'}`}>{item.icon}</span>
                       <span className={`truncate text-sm font-medium text-[#0f1117] ${item.latin ? 'hc-num' : ''}`}>{item.label}</span>
                       {item.sub && <span className="min-w-0 truncate text-[13px] text-gray-500">{item.sub}</span>}
+                      {item.badge}
                     </button>
                   );
                 })}

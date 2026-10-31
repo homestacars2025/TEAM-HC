@@ -15,6 +15,14 @@ import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import Button from '../components/Button';
 import FilterBar from '../components/FilterBar';
+import BanAlert from '../components/customers/BanAlert';
+import BannedBadge from '../components/customers/BannedBadge';
+import CustomerSearch from '../components/customers/CustomerSearch';
+import {
+  banForExistingCustomer, classifyTyped, customerBanMatch, customersWithPhone, findCustomers,
+  isRealIdNumber, parseCustomerError,
+  type BanMatch, type CustomerMatch, type PhoneSharer,
+} from '../lib/queries/customers';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -26,6 +34,47 @@ interface CarJoin {
 interface CustomerJoin {
   first_name: string;
   last_name: string;
+  is_banned?: boolean;
+  ban_reason?: string | null;
+}
+
+/** The columns of `customers` the booking form reads. */
+interface CustomerRecord {
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  nationality: string | null;
+  id_type: string | null;
+  id_number: string | null;
+  driving_license_number: string | null;
+  license_issue_date: string | null;
+  address: string | null;
+  birth_date: string | null;
+  notes: string | null;
+  id_photo_url: string | null;
+  id_photo_back_url: string | null;
+  driving_license_photo_url: string | null;
+  driving_license_back_url: string | null;
+  entry_stamp_photo_url: string | null;
+  language: string | null;
+  is_banned: boolean;
+  ban_reason: string | null;
+}
+
+/** A booking form is on one of these while it has no customer yet, or has one. */
+type CustomerStep = 'search' | 'existing' | 'new';
+
+interface IdOwner {
+  id: string;
+  name: string;
+  banned: boolean;
+  reason: string | null;
+}
+
+/** What someone typed as a phone number, in the two parts the form keeps it in. */
+function phoneParts(typed: string): { dial: string; local: string } {
+  if (typed.startsWith('+')) return parseStoredPhone(typed.replace(/[^\d+]/g, ''));
+  return { dial: '+90', local: typed.replace(/\D/g, '').replace(/^0+/, '') };
 }
 
 interface BookingRow {
@@ -128,6 +177,8 @@ function resolveBooking(row: BookingRow): Booking {
     : '—';
 
   return {
+    customer_banned: custJoin?.is_banned === true,
+    customer_ban_reason: custJoin?.ban_reason ?? null,
     id: row.id,
     created_at: '',
     car_id: row.car_id,
@@ -381,6 +432,7 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, color: '#374151' }}>{booking.customer_name}</span>
+      {booking.customer_banned && <div style={{ marginTop: 3 }}><BannedBadge reason={booking.customer_ban_reason} showReason /></div>}
     </td>
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
@@ -1042,9 +1094,17 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     entry_stamp_photo_url:         string | null;
   }>({ id_photo_url: null, id_photo_back_url: null, driving_license_photo_url: null, driving_license_back_url: null, entry_stamp_photo_url: null });
 
-  // ID lookup (add mode only)
-  const [idLookupStatus, setIdLookupStatus] = useState<'idle' | 'searching' | 'found' | 'not-found'>('idle');
-  const idLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Who this booking is for. A booking only ever points at one customer record, so an
+  // existing customer is reused: inserting them again is how the duplicates came about.
+  const [customerStep, setCustomerStep] = useState<CustomerStep>(mode === 'add' ? 'search' : 'existing');
+  const [existingCustomerId, setExistingCustomerId] = useState<string | null>(null);
+  const [customerRequired, setCustomerRequired] = useState(false);
+  const [idOwner, setIdOwner] = useState<IdOwner | null>(null);
+  const [phoneSharers, setPhoneSharers] = useState<PhoneSharer[]>([]);
+  const [banAlert, setBanAlert] = useState<BanMatch | null>(null);
+  const [editingBanned, setEditingBanned] = useState<{ full_name: string; ban_reason: string | null } | null>(null);
+  /** As stored. The database rejects a repeated ID even if it didn't change, so it is only sent when it did. */
+  const originalIdNumber = useRef('');
 
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<'cust_id_number' | 'cust_id_type' | 'cust_nationality' | 'cust_phone' | 'cust_license_issue_date', string>>>({});
@@ -1055,6 +1115,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const refNationality      = useRef<HTMLDivElement>(null);
   const refPhone            = useRef<HTMLDivElement>(null);
   const refLicenseIssueDate = useRef<HTMLDivElement>(null);
+  const refCustomerSearch   = useRef<HTMLDivElement>(null);
 
   /**
    * Every customer document is keyed by customer id, never by name: names may contain
@@ -1115,6 +1176,33 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return () => { active = false; };
   }, [mode]);
 
+  const applyCustomer = useCallback((c: CustomerRecord) => {
+    originalIdNumber.current = c.id_number ?? '';
+    setForm(f => ({
+      ...f,
+      cust_first_name:             c.first_name,
+      cust_last_name:              c.last_name,
+      cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
+      cust_phone:                  parseStoredPhone(c.phone ?? '').local,
+      cust_nationality:            c.nationality ?? '',
+      cust_language:               toCustomerLanguage(c.language),
+      cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
+      cust_id_number:              c.id_number ?? '',
+      cust_driving_license_number: c.driving_license_number ?? '',
+      cust_license_issue_date:     c.license_issue_date ?? '',
+      cust_address:                c.address ?? '',
+      cust_birth_date:             c.birth_date ?? '',
+      cust_notes:                  c.notes ?? '',
+    }));
+    setExistingDocUrls({
+      id_photo_url:              c.id_photo_url              ?? null,
+      id_photo_back_url:         c.id_photo_back_url         ?? null,
+      driving_license_photo_url: c.driving_license_photo_url ?? null,
+      driving_license_back_url:  c.driving_license_back_url  ?? null,
+      entry_stamp_photo_url:     c.entry_stamp_photo_url     ?? null,
+    });
+  }, []);
+
   // Fetch existing customer data in edit mode
   useEffect(() => {
     if (mode !== 'edit' || !editCustomerId) return;
@@ -1126,43 +1214,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       .single()
       .then(({ data, error }) => {
         if (!active || error || !data) return;
-        const c = data as {
-          first_name: string; last_name: string; phone: string | null;
-          nationality: string | null; id_type: string | null; id_number: string | null;
-          driving_license_number: string | null;
-          license_issue_date: string | null;
-          address: string | null; birth_date: string | null; notes: string | null;
-          id_photo_url: string | null; id_photo_back_url: string | null;
-          driving_license_photo_url: string | null; driving_license_back_url: string | null;
-          entry_stamp_photo_url: string | null;
-          language: string | null;
-        };
-        setForm(f => ({
-          ...f,
-          cust_first_name:             c.first_name,
-          cust_last_name:              c.last_name,
-          cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
-          cust_phone:                  parseStoredPhone(c.phone ?? '').local,
-          cust_nationality:            c.nationality ?? '',
-          cust_language:               toCustomerLanguage(c.language),
-          cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
-          cust_id_number:              c.id_number ?? '',
-          cust_driving_license_number: c.driving_license_number ?? '',
-          cust_license_issue_date:     c.license_issue_date ?? '',
-          cust_address:                c.address ?? '',
-          cust_birth_date:             c.birth_date ?? '',
-          cust_notes:                  c.notes ?? '',
-        }));
-        setExistingDocUrls({
-          id_photo_url:              c.id_photo_url              ?? null,
-          id_photo_back_url:         c.id_photo_back_url         ?? null,
-          driving_license_photo_url: c.driving_license_photo_url ?? null,
-          driving_license_back_url:  c.driving_license_back_url  ?? null,
-          entry_stamp_photo_url:     c.entry_stamp_photo_url     ?? null,
-        });
+        const customer = data as CustomerRecord;
+        applyCustomer(customer);
+        if (customer.is_banned) {
+          setEditingBanned({ full_name: `${customer.first_name} ${customer.last_name}`.trim(), ban_reason: customer.ban_reason });
+        }
       });
     return () => { active = false; };
-  }, [mode, editCustomerId]);
+  }, [mode, editCustomerId, applyCustomer]);
 
   // Fetch existing ledger rows in edit mode
   const [existingLedgerIds, setExistingLedgerIds] = useState<{ rental?: number; deposit?: number; payment?: number }>({});
@@ -1217,55 +1276,93 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     }));
   };
 
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => { if (idLookupTimer.current) clearTimeout(idLookupTimer.current); };
-  }, []);
+  const chooseCustomer = useCallback(async (customerId: string) => {
+    const { data, error } = await supabase.from('customers').select('*').eq('id', customerId).single();
+    if (error || !data) { setFormError(t('customerStep.errors.loadFailed')); return; }
+    applyCustomer(data as CustomerRecord);
+    setExistingCustomerId(customerId);
+    setCustomerStep('existing');
+    setCustomerRequired(false);
+    setIdOwner(null);
+    setPhoneSharers([]);
+    setBanAlert(null);
+    setFormError(null);
+  }, [applyCustomer, t]);
 
-  const lookupByIdNumber = useCallback(async (idNum: string) => {
-    if (!idNum.trim()) { setIdLookupStatus('idle'); return; }
-    setIdLookupStatus('searching');
-    const { data, error: lookupErr } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('id_number', idNum.trim())
-      .maybeSingle();
-    if (lookupErr || !data) { setIdLookupStatus('not-found'); return; }
-    const c = data as {
-      first_name: string; last_name: string; phone: string | null;
-      nationality: string | null; id_type: string | null; id_number: string | null;
-      driving_license_number: string | null;
-      license_issue_date: string | null;
-      address: string | null; birth_date: string | null; notes: string | null;
-      id_photo_url: string | null; id_photo_back_url: string | null;
-      driving_license_photo_url: string | null; driving_license_back_url: string | null;
-      entry_stamp_photo_url: string | null;
-      language: string | null;
-    };
+  const startNewCustomer = (typedText: string) => {
+    const typed = classifyTyped(typedText);
+    const phone = typed.phone ? phoneParts(typed.phone) : null;
     setForm(f => ({
       ...f,
-      cust_first_name:             c.first_name,
-      cust_last_name:              c.last_name,
-      cust_phone_dial:             parseStoredPhone(c.phone ?? '').dial,
-      cust_phone:                  parseStoredPhone(c.phone ?? '').local,
-      cust_nationality:            c.nationality ?? '',
-      cust_language:               toCustomerLanguage(c.language),
-      cust_id_type:                (c.id_type === 'national_id' ? 'national_id' : 'passport') as 'passport' | 'national_id',
-      cust_driving_license_number: c.driving_license_number ?? '',
-      cust_license_issue_date:     c.license_issue_date ?? '',
-      cust_address:                c.address ?? '',
-      cust_birth_date:             c.birth_date ?? '',
-      cust_notes:                  c.notes ?? '',
+      cust_id_number:  typed.idNumber ?? '',
+      cust_first_name: typed.firstName ?? '',
+      cust_last_name:  typed.lastName ?? '',
+      cust_phone_dial: phone?.dial ?? f.cust_phone_dial,
+      cust_phone:      phone?.local ?? '',
     }));
-    setExistingDocUrls({
-      id_photo_url:              c.id_photo_url              ?? null,
-      id_photo_back_url:         c.id_photo_back_url         ?? null,
-      driving_license_photo_url: c.driving_license_photo_url ?? null,
-      driving_license_back_url:  c.driving_license_back_url  ?? null,
-      entry_stamp_photo_url:     c.entry_stamp_photo_url     ?? null,
-    });
-    setIdLookupStatus('found');
-  }, []);
+    setCustomerStep('new');
+    setCustomerRequired(false);
+  };
+
+  /** Back to an empty search, leaving the car and dates alone. */
+  const clearCustomer = () => {
+    setForm(f => ({
+      ...f,
+      cust_id_type: initial.cust_id_type, cust_id_number: '', cust_language: initial.cust_language,
+      cust_first_name: '', cust_last_name: '', cust_phone_dial: initial.cust_phone_dial, cust_phone: '',
+      cust_nationality: '', cust_driving_license_number: '', cust_license_issue_date: '',
+      cust_address: '', cust_birth_date: '', cust_notes: '',
+    }));
+    setExistingCustomerId(null);
+    setExistingDocUrls({ id_photo_url: null, id_photo_back_url: null, driving_license_photo_url: null, driving_license_back_url: null, entry_stamp_photo_url: null });
+    originalIdNumber.current = '';
+    setIdOwner(null);
+    setPhoneSharers([]);
+    setBanAlert(null);
+    setFormError(null);
+    setFieldErrors({});
+    setCustomerStep('search');
+  };
+
+  /** The customer this form is saving, or nobody yet. */
+  const thisCustomerId = existingCustomerId ?? (editCustomerId != null ? String(editCustomerId) : null);
+
+  const checkIdOwner = async () => {
+    const idNumber = form.cust_id_number.trim();
+    if (idNumber === originalIdNumber.current.trim() || !isRealIdNumber(idNumber)) { setIdOwner(null); return; }
+    try {
+      // A few same-ID groups remain, so this can be several people. A banned one comes first.
+      const owners = (await findCustomers(idNumber)).filter(m => m.match_type === 'id_number' && m.id !== thisCustomerId);
+      const owner = owners.find(m => m.is_banned) ?? owners[0];
+      setIdOwner(owner ? { id: owner.id, name: owner.full_name, banned: owner.is_banned, reason: owner.ban_reason } : null);
+    } catch {
+      // Only a courtesy: saving still reaches the check in the database.
+      setIdOwner(null);
+    }
+  };
+
+  const checkPhoneSharers = async () => {
+    if (!form.cust_phone.trim()) { setPhoneSharers([]); return; }
+    try {
+      setPhoneSharers(await customersWithPhone(`${form.cust_phone_dial}${form.cust_phone}`, thisCustomerId));
+    } catch {
+      setPhoneSharers([]);
+    }
+  };
+
+  /** The database's two refusals, in words. Anything else is shown as it came. */
+  const showSaveError = (message: string) => {
+    const refusal = parseCustomerError(message);
+    if (refusal?.kind === 'banned') {
+      setBanAlert({ customer_id: '', full_name: refusal.name, ban_reason: refusal.reason || null, matched_on: 'customer' });
+    } else if (refusal?.kind === 'duplicate') {
+      if (refusal.customerId) setIdOwner({ id: refusal.customerId, name: refusal.name, banned: false, reason: null });
+      setFormError(t('customerStep.errors.duplicate', { name: refusal.name }));
+      refIdNumber.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      setFormError(message);
+    }
+  };
 
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
@@ -1280,6 +1377,18 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
+    setBanAlert(null);
+
+    if (customerStep === 'search') {
+      setCustomerRequired(true);
+      refCustomerSearch.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (idOwner) {
+      setFormError(t('customerStep.errors.duplicate', { name: idOwner.name }));
+      refIdNumber.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
 
     // Validate required customer fields
     const errors: typeof fieldErrors = {};
@@ -1310,38 +1419,54 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     setSaving(true);
 
     if (mode === 'add') {
-      // Step 1: create customer
       const phone = form.cust_phone
         ? `${form.cust_phone_dial}${form.cust_phone}`
         : null;
 
-      const { data: custData, error: custError } = await supabase
-        .from('customers')
-        .insert({
-          id_type:             form.cust_id_type,
-          id_number:           form.cust_id_number   || null,
-          first_name:          form.cust_first_name,
-          last_name:           form.cust_last_name,
-          phone:               phone,
-          nationality:         form.cust_nationality        || null,
-          language:            form.cust_language,
-          driving_license_number: form.cust_driving_license_number || null,
-          license_issue_date:  form.cust_license_issue_date || null,
-          address:             form.cust_address            || null,
-          birth_date:          form.cust_birth_date         || null,
-          notes:               form.cust_notes              || null,
-        })
-        .select('id')
-        .single();
-
-      if (custError) {
+      // Step 1: never start anything for someone who can't be booked. No answer counts
+      // as a stop too: it's better to retry than to let a banned person through.
+      try {
+        const ban = await customerBanMatch(existingCustomerId, form.cust_id_number.trim() || null, phone);
+        if (ban) { setSaving(false); setBanAlert(ban); return; }
+      } catch {
         setSaving(false);
-        setFormError(custError.message);
+        setFormError(t('customerStep.errors.checkFailed'));
         return;
       }
 
-      // Step 2: upload documents and patch customer
-      const customerId = (custData as { id: number }).id;
+      // Step 2: the customer. Someone already on file is updated in place; a new person
+      // is created once, so a retry after a failed booking finds them already there.
+      const customerFields = {
+        id_type:             form.cust_id_type,
+        first_name:          form.cust_first_name,
+        last_name:           form.cust_last_name,
+        phone:               phone,
+        nationality:         form.cust_nationality        || null,
+        language:            form.cust_language,
+        driving_license_number: form.cust_driving_license_number || null,
+        license_issue_date:  form.cust_license_issue_date || null,
+        address:             form.cust_address            || null,
+        birth_date:          form.cust_birth_date         || null,
+        notes:               form.cust_notes              || null,
+      };
+      let savedCustomerId = existingCustomerId;
+      if (savedCustomerId) {
+        const { error: custError } = await supabase.from('customers').update(customerFields).eq('id', savedCustomerId);
+        if (custError) { setSaving(false); showSaveError(custError.message); return; }
+      } else {
+        const { data: custData, error: custError } = await supabase
+          .from('customers')
+          .insert({ ...customerFields, id_number: form.cust_id_number || null })
+          .select('id')
+          .single();
+        if (custError) { setSaving(false); showSaveError(custError.message); return; }
+        savedCustomerId = (custData as { id: string }).id;
+        originalIdNumber.current = form.cust_id_number;
+        setExistingCustomerId(savedCustomerId);
+      }
+
+      // Step 3: upload documents and patch customer
+      const customerId = savedCustomerId as unknown as number;
       const docUpdates: Record<string, string> = {};
 
       const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
@@ -1361,7 +1486,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         if (docErr) console.error('[Booking] customer doc update error:', docErr);
       }
 
-      // Step 3: create booking with the new customer id
+      // Step 4: create the booking
       const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert({
@@ -1383,9 +1508,9 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         .select('id')
         .single();
 
-      if (bookingError) { setSaving(false); setFormError(bookingError.message); return; }
+      if (bookingError) { setSaving(false); showSaveError(bookingError.message); return; }
 
-      // Step 4: insert ledger rows (skip rows with 0 or empty amount)
+      // Step 5: insert ledger rows (skip rows with 0 or empty amount)
       const bookingId = (bookingData as { id: number }).id;
       const carIdNum  = Number(form.car_id);
       const usdRate   = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
@@ -1409,27 +1534,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
       setSaving(false);
     } else {
-      // Edit: update booking
-      const { error: bookingErr } = await supabase
-        .from('bookings')
-        .update({
-          booking_number:   form.booking_number,
-          status:           form.status,
-          car_id:           Number(form.car_id),
-          start_date:       form.start_date,
-          end_date:         form.end_date,
-          pickup_location:  form.pickup_location  || null,
-          dropoff_location: form.dropoff_location || null,
-          km_at_delivery:   form.km_at_delivery  !== '' ? Number(form.km_at_delivery)  : null,
-          fuel_at_delivery: form.fuel_at_delivery !== '' ? form.fuel_at_delivery : null,
-          insurance_type:   form.insurance_type   || null,
-          additional_services: buildAdditionalServices(),
-        })
-        .eq('id', editId!);
-
-      if (bookingErr) { setSaving(false); setFormError(bookingErr.message); return; }
-
-      // Edit: update customer + upload docs
+      // Edit: the customer first, so a refused ID leaves the booking as it was
       if (editCustomerId) {
         const phone    = form.cust_phone
           ? `${form.cust_phone_dial}${form.cust_phone}`
@@ -1452,7 +1557,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             nationality:             form.cust_nationality            || null,
             language:                form.cust_language,
             id_type:                 form.cust_id_type,
-            id_number:               form.cust_id_number              || null,
+            ...(form.cust_id_number.trim() !== originalIdNumber.current.trim() && { id_number: form.cust_id_number || null }),
             driving_license_number:  form.cust_driving_license_number || null,
             license_issue_date:      form.cust_license_issue_date     || null,
             address:                 form.cust_address                || null,
@@ -1466,8 +1571,28 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           })
           .eq('id', editCustomerId);
 
-        if (custErr) console.error('[Booking] customer update error:', custErr);
+        if (custErr) { setSaving(false); showSaveError(custErr.message); return; }
       }
+
+      // Edit: update booking
+      const { error: bookingErr } = await supabase
+        .from('bookings')
+        .update({
+          booking_number:   form.booking_number,
+          status:           form.status,
+          car_id:           Number(form.car_id),
+          start_date:       form.start_date,
+          end_date:         form.end_date,
+          pickup_location:  form.pickup_location  || null,
+          dropoff_location: form.dropoff_location || null,
+          km_at_delivery:   form.km_at_delivery  !== '' ? Number(form.km_at_delivery)  : null,
+          fuel_at_delivery: form.fuel_at_delivery !== '' ? form.fuel_at_delivery : null,
+          insurance_type:   form.insurance_type   || null,
+          additional_services: buildAdditionalServices(),
+        })
+        .eq('id', editId!);
+
+      if (bookingErr) { setSaving(false); showSaveError(bookingErr.message); return; }
 
       // Edit: upsert / delete ledger rows
       const carIdNum   = Number(form.car_id);
@@ -1798,34 +1923,60 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                 icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
               />
 
-                {/* ── ID Number first — with auto-lookup in add mode ── */}
+                {editingBanned && (
+                  <div style={{ gridColumn: 'span 2' }}><BanAlert ban={editingBanned} notice /></div>
+                )}
+
+                {customerStep === 'search' ? (
+                  <div ref={refCustomerSearch} style={{ gridColumn: 'span 2' }}>
+                    <CustomerSearch
+                      required={customerRequired}
+                      onSelect={(customer: CustomerMatch) => chooseCustomer(customer.id)}
+                      onNew={startNewCustomer}
+                      flagFor={nationality => COUNTRIES.find(c => c.name === nationality)?.flag ?? ''}
+                      formatDate={date => formatDateDisplay(date, dateLocale)}
+                    />
+                  </div>
+                ) : (<>
+                {mode === 'add' && (
+                  <div className="hc-cust-chosen" style={{ gridColumn: 'span 2' }}>
+                    <span>
+                      {customerStep === 'existing'
+                        ? t('customerStep.existing', { name: `${form.cust_first_name} ${form.cust_last_name}`.trim() })
+                        : t('customerStep.creating')}
+                    </span>
+                    <button type="button" onClick={clearCustomer}>{t('customerStep.change')}</button>
+                  </div>
+                )}
+
+                {/* ── ID Number first ── */}
                 <div ref={refIdNumber}>
                 <Field label={t('form.idNumber')} required>
                   <input value={form.cust_id_number}
+                    readOnly={mode === 'add' && customerStep === 'existing'}
                     onChange={e => {
                       set('cust_id_number', e.target.value);
+                      setIdOwner(null);
                       if (fieldErrors.cust_id_number) setFieldErrors(fe => ({ ...fe, cust_id_number: undefined }));
-                      if (mode === 'add') {
-                        setIdLookupStatus('idle');
-                        if (idLookupTimer.current) clearTimeout(idLookupTimer.current);
-                        if (e.target.value.trim()) {
-                          idLookupTimer.current = setTimeout(() => lookupByIdNumber(e.target.value), 500);
-                        }
-                      }
                     }}
                     placeholder={t('form.documentNumber')}
                     style={{ ...INPUT_STYLE, borderColor: fieldErrors.cust_id_number ? '#ef4444' : '#e5e7eb' }}
                     onFocus={focusBlue}
                     onBlur={e => {
                       if (!fieldErrors.cust_id_number) blurGray(e);
-                      if (mode === 'add' && form.cust_id_number.trim()) {
-                        if (idLookupTimer.current) clearTimeout(idLookupTimer.current);
-                        lookupByIdNumber(form.cust_id_number);
-                      }
+                      checkIdOwner();
                     }}
                   />
                   {fieldErrors.cust_id_number && (
                     <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_id_number}</div>
+                  )}
+                  {idOwner && (
+                    <div role="alert" className="hc-cust-owner">
+                      <span>{t('customerStep.idBelongs', { name: idOwner.name })}</span>
+                      {idOwner.banned
+                        ? <BannedBadge reason={idOwner.reason} showReason />
+                        : <button type="button" onClick={() => chooseCustomer(idOwner.id)}>{t('customerStep.useThis')}</button>}
+                    </div>
                   )}
                 </Field>
                 </div>
@@ -1843,32 +1994,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   )}
                 </Field>
                 </div>
-
-                {/* Auto-fill status indicator */}
-                {mode === 'add' && idLookupStatus !== 'idle' && (
-                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 7, margin: '-4px 0 4px' }}>
-                    {idLookupStatus === 'searching' && (
-                      <>
-                        <div style={{
-                          width: 13, height: 13, borderRadius: '50%',
-                          border: '2px solid #e5e7eb', borderTop: '2px solid #4ba6ea',
-                          animation: 'spin 0.7s linear infinite', flexShrink: 0,
-                        }} />
-                        <span style={{ fontSize: 12, color: '#6b7280' }}>Looking up customer…</span>
-                      </>
-                    )}
-                    {idLookupStatus === 'found' && (
-                      <span style={{ fontSize: 12.5, color: '#16a34a', fontWeight: 600 }}>
-                        ✅ Customer found
-                      </span>
-                    )}
-                    {idLookupStatus === 'not-found' && (
-                      <span style={{ fontSize: 12, color: '#9ca3af' }}>
-                        {t('newCustomerHint')}
-                      </span>
-                    )}
-                  </div>
-                )}
 
                 {/* Row 2: First Name | Last Name */}
                 <Field label={tc('fields.firstName')} required>
@@ -1923,14 +2048,19 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                       onChange={dial => set('cust_phone_dial', dial)}
                     />
                     <input value={form.cust_phone}
-                      onChange={e => { set('cust_phone', e.target.value); if (fieldErrors.cust_phone) setFieldErrors(fe => ({ ...fe, cust_phone: undefined })); }}
+                      onChange={e => { set('cust_phone', e.target.value); setPhoneSharers([]); if (fieldErrors.cust_phone) setFieldErrors(fe => ({ ...fe, cust_phone: undefined })); }}
                       placeholder={t('form.phonePlaceholder')} type="tel"
                       style={{ ...INPUT_STYLE, flex: 1, borderColor: fieldErrors.cust_phone ? '#ef4444' : '#e5e7eb' }}
                       onFocus={focusBlue}
-                      onBlur={e => { if (!fieldErrors.cust_phone) blurGray(e); }} />
+                      onBlur={e => { if (!fieldErrors.cust_phone) blurGray(e); checkPhoneSharers(); }} />
                   </div>
                   {fieldErrors.cust_phone && (
                     <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_phone}</div>
+                  )}
+                  {phoneSharers.length > 0 && (
+                    <div role="status" className="hc-cust-phone">
+                      {t('customerStep.phoneShared', { names: phoneSharers.map(p => p.full_name).join('، ') })}
+                    </div>
                   )}
                 </Field>
                 </div>
@@ -2041,6 +2171,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
                   onChange={setDocEntryStamp}
                 />
 
+                </>)}
+
                 {/* ── Financial Information ── */}
                 <>
                   <SectionHeading
@@ -2105,6 +2237,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
             </>
           </div>
 
+          {banAlert && <BanAlert ban={banAlert} />}
           {formError && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -2197,6 +2330,9 @@ const ExtendBookingModal: React.FC<{
   const [paidAmount, setPaidAmount] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [banAlert, setBanAlert] = useState<BanMatch | null>(
+    booking.customer_banned ? { customer_id: '', full_name: booking.customer_name, ban_reason: booking.customer_ban_reason ?? null, matched_on: 'customer' } : null,
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -2226,6 +2362,19 @@ const ExtendBookingModal: React.FC<{
     }
 
     setSaving(true);
+
+    // Extending doesn't change the booking's customer, so the database trigger never
+    // sees it. This is the only check there is, which is why no answer stops it too.
+    try {
+      const ban = await banForExistingCustomer(String(booking.customer_id));
+      setBanAlert(ban);
+      if (ban) { setSaving(false); return; }
+    } catch {
+      setSaving(false);
+      setFormError(t('customerStep.errors.checkFailed'));
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.rpc('extend_booking', {
       p_booking_id:    booking.id,
@@ -2236,7 +2385,12 @@ const ExtendBookingModal: React.FC<{
     });
     setSaving(false);
 
-    if (error) { setFormError(error.message || t('extend.errors.failed')); return; }
+    if (error) {
+      const refusal = parseCustomerError(error.message);
+      if (refusal?.kind === 'banned') setBanAlert({ customer_id: '', full_name: refusal.name, ban_reason: refusal.reason || null, matched_on: 'customer' });
+      else setFormError(error.message || t('extend.errors.failed'));
+      return;
+    }
 
     // The function returns a TABLE, which PostgREST hands back as an array.
     const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
@@ -2339,6 +2493,7 @@ const ExtendBookingModal: React.FC<{
             {t('extend.insuranceNote')}
           </div>
 
+          {banAlert && <BanAlert ban={banAlert} />}
           {formError && (
             <div style={{
               padding: '9px 12px', background: '#fef2f2', border: '1px solid #fecaca',
@@ -2413,6 +2568,7 @@ interface CarBookingOption {
   /** customers.id is a uuid. */
   customer_id: string | null;
   customer_name: string;
+  customer_banned: boolean;
   start_date: string;
   end_date: string;
 }
@@ -2441,7 +2597,7 @@ const SHEET_SELECT = `
   id, created_at, sheet_number, customer_id, original_booking_id,
   original_car_id, replacement_car_id, calendar_block_id,
   start_date, end_date, km_at_handover, fuel_at_handover, notes,
-  customers(first_name, last_name),
+  customers(first_name, last_name, is_banned, ban_reason),
   original_booking:bookings(booking_number),
   original_car:cars!replacement_sheets_original_car_id_fkey(plate_number, model_group(name)),
   replacement_car:cars!replacement_sheets_replacement_car_id_fkey(plate_number, model_group(name))
@@ -2489,6 +2645,8 @@ function mapSheetRow(row: SheetRowRaw): ReplacementSheetRecord {
     sheet_number:            row.sheet_number ?? '—',
     customer_id:             row.customer_id ?? '',
     customer_name:           cust ? `${cust.first_name} ${cust.last_name}`.trim() : '',
+    customer_banned:         cust?.is_banned === true,
+    customer_ban_reason:     cust?.ban_reason ?? null,
     original_booking_number: booking?.booking_number ?? null,
     original_plate:          originalCar?.plate_number ?? null,
     original_model:          carModelName(originalCar),
@@ -2657,6 +2815,7 @@ const ReplacementFormModal: React.FC<{
   const [fuel,      setFuel]      = useState(sheet?.fuel_at_handover ?? '');
   const [notes,     setNotes]     = useState(sheet?.notes ?? '');
 
+  const [banAlert, setBanAlert]   = useState<BanMatch | null>(null);
   const [saving, setSaving]       = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -2705,7 +2864,7 @@ const ReplacementFormModal: React.FC<{
     (async () => {
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_number, customer_id, start_date, end_date, customers(first_name, last_name)')
+        .select('id, booking_number, customer_id, start_date, end_date, customers(first_name, last_name, is_banned)')
         .eq('car_id', Number(originalCarId))
         .order('start_date', { ascending: false });
       if (!active) return;
@@ -2720,6 +2879,7 @@ const ReplacementFormModal: React.FC<{
           booking_number: b.booking_number,
           customer_id: b.customer_id,
           customer_name: c ? `${c.first_name} ${c.last_name}`.trim() : t('replacement.unknownCustomer'),
+          customer_banned: c?.is_banned === true,
           start_date: b.start_date,
           end_date: b.end_date,
         };
@@ -2839,6 +2999,18 @@ const ReplacementFormModal: React.FC<{
     if (!selectedBooking.customer_id)    { setFormError(t('replacement.errors.noCustomer')); return; }
 
     setSaving(true);
+    setBanAlert(null);
+
+    // A sheet is a new car handed to this person, so a ban stops it like a booking.
+    try {
+      const ban = await banForExistingCustomer(selectedBooking.customer_id);
+      if (ban) { setSaving(false); setBanAlert(ban); return; }
+    } catch {
+      setSaving(false);
+      setFormError(t('customerStep.errors.checkFailed'));
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
 
     const blockNote = `Replacement for ${originalCar?.plate_number ?? '—'} · ${selectedBooking.customer_name}`;
@@ -2998,8 +3170,8 @@ const ReplacementFormModal: React.FC<{
                       : 'Select booking…'}
                   </option>
                   {carBookings.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.customer_name} · {b.booking_number ?? `#${b.id}`} · {b.start_date} → {b.end_date}
+                    <option key={b.id} value={b.id} disabled={b.customer_banned}>
+                      {b.customer_name}{b.customer_banned ? ` (${tc('customer.banned')})` : ''} · {b.booking_number ?? `#${b.id}`} · {b.start_date} → {b.end_date}
                     </option>
                   ))}
                 </select>
@@ -3105,6 +3277,7 @@ const ReplacementFormModal: React.FC<{
             </div>
           </div>
 
+          {banAlert && <BanAlert ban={banAlert} />}
           {formError && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -3213,7 +3386,7 @@ const BookingsPage: React.FC = () => {
         pickup_location, dropoff_location, km_at_delivery, fuel_at_delivery,
         insurance_type, notes, additional_services,
         cars(plate_number, model_group(name)),
-        customers(first_name, last_name)
+        customers(first_name, last_name, is_banned, ban_reason)
       `)
       .gte('start_date', toDateStr(getMonthStart(month)))
       .lte('start_date', toDateStr(getMonthEnd(month)))
@@ -3660,6 +3833,7 @@ const BookingsPage: React.FC = () => {
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb' }}>
                         {s.customer_name || '—'}
+                        {s.customer_banned && <div style={{ marginTop: 3 }}><BannedBadge reason={s.customer_ban_reason} showReason /></div>}
                         {s.original_booking_number && (
                           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
                             <span className="hc-num">{s.original_booking_number}</span>

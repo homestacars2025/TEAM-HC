@@ -84,5 +84,14 @@
     "remove": "Remove {{label}}",
     "status": "Status",
     "type": "Type"
+  },
+  "customer": {
+    "banned": "Banned",
+    "bannedWithReason": "This customer is banned — {{reason}}",
+    "bannedNoReason": "This customer is banned",
+    "matchedPhone": "The same phone number belongs to {{name}}.",
+    "matchedId": "The same ID number belongs to {{name}}.",
+    "owes": "Owes",
+    "credit": "Credit"
   }
 }

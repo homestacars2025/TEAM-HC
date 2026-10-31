@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useCurrency, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import Button from '../components/Button';
+import BannedBadge from '../components/customers/BannedBadge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,13 @@ interface RateRow { currency: string; rate_to_try: number; }
 
 type ToastState = { message: string; type: 'success' | 'error' } | null;
 
+interface LedgerCustomer {
+  first_name: string | null;
+  last_name: string | null;
+  is_banned: boolean | null;
+  ban_reason: string | null;
+}
+
 interface LedgerRow {
   id: string;
   booking_id: number | null;
@@ -32,7 +40,7 @@ interface LedgerRow {
   direction: Direction;
   exchange_rate_at_entry: number | null;
   created_at: string | null;
-  customers: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
+  customers: LedgerCustomer | LedgerCustomer[] | null;
   cars: { plate_number: string | null } | { plate_number: string | null }[] | null;
 }
 
@@ -40,6 +48,8 @@ interface LedgerRow {
 interface CustomerOnCar {
   customerId: string;
   name: string;
+  banned: boolean;
+  banReason: string | null;
   /** This customer's entries on this car, newest first (the order printCustomerInvoice expects). */
   rows: LedgerRow[];
   totalIn: number;
@@ -75,7 +85,7 @@ interface CarMeta {
   imageUrl: string | null;
 }
 
-interface CustomerOption { id: string; name: string; }
+interface CustomerOption { id: string; name: string; banned: boolean; }
 
 /** Shape of the bookings lookup; supabase types embedded relations as arrays. */
 interface BookingQueryRow {
@@ -196,6 +206,9 @@ function convertEntry(
   if (rate != null && rate > 0) return { value: row.amount / rate, approx: true };
   return { value: row.amount, approx: true };
 }
+
+const firstCustomer = (row: LedgerRow): LedgerCustomer | null =>
+  (Array.isArray(row.customers) ? row.customers[0] : row.customers) ?? null;
 
 function customerNameOf(row: LedgerRow, t: TFunction): string {
   const c = firstOf(row.customers);
@@ -383,6 +396,7 @@ const AddTransactionModal: React.FC<{
   onError: (message: string) => void;
 }> = ({ userId, presetCustomerId, presetName, presetCarId, fallbackUsdRate, onClose, onSaved, onError }) => {
   const { t } = useTranslation('wallets');
+  const { t: tc } = useTranslation('common');
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = useState<string>(presetCustomerId ?? '');
   const [bookings, setBookings] = useState<BookingOption[]>([]);
@@ -399,11 +413,12 @@ const AddTransactionModal: React.FC<{
     if (presetCustomerId) return;
     let active = true;
     (async () => {
-      const { data } = await supabase.from('customers').select('id, first_name, last_name').order('first_name');
+      const { data } = await supabase.from('customers').select('id, first_name, last_name, is_banned').order('first_name');
       if (!active) return;
-      setCustomers((data ?? []).map((c: { id: string; first_name: string | null; last_name: string | null }) => ({
+      setCustomers((data ?? []).map((c: { id: string; first_name: string | null; last_name: string | null; is_banned: boolean }) => ({
         id: c.id,
         name: [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || t('unknownCustomer'),
+        banned: c.is_banned,
       })));
     })();
     return () => { active = false; };
@@ -486,7 +501,7 @@ const AddTransactionModal: React.FC<{
           ) : (
             <select value={customerId} onChange={e => setCustomerId(e.target.value)} style={inputStyle}>
               <option value="">{t('form.selectCustomer')}</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {customers.map(c => <option key={c.id} value={c.id}>{c.banned ? `${c.name} (${tc('customer.banned')})` : c.name}</option>)}
             </select>
           )}
         </div>
@@ -1033,6 +1048,7 @@ const CustomerRow: React.FC<{
             <span className="cw-plate-line">
               {/* Pill trails the name so names stay left-aligned down the card. */}
               <span className="cw-cust-name">{entry.name}</span>
+              {entry.banned && <BannedBadge reason={entry.banReason} showReason />}
               {entry.live && <span className="cw-pill cw-pill--live"><i />{t('live')}</span>}
             </span>
             <span className="cw-caption" style={{ display: 'block' }}>
@@ -1280,7 +1296,7 @@ const CustomerWalletsPage: React.FC = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('customer_accounting_ledger')
-      .select('id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, customers(first_name, last_name), cars(plate_number)')
+      .select('id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, customers(first_name, last_name, is_banned, ban_reason), cars(plate_number)')
       .order('created_at', { ascending: false });
     setLoading(false);
     if (error) { setLoadError(error.message); return; }
@@ -1378,6 +1394,8 @@ const CustomerWalletsPage: React.FC = () => {
         entry = {
           customerId: row.customer_id,
           name: customerNameOf(row, t),
+          banned: firstCustomer(row)?.is_banned === true,
+          banReason: firstCustomer(row)?.ban_reason ?? null,
           rows: [], totalIn: 0, totalOut: 0, balance: 0, approx: false,
           live: linked && liveKeys.has(`${row.car_id}:${row.customer_id}`),
         };

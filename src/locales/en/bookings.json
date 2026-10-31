@@ -195,5 +195,29 @@
       "done": "Booking extended to {{date}}",
       "doneWithBalance": "Booking extended to {{date}} · new balance {{balance}} TRY"
     }
+  },
+  "customerStep": {
+    "searchLabel": "Search by ID / passport, phone or name",
+    "searchPlaceholder": "ID, passport, phone or name",
+    "searching": "Searching…",
+    "searchFailed": "Could not search. Check your connection and try again.",
+    "noResults": "No customer found.",
+    "required": "Choose a customer or add a new one.",
+    "exact": "Exact match",
+    "newCustomer": "New customer",
+    "bookings_one": "{{count}} booking",
+    "bookings_other": "{{count}} bookings",
+    "lastBooking": "Last booking {{date}}",
+    "existing": "Existing customer: {{name}}",
+    "creating": "New customer",
+    "change": "Change customer",
+    "idBelongs": "This ID belongs to {{name}}",
+    "useThis": "Use this customer",
+    "phoneShared": "This phone is also used by {{names}}",
+    "errors": {
+      "duplicate": "This ID belongs to {{name}}. Use that customer instead of adding a new one.",
+      "checkFailed": "Could not check this customer's status. Check your connection and try again.",
+      "loadFailed": "Could not load this customer. Try again."
+    }
   }
 }

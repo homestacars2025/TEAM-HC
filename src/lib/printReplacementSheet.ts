@@ -18,6 +18,8 @@ export interface ReplacementSheet {
   /** customers.id is a uuid — never cast this to a number. */
   customer_id:             string;
   customer_name:           string;
+  customer_banned?:        boolean;
+  customer_ban_reason?:    string | null;
   original_booking_number: string | null;
   original_plate:          string | null;
   original_model:          string | null;

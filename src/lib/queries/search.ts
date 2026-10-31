@@ -10,7 +10,7 @@ const LIMIT = 6;
 const CUSTOMER_CANDIDATES = 50;
 
 export interface CarHit { id: number; plate: string; model: string | null }
-export interface CustomerHit { id: string; name: string; phone: string | null }
+export interface CustomerHit { id: string; name: string; phone: string | null; banned: boolean; banReason: string | null }
 export interface BookingHit { id: number; number: string; customer: string | null; plate: string | null; startDate: string }
 
 /** Case, accents and Turkish dotted/dotless i all compare equal. */
@@ -66,15 +66,15 @@ export async function searchCustomers(term: string): Promise<CustomerHit[]> {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id, first_name, last_name, phone')
+    .select('id, first_name, last_name, phone, is_banned, ban_reason')
     .or(filters.join(','))
     .limit(CUSTOMER_CANDIDATES);
   if (error) throw error;
 
-  type Row = { id: string; first_name: string | null; last_name: string | null; phone: string | null };
+  type Row = { id: string; first_name: string | null; last_name: string | null; phone: string | null; is_banned: boolean; ban_reason: string | null };
   const wanted = tokens(fold(term));
   return ((data ?? []) as Row[])
-    .map(row => ({ id: row.id, name: `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim(), phone: row.phone }))
+    .map(row => ({ id: row.id, name: `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim(), phone: row.phone, banned: row.is_banned, banReason: row.ban_reason }))
     .filter(hit => {
       if (digits.length >= 3 && (hit.phone ?? '').replace(/\D/g, '').includes(digits)) return true;
       const name = fold(hit.name);

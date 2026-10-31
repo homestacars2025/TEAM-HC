@@ -84,5 +84,14 @@
     "remove": "إزالة {{label}}",
     "status": "الحالة",
     "type": "النوع"
+  },
+  "customer": {
+    "banned": "محظور",
+    "bannedWithReason": "هذا العميل محظور — {{reason}}",
+    "bannedNoReason": "هذا العميل محظور",
+    "matchedPhone": "رقم الهاتف نفسه مسجّل باسم {{name}}.",
+    "matchedId": "رقم الهوية نفسه مسجّل باسم {{name}}.",
+    "owes": "عليه",
+    "credit": "له"
   }
 }

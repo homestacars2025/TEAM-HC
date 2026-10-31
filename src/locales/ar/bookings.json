@@ -195,5 +195,33 @@
       "done": "تم تمديد الحجز حتى {{date}}",
       "doneWithBalance": "تم تمديد الحجز حتى {{date}} · الرصيد الجديد {{balance}} TRY"
     }
+  },
+  "customerStep": {
+    "searchLabel": "ابحث برقم الهوية أو جواز السفر أو الهاتف أو الاسم",
+    "searchPlaceholder": "رقم الهوية، جواز السفر، الهاتف أو الاسم",
+    "searching": "جارٍ البحث…",
+    "searchFailed": "تعذّر البحث. تحقق من الاتصال وحاول مجدداً.",
+    "noResults": "لا يوجد عميل بهذا البحث.",
+    "required": "اختر عميلاً أو أضف عميلاً جديداً.",
+    "exact": "تطابق تام",
+    "newCustomer": "عميل جديد",
+    "bookings_zero": "لا حجوزات",
+    "bookings_one": "حجز واحد",
+    "bookings_two": "حجزان",
+    "bookings_few": "{{count}} حجوزات",
+    "bookings_many": "{{count}} حجزاً",
+    "bookings_other": "{{count}} حجز",
+    "lastBooking": "آخر حجز {{date}}",
+    "existing": "عميل مسجّل: {{name}}",
+    "creating": "عميل جديد",
+    "change": "تغيير العميل",
+    "idBelongs": "هذا الرقم يعود إلى {{name}}",
+    "useThis": "استخدم هذا العميل",
+    "phoneShared": "هذا الهاتف مستخدم أيضاً من قبل {{names}}",
+    "errors": {
+      "duplicate": "هذا الرقم يعود إلى {{name}}. استخدم هذا العميل بدلاً من إضافة عميل جديد.",
+      "checkFailed": "تعذّر التحقق من حالة العميل. تحقق من الاتصال وحاول مجدداً.",
+      "loadFailed": "تعذّر تحميل بيانات العميل. حاول مجدداً."
+    }
   }
 }
