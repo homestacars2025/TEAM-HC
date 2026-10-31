@@ -1,9 +1,17 @@
 {
   "title": "محفظتي",
-  "subtitle": "عهدتك: ما استلمته من المدير المالي وما دفعته منها.",
+  "subtitle": "راتبك ومكافآتك: ما استحققته وما دفعته لك الشركة.",
+  "monthlySalary": "الراتب الشهري: {{amount}}",
   "balance": "الرصيد",
-  "received": "إجمالي المستلم",
-  "spent": "إجمالي المصروف",
+  "balanceHint": "المبلغ المستحق لك لدى الشركة",
+  "earned": {
+    "month": "المستحق هذا الشهر",
+    "all": "إجمالي المستحق"
+  },
+  "paid": {
+    "month": "المدفوع لي هذا الشهر",
+    "all": "إجمالي المدفوع لي"
+  },
   "period": {
     "month": "هذا الشهر",
     "all": "كل الوقت"
@@ -12,19 +20,22 @@
   "filters": {
     "month": "الشهر",
     "allMonths": "كل الأشهر",
-    "direction": "النوع",
-    "allDirections": "وارد وصادر",
-    "category": "التصنيف",
-    "allCategories": "كل التصنيفات"
+    "type": "النوع",
+    "allTypes": "كل الأنواع"
   },
-  "direction": {
-    "IN": "وارد",
-    "OUT": "صادر"
+  "type": {
+    "salary": "راتب",
+    "bonus": "مكافأة",
+    "advance": "سلفة",
+    "deduction": "خصم",
+    "payout": "دفعة"
   },
+  "salaryNote": "الراتب الشهري",
   "table": {
     "date": "التاريخ",
-    "category": "التصنيف",
-    "description": "الوصف",
+    "type": "النوع",
+    "month": "الشهر",
+    "note": "ملاحظة",
     "amount": "المبلغ",
     "receipt": "الإيصال",
     "running": "الرصيد"

@@ -113,7 +113,9 @@ async function fetchSnapshot(): Promise<Snapshot> {
       .from('app_pages')
       .select('key, label_en, label_ar, route, group_key, sort_order')
       .eq('is_active', true)
-      .order('sort_order'),
+      .order('sort_order')
+      // Wallet and custody share a sort_order, and a tie would otherwise be random.
+      .order('key', { ascending: false }),
     // Filtered by id because staff can read every team_members row. Admins have
     // no row at all, which is a valid answer rather than a failure.
     supabase

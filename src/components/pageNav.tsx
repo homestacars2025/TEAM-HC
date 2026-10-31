@@ -23,6 +23,10 @@ export const pageIcons: Record<string, React.ReactNode> = {
     <rect x="3" y="8" width="18" height="12.5" rx="2.5" stroke="currentColor" strokeWidth="1.8"/>
     <circle cx="16.5" cy="14.25" r="1.2" fill="currentColor"/>
   </>),
+  custody: icon(<>
+    <path d="M12 2.8l7.5 2.9v5.6c0 4.6-3.1 8.4-7.5 9.9-4.4-1.5-7.5-5.3-7.5-9.9V5.7L12 2.8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M12 7.5v8M14.3 9.4c-.5-.7-1.3-1.1-2.3-1.1-1.3 0-2.3.7-2.3 1.7 0 2.3 4.6 1.2 4.6 3.5 0 1-1 1.7-2.3 1.7-1 0-1.8-.4-2.3-1.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+  </>),
   profile: icon(<>
     <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/>
     <path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -119,6 +123,7 @@ export const fallbackIcon = icon(<rect x="4" y="4" width="16" height="16" rx="3"
 const NAV_LABEL_KEYS: Record<string, string> = {
   home: 'nav.home',
   wallet: 'nav.wallet',
+  custody: 'nav.custody',
   profile: 'nav.profile',
   settings: 'nav.settings',
   tasks: 'nav.tasks',

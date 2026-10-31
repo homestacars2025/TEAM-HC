@@ -37,6 +37,7 @@ const TRANSLATED = [
   'AccountingPage.tsx',
   'HomePage.tsx',
   'WalletPage.tsx',
+  'CustodyPage.tsx',
   'ProfilePage.tsx',
   'SettingsPage.tsx',
 ];

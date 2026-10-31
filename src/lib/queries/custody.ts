@@ -1,12 +1,13 @@
 import { supabase } from '../supabase';
 
 /**
- * The signed-in employee's custody. Read-only: entries are recorded on the
- * Accounting page. Every query is scoped to `employee_id`, because `employee_wallets`
- * has no row-level security and this filter is all that keeps a wallet private.
+ * The signed-in employee's custody: company money they hold, not money they earned.
+ * Read-only: entries are recorded on the Accounting page. Every query is scoped to
+ * `employee_id`, because `employee_wallets` has no row-level security and this filter
+ * is all that keeps it private.
  */
 
-export interface WalletMovement {
+export interface CustodyMovement {
   id: number;
   transaction_date: string;
   direction: 'IN' | 'OUT';
@@ -16,18 +17,18 @@ export interface WalletMovement {
   receipt_url: string | null;
 }
 
-export interface WalletMovementWithBalance extends WalletMovement {
+export interface CustodyMovementWithBalance extends CustodyMovement {
   /** The balance straight after this movement. */
   running: number;
 }
 
-export interface WalletTotals {
+export interface CustodyTotals {
   received: number;
   spent: number;
 }
 
 /** Oldest first, the order a running balance has to be worked out in. */
-export async function getMyWalletMovements(userId: string): Promise<WalletMovement[]> {
+export async function getMyCustodyMovements(userId: string): Promise<CustodyMovement[]> {
   const { data, error } = await supabase
     .from('employee_wallets')
     .select('id, transaction_date, direction, category, amount, description, receipt_url')
@@ -36,10 +37,10 @@ export async function getMyWalletMovements(userId: string): Promise<WalletMoveme
     .order('created_at')
     .order('id');
   if (error) throw error;
-  return ((data ?? []) as WalletMovement[]).map(row => ({ ...row, amount: Number(row.amount) }));
+  return ((data ?? []) as CustodyMovement[]).map(row => ({ ...row, amount: Number(row.amount) }));
 }
 
-export async function getMyWalletBalance(userId: string): Promise<number> {
+export async function getMyCustodyBalance(userId: string): Promise<number> {
   const { data, error } = await supabase
     .from('employee_wallet_balances')
     .select('balance')
@@ -49,7 +50,7 @@ export async function getMyWalletBalance(userId: string): Promise<number> {
   return Number(data?.balance ?? 0);
 }
 
-export function withRunningBalance(rows: WalletMovement[]): WalletMovementWithBalance[] {
+export function withRunningCustody(rows: CustodyMovement[]): CustodyMovementWithBalance[] {
   let running = 0;
   return rows.map(row => {
     running += row.direction === 'IN' ? row.amount : -row.amount;
@@ -58,8 +59,8 @@ export function withRunningBalance(rows: WalletMovement[]): WalletMovementWithBa
 }
 
 /** `month` is `YYYY-MM`; leave it out for all time. */
-export function walletTotals(rows: WalletMovement[], month?: string): WalletTotals {
-  const totals: WalletTotals = { received: 0, spent: 0 };
+export function custodyTotals(rows: CustodyMovement[], month?: string): CustodyTotals {
+  const totals: CustodyTotals = { received: 0, spent: 0 };
   for (const row of rows) {
     if (month && !row.transaction_date.startsWith(month)) continue;
     if (row.direction === 'IN') totals.received += row.amount;
@@ -68,7 +69,7 @@ export function walletTotals(rows: WalletMovement[], month?: string): WalletTota
   return totals;
 }
 
-export function walletBalance(rows: WalletMovement[]): number {
-  const { received, spent } = walletTotals(rows);
+export function custodyBalance(rows: CustodyMovement[]): number {
+  const { received, spent } = custodyTotals(rows);
   return received - spent;
 }

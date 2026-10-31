@@ -21,6 +21,7 @@
     "profile": "My profile",
     "wallet": "My wallet",
     "settings": "Settings",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "custody": "My custody"
   }
 }

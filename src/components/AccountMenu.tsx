@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
-import { useCurrency } from '../lib/CurrencyContext';
-import { getMyWalletBalance } from '../lib/queries/wallet';
+import { formatTRY } from '../lib/CurrencyContext';
+import { getMyCustodyBalance } from '../lib/queries/custody';
+import { getMyWalletBalance } from '../lib/queries/staffWallet';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import StaffAvatar from './StaffAvatar';
@@ -12,18 +13,27 @@ import { pageIcons } from './pageNav';
 const itemClass =
   'flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-sm font-medium text-gray-700 no-underline transition-colors hover:bg-black/[0.04] lg:min-h-10';
 
+const Balance: React.FC<{ value: number | null }> = ({ value }) => (
+  value === null ? null : (
+    <bdi dir="ltr" className={`hc-num text-[13px] font-semibold ${value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+      {value < 0 ? '−' : ''}{formatTRY(value)}
+    </bdi>
+  )
+);
+
 const AccountMenu: React.FC = () => {
   const { t } = useTranslation('shell');
   const { t: ts } = useTranslation('sidebar');
   const navigate = useNavigate();
-  const { fmt } = useCurrency();
   const { userId, email, profile } = useCurrentUser();
   const { canAccessPage, department, isDepartmentHead } = usePageAccess();
   const [open, setOpen] = useState(false);
-  const [balance, setBalance] = useState<number | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [custodyBalance, setCustodyBalance] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const canOpenWallet = canAccessPage('wallet');
+  const canOpenCustody = canAccessPage('custody');
 
   useEffect(() => {
     if (!open) return;
@@ -41,13 +51,18 @@ const AccountMenu: React.FC = () => {
 
   // Read on each open: a new entry from accounting should show without a reload.
   useEffect(() => {
-    if (!open || !userId || !canOpenWallet) return;
+    if (!open || !userId) return;
     let cancelled = false;
-    getMyWalletBalance(userId)
-      .then(value => { if (!cancelled) setBalance(value); })
-      .catch(() => { if (!cancelled) setBalance(null); });
+    const read = (enabled: boolean, load: (id: string) => Promise<number>, set: (value: number | null) => void) => {
+      if (!enabled) return;
+      load(userId)
+        .then(value => { if (!cancelled) set(value); })
+        .catch(() => { if (!cancelled) set(null); });
+    };
+    read(canOpenWallet, getMyWalletBalance, setWalletBalance);
+    read(canOpenCustody, getMyCustodyBalance, setCustodyBalance);
     return () => { cancelled = true; };
-  }, [open, userId, canOpenWallet]);
+  }, [open, userId, canOpenWallet, canOpenCustody]);
 
   const close = () => setOpen(false);
 
@@ -104,11 +119,14 @@ const AccountMenu: React.FC = () => {
               <Link to="/dashboard/wallet" role="menuitem" onClick={close} className={itemClass}>
                 <span className="text-gray-400">{pageIcons.wallet}</span>
                 <span className="min-w-0 flex-1 truncate">{t('menu.wallet')}</span>
-                {balance !== null && (
-                  <bdi dir="ltr" className={`hc-num text-[13px] font-semibold ${balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                    {balance < 0 ? '−' : ''}{fmt(balance)}
-                  </bdi>
-                )}
+                <Balance value={walletBalance} />
+              </Link>
+            )}
+            {canOpenCustody && (
+              <Link to="/dashboard/custody" role="menuitem" onClick={close} className={itemClass}>
+                <span className="text-gray-400">{pageIcons.custody}</span>
+                <span className="min-w-0 flex-1 truncate">{t('menu.custody')}</span>
+                <Balance value={custodyBalance} />
               </Link>
             )}
             <Link to="/dashboard/settings" role="menuitem" onClick={close} className={itemClass}>

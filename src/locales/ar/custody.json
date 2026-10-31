@@ -1,0 +1,36 @@
+{
+  "title": "الوديعة",
+  "subtitle": "أموال الشركة التي استلمتها من المدير المالي وما صرفته منها.",
+  "balance": "الرصيد",
+  "received": "إجمالي المستلم",
+  "spent": "إجمالي المصروف",
+  "period": {
+    "month": "هذا الشهر",
+    "all": "كل الوقت"
+  },
+  "movements": "الحركات",
+  "filters": {
+    "month": "الشهر",
+    "allMonths": "كل الأشهر",
+    "direction": "النوع",
+    "allDirections": "وارد وصادر",
+    "category": "التصنيف",
+    "allCategories": "كل التصنيفات"
+  },
+  "direction": {
+    "IN": "وارد",
+    "OUT": "صادر"
+  },
+  "table": {
+    "date": "التاريخ",
+    "category": "التصنيف",
+    "description": "الوصف",
+    "amount": "المبلغ",
+    "receipt": "الإيصال",
+    "running": "الرصيد"
+  },
+  "viewReceipt": "عرض الإيصال",
+  "empty": "لا توجد حركات بعد.",
+  "emptyFiltered": "لا توجد حركات تطابق هذه الفلاتر.",
+  "failed": "تعذّر تحميل الوديعة."
+}

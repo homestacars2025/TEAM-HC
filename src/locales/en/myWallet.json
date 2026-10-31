@@ -1,9 +1,17 @@
 {
   "title": "My wallet",
-  "subtitle": "Your custody: what the finance manager gave you and what you paid from it.",
+  "subtitle": "Your salary and bonuses: what you earned and what the company has paid you.",
+  "monthlySalary": "Monthly salary: {{amount}}",
   "balance": "Balance",
-  "received": "Total received",
-  "spent": "Total spent",
+  "balanceHint": "What the company owes you",
+  "earned": {
+    "month": "Earned this month",
+    "all": "Total earned"
+  },
+  "paid": {
+    "month": "Paid to me this month",
+    "all": "Total paid to me"
+  },
   "period": {
     "month": "This month",
     "all": "All time"
@@ -12,19 +20,22 @@
   "filters": {
     "month": "Month",
     "allMonths": "All months",
-    "direction": "Type",
-    "allDirections": "In and out",
-    "category": "Category",
-    "allCategories": "All categories"
+    "type": "Type",
+    "allTypes": "All types"
   },
-  "direction": {
-    "IN": "In",
-    "OUT": "Out"
+  "type": {
+    "salary": "Salary",
+    "bonus": "Bonus",
+    "advance": "Advance",
+    "deduction": "Deduction",
+    "payout": "Payout"
   },
+  "salaryNote": "Monthly salary",
   "table": {
     "date": "Date",
-    "category": "Category",
-    "description": "Description",
+    "type": "Type",
+    "month": "Month",
+    "note": "Note",
     "amount": "Amount",
     "receipt": "Receipt",
     "running": "Balance"

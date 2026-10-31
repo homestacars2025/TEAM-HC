@@ -40,7 +40,7 @@
     },
     "wallet": {
       "title": "محفظتي",
-      "received": "المستلم هذا الشهر: {{amount}}"
+      "earned": "المستحق هذا الشهر: {{amount}}"
     },
     "notifications": {
       "title": "الإشعارات",
@@ -48,7 +48,11 @@
       "allRead": "لا جديد"
     },
     "open": "فتح {{title}}",
-    "unavailable": "تعذّر التحميل"
+    "unavailable": "تعذّر التحميل",
+    "custody": {
+      "title": "الوديعة",
+      "received": "المستلم هذا الشهر: {{amount}}"
+    }
   },
   "sections": {
     "tasks": "مهامي",

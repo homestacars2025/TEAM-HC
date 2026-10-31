@@ -19,6 +19,7 @@ import CustomerWalletsPage from './pages/CustomerWalletsPage';
 import TasksPage from './pages/TasksPage';
 import HomePage from './pages/HomePage';
 import WalletPage from './pages/WalletPage';
+import CustodyPage from './pages/CustodyPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 /*
@@ -66,6 +67,7 @@ const App: React.FC = () => {
           <Route index element={<RedirectToFirstPage />} />
           <Route path="home" element={<RequirePage page="home"><HomePage /></RequirePage>} />
           <Route path="wallet" element={<RequirePage page="wallet"><WalletPage /></RequirePage>} />
+          <Route path="custody" element={<RequirePage page="custody"><CustodyPage /></RequirePage>} />
           <Route path="profile" element={<RequirePage page="profile"><ProfilePage /></RequirePage>} />
           <Route path="settings" element={<RequirePage page="settings"><SettingsPage /></RequirePage>} />
           <Route path="cars" element={<RequirePage page="cars"><CarsPage /></RequirePage>} />

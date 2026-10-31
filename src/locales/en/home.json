@@ -28,7 +28,7 @@
     },
     "wallet": {
       "title": "My wallet",
-      "received": "Received this month: {{amount}}"
+      "earned": "Earned this month: {{amount}}"
     },
     "notifications": {
       "title": "Notifications",
@@ -36,7 +36,11 @@
       "allRead": "All caught up"
     },
     "open": "Open {{title}}",
-    "unavailable": "Could not load"
+    "unavailable": "Could not load",
+    "custody": {
+      "title": "My custody",
+      "received": "Received this month: {{amount}}"
+    }
   },
   "sections": {
     "tasks": "My tasks",

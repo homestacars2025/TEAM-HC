@@ -36,8 +36,11 @@ interface CurrencyContextValue {
 
 // ─── Default context (TRY pass-through) ──────────────────────────────────────
 
-const defaultFmt = (n: number) =>
+/** Lira whatever the selector says, for money that is only ever owed in lira. */
+export const formatTRY = (n: number) =>
   '₺' + Math.abs(n).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const defaultFmt = formatTRY;
 
 const CurrencyContext = createContext<CurrencyContextValue>({
   currency:       'TRY',

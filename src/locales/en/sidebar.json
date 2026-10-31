@@ -9,6 +9,7 @@
   "nav": {
     "home": "Home",
     "wallet": "My wallet",
+    "custody": "My custody",
     "profile": "My profile",
     "settings": "Settings",
     "bookings": "Bookings",

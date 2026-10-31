@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useCurrency } from '../lib/CurrencyContext';
+import { formatTRY } from '../lib/CurrencyContext';
 import { useInbox } from '../lib/InboxContext';
 import { BUSINESS_TIME_ZONE, dayPart, istanbulDate, istanbulHour } from '../lib/istanbulTime';
 import { useNotifText } from '../lib/notifications/renderI18n';
 import { getMyNotifications, getMyTasks } from '../lib/queries/tasks';
 import { countTasks, getTodaySchedule, type ScheduleItem } from '../lib/queries/schedule';
-import { getMyWalletMovements, walletBalance, walletTotals, type WalletMovement } from '../lib/queries/wallet';
+import { custodyBalance, custodyTotals, getMyCustodyMovements, type CustodyMovement } from '../lib/queries/custody';
+import { getMyWalletEntries, walletBalance, walletTotals, type WalletEntry } from '../lib/queries/staffWallet';
 import { useTimeFormat } from '../lib/relative-time';
 import type { MyNotification, MyTask } from '../lib/types/tasks';
 import NotificationRow, { useOpenNotification } from '../components/NotificationRow';
@@ -18,6 +19,13 @@ import { useDateLocale } from './AccountingPage';
 
 const TASK_LIMIT = 200;
 const LIST_LIMIT = 5;
+
+/**
+ * Five cards don't divide into the four-column grid, and amounts need more room than
+ * five narrow columns give. So three over two on a computer, and on a tablet the odd
+ * one out takes the whole last row.
+ */
+const FIVE_CARDS = 'xl:grid-cols-6 xl:[&>*]:col-span-2 xl:[&>*:nth-last-child(-n+2)]:col-span-3 sm:max-xl:[&>*:last-child]:col-span-2';
 
 const ArrowIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -171,7 +179,6 @@ const HomePage: React.FC = () => {
   const { t } = useTranslation('home');
   const { t: tn } = useTranslation('notifications');
   const dateLocale = useDateLocale();
-  const { fmt } = useCurrency();
   const { userId, profile } = useCurrentUser();
   const { canAccessPage } = usePageAccess();
   const { unreadCount, setNotificationsOpen } = useInbox();
@@ -179,8 +186,10 @@ const HomePage: React.FC = () => {
 
   const [tasks, setTasks] = useState<MyTask[] | null>(null);
   const [notifications, setNotifications] = useState<MyNotification[] | null>(null);
-  const [wallet, setWallet] = useState<WalletMovement[] | null>(null);
+  const [wallet, setWallet] = useState<WalletEntry[] | null>(null);
   const [walletFailed, setWalletFailed] = useState(false);
+  const [custody, setCustody] = useState<CustodyMovement[] | null>(null);
+  const [custodyFailed, setCustodyFailed] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleItem[] | null>(null);
   const [scheduleFailed, setScheduleFailed] = useState(false);
   const [scheduleAttempt, setScheduleAttempt] = useState(0);
@@ -188,6 +197,7 @@ const HomePage: React.FC = () => {
   const today = useMemo(() => istanbulDate(), []);
   const canOpenOperations = canAccessPage('operations');
   const canOpenWallet = canAccessPage('wallet');
+  const canOpenCustody = canAccessPage('custody');
   // Customer names, so this follows the pages that already show them.
   const canSeeSchedule = canOpenOperations || canAccessPage('bookings');
 
@@ -207,11 +217,20 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     if (!userId || !canOpenWallet) return;
     let cancelled = false;
-    getMyWalletMovements(userId)
+    getMyWalletEntries(userId)
       .then(rows => { if (!cancelled) setWallet(rows); })
       .catch(() => { if (!cancelled) setWalletFailed(true); });
     return () => { cancelled = true; };
   }, [userId, canOpenWallet]);
+
+  useEffect(() => {
+    if (!userId || !canOpenCustody) return;
+    let cancelled = false;
+    getMyCustodyMovements(userId)
+      .then(rows => { if (!cancelled) setCustody(rows); })
+      .catch(() => { if (!cancelled) setCustodyFailed(true); });
+    return () => { cancelled = true; };
+  }, [userId, canOpenCustody]);
 
   useEffect(() => {
     if (!canSeeSchedule) return;
@@ -229,6 +248,9 @@ const HomePage: React.FC = () => {
   const deliveries = schedule?.filter(item => item.kind === 'delivery').length ?? 0;
   const pickups = schedule?.filter(item => item.kind === 'pickup').length ?? 0;
   const balance = wallet ? walletBalance(wallet) : null;
+  const heldInCustody = custody ? custodyBalance(custody) : null;
+  const thisMonth = today.slice(0, 7);
+  const cardCount = [canAccessPage('tasks'), canOpenOperations, canOpenWallet, canOpenCustody, true].filter(Boolean).length;
 
   const part = dayPart(istanbulHour());
   const firstName = profile?.full_name?.trim().split(/\s+/)[0];
@@ -248,7 +270,7 @@ const HomePage: React.FC = () => {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
         {canAccessPage('tasks') && (
           <StatCard
             title={t('cards.tasks.title')}
@@ -283,10 +305,25 @@ const HomePage: React.FC = () => {
             icon={pageIcons.wallet}
             valueClass={balance !== null && balance < 0 ? '!text-red-600' : undefined}
             value={walletFailed ? '—' : balance === null ? null : (
-              <bdi dir="ltr">{balance < 0 ? '−' : ''}{fmt(balance)}</bdi>
+              <bdi dir="ltr">{balance < 0 ? '−' : ''}{formatTRY(balance)}</bdi>
             )}
-            sub={walletFailed ? t('cards.unavailable') : wallet && t('cards.wallet.received', { amount: fmt(walletTotals(wallet, today.slice(0, 7)).received) })}
+            sub={walletFailed ? t('cards.unavailable') : wallet && t('cards.wallet.earned', { amount: formatTRY(walletTotals(wallet, thisMonth).earned) })}
             action={<Link to="/dashboard/wallet" aria-label={t('cards.open', { title: t('cards.wallet.title') })} className={arrowClass}><ArrowIcon /></Link>}
+          />
+        )}
+
+        {canOpenCustody && (
+          <StatCard
+            title={t('cards.custody.title')}
+            color="#0d9488"
+            tint="rgba(20,184,166,0.10)"
+            icon={pageIcons.custody}
+            valueClass={heldInCustody !== null && heldInCustody < 0 ? '!text-red-600' : undefined}
+            value={custodyFailed ? '—' : heldInCustody === null ? null : (
+              <bdi dir="ltr">{heldInCustody < 0 ? '−' : ''}{formatTRY(heldInCustody)}</bdi>
+            )}
+            sub={custodyFailed ? t('cards.unavailable') : custody && t('cards.custody.received', { amount: formatTRY(custodyTotals(custody, thisMonth).received) })}
+            action={<Link to="/dashboard/custody" aria-label={t('cards.open', { title: t('cards.custody.title') })} className={arrowClass}><ArrowIcon /></Link>}
           />
         )}
 

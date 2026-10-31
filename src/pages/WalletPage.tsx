@@ -1,92 +1,77 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCurrency } from '../lib/CurrencyContext';
+import { formatTRY } from '../lib/CurrencyContext';
 import { istanbulDate } from '../lib/istanbulTime';
 import {
-  getMyWalletMovements, walletBalance, walletTotals, withRunningBalance,
-  type WalletMovement, type WalletMovementWithBalance,
-} from '../lib/queries/wallet';
+  ENTRY_TYPES, getMyMonthlySalary, getMyWalletEntries, signedAmount, walletBalance, walletTotals, withRunningBalance,
+  type EntryType, type WalletEntry, type WalletEntryWithBalance,
+} from '../lib/queries/staffWallet';
+import { PeriodToggle, ReceiptThumb, SummaryCard, selectClass, type Period } from '../components/WalletParts';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
-import { ReceiptLightbox, categoryLabel, formatDateDisplay, isPdfUrl, useDateLocale } from './AccountingPage';
+import { ReceiptLightbox, formatDateDisplay, useDateLocale } from './AccountingPage';
 
 /**
- * The signed-in employee's custody, read-only: entries are recorded on the
- * Accounting page. Salary and bonus are a separate thing and do not belong here.
+ * The signed-in person's salary and bonuses, read-only: entries are written from
+ * Admin. Company money they hold is My custody, a different thing. Always in lira,
+ * because that is what the company owes, whatever the currency selector says.
  */
 
-type Period = 'month' | 'all';
-type DirectionFilter = 'all' | 'IN' | 'OUT';
+const CHIP: Record<EntryType, string> = {
+  salary: 'bg-emerald-50 text-emerald-700',
+  bonus: 'bg-violet-50 text-violet-700',
+  advance: 'bg-amber-50 text-amber-700',
+  deduction: 'bg-red-50 text-red-700',
+  payout: 'bg-blue-50 text-blue-700',
+};
 
-const COLOR_IN = 'text-emerald-600';
-const COLOR_OUT = 'text-red-600';
+/** What `admin_post_monthly_salaries` writes; everything else is someone's own words. */
+const SALARY_NOTE = 'Monthly salary';
 
-const selectClass =
-  'h-11 min-w-0 cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[#0f1117] outline-none focus:border-[var(--accent)] sm:h-10';
+const signedMoney = (value: number) => `${value < 0 ? '−' : ''}${formatTRY(value)}`;
 
-const SummaryCard: React.FC<{ label: string; value: React.ReactNode; valueClass?: string }> = ({ label, value, valueClass }) => (
-  <div className="min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5">
-    <div className="text-[13px] font-medium text-gray-600">{label}</div>
-    <div className={`mt-2 truncate text-[26px] font-semibold leading-tight sm:text-[28px] ${valueClass ?? 'text-[#0f1117]'}`}>{value}</div>
-  </div>
-);
+const Chip: React.FC<{ type: EntryType }> = ({ type }) => {
+  const { t } = useTranslation('myWallet');
+  return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${CHIP[type]}`}>{t(`type.${type}`)}</span>;
+};
 
-const Amount: React.FC<{ movement: WalletMovementWithBalance }> = ({ movement }) => {
-  const { fmt } = useCurrency();
-  const isIn = movement.direction === 'IN';
+const Amount: React.FC<{ entry: WalletEntryWithBalance }> = ({ entry }) => {
+  const value = signedAmount(entry);
   return (
-    <bdi dir="ltr" className={`hc-num font-semibold ${isIn ? COLOR_IN : COLOR_OUT}`}>
-      {isIn ? '+' : '−'}{fmt(movement.amount)}
+    <bdi dir="ltr" className={`hc-num font-semibold ${value > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+      {value > 0 ? '+' : '−'}{formatTRY(value)}
     </bdi>
   );
 };
 
-const Running: React.FC<{ value: number }> = ({ value }) => {
-  const { fmt } = useCurrency();
-  return <bdi dir="ltr" className="hc-num text-gray-600">{value < 0 ? '−' : ''}{fmt(value)}</bdi>;
-};
-
-const Receipt: React.FC<{ url: string | null; onOpen: (url: string) => void }> = ({ url, onOpen }) => {
-  const { t } = useTranslation('myWallet');
-  if (!url) return <span className="text-gray-300">—</span>;
-
-  const frame = 'flex size-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] no-underline sm:size-10';
-
-  // A PDF has no image to enlarge, so it opens in the browser's own viewer.
-  if (isPdfUrl(url)) {
-    return (
-      <a href={url} target="_blank" rel="noreferrer" title={t('viewReceipt')} aria-label={t('viewReceipt')} className={`${frame} text-[10px] font-bold text-gray-500`}>{'PDF'}</a>
-    );
-  }
-  return (
-    <button type="button" onClick={() => onOpen(url)} title={t('viewReceipt')} aria-label={t('viewReceipt')} className={frame}>
-      <img src={url} alt="" loading="lazy" className="size-full object-cover" />
-    </button>
-  );
-};
+const Running: React.FC<{ value: number }> = ({ value }) => (
+  <bdi dir="ltr" className="hc-num text-gray-600">{signedMoney(value)}</bdi>
+);
 
 const WalletPage: React.FC = () => {
   const { t } = useTranslation('myWallet');
-  const { t: ta } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
-  const { fmt } = useCurrency();
   const { userId } = useCurrentUser();
 
-  const [rows, setRows] = useState<WalletMovement[] | null>(null);
+  const [rows, setRows] = useState<WalletEntry[] | null>(null);
+  const [salary, setSalary] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [period, setPeriod] = useState<Period>('month');
   const [month, setMonth] = useState('all');
-  const [direction, setDirection] = useState<DirectionFilter>('all');
-  const [category, setCategory] = useState('all');
+  const [type, setType] = useState<'all' | EntryType>('all');
   const [receipt, setReceipt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     setFailed(false);
-    getMyWalletMovements(userId)
-      .then(data => { if (!cancelled) setRows(data); })
+    Promise.all([getMyWalletEntries(userId), getMyMonthlySalary(userId)])
+      .then(([entries, monthly]) => {
+        if (cancelled) return;
+        setRows(entries);
+        setSalary(monthly);
+      })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, [userId, attempt]);
@@ -98,23 +83,20 @@ const WalletPage: React.FC = () => {
   const balance = useMemo(() => walletBalance(rows ?? []), [rows]);
 
   const months = useMemo(
-    () => Array.from(new Set((rows ?? []).map(r => r.transaction_date.slice(0, 7)))).sort().reverse(),
-    [rows],
-  );
-  const categories = useMemo(
-    () => Array.from(new Set((rows ?? []).map(r => r.category).filter((c): c is string => !!c))).sort(),
+    () => Array.from(new Set((rows ?? []).map(r => r.month.slice(0, 7)))).sort().reverse(),
     [rows],
   );
 
   // The running balance is worked out over everything first, so a filtered row
   // still shows what the balance really was at that point. Newest on top.
   const visible = useMemo(() => withRunningBalance(rows ?? [])
-    .filter(r => month === 'all' || r.transaction_date.startsWith(month))
-    .filter(r => direction === 'all' || r.direction === direction)
-    .filter(r => category === 'all' || r.category === category)
-    .reverse(), [rows, month, direction, category]);
+    .filter(r => month === 'all' || r.month.startsWith(month))
+    .filter(r => type === 'all' || r.entry_type === type)
+    .reverse(), [rows, month, type]);
 
-  const monthLabel = (key: string) => new Date(`${key}-01T00:00:00`).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
+  const monthLabel = (key: string) => new Date(`${key.slice(0, 7)}-01T00:00:00`).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
+  const entryDate = (entry: WalletEntry) => formatDateDisplay(istanbulDate(new Date(entry.created_at)), dateLocale);
+  const noteOf = (entry: WalletEntry) => (entry.note === SALARY_NOTE ? t('salaryNote') : entry.note);
 
   if (failed) {
     return (
@@ -135,48 +117,37 @@ const WalletPage: React.FC = () => {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-[#0f1117] sm:text-[28px]">{t('title')}</h1>
           <p className="mt-1 text-sm text-gray-500">{t('subtitle')}</p>
+          {salary !== null && (
+            <p className="mt-1 text-sm font-medium text-gray-700">
+              {t('monthlySalary', { amount: formatTRY(salary) })}
+            </p>
+          )}
         </div>
-        <div role="group" className="inline-flex rounded-xl border border-[var(--border-subtle)] p-1">
-          {(['month', 'all'] as Period[]).map(p => (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={period === p}
-              onClick={() => setPeriod(p)}
-              className={`min-h-9 cursor-pointer rounded-lg px-4 text-[13px] font-semibold transition-colors ${period === p ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              {t(`period.${p}`)}
-            </button>
-          ))}
-        </div>
+        <PeriodToggle value={period} onChange={setPeriod} monthLabel={t('period.month')} allLabel={t('period.all')} />
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard
           label={t('balance')}
-          valueClass={balance < 0 ? COLOR_OUT : undefined}
-          value={loading ? '—' : <bdi dir="ltr">{balance < 0 ? '−' : ''}{fmt(balance)}</bdi>}
+          hint={t('balanceHint')}
+          valueClass={balance < 0 ? 'text-red-600' : undefined}
+          value={loading ? '—' : <bdi dir="ltr">{signedMoney(balance)}</bdi>}
         />
-        <SummaryCard label={t('received')} value={loading ? '—' : <bdi dir="ltr">{fmt(totals.received)}</bdi>} />
-        <SummaryCard label={t('spent')} value={loading ? '—' : <bdi dir="ltr">{fmt(totals.spent)}</bdi>} />
+        <SummaryCard label={t(`earned.${period}`)} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.earned)}</bdi>} />
+        <SummaryCard label={t(`paid.${period}`)} value={loading ? '—' : <bdi dir="ltr">{formatTRY(totals.paid)}</bdi>} />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)]">
         <header className="flex flex-col gap-3 border-b border-[var(--border-subtle)] p-4 md:flex-row md:items-center md:justify-between md:px-5">
           <h2 className="text-[15px] font-semibold text-[#0f1117]">{t('movements')}</h2>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:flex">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
             <select aria-label={t('filters.month')} value={month} onChange={e => setMonth(e.target.value)} className={selectClass}>
               <option value="all">{t('filters.allMonths')}</option>
               {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
             </select>
-            <select aria-label={t('filters.direction')} value={direction} onChange={e => setDirection(e.target.value as DirectionFilter)} className={selectClass}>
-              <option value="all">{t('filters.allDirections')}</option>
-              <option value="IN">{t('direction.IN')}</option>
-              <option value="OUT">{t('direction.OUT')}</option>
-            </select>
-            <select aria-label={t('filters.category')} value={category} onChange={e => setCategory(e.target.value)} className={selectClass}>
-              <option value="all">{t('filters.allCategories')}</option>
-              {categories.map(c => <option key={c} value={c}>{categoryLabel(ta, c)}</option>)}
+            <select aria-label={t('filters.type')} value={type} onChange={e => setType(e.target.value as 'all' | EntryType)} className={selectClass}>
+              <option value="all">{t('filters.allTypes')}</option>
+              {ENTRY_TYPES.map(option => <option key={option} value={option}>{t(`type.${option}`)}</option>)}
             </select>
           </div>
         </header>
@@ -191,14 +162,15 @@ const WalletPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Desktop and tablet */}
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[720px] border-collapse text-sm">
+            {/* Seven columns need the room a sidebar leaves only from here up. */}
+            <div className="hidden overflow-x-auto xl:block">
+              <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--border-subtle)] text-start text-xs font-medium text-gray-500">
+                  <tr className="border-b border-[var(--border-subtle)] text-xs font-medium text-gray-500">
                     <th scope="col" className="px-5 py-3 text-start font-medium">{t('table.date')}</th>
-                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.category')}</th>
-                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.description')}</th>
+                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.type')}</th>
+                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.month')}</th>
+                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.note')}</th>
                     <th scope="col" className="px-3 py-3 text-end font-medium">{t('table.amount')}</th>
                     <th scope="col" className="px-3 py-3 text-center font-medium">{t('table.receipt')}</th>
                     <th scope="col" className="px-5 py-3 text-end font-medium">{t('table.running')}</th>
@@ -207,11 +179,12 @@ const WalletPage: React.FC = () => {
                 <tbody>
                   {visible.map(row => (
                     <tr key={row.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
-                      <td className="whitespace-nowrap px-5 py-3 text-gray-700">{formatDateDisplay(row.transaction_date, dateLocale)}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-gray-700">{categoryLabel(ta, row.category)}</td>
-                      <td className="max-w-[280px] px-3 py-3 text-gray-500">{row.description || '—'}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-end"><Amount movement={row} /></td>
-                      <td className="px-3 py-2"><div className="flex justify-center"><Receipt url={row.receipt_url} onOpen={setReceipt} /></div></td>
+                      <td className="whitespace-nowrap px-5 py-3 text-gray-700">{entryDate(row)}</td>
+                      <td className="px-3 py-3"><Chip type={row.entry_type} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 text-gray-700">{monthLabel(row.month)}</td>
+                      <td className="max-w-[260px] px-3 py-3 text-gray-500">{noteOf(row) || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-end"><Amount entry={row} /></td>
+                      <td className="px-3 py-2"><div className="flex justify-center"><ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} /></div></td>
                       <td className="whitespace-nowrap px-5 py-3 text-end"><Running value={row.running} /></td>
                     </tr>
                   ))}
@@ -219,20 +192,20 @@ const WalletPage: React.FC = () => {
               </table>
             </div>
 
-            {/* Phone */}
-            <ul className="md:hidden">
+            <ul className="xl:hidden">
               {visible.map(row => (
                 <li key={row.id} className="flex items-start gap-3 border-b border-[var(--border-subtle)] p-4 last:border-b-0">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-[#0f1117]">{categoryLabel(ta, row.category)}</div>
-                    {row.description && <div className="mt-0.5 text-[13px] text-gray-500">{row.description}</div>}
-                    <div className="mt-1 text-xs text-gray-400">{formatDateDisplay(row.transaction_date, dateLocale)}</div>
+                    <Chip type={row.entry_type} />
+                    <div className="mt-1 text-[13px] text-gray-700">{monthLabel(row.month)}</div>
+                    {noteOf(row) && <div className="mt-0.5 text-[13px] text-gray-500">{noteOf(row)}</div>}
+                    <div className="mt-1 text-xs text-gray-400">{entryDate(row)}</div>
                   </div>
                   <div className="shrink-0 text-end text-sm">
-                    <div><Amount movement={row} /></div>
+                    <div><Amount entry={row} /></div>
                     <div className="mt-1 text-xs"><Running value={row.running} /></div>
                   </div>
-                  {row.receipt_url && <Receipt url={row.receipt_url} onOpen={setReceipt} />}
+                  {row.receipt_url && <ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} />}
                 </li>
               ))}
             </ul>
