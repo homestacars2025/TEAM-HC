@@ -20,6 +20,8 @@ interface CurrentUserValue {
   userId: string | null;
   email: string | null;
   profile: CurrentProfile | null;
+  /** The profile lookup has finished. It can have failed: `profile` stays `null`. */
+  ready: boolean;
   /** `null` until the session has been read. */
   settings: UserSettings | null;
   updateSettings: (patch: Partial<UserSettings>) => void;
@@ -31,6 +33,7 @@ const CurrentUserContext = createContext<CurrentUserValue>({
   userId: null,
   email: null,
   profile: null,
+  ready: false,
   settings: null,
   updateSettings: () => {},
   patchProfile: () => {},
@@ -43,6 +46,7 @@ export const CurrentUserProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<CurrentProfile | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [ready, setReady] = useState(false);
 
   // What was on screen before this person was known. Their first visit on this
   // device starts from it, so nobody loses a language they had already chosen.
@@ -53,7 +57,11 @@ export const CurrentUserProvider: React.FC<{ children: React.ReactNode }> = ({ c
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user || cancelled) return;
+      if (cancelled) return;
+      if (!user) {
+        setReady(true);
+        return;
+      }
 
       setUserId(user.id);
       setEmail(user.email ?? null);
@@ -75,8 +83,10 @@ export const CurrentUserProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .select('full_name, avatar_url, gender, phone')
         .eq('id', user.id)
         .single();
-      if (!cancelled && data) setProfile(data as CurrentProfile);
-    })();
+      if (cancelled) return;
+      if (data) setProfile(data as CurrentProfile);
+      setReady(true);
+    })().catch(() => { if (!cancelled) setReady(true); });
     return () => { cancelled = true; };
   }, []);
 
@@ -94,8 +104,8 @@ export const CurrentUserProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const value = useMemo(
-    () => ({ userId, email, profile, settings, updateSettings, patchProfile }),
-    [userId, email, profile, settings, updateSettings, patchProfile],
+    () => ({ userId, email, profile, ready, settings, updateSettings, patchProfile }),
+    [userId, email, profile, ready, settings, updateSettings, patchProfile],
   );
 
   return <CurrentUserContext.Provider value={value}>{children}</CurrentUserContext.Provider>;

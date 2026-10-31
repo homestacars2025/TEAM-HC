@@ -16,6 +16,14 @@
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
   --surface: #FFFFFF;
+
+  --btn-primary-bg: #6EA4E7;
+  --btn-primary-hover: #5A93DA;
+  --btn-primary-active: #4A86D4;
+  --btn-primary-disabled: rgb(110 164 231 / 0.45);
+  --btn-destructive-bg: #DC2626;
+  --btn-destructive-hover: #C81E1E;
+  --btn-destructive-active: #B91C1C;
   --border-subtle: #EBEBEB;
   /* App shell accent. Strong is for blue text and for white text on blue. */
   --accent: #6EA4E7;
@@ -473,4 +481,84 @@ html[dir="rtl"] .hc-flip-path {
   position: relative;
   width: auto;
   height: 82px;
+}
+
+/* ─── Staff avatars ─────────────────────────────────────────────────────────── */
+
+.hc-avatar {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+
+.hc-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Headroom at the top and 15% too tall, so the circle cuts the shoulders and there
+   is never a gap under them. Anchored at the top: any crop has to fall on the
+   shoulders, because the character's head sits at the very edge of the file. */
+.hc-avatar-bust { background: rgb(110 164 231 / 0.12); }
+
+.hc-avatar-bust img {
+  position: absolute;
+  top: 7%;
+  left: 0;
+  height: 115%;
+  object-position: center top;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────────────────── */
+
+.hc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.hc-btn:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.hc-btn:disabled { cursor: not-allowed; }
+
+.hc-btn-primary { background: var(--btn-primary-bg); color: #fff; }
+.hc-btn-primary:hover:not(:disabled) { background: var(--btn-primary-hover); }
+.hc-btn-primary:active:not(:disabled) { background: var(--btn-primary-active); }
+.hc-btn-primary:disabled { background: var(--btn-primary-disabled); }
+
+.hc-btn-secondary { background: var(--surface); border-color: var(--border-subtle); color: #0f1117; }
+.hc-btn-secondary:hover:not(:disabled) { background: #f7f8fa; }
+.hc-btn-secondary:active:not(:disabled) { background: #eef0f3; }
+.hc-btn-secondary:disabled { opacity: 0.55; }
+
+.hc-btn-destructive { background: var(--btn-destructive-bg); color: #fff; }
+.hc-btn-destructive:hover:not(:disabled) { background: var(--btn-destructive-hover); }
+.hc-btn-destructive:active:not(:disabled) { background: var(--btn-destructive-active); }
+.hc-btn-destructive:disabled { opacity: 0.45; }
+
+/* Touch: the tap target beats the 40px the desktop uses. */
+@media (max-width: 1023.98px) {
+  .hc-btn { min-height: 44px; }
 }

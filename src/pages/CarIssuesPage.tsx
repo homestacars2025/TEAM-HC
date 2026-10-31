@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
+import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -375,43 +376,18 @@ const ErrorBanner: React.FC<{ message: string }> = ({ message }) => (
 const PrimaryButton: React.FC<{
   children: React.ReactNode; disabled?: boolean; onClick?: () => void;
   type?: 'button' | 'submit'; danger?: boolean;
-}> = ({ children, disabled, onClick, type = 'button', danger }) => {
-  const base = danger ? '#ef4444' : '#4ba6ea';
-  const hover = danger ? '#dc2626' : '#2e8fd4';
-  return (
-    <button
-      type={type} disabled={disabled} onClick={onClick}
-      style={{
-        minHeight: 44, padding: '0 22px', borderRadius: 9, border: 'none',
-        background: disabled ? '#c7d2da' : base, color: '#fff',
-        fontSize: 14, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer',
-        fontFamily: 'inherit', transition: 'background 150ms ease',
-      }}
-      onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.background = hover; }}
-      onMouseLeave={e => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.background = base; }}
-    >
-      {children}
-    </button>
-  );
-};
+}> = ({ children, disabled, onClick, type = 'button', danger }) => (
+  <Button variant={danger ? 'destructive' : 'primary'} type={type} disabled={disabled} onClick={onClick}>
+    {children}
+  </Button>
+);
 
 const GhostButton: React.FC<{
   children: React.ReactNode; onClick?: () => void; disabled?: boolean; type?: 'button' | 'submit';
 }> = ({ children, onClick, disabled, type = 'button' }) => (
-  <button
-    type={type} onClick={onClick} disabled={disabled}
-    style={{
-      minHeight: 44, padding: '0 18px', borderRadius: 9,
-      border: '1px solid #e5e7eb', background: '#fff',
-      fontSize: 14, fontWeight: 500, color: '#6b7280',
-      cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-      opacity: disabled ? 0.6 : 1,
-    }}
-    onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
-  >
+  <Button variant="secondary" type={type} onClick={onClick} disabled={disabled}>
     {children}
-  </button>
+  </Button>
 );
 
 // ─── File picker ──────────────────────────────────────────────────────────────
@@ -448,7 +424,7 @@ const PhotoPicker: React.FC<{
           cursor: disabled ? 'not-allowed' : 'pointer',
           transition: 'border-color 150ms ease, color 150ms ease',
         }}
-        onMouseEnter={e => { if (!disabled) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea'; } }}
+        onMouseEnter={e => { if (!disabled) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2'; } }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLButtonElement).style.color = '#6b7280'; }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -1166,7 +1142,7 @@ const CarIssuesPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {t('eyebrow')}
             </span>
           </div>
@@ -1178,25 +1154,15 @@ const CarIssuesPage: React.FC = () => {
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => setAddOpen(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 44, padding: '0 18px',
-            background: '#4ba6ea', color: '#fff', border: 'none',
-            borderRadius: 10, fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-            transition: 'background 150ms ease',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
-        >
+          style={{ flexShrink: 0 }}
+>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
           {t('logIssue')}
-        </button>
+        </Button>
       </div>
 
       {/* ── Stat cards ── */}

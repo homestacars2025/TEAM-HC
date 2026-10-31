@@ -91,7 +91,7 @@ const AccountMenu: React.FC = () => {
       {open && (
         <div role="menu" className="absolute end-0 top-[52px] z-[400] w-[288px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-[0_12px_40px_rgba(0,0,0,0.14)]">
           <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] p-4">
-            <StaffAvatar profile={profile} size={44} />
+            <StaffAvatar profile={profile} size={48} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-[#0f1117]">{profile?.full_name || ts('profileFallback')}</div>
               {department && (

@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { usePageAccess } from '../contexts/PageAccessContext';
+import { buttonClass } from './Button';
 
 /**
  * Route guard for a dashboard page. Hiding the sidebar item is not access control —
@@ -33,7 +34,7 @@ const Notice: React.FC<{
 }> = ({ tone, title, body, children }) => (
   <div className="flex min-h-[60vh] items-center justify-center p-4 sm:p-6">
     <div className="w-full max-w-sm rounded-2xl border border-[#ebebeb] bg-white p-6 text-center shadow-sm sm:p-8">
-      <div className={`mx-auto mb-4 flex size-12 items-center justify-center rounded-xl ${tone === 'error' ? 'bg-red-50 text-red-500' : 'bg-[#4ba6ea]/10 text-[#2e8fd4]'}`}>
+      <div className={`mx-auto mb-4 flex size-12 items-center justify-center rounded-xl ${tone === 'error' ? 'bg-red-50 text-red-500' : 'bg-[#4ba6ea]/10 text-[#3A74C2]'}`}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
           <path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -46,15 +47,13 @@ const Notice: React.FC<{
   </div>
 );
 
-const buttonClass =
-  'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#4ba6ea] px-5 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#2e8fd4] disabled:opacity-60';
 
 const AccessError: React.FC = () => {
   const { t } = useTranslation('common');
   const { refresh } = usePageAccess();
   return (
     <Notice tone="error" title={t('pageAccess.errorTitle')} body={t('pageAccess.errorBody')}>
-      <button type="button" onClick={() => { refresh(); }} className={buttonClass}>
+      <button type="button" onClick={() => { refresh(); }} className={buttonClass()}>
         {t('actions.tryAgain')}
       </button>
     </Notice>
@@ -74,7 +73,7 @@ const NoPagesAssigned: React.FC = () => {
 
   return (
     <Notice tone="neutral" title={t('pageAccess.noPages')}>
-      <button type="button" onClick={handleSignOut} disabled={signingOut} className={buttonClass}>
+      <button type="button" onClick={handleSignOut} disabled={signingOut} className={buttonClass()}>
         {t('pageAccess.signOut')}
       </button>
     </Notice>
@@ -87,7 +86,7 @@ const NoAccess: React.FC = () => {
   return (
     <Notice tone="neutral" title={t('pageAccess.noAccessTitle')} body={t('pageAccess.noAccessBody')}>
       {firstAllowedRoute && (
-        <Link to={firstAllowedRoute} className={buttonClass}>{t('pageAccess.goToMyPage')}</Link>
+        <Link to={firstAllowedRoute} className={buttonClass()}>{t('pageAccess.goToMyPage')}</Link>
       )}
     </Notice>
   );

@@ -5,6 +5,7 @@ import StaffAvatar from '../components/StaffAvatar';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { DialCodePicker, parseStoredPhone } from './BookingsPage';
+import { buttonClass } from '../components/Button';
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const PHOTO_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -12,10 +13,8 @@ const MIN_PASSWORD_LENGTH = 8;
 
 const inputClass =
   'h-11 w-full min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[#0f1117] outline-none transition-colors focus:border-[var(--accent)]';
-const primaryClass =
-  'min-h-11 cursor-pointer rounded-xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong-hover)] disabled:cursor-default disabled:opacity-60';
-const secondaryClass =
-  'min-h-11 cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-4 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 disabled:cursor-default disabled:opacity-60';
+const primaryClass = buttonClass('primary');
+const secondaryClass = buttonClass('secondary');
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -200,7 +199,7 @@ const ProfilePage: React.FC = () => {
               {hasPhoto ? t('photo.replace') : t('photo.upload')}
             </button>
             {hasPhoto && (
-              <button type="button" disabled={photoBusy} onClick={removePhoto} className={`${secondaryClass} hover:text-red-600`}>
+              <button type="button" disabled={photoBusy} onClick={removePhoto} className={`${secondaryClass} hover:!text-red-600`}>
                 {t('photo.remove')}
               </button>
             )}

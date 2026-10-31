@@ -5,6 +5,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import StaffAvatar from '../components/StaffAvatar';
 import type { StaffAvatarProfile } from '../lib/staffAvatar';
+import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,17 +69,14 @@ const STATUS_CONFIG: Record<KabisStatus, { color: string; bg: string }> = {
  */
 const ACTION_CONFIG: Record<KabisAction, {
   color: string; bg: string; target: KabisStatus;
-  ctaBg: string; ctaBgHover: string;
 }> = {
   delivery: {
-    color: '#4ba6ea', bg: 'rgba(75,166,234,0.12)',
+    color: '#3A74C2', bg: 'rgba(75,166,234,0.12)',
     target: 'checked_in',
-    ctaBg: '#16a34a', ctaBgHover: '#15803d',
   },
   pickup: {
     color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',
     target: 'checked_out',
-    ctaBg: '#2563eb', ctaBgHover: '#1d4ed8',
   },
 };
 
@@ -292,31 +290,19 @@ const ConfirmModal: React.FC<{
           )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-            <button
+            <Button
               onClick={() => onConfirm(note)}
               disabled={saving}
-              style={{
-                flex: 1, minHeight: 44, minWidth: 130, borderRadius: 9, border: 'none',
-                background: ACTION_CONFIG[asAction(entry.action_type)].ctaBg, color: '#fff',
-                opacity: saving ? 0.6 : 1,
-                fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', transition: 'opacity 140ms ease',
-              }}
-            >
+              style={{ flex: 1, minWidth: 130 }}
+>
               {saving ? t('confirm.saving') : t('confirm.confirm')}
-            </button>
-            <button
+            </Button>
+            <Button variant="secondary"
               onClick={onCancel}
               disabled={saving}
-              style={{
-                minHeight: 44, padding: '0 20px', borderRadius: 9,
-                border: '1px solid #e5e7eb', background: '#fff',
-                fontSize: 14, fontWeight: 600, color: '#6b7280',
-                cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-              }}
             >
               {tc('actions.cancel')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -478,7 +464,7 @@ const KabisPage: React.FC = () => {
       <div style={{ marginBottom: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             {t('eyebrow')}
           </span>
         </div>
@@ -556,17 +542,11 @@ const KabisPage: React.FC = () => {
               components={[<span />, <strong style={NUM} />]}
             />
           </span>
-          <button
+          <Button variant="secondary"
             onClick={clearHighlight}
-            style={{
-              minHeight: 36, padding: '0 14px', borderRadius: 8,
-              border: '1px solid rgba(75,166,234,0.4)', background: '#fff',
-              fontSize: 12.5, fontWeight: 600, color: '#1f6ea8',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
           >
             {t('clearHighlight')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -577,17 +557,11 @@ const KabisPage: React.FC = () => {
           padding: '28px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 14, color: '#ef4444', marginBottom: 14 }}>{error}</div>
-          <button
+          <Button variant="secondary"
             onClick={fetchEntries}
-            style={{
-              minHeight: 44, padding: '0 20px', borderRadius: 9,
-              border: '1px solid #e5e7eb', background: '#fff',
-              fontSize: 14, fontWeight: 600, color: '#6b7280',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
           >
             {t('tryAgain')}
-          </button>
+          </Button>
         </div>
       ) : loading ? (
         <div style={{
@@ -686,25 +660,11 @@ const KabisPage: React.FC = () => {
                         </td>
                         <td style={{ ...td, textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {status === 'pending' ? (
-                            <button
+                            <Button
                               onClick={() => { setModalError(null); setConfirmEntry(entry); }}
-                              style={{
-                                minHeight: 44, padding: '0 16px', borderRadius: 9, border: 'none',
-                                background: ACTION_CONFIG[asAction(entry.action_type)].ctaBg, color: '#fff',
-                                fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
-                                fontFamily: 'inherit', transition: 'background 140ms ease',
-                              }}
-                              onMouseEnter={e => {
-                                (e.currentTarget as HTMLButtonElement).style.background =
-                                  ACTION_CONFIG[asAction(entry.action_type)].ctaBgHover;
-                              }}
-                              onMouseLeave={e => {
-                                (e.currentTarget as HTMLButtonElement).style.background =
-                                  ACTION_CONFIG[asAction(entry.action_type)].ctaBg;
-                              }}
                             >
                               {t(asAction(entry.action_type) === 'delivery' ? 'action.ctaDelivery' : 'action.ctaPickup')}
-                            </button>
+                            </Button>
                           ) : (
                             <button
                               onClick={() => handleRevert(entry)}

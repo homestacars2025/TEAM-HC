@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { showBootSplash } from '../lib/bootSplash';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
@@ -9,6 +10,9 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+
+  // Already up on a page load. After signing in it needs to come back.
+  useLayoutEffect(showBootSplash, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -22,27 +26,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (session === undefined) {
-    return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--surface)',
-      }}>
-        <div style={{
-          width: 32,
-          height: 32,
-          border: '3px solid var(--border)',
-          borderTopColor: 'var(--brand)',
-          borderRadius: '50%',
-          animation: 'spin 0.7s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
+  // The splash is on screen for this, so there is nothing to draw.
+  if (session === undefined) return null;
 
   return session ? <>{children}</> : <Navigate to="/login" replace />;
 };

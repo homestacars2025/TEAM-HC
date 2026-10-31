@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { hideBootSplash } from '../lib/bootSplash';
 import { supabase } from '../lib/supabase';
+import Button from '../components/Button';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,7 +14,9 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      // Someone already signed in goes straight through, never seeing this form.
       if (data.session) navigate('/dashboard', { replace: true });
+      else hideBootSplash();
     });
   }, [navigate]);
 
@@ -136,7 +140,7 @@ const LoginPage: React.FC = () => {
             marginBottom: 28,
           }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)' }} />
-            <span style={{ color: 'var(--brand)', fontSize: 13, fontWeight: 500 }}>Istanbul, Turkey</span>
+            <span style={{ color: '#3A74C2', fontSize: 13, fontWeight: 500 }}>Istanbul, Turkey</span>
           </div>
           <h2 style={{
             color: 'white',
@@ -294,37 +298,11 @@ const LoginPage: React.FC = () => {
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={loading || !email || !password}
-              style={{
-                height: 48,
-                background: loading || !email || !password ? '#a8d4f5' : 'var(--brand)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: loading || !email || !password ? 'not-allowed' : 'pointer',
-                transition: 'background var(--transition), transform var(--transition)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontFamily: 'inherit',
-                marginTop: 4,
-              }}
-              onMouseEnter={e => {
-                if (!loading && email && password) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--brand-dark)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!loading && email && password) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--brand)';
-                }
-              }}
-            >
+              style={{ height: 48, marginTop: 4 }}
+>
               {loading ? (
                 <>
                   <div style={{
@@ -340,7 +318,7 @@ const LoginPage: React.FC = () => {
               ) : (
                 'Sign in'
               )}
-            </button>
+            </Button>
           </div>
         </form>
 

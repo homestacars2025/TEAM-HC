@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { holdBootSplash } from '../lib/bootSplash';
 import { formatTRY } from '../lib/CurrencyContext';
 import { useInbox } from '../lib/InboxContext';
 import { BUSINESS_TIME_ZONE, dayPart, istanbulDate, istanbulHour } from '../lib/istanbulTime';
@@ -210,6 +211,7 @@ const HomePage: React.FC = () => {
   const [scheduleFailed, setScheduleFailed] = useState(false);
   const [scheduleAttempt, setScheduleAttempt] = useState(0);
   const [showsPerformance, setShowsPerformance] = useState(false);
+  const [goalsSettled, setGoalsSettled] = useState(false);
 
   const today = useMemo(() => istanbulDate(), []);
   const canOpenOperations = canAccessPage('operations');
@@ -262,6 +264,27 @@ const HomePage: React.FC = () => {
   }, [canSeeSchedule, today, scheduleAttempt]);
 
   const retrySchedule = useCallback(() => setScheduleAttempt(n => n + 1), []);
+  const onGoalsSettled = useCallback(() => setGoalsSettled(true), []);
+
+  // The layout depends on whether there is a performance card, so drawing before that
+  // is known shows the wrong arrangement and then rearranges it. The splash stays until
+  // this page can be drawn once, with its numbers in it.
+  const releaseSplash = useRef<() => void>(() => {});
+  useLayoutEffect(() => {
+    releaseSplash.current = holdBootSplash();
+    return () => releaseSplash.current();
+  }, []);
+
+  const firstAnswersIn = goalsSettled
+    && (tasks !== null || tasksFailed)
+    && notifications !== null
+    && (!canOpenWallet || wallet !== null || walletFailed)
+    && (!canOpenCustody || custody !== null || custodyFailed)
+    && (!canSeeSchedule || schedule !== null || scheduleFailed);
+
+  useEffect(() => {
+    if (firstAnswersIn) releaseSplash.current();
+  }, [firstAnswersIn]);
 
   const counts = tasks ? countTasks(tasks) : null;
   const deliveries = schedule?.filter(item => item.kind === 'delivery').length ?? 0;
@@ -290,7 +313,7 @@ const HomePage: React.FC = () => {
       </header>
 
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${showsPerformance ? `xl:grid-cols-4 ${LEFTOVER_CARD[cardCount] ?? ''}` : cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
-        <GoalsPanel onPresence={setShowsPerformance} />
+        <GoalsPanel onPresence={setShowsPerformance} onSettled={onGoalsSettled} />
 
         {canAccessPage('tasks') && (
           <StatCard

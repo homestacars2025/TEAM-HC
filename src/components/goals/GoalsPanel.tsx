@@ -141,7 +141,13 @@ const Skeleton: React.FC = () => (
   </div>
 );
 
-const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPresence }) => {
+interface GoalsPanelProps {
+  onPresence: (shown: boolean) => void;
+  /** The first answer is in, whatever it was. */
+  onSettled: () => void;
+}
+
+const GoalsPanel: React.FC<GoalsPanelProps> = ({ onPresence, onSettled }) => {
   const { t } = useTranslation('goals');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
@@ -168,6 +174,9 @@ const GoalsPanel: React.FC<{ onPresence: (shown: boolean) => void }> = ({ onPres
   const shown = hasGoals.current || failed;
 
   useEffect(() => { onPresence(shown); }, [shown, onPresence]);
+
+  const settled = !!metrics || failed;
+  useEffect(() => { if (settled) onSettled(); }, [settled, onSettled]);
 
   if (!shown) return null;
 

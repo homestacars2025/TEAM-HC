@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { useLanguage } from '../lib/LanguageContext';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
+import { LANGUAGE_CODES, LANGUAGE_NAMES, useLanguage, type Language } from '../lib/LanguageContext';
 import { useInbox } from '../lib/InboxContext';
 import { usePageAccess, type AppPage } from '../contexts/PageAccessContext';
 import { fallbackIcon, pageIcons, usePageLabel } from './pageNav';
@@ -46,6 +47,46 @@ function readClosedGroups(): Set<string> {
   }
 }
 
+const PILL_ORDER: Language[] = ['ar', 'en'];
+
+/**
+ * Pinned under the nav, so it stays put however long the list gets. Always left to
+ * right: the two options must not trade places the moment one is chosen.
+ */
+const LanguagePill: React.FC<{ compact: boolean }> = ({ compact }) => {
+  const { lang } = useLanguage();
+  const { updateSettings } = useCurrentUser();
+  const { t } = useTranslation('sidebar');
+
+  return (
+    <div
+      role="group"
+      aria-label={t('language')}
+      dir="ltr"
+      className={clsx('flex gap-0.5 rounded-full bg-black/[0.05] p-0.5', compact ? 'mx-auto w-[52px]' : 'w-full')}
+    >
+      {PILL_ORDER.map(option => (
+        <button
+          key={option}
+          type="button"
+          lang={option}
+          title={LANGUAGE_NAMES[option]}
+          aria-label={LANGUAGE_NAMES[option]}
+          aria-pressed={lang === option}
+          onClick={() => updateSettings({ lang: option })}
+          className={clsx(
+            'min-h-11 flex-1 cursor-pointer rounded-full font-semibold transition-colors lg:min-h-8',
+            compact ? 'text-[10px]' : 'text-xs',
+            lang === option ? 'bg-[var(--surface)] text-[var(--accent-strong)] shadow-sm' : 'text-gray-500 hover:text-gray-800',
+          )}
+        >
+          {LANGUAGE_CODES[option]}
+        </button>
+      ))}
+    </div>
+  );
+};
+
 interface SidebarProps {
   /** Collapse to the icon rail. Has no effect below desktop width. */
   collapsed?: boolean;
@@ -56,7 +97,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false, onMobileClose }) => {
   const location = useLocation();
-  const { dir } = useLanguage();
+  const { dir, canSwitch } = useLanguage();
   const { pages, canAccessPage, loading } = usePageAccess();
   const { openTasksCount } = useInbox();
   const { t } = useTranslation('sidebar');
@@ -233,6 +274,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
           );
         })}
       </nav>
+
+      {canSwitch && (
+        <div className="shrink-0 border-t border-[var(--border-subtle)] p-2">
+          <LanguagePill compact={rail} />
+        </div>
+      )}
     </aside>
   );
 };

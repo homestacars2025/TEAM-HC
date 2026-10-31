@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import type { AlertRow } from '../types';
+import Button from './Button';
 
 interface AlertSectionProps {
   viewName: string;
@@ -274,28 +275,11 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
           flexShrink: 0,
           display: 'flex', justifyContent: 'flex-end',
         }}>
-          <button
+          <Button variant="secondary"
             onClick={onClose}
-            style={{
-              padding: '8px 18px', borderRadius: 8,
-              border: '1px solid #e5e7eb', background: '#ffffff',
-              fontSize: 13, fontWeight: 600, color: '#6b7280',
-              cursor: 'pointer', fontFamily: 'inherit',
-              transition: 'all 140ms ease',
-            }}
-            onMouseEnter={e => {
-              const b = e.currentTarget as HTMLButtonElement;
-              b.style.borderColor = accentColor;
-              b.style.color = accentColor;
-            }}
-            onMouseLeave={e => {
-              const b = e.currentTarget as HTMLButtonElement;
-              b.style.borderColor = '#e5e7eb';
-              b.style.color = '#6b7280';
-            }}
           >
             {t('actions.close')}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -8,12 +8,14 @@ import { useInbox } from '../lib/InboxContext';
 import { useUiDir } from '../lib/notifications/renderI18n';
 import { TASK_PAGE_SIZE, completeTask, completeTaskOnExit, getMyTasks, uploadTaskProof } from '../lib/queries/tasks';
 import { supabase } from '../lib/supabase';
-import { getDefaultStaffAvatar } from '../lib/staffAvatar';
+import type { StaffAvatarProfile } from '../lib/staffAvatar';
 import { TASK_GROUPS, groupTasks, taskGroup, weekProgress } from '../lib/taskGroups';
 import type { MyTask, TaskActionResult } from '../lib/types/tasks';
 import Confetti from '../components/Confetti';
 import TaskCard from '../components/tasks/TaskCard';
 import TaskProofSheet from '../components/tasks/TaskProofSheet';
+import Button from '../components/Button';
+import StaffAvatar from '../components/StaffAvatar';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox } from './AccountingPage';
 
@@ -106,11 +108,11 @@ const CardSkeleton: React.FC = () => (
   </div>
 );
 
-const EmptyState: React.FC<{ tab: Tab; image: string }> = ({ tab, image }) => {
+const EmptyState: React.FC<{ tab: Tab; profile: StaffAvatarProfile | null }> = ({ tab, profile }) => {
   const { t } = useTranslation('tasks');
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
-      <img src={image} alt="" loading="lazy" width={132} height={132} className="size-[132px] rounded-full object-cover object-top" />
+      <StaffAvatar profile={{ gender: profile?.gender }} size={132} />
       <div className="mt-5 text-[17px] font-semibold text-[#0f1117]">{t(`empty.${tab}Title`)}</div>
       <div className="mt-1.5 max-w-xs text-sm leading-relaxed text-gray-500">{t(`empty.${tab}Body`)}</div>
     </div>
@@ -372,16 +374,14 @@ const TasksPage: React.FC = () => {
       {failed ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--border-subtle)] px-6 py-14 text-center">
           <p role="alert" className="text-sm text-gray-600">{t('failed')}</p>
-          <button type="button" onClick={() => setAttempt(n => n + 1)} className="min-h-11 cursor-pointer rounded-xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white">
-            {t('common:actions.tryAgain')}
-          </button>
+          <Button onClick={() => setAttempt(n => n + 1)}>{t('common:actions.tryAgain')}</Button>
         </div>
       ) : loading ? (
         <div aria-busy className="flex flex-col gap-3">
           {[0, 1, 2, 3].map(i => <CardSkeleton key={i} />)}
         </div>
       ) : visible[tab].length === 0 ? (
-        <EmptyState tab={tab} image={getDefaultStaffAvatar(profile)} />
+        <EmptyState tab={tab} profile={profile} />
       ) : tab === 'active' ? (
         <div className="flex flex-col gap-5">
           {TASK_GROUPS.filter(group => groups[group].length > 0).map(group => (

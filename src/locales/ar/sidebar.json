@@ -47,7 +47,8 @@
   "collapse": "طي القائمة",
   "expand": "توسيع القائمة",
   "signOut": "تسجيل الخروج",
-  "brandSubtitle": "الإدارة",
+  "brandSubtitle": "فريق العمل",
+  "language": "اللغة",
   "profileFallback": "مستخدم",
   "openTasks": "{{count}} مهمة مفتوحة"
 }

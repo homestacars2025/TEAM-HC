@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useUrlSearch } from '../hooks/useUrlSearch';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
+import Button from '../components/Button';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
 
@@ -432,28 +433,14 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
           borderTop: '1px solid #f0f0f0',
           display: 'flex', gap: 10, justifyContent: 'flex-end',
         }}>
-          <button
+          <Button variant="secondary"
             onClick={onClose}
-            style={{
-              padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#374151',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
           >
             {t('modal.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSubmit}
             disabled={saving || loadingData}
-            style={{
-              padding: '9px 20px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea',
-              fontSize: 14, fontWeight: 600, color: '#fff',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 6,
-              transition: 'background 150ms ease',
-            }}
           >
             {saving && (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
@@ -461,7 +448,7 @@ const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ o
               </svg>
             )}
             {saving ? t('modal.creating') : t('modal.create')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -614,7 +601,7 @@ const CarsPage: React.FC = () => {
               borderRadius: '50%',
               background: '#4ba6ea',
             }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {t('eyebrow')}
             </span>
           </div>
@@ -733,7 +720,7 @@ const CarsPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {t('table.label')}
             </span>
           </div>
@@ -778,7 +765,7 @@ const CarsPage: React.FC = () => {
                         onClick={() => handleSort(col)}
                         style={{
                           padding: '9px 14px', fontSize: 11, fontWeight: 700,
-                          color: active ? '#4ba6ea' : '#9ca3af',
+                          color: active ? '#3A74C2' : '#9ca3af',
                           textTransform: 'uppercase', letterSpacing: '0.7px',
                           textAlign: 'start', background: '#fff',
                           borderBottom: '1.5px solid #f0f0f0',
@@ -901,7 +888,7 @@ const CarsPage: React.FC = () => {
                       {([car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
                         <td key={di} style={{ padding: '12px 14px', textAlign: 'center' }}>
                           {url ? (
-                            <a href={url} target="_blank" rel="noreferrer" title={t('table.openDocument')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea' }}>
+                            <a href={url} target="_blank" rel="noreferrer" title={t('table.openDocument')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#3A74C2' }}>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" opacity="0.15"/>
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#4ba6ea" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>

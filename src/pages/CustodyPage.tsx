@@ -10,6 +10,7 @@ import {
 import { ReceiptThumb, PeriodToggle, SummaryCard, selectClass, type Period } from '../components/WalletParts';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, categoryLabel, formatDateDisplay, useDateLocale } from './AccountingPage';
+import Button from '../components/Button';
 
 /**
  * The signed-in employee's custody (الوديعة): company money they hold, read-only,
@@ -102,9 +103,7 @@ const CustodyPage: React.FC = () => {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center">
         <p role="alert" className="text-sm text-gray-600">{t('failed')}</p>
-        <button type="button" onClick={() => setAttempt(n => n + 1)} className="min-h-11 cursor-pointer rounded-xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white hover:bg-[var(--accent-strong-hover)]">
-          {tc('actions.tryAgain')}
-        </button>
+        <Button onClick={() => setAttempt(n => n + 1)}>{tc('actions.tryAgain')}</Button>
       </div>
     );
   }

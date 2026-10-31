@@ -6,6 +6,7 @@ import type { TFunction } from 'i18next';
 import { supabase } from '../lib/supabase';
 import StaffAvatar from '../components/StaffAvatar';
 import type { StaffAvatarProfile } from '../lib/staffAvatar';
+import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -350,7 +351,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`, background: hovered ? 'rgba(75,166,234,0.06)' : '#fff', color: hovered ? '#4ba6ea' : '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 140ms ease', flexShrink: 0 }}
+      style={{ width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`, background: hovered ? 'rgba(75,166,234,0.06)' : '#fff', color: hovered ? '#3A74C2' : '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 140ms ease', flexShrink: 0 }}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
         {direction === 'left'
@@ -486,14 +487,14 @@ const PhotoSlotCard: React.FC<{
             <div style={{ position: 'absolute', top: 9, right: 9, bottom: 9, left: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CarDiagram area={diagram.area} highlight={diagram.highlight} />
             </div>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', top: 7, insetInlineEnd: 7, color: hovered ? '#4ba6ea' : '#d1d5db', transition: 'color 140ms ease' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', top: 7, insetInlineEnd: 7, color: hovered ? '#3A74C2' : '#d1d5db', transition: 'color 140ms ease' }}>
               <path d="M4 8a2 2 0 012-2h1.6a2 2 0 001.7-.9l.6-1a1 1 0 01.9-.5h2.4a1 1 0 01.9.5l.6 1a2 2 0 001.7.9H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
               <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.9" />
             </svg>
           </>
         ) : (
           <>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: hovered ? '#4ba6ea' : '#9ca3af' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ color: hovered ? '#3A74C2' : '#9ca3af' }}>
               <path d="M4 8a2 2 0 012-2h1.6a2 2 0 001.7-.9l.6-1a1 1 0 01.9-.5h2.4a1 1 0 01.9.5l.6 1a2 2 0 001.7.9H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
               <circle cx="12" cy="12.5" r="3.2" stroke="currentColor" strokeWidth="1.6" />
             </svg>
@@ -1334,7 +1335,7 @@ const AddOperationModal: React.FC<{
                     {t('form.bookingId')}{' '}
                     <span style={{ color: '#9ca3af', fontWeight: 400 }}>{t('form.optional')}</span>
                     {bookingLoading && (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginInlineStart: 6, animation: 'spin 0.7s linear infinite', verticalAlign: 'middle', color: '#4ba6ea' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginInlineStart: 6, animation: 'spin 0.7s linear infinite', verticalAlign: 'middle', color: '#3A74C2' }}>
                         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56"/>
                       </svg>
                     )}
@@ -1435,7 +1436,7 @@ const AddOperationModal: React.FC<{
                 </label>
                 <span style={{
                   fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
-                  color: checklistAnswered === CHECKLIST_ITEMS.length ? '#16a34a' : '#4ba6ea',
+                  color: checklistAnswered === CHECKLIST_ITEMS.length ? '#16a34a' : '#3A74C2',
                 }}>
                   {checklistAnswered}/{CHECKLIST_ITEMS.length} answered
                 </span>
@@ -1468,7 +1469,7 @@ const AddOperationModal: React.FC<{
                 <label style={{ ...labelStyle, marginBottom: 0 }}>
                   {t('sections.vehiclePhotos')} <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <span style={{ fontSize: 12, fontWeight: 700, color: photosComplete ? '#16a34a' : '#4ba6ea', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: photosComplete ? '#16a34a' : '#3A74C2', whiteSpace: 'nowrap' }}>
                   {t('form.photosCaptured', { done: capturedCount, total: PHOTO_SLOTS.length })}
                 </span>
               </div>
@@ -1617,17 +1618,13 @@ const AddOperationModal: React.FC<{
               {t('form.photosNeeded', { count: missingCount })}
             </span>
           )}
-          <button type="button" onClick={onClose}
-            style={{ height: 40, padding: '0 20px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLButtonElement).style.background = '#fff'; }}>
+          <Button variant="secondary" type="button" onClick={onClose}>
             {tc('actions.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
             disabled={saveBlocked}
-            style={{ height: 40, padding: '0 24px', borderRadius: 10, border: 'none', background: saveBlocked ? '#93c5fd' : '#4ba6ea', fontSize: 13, fontWeight: 700, color: '#fff', cursor: saveBlocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', gap: 8 }}
           >
             {saving ? (
               <>
@@ -1641,7 +1638,7 @@ const AddOperationModal: React.FC<{
                   : t('form.saving')}
               </>
             ) : isEdit ? t('form.saveChanges') : t('form.saveOperation')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1684,22 +1681,18 @@ const ConfirmDeleteDialog: React.FC<{
           {t('delete.body')}<br/>{t('delete.irreversible')}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button
+          <Button variant="secondary"
             onClick={onCancel}
             disabled={deleting}
-            style={{ flex: 1, height: 42, borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 600, color: '#374151', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease' }}
-            onMouseEnter={e => { if (!deleting) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#f9fafb'; b.style.borderColor = '#d1d5db'; } }}
-            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#fff'; b.style.borderColor = '#e5e7eb'; }}
-          >
+            style={{ flex: 1 }}
+>
             {tc('actions.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button variant="destructive"
             onClick={onConfirm}
             disabled={deleting}
-            style={{ flex: 1, height: 42, borderRadius: 10, border: 'none', background: deleting ? '#fca5a5' : '#ef4444', fontSize: 14, fontWeight: 700, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 140ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
-            onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#dc2626'; }}
-            onMouseLeave={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#ef4444'; }}
-          >
+            style={{ flex: 1 }}
+>
             {deleting ? (
               <>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.7s linear infinite' }}>
@@ -1708,7 +1701,7 @@ const ConfirmDeleteDialog: React.FC<{
                 {t('delete.deleting')}
               </>
             ) : tc('actions.delete')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -2576,24 +2569,22 @@ const OperationsPage: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>{t('eyebrow')}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>{t('eyebrow')}</span>
           </div>
           <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>{t('title')}</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>{t('subtitle')}</p>
         </div>
 
         {/* Add Operation button */}
-        <button
+        <Button
           onClick={() => setShowAddModal(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 22px', borderRadius: 12, border: 'none', background: '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 12px rgba(75,166,234,0.35)', transition: 'background 140ms ease, box-shadow 140ms ease', flexShrink: 0 }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#3b96da'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 18px rgba(75,166,234,0.45)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px rgba(75,166,234,0.35)'; }}
-        >
+          style={{ flexShrink: 0 }}
+>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
           </svg>
           {t('addOperation')}
-        </button>
+        </Button>
       </div>
 
       {/* ── Tabs ── */}
@@ -2717,7 +2708,7 @@ const OperationsPage: React.FC = () => {
                   <td style={{ ...td, color: op.handler_name ? '#374151' : '#d1d5db' }}>
                     {op.handler_name ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <StaffAvatar profile={op.handler_profile} size={24} />
+                        <StaffAvatar profile={op.handler_profile} size={28} />
                         {op.handler_name}
                       </span>
                     ) : '—'}
@@ -2760,7 +2751,7 @@ const OperationsPage: React.FC = () => {
                         onClick={() => setPhotosOp(op)}
                         title={op.folder_url || hasStructuredPhotos(op.photos) ? 'View photos' : 'View delivery checklist'}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
-                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -2793,7 +2784,7 @@ const OperationsPage: React.FC = () => {
                           onClick={() => setReportOp(op)}
                           title={t('report.openReport')}
                           style={{ height: 32, padding: '0 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: '#6b7280', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all 140ms ease', whiteSpace: 'nowrap' }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -2808,7 +2799,7 @@ const OperationsPage: React.FC = () => {
                         onClick={() => setEditOp(op)}
                         title={tc('actions.edit')}
                         style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#f9fafb', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all 140ms ease' }}
-                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.07)'; }}
+                        onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.07)'; }}
                         onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#6b7280'; b.style.background = '#f9fafb'; }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none">

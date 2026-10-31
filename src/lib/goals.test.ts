@@ -205,7 +205,7 @@ describe('both languages', () => {
 
 test('performance lives on Home, beside the cards, not on Tasks', () => {
   const home = read('pages/HomePage.tsx');
-  expect(home).toContain('<GoalsPanel onPresence={setShowsPerformance} />');
+  expect(home).toContain('<GoalsPanel onPresence={setShowsPerformance} onSettled={onGoalsSettled} />');
   expect(read('pages/TasksPage.tsx')).not.toMatch(/goals\/|GoalsPanel/);
   // First in the card grid, then the two cards it sits beside.
   expect(home.indexOf('<GoalsPanel')).toBeLessThan(home.indexOf('<StatCard\n'));

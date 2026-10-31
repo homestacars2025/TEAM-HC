@@ -7,6 +7,7 @@ import { printCustomerInvoice } from '../lib/printCustomerInvoice';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useCurrency, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
+import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -224,14 +225,6 @@ const inputStyle: React.CSSProperties = {
   color: '#0f1117', fontFamily: 'inherit', outline: 'none',
 };
 
-const primaryBtn: React.CSSProperties = {
-  height: 42, padding: '0 20px', borderRadius: 10, border: 'none',
-  background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)',
-  color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-  fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center',
-  justifyContent: 'center', gap: 7,
-};
-
 // ─── Reusable bits ────────────────────────────────────────────────────────────
 
 const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
@@ -298,15 +291,8 @@ const ConfirmDialog: React.FC<{
   <Modal title={title} onClose={onClose} maxWidth={420}>
     <p style={{ margin: '0 0 22px', fontSize: 14, color: '#4b5563', lineHeight: 1.55 }}>{message}</p>
     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-      <button onClick={onClose} style={{
-        height: 42, padding: '0 18px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff',
-        color: '#4b5563', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-      }}>{tc('actions.cancel')}</button>
-      <button onClick={onConfirm} disabled={busy} style={{
-        height: 42, padding: '0 18px', borderRadius: 10, border: 'none', background: COLOR_OUT,
-        color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-        opacity: busy ? 0.6 : 1,
-      }}>{busy ? t('confirm.deleting') : (confirmLabel ?? t('confirm.confirm'))}</button>
+      <Button variant="secondary" onClick={onClose}>{tc('actions.cancel')}</Button>
+      <Button variant="destructive" onClick={onConfirm} disabled={busy}>{busy ? t('confirm.deleting') : (confirmLabel ?? t('confirm.confirm'))}</Button>
     </div>
   </Modal>
   );
@@ -540,14 +526,14 @@ const AddTransactionModal: React.FC<{
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
 
-        <button
+        <Button
           type="button"
-          style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
           disabled={!canSave || saving}
           onClick={handleSave}
-        >
+          style={{ width: '100%' }}
+>
           {saving ? t('form.saving') : t('form.saveTransaction')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -629,14 +615,14 @@ const EditTransactionModal: React.FC<{
           </div>
         </div>
 
-        <button
+        <Button
           type="button"
-          style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
           disabled={!canSave || saving}
           onClick={handleSave}
-        >
+          style={{ width: '100%' }}
+>
           {saving ? t('form.saving') : t('form.saveChanges')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -656,7 +642,7 @@ const CW_STYLES = `
   --cw-pos:#12B76A; --cw-pos-bg:#ECFDF3;
   --cw-neg:#F04438; --cw-neg-bg:#FEF3F2;
   --cw-neu:#667085; --cw-neu-bg:#F2F4F7;
-  --cw-accent:#3B6EF5; --cw-accent-bg:#EFF4FF;
+  --cw-accent:#3A74C2; --cw-accent-bg:var(--accent-soft);
   --cw-border:var(--border-subtle);
   --cw-shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
   --cw-shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 14px 34px rgba(16,24,40,.09);
@@ -697,16 +683,6 @@ const CW_STYLES = `
 }
 .cw-search input::placeholder { color:var(--cw-muted); }
 .cw-search input:focus { border-color:var(--cw-accent); box-shadow:0 0 0 4px var(--cw-accent-bg); }
-.cw-btn-primary {
-  appearance:none; border:none; cursor:pointer; font-family:inherit;
-  min-height:44px; padding:0 18px; border-radius:12px; background:var(--cw-accent); color:#fff;
-  font-size:14px; font-weight:600; display:inline-flex; align-items:center; gap:8px;
-  box-shadow:0 1px 2px rgba(16,24,40,.10), 0 6px 16px rgba(59,110,245,.24);
-  transition:transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
-}
-.cw-btn-primary:hover { filter:brightness(1.05); box-shadow:0 2px 4px rgba(16,24,40,.12), 0 10px 22px rgba(59,110,245,.30); }
-.cw-btn-primary:active { transform:scale(.98); }
-
 /* ── Car grid ── */
 .cw-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; }
 .cw-tile {
@@ -860,7 +836,7 @@ const CW_STYLES = `
   .cw-stat { padding:16px 18px; }
   .cw-stat-value { font-size:26px; }
   .cw-search { max-width:none; flex-basis:100%; }
-  .cw-btn-primary { width:100%; justify-content:center; }
+  .cw-add { width:100%; }
   .cw-grid { grid-template-columns:1fr; gap:14px; }
   .cw-overlay { padding:0; align-items:flex-end; }
   .cw-modal { max-width:none; max-height:100vh; height:100vh; border-radius:0; }
@@ -884,7 +860,7 @@ const CW_STYLES = `
     transition-duration:.01ms !important; animation-duration:.01ms !important;
   }
   .cw-tile:hover { transform:none; }
-  .cw-btn-primary:active, .cw-btn-soft:active, .cw-btn-ghost:active { transform:none; }
+  .cw-btn-soft:active, .cw-btn-ghost:active { transform:none; }
 }
 `;
 
@@ -1553,12 +1529,12 @@ const CustomerWalletsPage: React.FC = () => {
           />
         </div>
 
-        <button type="button" className="cw-btn-primary" onClick={() => setAddFor({ customerId: null, name: null, carId: null })}>
+        <Button className="cw-add" onClick={() => setAddFor({ customerId: null, name: null, carId: null })}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
           {t('form.addTitle')}
-        </button>
+        </Button>
       </div>
 
       {loadError ? (

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../lib/CurrencyContext';
 import { printFontStyles } from '../lib/printFonts';
+import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -550,7 +551,7 @@ const KGMPage: React.FC = () => {
           padding: 5px 11px;
           border-radius: 7px;
           border: none;
-          background: #4ba6ea;
+          background: var(--btn-primary-bg);
           color: #fff;
           font-size: 12px;
           font-weight: 700;
@@ -563,8 +564,9 @@ const KGMPage: React.FC = () => {
           white-space: nowrap;
         }
         .kgm-save-btn.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        .kgm-save-btn:hover { background: #2e8fd4; }
-        .kgm-save-btn.saving { background: #93c5fd; cursor: default; pointer-events: none; }
+        .kgm-save-btn:hover { background: var(--btn-primary-hover); }
+        .kgm-save-btn:active { background: var(--btn-primary-active); }
+        .kgm-save-btn.saving { background: var(--btn-primary-disabled); cursor: default; pointer-events: none; }
         .kgm-note-input {
           width: 100%;
           padding: 7px 10px;
@@ -586,7 +588,7 @@ const KGMPage: React.FC = () => {
           padding: 5px 11px;
           border-radius: 7px;
           border: none;
-          background: #4ba6ea;
+          background: var(--btn-primary-bg);
           color: #fff;
           font-size: 12px;
           font-weight: 700;
@@ -599,8 +601,9 @@ const KGMPage: React.FC = () => {
           white-space: nowrap;
         }
         .kgm-note-save-btn.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        .kgm-note-save-btn:hover { background: #2e8fd4; }
-        .kgm-note-save-btn.saving { background: #93c5fd; cursor: default; pointer-events: none; }
+        .kgm-note-save-btn:hover { background: var(--btn-primary-hover); }
+        .kgm-note-save-btn:active { background: var(--btn-primary-active); }
+        .kgm-note-save-btn.saving { background: var(--btn-primary-disabled); cursor: default; pointer-events: none; }
         .kgm-note-save-btn.saved  { background: #16a34a; cursor: default; pointer-events: none; }
 
       `}</style>
@@ -616,7 +619,7 @@ const KGMPage: React.FC = () => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {t('eyebrow')}
             </span>
           </div>
@@ -646,56 +649,29 @@ const KGMPage: React.FC = () => {
               {formatDate(selectedDate, dateLocale)}
             </div>
             {!isToday(selectedDate) && (
-              <button
+              <Button variant="secondary"
                 onClick={() => setSelectedDate(new Date())}
-                style={{
-                  marginTop: 6, padding: '3px 12px', borderRadius: 20,
-                  border: '1px solid #e5e7eb', background: 'transparent',
-                  color: '#9ca3af', fontSize: 12, fontWeight: 500,
-                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease',
-                }}
-                onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
-                onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; }}
-              >
+                style={{ marginTop: 6 }}
+>
                 {t('goToToday')}
-              </button>
+              </Button>
             )}
           </div>
 
           <NavArrow direction="right" onClick={() => goTo(1)} disabled={isToday(selectedDate)} />
 
           {/* Print button — absolute top-right */}
-          <button
+          <Button
             onClick={handlePrint}
-            style={{
-              position: 'absolute',
-              insetInlineEnd: 36,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              padding: '9px 16px',
-              borderRadius: 9,
-              border: 'none',
-              background: '#4ba6ea',
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              transition: 'background 140ms ease',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
-          >
+            style={{ position: 'absolute', insetInlineEnd: 36, top: '50%', transform: 'translateY(-50%)' }}
+>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
             </svg>
             {t('print')}
-          </button>
+          </Button>
         </div>
 
         {/* ── Table ── */}
@@ -921,7 +897,7 @@ const Th: React.FC<ThProps> = ({ children, style, sortKey, activeSort, onSort, .
         padding: '12px 16px',
         fontSize: 11,
         fontWeight: 700,
-        color: isActive ? '#4ba6ea' : '#9ca3af',
+        color: isActive ? '#3A74C2' : '#9ca3af',
         textTransform: 'uppercase',
         letterSpacing: '0.7px',
         textAlign: 'start',
@@ -942,7 +918,7 @@ const Th: React.FC<ThProps> = ({ children, style, sortKey, activeSort, onSort, .
         {indicator && (
           <span style={{
             fontSize: 12,
-            color: isActive ? '#4ba6ea' : '#d1d5db',
+            color: isActive ? '#3A74C2' : '#d1d5db',
             transition: 'color 140ms ease',
             lineHeight: 1,
           }}>
@@ -972,7 +948,7 @@ const NavArrow: React.FC<NavArrowProps> = ({ direction, onClick, disabled = fals
         width: 36, height: 36, borderRadius: 10,
         border: `1.5px solid ${hovered && !disabled ? '#4ba6ea' : '#e5e7eb'}`,
         background: hovered && !disabled ? 'rgba(75,166,234,0.06)' : '#fff',
-        color: disabled ? '#d1d5db' : hovered ? '#4ba6ea' : '#6b7280',
+        color: disabled ? '#d1d5db' : hovered ? '#3A74C2' : '#6b7280',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 140ms ease', flexShrink: 0,

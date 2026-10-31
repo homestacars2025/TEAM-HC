@@ -15,6 +15,37 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
 
     <!--
+      The one loading screen. It is here rather than in React so it paints before
+      any script has loaded, and stays the same element until src/lib/bootSplash.ts
+      takes it away. No words, because the fonts aren't in yet.
+    -->
+    <style>
+      html, body { margin: 0; background: #fff; }
+      #boot-splash {
+        position: fixed; inset: 0; z-index: 10000;
+        display: flex; align-items: center; justify-content: center;
+        background: #fff; transition: opacity 160ms ease-out;
+      }
+      #boot-splash[hidden] { display: none; }
+      #boot-splash.is-done { opacity: 0; pointer-events: none; }
+      .boot-logo {
+        display: flex; align-items: center; justify-content: center;
+        width: 64px; height: 64px; border-radius: 18px;
+        background: linear-gradient(135deg, #6EA4E7, #3A74C2);
+        animation: boot-pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes boot-pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.82; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-logo { animation: none; }
+        #boot-splash { transition: none; }
+      }
+    </style>
+    <noscript><style>#boot-splash { display: none; }</style></noscript>
+
+    <!--
       Runs before React mounts so an Arabic user never sees a left-to-right flash.
       The LanguageProvider applies the same values again on mount and on every change.
       Keys must stay in sync with LANG_STORAGE_KEY (src/i18n.ts) and
@@ -40,6 +71,28 @@
             document.documentElement.dir = 'rtl';
           }
         } catch (e) { /* storage blocked — fall back to the static lang="en" */ }
+
+        // One time only: nothing registers a service worker today, but a browser that
+        // kept one from an older deployment could go on serving that build.
+        try {
+          if ('serviceWorker' in navigator && !localStorage.getItem('hc_sw_cleared')) {
+            var controlled = !!navigator.serviceWorker.controller;
+            navigator.serviceWorker.getRegistrations()
+              .then(function (registrations) {
+                return Promise.all(registrations.map(function (r) { return r.unregister(); }));
+              })
+              .then(function () {
+                if (!window.caches) return null;
+                return caches.keys().then(function (keys) {
+                  return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+                });
+              })
+              .then(function () {
+                localStorage.setItem('hc_sw_cleared', '1');
+                if (controlled) location.reload();
+              });
+          }
+        } catch (e) { /* no storage or no workers: nothing to clear */ }
       })();
     </script>
     <!--
@@ -60,6 +113,13 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="boot-splash" aria-hidden="true">
+      <div class="boot-logo">
+        <svg width="34" height="34" viewBox="0 0 120 120" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round">
+          <path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100" />
+        </svg>
+      </div>
+    </div>
     <div id="root"></div>
     <!--
       This HTML file is a template.

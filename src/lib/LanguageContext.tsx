@@ -11,6 +11,8 @@ export { LANGUAGES };
 /** Short label for the compact toggle; the full name is used in tooltips. */
 export const LANGUAGE_SHORT: Record<Language, string> = { en: 'EN', ar: 'ع' };
 export const LANGUAGE_NAMES: Record<Language, string> = { en: 'English', ar: 'العربية' };
+/** The sidebar pill. Same two letters in either language, so it can always be found. */
+export const LANGUAGE_CODES: Record<Language, string> = { en: 'EN', ar: 'AR' };
 
 interface LanguageContextValue {
   lang: Language;

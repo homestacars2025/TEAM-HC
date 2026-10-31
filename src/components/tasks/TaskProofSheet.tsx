@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { proofTooLarge } from '../../lib/queries/tasks';
 import type { MyTask } from '../../lib/types/tasks';
+import Button from '../Button';
 
 interface TaskProofSheetProps {
   task: MyTask;
@@ -121,12 +122,8 @@ const TaskProofSheet: React.FC<TaskProofSheetProps> = ({ task, onCancel, onConfi
         {error && <p role="alert" className="mt-2 text-[13px] text-red-600">{error}</p>}
 
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} disabled={saving} className="min-h-11 cursor-pointer rounded-xl border border-[var(--border-subtle)] px-5 text-sm font-medium text-gray-700 disabled:cursor-default disabled:opacity-60">
-            {t('proof.cancel')}
-          </button>
-          <button type="button" onClick={submit} disabled={saving} className="min-h-11 cursor-pointer rounded-xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong-hover)] disabled:cursor-default disabled:opacity-60">
-            {saving ? t('proof.saving') : t('proof.confirm')}
-          </button>
+          <Button variant="secondary" onClick={onCancel} disabled={saving}>{t('proof.cancel')}</Button>
+          <Button onClick={submit} disabled={saving}>{saving ? t('proof.saving') : t('proof.confirm')}</Button>
         </div>
       </div>
     </div>,

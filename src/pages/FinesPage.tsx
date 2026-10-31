@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
+import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -593,21 +594,12 @@ const AddFineModal: React.FC<AddFineModalProps> = ({ cars, onClose, onSaved }) =
 
           {/* Footer */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-            <button type="button" onClick={onClose} style={{
-              height: 40, padding: '0 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
+            <Button variant="secondary" type="button" onClick={onClose}>
               {tc('actions.cancel')}
-            </button>
-            <button type="submit" disabled={saving} style={{
-              height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea', color: '#fff',
-              fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', transition: 'background 150ms ease',
-            }}>
+            </Button>
+            <Button type="submit" disabled={saving}>
               {saving ? t('form.saving') : t('form.addTitle')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -855,21 +847,12 @@ const EditFineModal: React.FC<EditFineModalProps> = ({ fine, cars, onClose, onSa
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-            <button type="button" onClick={onClose} style={{
-              height: 40, padding: '0 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
+            <Button variant="secondary" type="button" onClick={onClose}>
               {tc('actions.cancel')}
-            </button>
-            <button type="submit" disabled={saving} style={{
-              height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#93c5fd' : '#4ba6ea', color: '#fff',
-              fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-            }}>
+            </Button>
+            <Button type="submit" disabled={saving}>
               {saving ? t('form.saving') : t('form.saveChanges')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -1000,12 +983,9 @@ const ViewFineModal: React.FC<{ fine: Fine; onClose: () => void }> = ({ fine, on
         </div>
 
         <div style={{ padding: '16px 26px', borderTop: '1px solid #f0f0f0', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{
-            height: 40, padding: '0 22px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-            background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit',
-          }}>
+          <Button variant="secondary" onClick={onClose}>
             {tc('actions.close')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1153,21 +1133,12 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
           />
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 22, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-            <button onClick={onClose} style={{
-              height: 40, padding: '0 18px', borderRadius: 9, border: '1.5px solid #e5e7eb',
-              background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
+            <Button variant="secondary" onClick={onClose}>
               {tc('actions.cancel')}
-            </button>
-            <button onClick={handleConfirm} disabled={saving} style={{
-              height: 40, padding: '0 22px', borderRadius: 9, border: 'none',
-              background: saving ? '#86efac' : '#22c55e', color: '#fff',
-              fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit',
-            }}>
+            </Button>
+            <Button onClick={handleConfirm} disabled={saving}>
               {saving ? t('payment.confirming') : t('payment.title')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1232,21 +1203,12 @@ const DeleteModal: React.FC<{
           />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{
-            flex: 1, height: 40, borderRadius: 9, border: '1.5px solid #e5e7eb',
-            background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280',
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}>
+          <Button variant="secondary" onClick={onClose} style={{ flex: 1 }}>
             {tc('actions.cancel')}
-          </button>
-          <button onClick={handleDelete} disabled={deleting} style={{
-            flex: 1, height: 40, borderRadius: 9, border: 'none',
-            background: deleting ? '#fca5a5' : '#ef4444', color: '#fff',
-            fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit',
-          }}>
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleting} style={{ flex: 1 }}>
             {deleting ? t('delete.deleting') : tc('actions.delete')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -1534,24 +1496,15 @@ const FinesPage: React.FC = () => {
         <div style={{ flex: 1 }} />
 
         {/* Add Fine button */}
-        <button
+        <Button
           onClick={() => setModal({ type: 'add' })}
-          style={{
-            height: 38, padding: '0 18px', borderRadius: 9, border: 'none',
-            background: '#4ba6ea', color: '#fff',
-            fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 7,
-            fontFamily: 'inherit', transition: 'background 150ms ease',
-            whiteSpace: 'nowrap',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#2e8fd4')}
-          onMouseLeave={e => (e.currentTarget.style.background = '#4ba6ea')}
-        >
+          style={{ whiteSpace: 'nowrap' }}
+>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
           {t('form.addTitle')}
-        </button>
+        </Button>
       </div>
 
       {/* Table */}
@@ -1682,7 +1635,7 @@ const FinesPage: React.FC = () => {
             {filterStatus !== 'all' && (
               <button
                 onClick={() => setFilterStatus('all')}
-                style={{ background: 'none', border: 'none', color: '#4ba6ea', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: '#3A74C2', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
               >
                 {t('table.clearFilter')}
               </button>

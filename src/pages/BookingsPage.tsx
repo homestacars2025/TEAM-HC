@@ -13,6 +13,7 @@ import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
+import Button from '../components/Button';
 
 // ─── Raw Supabase join shapes ─────────────────────────────────────────────────
 
@@ -270,7 +271,7 @@ const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }>
         width: 36, height: 36, borderRadius: 10,
         border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`,
         background: hovered ? 'rgba(75,166,234,0.06)' : '#fff',
-        color: hovered ? '#4ba6ea' : '#6b7280',
+        color: hovered ? '#3A74C2' : '#6b7280',
         cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 140ms ease', flexShrink: 0,
@@ -903,7 +904,7 @@ const DocUploadField: React.FC<{
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
           )}
-          <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: '#4ba6ea', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <a href={existingUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: '#3A74C2', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {tc2('viewCurrentFile')}
           </a>
           <button type="button" onClick={() => inputRef.current?.click()} style={{ fontSize: 11, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
@@ -924,7 +925,7 @@ const DocUploadField: React.FC<{
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-            <div style={{ fontSize: 11, color: '#4ba6ea', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
+            <div style={{ fontSize: 11, color: '#3A74C2', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
           </div>
           <button type="button" onClick={() => onChange(null)}
             style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}
@@ -939,7 +940,7 @@ const DocUploadField: React.FC<{
       {!file && (
         <button type="button" onClick={() => inputRef.current?.click()}
           style={{ width: '100%', height: existingUrl ? 44 : 68, borderRadius: 9, border: '1.5px dashed #e5e7eb', background: '#fafafa', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer', color: '#9ca3af', transition: 'all 140ms ease' }}
-          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; b.style.background = 'rgba(75,166,234,0.04)'; }}
+          onMouseEnter={e => { const b = e.currentTarget; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; b.style.background = 'rgba(75,166,234,0.04)'; }}
           onMouseLeave={e => { const b = e.currentTarget; b.style.borderColor = '#e5e7eb'; b.style.color = '#9ca3af'; b.style.background = '#fafafa'; }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -963,7 +964,7 @@ const SectionHeading: React.FC<{ icon: React.ReactNode; title: string }> = ({ ic
       width: 28, height: 28, borderRadius: 8,
       background: 'rgba(75,166,234,0.10)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#4ba6ea', flexShrink: 0,
+      color: '#3A74C2', flexShrink: 0,
     }}>
       {icon}
     </div>
@@ -2114,20 +2115,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            <Button variant="secondary" type="button" onClick={onClose}
             >
               {tc('actions.cancel')}
-            </button>
-            <button type="submit" disabled={saving}
-              style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: saving ? '#a8d4f5' : '#4ba6ea', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 150ms ease' }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            </Button>
+            <Button type="submit" disabled={saving}
             >
               {saving ? 'Saving…' : mode === 'add' ? t('form.submitAdd') : t('form.submitSave')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -2357,31 +2352,19 @@ const ExtendBookingModal: React.FC<{
           padding: '14px 24px 20px', display: 'flex', gap: 10,
           justifyContent: 'flex-end', borderTop: '1px solid #f0f0f0', marginTop: 16,
         }}>
-          <button
+          <Button variant="secondary"
             type="button"
             onClick={onClose}
-            style={{
-              minHeight: 44, padding: '0 18px', borderRadius: 10,
-              border: '1.5px solid #e5e7eb', background: '#fff',
-              fontSize: 13, fontWeight: 600, color: '#374151',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
           >
             {tc('actions.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
             disabled={!canSave}
-            style={{
-              minHeight: 44, padding: '0 22px', borderRadius: 10, border: 'none',
-              background: canSave ? '#4ba6ea' : '#93c5fd',
-              fontSize: 13, fontWeight: 700, color: '#fff',
-              cursor: canSave ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
-            }}
           >
             {saving ? tc('actions.saving') : t('extend.submit')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -3132,27 +3115,16 @@ const ReplacementFormModal: React.FC<{
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: '11px 18px', minHeight: 44, borderRadius: 9, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
+            <Button variant="secondary" type="button" onClick={onClose}
             >
               {tc('actions.cancel')}
-            </button>
-            <button type="submit" disabled={saving || noBookings}
-              style={{
-                padding: '11px 22px', minHeight: 44, borderRadius: 9, border: 'none',
-                background: saving || noBookings ? '#a8d4f5' : '#4ba6ea', color: '#fff',
-                fontSize: 14, fontWeight: 600, cursor: saving || noBookings ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', transition: 'background 150ms ease',
-              }}
-              onMouseEnter={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { if (!saving && !noBookings) (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
+            </Button>
+            <Button type="submit" disabled={saving || noBookings}
             >
               {saving
                 ? tc('actions.saving')
                 : isEdit ? t('replacement.saveChanges') : t('replacement.createPrint')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -3307,7 +3279,7 @@ const BookingsPage: React.FC = () => {
   const sortIcon = (col: Exclude<SortCol, null>) =>
     sort.col !== col
       ? <span style={{ color: '#d1d5db', fontSize: 11 }}>↕</span>
-      : <span style={{ color: '#4ba6ea', fontSize: 11 }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>;
+      : <span style={{ color: '#3A74C2', fontSize: 11 }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>;
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const allSelected  = sorted.length > 0 && sorted.every(b => selectedIds.has(b.id));
@@ -3397,7 +3369,7 @@ const BookingsPage: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
                 {t('eyebrow')}
               </span>
             </div>
@@ -3420,7 +3392,7 @@ const BookingsPage: React.FC = () => {
               }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
-                (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea';
+                (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2';
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
@@ -3434,25 +3406,15 @@ const BookingsPage: React.FC = () => {
               {t('replacementCarButton')}
             </button>
 
-            <button
+            <Button
               onClick={() => setModal('add')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                height: 44, padding: '0 18px',
-                background: '#4ba6ea', color: '#fff', border: 'none',
-                borderRadius: 10, fontSize: 14, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                boxShadow: '0 2px 8px rgba(75,166,234,0.30)',
-                transition: 'background 150ms ease',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#2e8fd4'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#4ba6ea'; }}
-            >
+              style={{ flexShrink: 0 }}
+>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
               </svg>
               {t('addNewBooking')}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -3521,7 +3483,7 @@ const BookingsPage: React.FC = () => {
           <button
             onClick={handleExport}
             style={{ height: 40, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease', flexShrink: 0 }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#4ba6ea'; }}
+            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
             onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#f0f0f0'; b.style.color = '#374151'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -3618,7 +3580,7 @@ const BookingsPage: React.FC = () => {
                 {' '}booking{bookings.length !== 1 ? 's' : ''}
               </span>
               {selectedIds.size > 0 && (
-                <span style={{ fontSize: 13, color: '#4ba6ea', fontWeight: 600 }}>
+                <span style={{ fontSize: 13, color: '#3A74C2', fontWeight: 600 }}>
                   {selectedIds.size} selected
                 </span>
               )}
@@ -3637,7 +3599,7 @@ const BookingsPage: React.FC = () => {
           }}>
             <div style={{
               width: 28, height: 28, borderRadius: 8, background: 'rgba(75,166,234,0.10)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ba6ea', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3A74C2', flexShrink: 0,
             }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12"
@@ -3696,7 +3658,7 @@ const BookingsPage: React.FC = () => {
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
                         <span className="hc-num" style={{ fontWeight: 600 }}>{s.original_plate ?? '—'}</span>
-                        <span style={{ color: '#4ba6ea', margin: '0 7px', fontWeight: 700 }}>→</span>
+                        <span style={{ color: '#3A74C2', margin: '0 7px', fontWeight: 700 }}>→</span>
                         <span className="hc-num" style={{ fontWeight: 600 }}>{s.replacement_plate}</span>
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
@@ -3716,7 +3678,7 @@ const BookingsPage: React.FC = () => {
                           }}
                           onMouseEnter={e => {
                             (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2';
                           }}
                           onMouseLeave={e => {
                             (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
@@ -3741,7 +3703,7 @@ const BookingsPage: React.FC = () => {
                           }}
                           onMouseEnter={e => {
                             (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#4ba6ea';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2';
                           }}
                           onMouseLeave={e => {
                             (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';

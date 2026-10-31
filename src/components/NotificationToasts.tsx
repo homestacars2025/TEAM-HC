@@ -6,6 +6,7 @@ import { useInbox } from '../lib/InboxContext';
 import { useNotifText } from '../lib/notifications/renderI18n';
 import type { MyNotification } from '../lib/types/tasks';
 import { notificationBodyKey, useOpenNotification } from './NotificationRow';
+import Button from './Button';
 
 /** A notification arriving live, in the corner. A new task gets an Open button. */
 
@@ -56,13 +57,7 @@ const NotificationToasts: React.FC = () => {
                 <div className="text-sm font-semibold leading-snug text-[#0f1117]">{title}</div>
                 {body && <div className="mt-0.5 text-[13px] text-gray-500">{body}</div>}
               </div>
-              <button
-                type="button"
-                onClick={open}
-                className="min-h-9 shrink-0 cursor-pointer rounded-lg bg-[var(--accent-strong)] px-3 text-[13px] font-semibold text-white transition-colors hover:bg-[var(--accent-strong-hover)]"
-              >
-                {t('toast.open')}
-              </button>
+              <Button onClick={open} className="shrink-0">{t('toast.open')}</Button>
             </div>
           </div>
         );

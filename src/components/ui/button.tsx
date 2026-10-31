@@ -20,7 +20,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/80',
+        // The look of `.hc-btn-primary`, kept here because Media has its own sizes.
+        default: 'hc-btn-primary min-h-10 rounded-[10px] font-semibold disabled:opacity-100 max-lg:min-h-11',
         outline: 'border-border bg-background hover:bg-muted hover:text-foreground',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-muted hover:text-foreground',

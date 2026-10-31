@@ -10,6 +10,7 @@ import StaffAvatar from '../components/StaffAvatar';
 import { useStaffProfiles } from '../hooks/useStaffProfiles';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import Button, { buttonClass } from '../components/Button';
 
 /* ────────────────────────────────────────────────────────────────────────────
    AccountingPage — restricted view for staff accountants.
@@ -224,14 +225,6 @@ const inputStyle: React.CSSProperties = {
   width: '100%', height: 42, padding: '0 12px', borderRadius: 10,
   border: '1px solid #e5e7eb', background: '#fff', fontSize: 14,
   color: '#0f1117', fontFamily: 'inherit', outline: 'none',
-};
-
-const primaryBtn: React.CSSProperties = {
-  height: 42, padding: '0 20px', borderRadius: 10, border: 'none',
-  background: 'linear-gradient(135deg, #4ba6ea 0%, #2e8fd4 100%)',
-  color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-  fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center',
-  justifyContent: 'center', gap: 7,
 };
 
 const cardStyle: React.CSSProperties = {
@@ -481,7 +474,7 @@ const CarSheetsTab: React.FC<{
                 }}
               >
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: active ? '#2e8fd4' : '#0f1117' }}>
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: active ? '#3A74C2' : '#0f1117' }}>
                     <span className="hc-num">{car.plate_number}</span>
                   </span>
                   <span style={{ display: 'block', fontSize: 12, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -513,12 +506,12 @@ const CarSheetsTab: React.FC<{
               {selectedCar ? (selectedCar.model_name || '—') : t('cars.pickCar')}
             </div>
           </div>
-          <button style={primaryBtn} onClick={() => setShowAdd(true)}>
+          <Button onClick={() => setShowAdd(true)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
             {t('cars.addTransaction')}
-          </button>
+          </Button>
         </div>
 
         {selectedCar && (
@@ -757,10 +750,12 @@ const AddCarTxnModal: React.FC<{
           disabled={saving}
         />
 
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
-          disabled={!canSave || saving} onClick={handleSave}>
+        <Button
+          disabled={!canSave || saving} onClick={handleSave}
+          style={{ width: '100%' }}
+>
           {uploading ? t('form.uploadingReceipt') : saving ? tc('actions.saving') : t('form.saveTransaction')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -867,10 +862,12 @@ const EditCarTxnModal: React.FC<{
           disabled={saving}
         />
 
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }}
-          disabled={!canSave || saving} onClick={handleSave}>
+        <Button
+          disabled={!canSave || saving} onClick={handleSave}
+          style={{ width: '100%' }}
+>
           {uploading ? t('form.uploadingReceipt') : saving ? tc('actions.saving') : tc('actions.saveChanges')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -898,7 +895,7 @@ const ExpensesTab: React.FC<{
               fontSize: 13.5, fontWeight: 600,
               border: on ? '1px solid #4ba6ea' : '1px solid #e5e7eb',
               background: on ? 'rgba(75,166,234,0.08)' : '#fff',
-              color: on ? '#2e8fd4' : '#6b7280',
+              color: on ? '#3A74C2' : '#6b7280',
             }}>{label}</button>
           );
         })}
@@ -967,12 +964,12 @@ const CompanyExpensesSection: React.FC<{
         <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
         <SummaryPill label={t('summary.net')} value={`${totals.net >= 0 ? '+' : '−'}${fmt(totals.net)}`} color={totals.net >= 0 ? COLOR_IN : COLOR_OUT} />
         <div style={{ flex: 1 }} />
-        <button style={primaryBtn} onClick={() => setShowAdd(true)}>
+        <Button onClick={() => setShowAdd(true)}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
           {t('expenses.addExpense')}
-        </button>
+        </Button>
       </div>
 
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
@@ -992,7 +989,7 @@ const CompanyExpensesSection: React.FC<{
                     <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 280 }}>{r.description || '—'}</td>
                     <td style={tdStyle}>{r.receipt_url
-                      ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>{t('receipt.view')}</a>
+                      ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#3A74C2', fontWeight: 600, textDecoration: 'none' }}>{t('receipt.view')}</a>
                       : '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
@@ -1112,9 +1109,9 @@ const EditCompanyExpenseModal: React.FC<{
           <label style={labelStyle}>{t('form.descriptionOptional')}</label>
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
+        <Button disabled={!canSave || saving} onClick={handleSave} style={{ width: '100%' }}>
           {saving ? tc('actions.saving') : tc('actions.saveChanges')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -1186,9 +1183,9 @@ const AddCompanyExpenseModal: React.FC<{
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
         <FileField file={file} onChange={setFile} />
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
+        <Button disabled={!canSave || saving} onClick={handleSave} style={{ width: '100%' }}>
           {saving ? tc('actions.saving') : t('form.saveExpense')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -1221,12 +1218,12 @@ const EmployeeWalletsSection: React.FC<{
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button style={primaryBtn} onClick={() => setShowAdd(true)}>
+        <Button onClick={() => setShowAdd(true)}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
           {t('wallets.addEntry')}
-        </button>
+        </Button>
       </div>
 
       {loading || !staffProfiles ? <Spinner /> : balances.length === 0 ? (
@@ -1346,7 +1343,7 @@ const WalletHistoryModal: React.FC<{
                     <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 220 }}>
                       {r.description || '—'}
-                      {r.receipt_url && <> · <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', textDecoration: 'none' }}>{t('wallets.receipt')}</a></>}
+                      {r.receipt_url && <> · <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#3A74C2', textDecoration: 'none' }}>{t('wallets.receipt')}</a></>}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
                       <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
@@ -1458,9 +1455,9 @@ const EditWalletTxnModal: React.FC<{
           <label style={labelStyle}>{t('form.descriptionOptional')}</label>
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
+        <Button disabled={!canSave || saving} onClick={handleSave} style={{ width: '100%' }}>
           {saving ? tc('actions.saving') : tc('actions.saveChanges')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -1552,9 +1549,9 @@ const AddWalletEntryModal: React.FC<{
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('form.descriptionPlaceholder')} style={inputStyle} />
         </div>
         <FileField file={file} onChange={setFile} />
-        <button style={{ ...primaryBtn, width: '100%', opacity: canSave && !saving ? 1 : 0.55 }} disabled={!canSave || saving} onClick={handleSave}>
+        <Button disabled={!canSave || saving} onClick={handleSave} style={{ width: '100%' }}>
           {saving ? tc('actions.saving') : t('form.saveEntry')}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -1576,7 +1573,7 @@ const CustomersMovedPanel: React.FC = () => {
     <div style={{
       width: 52, height: 52, borderRadius: 14, background: 'rgba(75,166,234,0.1)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-      color: '#2e8fd4',
+      color: '#3A74C2',
     }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <path d="M3 7a2 2 0 012-2h12a2 2 0 012 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -1590,7 +1587,7 @@ const CustomersMovedPanel: React.FC = () => {
     <p style={{ margin: '0 auto 22px', fontSize: 14, color: '#6b7280', lineHeight: 1.6, maxWidth: 460 }}>
       {t('customers.movedBody')}
     </p>
-    <Link to="/dashboard/customer-wallets" style={{ ...primaryBtn, textDecoration: 'none' }}>
+    <Link to="/dashboard/customer-wallets" className={buttonClass()}>
       {t('customers.open')}
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
         <path className="hc-flip-path" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -1619,15 +1616,8 @@ const ConfirmDialog: React.FC<{
   <Modal title={title} onClose={onClose} maxWidth={420}>
     <p style={{ margin: '0 0 22px', fontSize: 14, color: '#4b5563', lineHeight: 1.55 }}>{message}</p>
     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-      <button onClick={onClose} style={{
-        height: 42, padding: '0 18px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff',
-        color: '#4b5563', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-      }}>{tc('actions.cancel')}</button>
-      <button onClick={onConfirm} disabled={busy} style={{
-        height: 42, padding: '0 18px', borderRadius: 10, border: 'none', background: COLOR_OUT,
-        color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-        opacity: busy ? 0.6 : 1,
-      }}>{busy ? t('confirm.deleting') : confirmLabel ?? t('confirm.confirm')}</button>
+      <Button variant="secondary" onClick={onClose}>{tc('actions.cancel')}</Button>
+      <Button variant="destructive" onClick={onConfirm} disabled={busy}>{busy ? t('confirm.deleting') : confirmLabel ?? t('confirm.confirm')}</Button>
     </div>
   </Modal>
   );
@@ -1714,7 +1704,7 @@ const ReceiptChip: React.FC<{ url: string; onOpen: () => void }> = ({ url, onOpe
   const { t } = useTranslation('accounting');
   return (
   <button onClick={onOpen} title={t('receipt.viewReceipt')} style={{
-    ...receiptSmallBtn, gap: 5, color: '#2e8fd4', borderColor: 'rgba(75,166,234,0.35)',
+    ...receiptSmallBtn, gap: 5, color: '#3A74C2', borderColor: 'rgba(75,166,234,0.35)',
     background: 'rgba(75,166,234,0.08)',
   }}>
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -1753,7 +1743,7 @@ export const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = (
         <a href={url} target="_blank" rel="noreferrer" style={{
           ...receiptSmallBtn, height: 34, padding: '0 14px', textDecoration: 'none', color: '#0f1117',
         }}>{t('receipt.openInNewTab')}</a>
-        <button onClick={onClose} style={{ ...receiptSmallBtn, height: 34, padding: '0 14px' }}>{tc('actions.close')}</button>
+        <Button variant="secondary" onClick={onClose}>{tc('actions.close')}</Button>
       </div>
     </div>,
     document.body,
@@ -1846,7 +1836,7 @@ const ReceiptField: React.FC<{
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#0f1117' }}>{t('receipt.current')}</div>
         <a href={existingUrl} target="_blank" rel="noreferrer"
-          style={{ fontSize: 11.5, color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>
+          style={{ fontSize: 11.5, color: '#3A74C2', fontWeight: 600, textDecoration: 'none' }}>
           {pdf ? t('receipt.viewPdf') : t('receipt.viewImage')}
         </a>
       </div>
@@ -1942,7 +1932,7 @@ const AccountingPage: React.FC = () => {
           return (
             <button key={key} onClick={() => setTab(key)} style={{
               padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#2e8fd4' : '#6b7280',
+              fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#3A74C2' : '#6b7280',
               borderBottom: on ? '2px solid #4ba6ea' : '2px solid transparent', marginBottom: -1,
             }}>{t(`tabs.${key}`)}</button>
           );

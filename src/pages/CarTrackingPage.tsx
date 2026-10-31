@@ -147,7 +147,7 @@ const CarTrackingPage: React.FC = () => {
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             {t('eyebrow')}
           </span>
         </div>
@@ -163,7 +163,7 @@ const CarTrackingPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             {t('allVehicles')}
           </span>
         </div>
@@ -208,7 +208,7 @@ const CarTrackingPage: React.FC = () => {
                       onClick={() => col !== null && handleSort(col)}
                       style={{
                         padding: '9px 14px', fontSize: 11, fontWeight: 700,
-                        color: active ? '#4ba6ea' : '#9ca3af',
+                        color: active ? '#3A74C2' : '#9ca3af',
                         textTransform: 'uppercase', letterSpacing: '0.7px',
                         textAlign: 'start', background: '#fff',
                         borderBottom: '1.5px solid #f0f0f0',

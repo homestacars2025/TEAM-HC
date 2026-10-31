@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { afterBootSplash } from '../../lib/bootSplash';
 import { ringLaps, type GoalMetric } from '../../lib/queries/goals';
 
 /**
@@ -150,14 +151,21 @@ const ActivityRings: React.FC<{ metrics: GoalMetric[] }> = ({ metrics }) => {
       return;
     }
 
+    // Behind the splash it would finish with nobody watching.
+    paint(0);
     let frame = 0;
-    const begun = performance.now();
-    const tick = (now: number) => {
-      paint(now - begun);
-      if (now - begun < total) frame = requestAnimationFrame(tick);
+    const cancelWait = afterBootSplash(() => {
+      const begun = performance.now();
+      const tick = (now: number) => {
+        paint(now - begun);
+        if (now - begun < total) frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+    });
+    return () => {
+      cancelWait();
+      cancelAnimationFrame(frame);
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
   }, [metrics, diameter, still]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className="shrink-0" style={{ width: diameter, height: diameter }} />;

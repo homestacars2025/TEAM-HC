@@ -9,33 +9,20 @@ interface StaffAvatarProps {
 
 /**
  * Every staff picture in the dashboard. The name always sits beside it, so the
- * image itself is decorative. The hairline keeps the circle visible on a white
- * surface, where a character's white background would otherwise blend in.
+ * image itself is decorative. A default character is a bust rising out of the
+ * circle; someone's own photo is centred and fills it.
  */
 const StaffAvatar: React.FC<StaffAvatarProps> = ({ profile, size }) => {
   const src = getStaffAvatar(profile);
+  const fallback = getDefaultStaffAvatar(profile);
   // A dead `avatar_url` falls back to the default rather than a broken image.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const shown = failedSrc === src ? fallback : src;
 
   return (
-    <img
-      src={failedSrc === src ? getDefaultStaffAvatar(profile) : src}
-      alt=""
-      width={size}
-      height={size}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailedSrc(src)}
-      style={{
-        width: size,
-        height: size,
-        flexShrink: 0,
-        borderRadius: '50%',
-        objectFit: 'cover',
-        objectPosition: 'top center',
-        boxShadow: '0 0 0 1px var(--border-subtle)',
-      }}
-    />
+    <span className={`hc-avatar ${shown === fallback ? 'hc-avatar-bust' : ''}`} style={{ width: size, height: size }}>
+      <img src={shown} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
+    </span>
   );
 };
 

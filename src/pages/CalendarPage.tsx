@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import Button from '../components/Button';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -459,36 +460,18 @@ const BlockPopup: React.FC<{
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-            <button
+            <Button variant="secondary"
               onClick={() => { setMode('view'); setEditError(null); }}
               disabled={saving}
-              style={{
-                flex: 1, height: 36, borderRadius: 10,
-                border: `1px solid ${BORDER_SOFT}`,
-                background: 'white', cursor: saving ? 'not-allowed' : 'pointer',
-                fontSize: 13, fontWeight: 600, color: TEXT_MID,
-                fontFamily: FONT, opacity: saving ? 0.6 : 1,
-                transition: 'background 0.12s ease',
-              }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
-            >
+              style={{ flex: 1 }}
+>
               {t('common:actions.cancel')}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSave}
               disabled={saving}
-              style={{
-                flex: 1, height: 36, borderRadius: 10, border: 'none',
-                background: '#4ba6ea', cursor: saving ? 'not-allowed' : 'pointer',
-                fontSize: 13, fontWeight: 600, color: 'white',
-                fontFamily: FONT, opacity: saving ? 0.75 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                transition: 'opacity 0.12s ease',
-              }}
-              onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = saving ? '0.75' : '1'; }}
-            >
+              style={{ flex: 1 }}
+>
               {saving && (
                 <div style={{
                   width: 12, height: 12, borderRadius: '50%',
@@ -498,7 +481,7 @@ const BlockPopup: React.FC<{
                 }} />
               )}
               {saving ? t('calendar:popup.saving') : t('calendar:popup.save')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -510,36 +493,18 @@ const BlockPopup: React.FC<{
             {t('calendar:confirmDelete')}
           </p>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button
+            <Button variant="secondary"
               onClick={() => setMode('view')}
               disabled={deleting}
-              style={{
-                flex: 1, height: 36, borderRadius: 10,
-                border: `1px solid ${BORDER_SOFT}`,
-                background: 'white', cursor: deleting ? 'not-allowed' : 'pointer',
-                fontSize: 13, fontWeight: 600, color: TEXT_MID,
-                fontFamily: FONT, opacity: deleting ? 0.6 : 1,
-                transition: 'background 0.12s ease',
-              }}
-              onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
-            >
+              style={{ flex: 1 }}
+>
               {t('common:actions.cancel')}
-            </button>
-            <button
+            </Button>
+            <Button variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
-              style={{
-                flex: 1, height: 36, borderRadius: 10, border: 'none',
-                background: '#ef4444', cursor: deleting ? 'not-allowed' : 'pointer',
-                fontSize: 13, fontWeight: 600, color: 'white',
-                fontFamily: FONT, opacity: deleting ? 0.75 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                transition: 'opacity 0.12s ease',
-              }}
-              onMouseEnter={e => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = deleting ? '0.75' : '1'; }}
-            >
+              style={{ flex: 1 }}
+>
               {deleting && (
                 <div style={{
                   width: 12, height: 12, borderRadius: '50%',
@@ -549,7 +514,7 @@ const BlockPopup: React.FC<{
                 }} />
               )}
               {deleting ? t('calendar:popup.deleting') : t('common:actions.delete')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -937,7 +902,7 @@ const CalendarPage: React.FC = () => {
       <div style={{ padding: '32px 32px 20px', flexShrink: 0, background: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
             {t('calendar:eyebrow')}
           </span>
         </div>
@@ -1030,21 +995,11 @@ const CalendarPage: React.FC = () => {
           </button>
 
           {!isCurrentMonth && (
-            <button
+            <Button
               onClick={() => setCurrentMonth(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
-              style={{
-                height: 34, padding: '0 18px',
-                borderRadius: 20, border: 'none',
-                background: AIRBNB_RED, color: 'white',
-                fontSize: 13.5, fontWeight: 600,
-                cursor: 'pointer', fontFamily: FONT,
-                transition: 'opacity 0.15s ease',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
             >
               {t('calendar:today')}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -1213,16 +1168,12 @@ const CalendarPage: React.FC = () => {
             <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <span style={{ fontSize: 14, color: '#b91c1c', flex: 1 }}>{error}</span>
-          <button
+          <Button
             onClick={loadData}
-            style={{
-              background: AIRBNB_RED, color: 'white', border: 'none',
-              borderRadius: 20, padding: '7px 18px', fontSize: 13,
-              fontWeight: 600, cursor: 'pointer', fontFamily: FONT, flexShrink: 0,
-            }}
-          >
+            style={{ flexShrink: 0 }}
+>
             {t('calendar:retry')}
-          </button>
+          </Button>
         </div>
       )}
 
