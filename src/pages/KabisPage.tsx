@@ -48,6 +48,7 @@ const KABIS_SELECT = `
 
 /** Figures stay column-aligned across rows. */
 const NUM: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
+const MONO: React.CSSProperties = { ...NUM, fontFamily: 'var(--font-mono)' };
 
 const STATUS_CONFIG: Record<KabisStatus, { color: string; bg: string }> = {
   pending:     { color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
@@ -475,7 +476,7 @@ const KabisPage: React.FC = () => {
             {t('eyebrow')}
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
           {t('title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.6, margin: 0, maxWidth: 640 }}>
@@ -643,13 +644,13 @@ const KabisPage: React.FC = () => {
                           transition: 'background 160ms ease',
                         }}
                       >
-                        <td style={{ ...td, ...NUM, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
+                        <td style={{ ...td, ...MONO, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
                           {dash(entry.plate_number)}
                         </td>
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatKm(entry.km, t('km'))}</td>
                         <td style={{ ...td, maxWidth: 200 }}>{dash(entry.customer_name)}</td>
-                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{dash(entry.customer_id_number)}</td>
-                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{dash(entry.booking_number)}</td>
+                        <td style={{ ...td, ...MONO, whiteSpace: 'nowrap' }}>{dash(entry.customer_id_number)}</td>
+                        <td style={{ ...td, ...MONO, whiteSpace: 'nowrap' }}>{dash(entry.booking_number)}</td>
                         <td style={td}><ActionBadge action={entry.action_type} /></td>
                         <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatDate(entry.operation_date, dateLocale)}</td>
                         <td style={td}>

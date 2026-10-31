@@ -192,7 +192,7 @@ const TaskCard: React.FC<{
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
         <h3 style={{
           flex: 1, minWidth: 180, margin: 0,
-          fontSize: 15, fontWeight: 700, color: '#0f1117', lineHeight: 1.55,
+          fontSize: 15, fontWeight: 500, color: '#0f1117', lineHeight: 1.55,
           textDecoration: isDone ? 'line-through' : 'none',
         }}>
           {title}
@@ -392,7 +392,7 @@ const TasksPage: React.FC = () => {
             {t('eyebrow')}
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117', lineHeight: 1.15, margin: '0 0 6px' }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.6px', color: '#0f1117', lineHeight: 1.15, margin: '0 0 6px' }}>
           {t('title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>

@@ -141,7 +141,7 @@ const LoginPage: React.FC = () => {
           <h2 style={{
             color: 'white',
             fontSize: 36,
-            fontWeight: 700,
+            fontWeight: 500,
             lineHeight: 1.2,
             letterSpacing: '-0.8px',
             marginBottom: 16,
@@ -216,7 +216,7 @@ const LoginPage: React.FC = () => {
         <div style={{ marginBottom: 36 }}>
           <h1 style={{
             fontSize: 26,
-            fontWeight: 700,
+            fontWeight: 500,
             letterSpacing: '-0.5px',
             marginBottom: 8,
             color: 'var(--text-primary)',

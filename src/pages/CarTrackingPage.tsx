@@ -151,7 +151,7 @@ const CarTrackingPage: React.FC = () => {
             {t('eyebrow')}
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
           {t('title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
@@ -264,7 +264,7 @@ const CarTrackingPage: React.FC = () => {
                   <tr key={row.car_id} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
                     <td style={{ padding: '12px 14px' }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
-                        {row.plate_number}
+                        <span className="hc-num">{row.plate_number}</span>
                       </span>
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151' }}>

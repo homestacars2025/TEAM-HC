@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { fmt, fmtKm, fmtFuel, fmtDate, infoRow, infoRowPair } from './printContract';
+import { printFontStyles } from './printFonts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,14 +113,12 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Replacement – ${sheetNo}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+${printFontStyles()}
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-family: var(--font-sans);
     font-size: 10.5px;
     color: #111;
     background: #fff;
@@ -144,7 +143,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-family: var(--font-sans);
     font-size: 13px;
     font-weight: 500;
   }
@@ -220,7 +219,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     text-transform: uppercase;
   }
   .doc-title-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 13px;
     font-weight: 700;
     color: #1a2942;
@@ -247,7 +246,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     gap: 6px;
   }
   .section-bar .bar-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     font-weight: 400;
     letter-spacing: 0;
@@ -304,7 +303,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .lbl-ar {
     display: block;
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8px;
     color: #9ca3af;
     direction: rtl;
@@ -405,7 +404,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .ack-line:last-child { margin-bottom: 0; }
   .ack-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     direction: rtl;
     text-align: right;
@@ -448,7 +447,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     margin-bottom: 8px;
   }
   .terms-col-header.ar-col {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 10px;
     letter-spacing: 0;
   }
@@ -469,13 +468,13 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
   }
   .terms-col-ar { direction: rtl; text-align: right; }
   .terms-col-ar .clause-title {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8.5px;
     letter-spacing: 0;
     text-transform: none;
   }
   .terms-col-ar .clause-body {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 8px;
     text-align: right;
   }
@@ -505,7 +504,7 @@ function buildHTML(sheet: ReplacementSheet, cust: CustomerData): string {
     margin-bottom: 2px;
   }
   .sig-title-ar {
-    font-family: 'Cairo', sans-serif;
+    font-family: var(--font-plex-arabic), sans-serif;
     font-size: 9px;
     color: #6b7280;
     direction: rtl;

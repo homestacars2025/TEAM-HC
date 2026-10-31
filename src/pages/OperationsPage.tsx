@@ -2552,7 +2552,7 @@ const OperationsPage: React.FC = () => {
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>{t('eyebrow')}</span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>{t('title')}</h1>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>{t('title')}</h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>{t('subtitle')}</p>
         </div>
 
@@ -2686,7 +2686,7 @@ const OperationsPage: React.FC = () => {
 
                   <td style={td}><TypeBadge type={op.type} /></td>
 
-                  <td style={{ ...td, fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>{op.plate_number}</td>
+                  <td style={{ ...td, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: 12, fontWeight: 600 }}>{op.plate_number}</td>
 
                   <td style={{ ...td, color: op.handler_name ? '#374151' : '#d1d5db' }}>
                     {op.handler_name ?? '—'}

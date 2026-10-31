@@ -15,22 +15,6 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
 
     <!--
-      Cairo — the same Arabic face homestacars.com uses, at the same five weights,
-      so the dashboard and the public site read as one brand. Latin text keeps the
-      system stack; index.css only switches to this family under html[dir="rtl"].
-
-      Served from the Google CDN for now. Self-hosting the woff2 subsets (as the
-      site does) would drop a third-party request and stop shipping the font to
-      English-only users — deferred as a performance pass.
-    -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-
-    <!--
       Runs before React mounts so an Arabic user never sees a left-to-right flash.
       The LanguageProvider applies the same values again on mount and on every change.
       Keys must stay in sync with LANG_STORAGE_KEY (src/i18n.ts) and

@@ -16,7 +16,7 @@ export function PageHeader({ eyebrow, title, subtitle, className }: PageHeaderPr
         <span aria-hidden className="size-1.5 rounded-full bg-primary" />
         <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">{eyebrow}</span>
       </div>
-      <h1 className="text-[24px] font-semibold tracking-[-0.022em] text-foreground">{title}</h1>
+      <h1 className="text-[24px] font-medium tracking-[-0.022em] text-foreground">{title}</h1>
       <p className="mt-1 text-[13.5px] tracking-[-0.005em] text-muted-foreground">{subtitle}</p>
     </div>
   );

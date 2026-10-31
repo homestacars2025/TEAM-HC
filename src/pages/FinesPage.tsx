@@ -1133,13 +1133,13 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
                 background: '#f3f4f6', borderRadius: 6, padding: '2px 8px',
                 fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
               }}>
-                {fine.plate_number}
+                <span className="hc-num">{fine.plate_number}</span>
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>{t('payment.fineAmount')}</span>
               <span style={{ fontSize: 22, fontWeight: 800, color: '#ef4444', letterSpacing: '-0.5px' }}>
-                {formatAmount(fine.amount)}
+                <span className="hc-num">{formatAmount(fine.amount)}</span>
               </span>
             </div>
           </div>
@@ -1392,7 +1392,7 @@ const FinesPage: React.FC = () => {
             {t('eyebrow')}
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, color: '#0f1117', letterSpacing: '-0.8px', margin: 0 }}>
           {t('title')}
         </h1>
         <p style={{ fontSize: 14, color: '#6b7280', marginTop: 4 }}>
@@ -1592,18 +1592,18 @@ const FinesPage: React.FC = () => {
                           display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
                           padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
                         }}>
-                          {fine.plate_number}
+                          <span className="hc-num">{fine.plate_number}</span>
                         </span>
                       </td>
                       <td style={{ padding: '11px 12px' }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{fine.violation_number}</span>
+                        <span className="hc-num" style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{fine.violation_number}</span>
                       </td>
                       <td style={{ padding: '11px 12px' }}>
                         <span style={{ fontSize: 13, color: '#374151' }}>{fine.customer_name || '—'}</span>
                       </td>
                       <td style={{ padding: '11px 12px', textAlign: 'end' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: fine.status === 'unpaid' ? '#ef4444' : '#0f1117' }}>
-                          {formatAmount(fine.amount)}
+                          <span className="hc-num">{formatAmount(fine.amount)}</span>
                         </span>
                       </td>
                       <td style={{ padding: '11px 12px' }}>

@@ -39,7 +39,7 @@ const Notice: React.FC<{
           <path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       </div>
-      <h1 className="mb-2 text-base font-extrabold text-[#0f1117]">{title}</h1>
+      <h1 className="mb-2 text-base font-medium text-[#0f1117]">{title}</h1>
       {body && <p className="mb-5 text-sm leading-relaxed text-gray-500">{body}</p>}
       {children}
     </div>

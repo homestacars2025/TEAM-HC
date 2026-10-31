@@ -28,7 +28,7 @@ const TEXT_DARK   = '#222222';
 const TEXT_MID    = '#717171';
 const TEXT_LIGHT  = '#aaaaaa';
 const BORDER_SOFT = '#f0f0f0';
-const FONT        = "'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const FONT        = 'var(--font-sans)';
 
 const LEFT_W = 200;
 const COL_W  = 40;
@@ -335,7 +335,7 @@ const BlockPopup: React.FC<{
           </div>
         )}
         <div style={{ fontSize: 12.5, color: TEXT_MID }}>
-          <span style={{ fontWeight: 600, color: TEXT_DARK }}>{car.plate_number}</span>
+          <span className="hc-num" style={{ fontWeight: 600, color: TEXT_DARK }}>{car.plate_number}</span>
           {' · '}
           {car.model_name}
         </div>
@@ -941,7 +941,7 @@ const CalendarPage: React.FC = () => {
             {t('calendar:eyebrow')}
           </span>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 6px', lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 6px', lineHeight: 1.1 }}>
           {t('calendar:title')}
         </h1>
         <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
@@ -1335,7 +1335,7 @@ const CalendarPage: React.FC = () => {
                     gap: 2,
                   }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2 }}>
-                      {car.plate_number || '—'}
+                      <span className="hc-num">{car.plate_number || '—'}</span>
                     </div>
                     <div style={{
                       fontSize: 13, color: TEXT_MID, lineHeight: 1.2,

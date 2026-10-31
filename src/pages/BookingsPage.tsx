@@ -359,7 +359,7 @@ const BookingTableRow: React.FC<RowProps> = ({
     </td>
     <td style={{ padding: '9px 12px' }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.1px' }}>
-        {booking.booking_number}
+        <span className="hc-num">{booking.booking_number}</span>
       </span>
     </td>
     <td style={{ padding: '9px 12px' }}>
@@ -373,7 +373,7 @@ const BookingTableRow: React.FC<RowProps> = ({
         display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
         padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
       }}>
-        {booking.plate_number}
+        <span className="hc-num">{booking.plate_number}</span>
       </span>
     </td>
     <td style={{ padding: '9px 12px' }}>
@@ -2610,7 +2610,7 @@ const CarSearchSelect: React.FC<{
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
-                <span style={{ fontWeight: 700, flexShrink: 0 }}>{c.plate_number}</span>
+                <span className="hc-num" style={{ fontWeight: 700, flexShrink: 0 }}>{c.plate_number}</span>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>
                   {c.model ?? ''}
                 </span>
@@ -2973,7 +2973,7 @@ const ReplacementFormModal: React.FC<{
               <Field label={t('replacement.originalCar')} required={!isEdit}>
                 {isEdit ? (
                   <div dir="auto" style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
-                    {sheet?.original_plate ?? '—'}
+                    <span className="hc-num">{sheet?.original_plate ?? '—'}</span>
                     {sheet?.original_model ? ` — ${sheet.original_model}` : ''}
                   </div>
                 ) : (
@@ -3393,7 +3393,7 @@ const BookingsPage: React.FC = () => {
                 {t('eyebrow')}
               </span>
             </div>
-            <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
+            <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
               {t('title')}
             </h1>
             <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>{t('subtitle')}</p>
@@ -3683,14 +3683,14 @@ const BookingsPage: React.FC = () => {
                         {s.customer_name || '—'}
                         {s.original_booking_number && (
                           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                            {s.original_booking_number}
+                            <span className="hc-num">{s.original_booking_number}</span>
                           </div>
                         )}
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontWeight: 600 }}>{s.original_plate ?? '—'}</span>
+                        <span className="hc-num" style={{ fontWeight: 600 }}>{s.original_plate ?? '—'}</span>
                         <span style={{ color: '#4ba6ea', margin: '0 7px', fontWeight: 700 }}>→</span>
-                        <span style={{ fontWeight: 600 }}>{s.replacement_plate}</span>
+                        <span className="hc-num" style={{ fontWeight: 600 }}>{s.replacement_plate}</span>
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
                         {s.start_date} → {s.end_date}

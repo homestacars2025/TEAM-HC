@@ -182,7 +182,7 @@ export function MediaCalendarClient({
             </Button>
           </div>
 
-          <h2 className="text-[15px] font-semibold tracking-[-0.014em] text-black/85">
+          <h2 className="text-[15px] font-medium tracking-[-0.014em] text-black/85">
             {d.monthYear(month)}
           </h2>
 

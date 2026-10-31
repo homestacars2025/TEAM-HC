@@ -46,7 +46,7 @@ export function IdeaCard({ idea, goal, format, colorMode, isConverting, onEdit, 
       <div className="flex items-start gap-2">
         {/* `dir="auto"` so an English idea inside an Arabic page keeps its own
             punctuation at its own end — without it the full stop jumps to the left. */}
-        <h3 dir="auto" className="min-w-0 flex-1 text-[14.5px] font-semibold leading-snug tracking-[-0.012em] text-black/88">
+        <h3 dir="auto" className="min-w-0 flex-1 text-[14.5px] font-medium leading-snug tracking-[-0.012em] text-black/88">
           {idea.title}
         </h3>
         <Button

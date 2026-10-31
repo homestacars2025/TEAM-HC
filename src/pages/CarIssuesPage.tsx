@@ -881,11 +881,11 @@ const IssueDetailModal: React.FC<{
         )}
 
         <div style={{ marginBottom: 18 }}>
-          <DetailRow label={tc('fields.car')}>{issue.plate_number}{issue.model_name ? ` · ${issue.model_name}` : ''}</DetailRow>
+          <DetailRow label={tc('fields.car')}><span className="hc-num">{issue.plate_number}</span>{issue.model_name ? ` · ${issue.model_name}` : ''}</DetailRow>
           <DetailRow label={t('detail.discovered')}>{formatDate(issue.discovered_at, dateLocale)}</DetailRow>
           <DetailRow label={t('detail.loggedBy')}>{issue.discovered_by_name ?? '—'}</DetailRow>
           <DetailRow label={tc('fields.customer')}>{issue.customer_name ?? '—'}</DetailRow>
-          <DetailRow label={tc('fields.booking')}>{issue.booking_number ?? '—'}</DetailRow>
+          <DetailRow label={tc('fields.booking')}><span className="hc-num">{issue.booking_number ?? '—'}</span></DetailRow>
           <DetailRow label={t('detail.resolved')}>{status === 'resolved' ? formatDate(issue.resolved_at, dateLocale) : '—'}</DetailRow>
         </div>
 
@@ -1013,7 +1013,7 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
       <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 15, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-            {issue.plate_number}
+            <span className="hc-num">{issue.plate_number}</span>
           </span>
           {issue.model_name && (
             <span style={{ fontSize: 12.5, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1169,7 +1169,7 @@ const CarIssuesPage: React.FC = () => {
               {t('eyebrow')}
             </span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
             {t('title')}
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { printFontStyles } from './printFonts';
 
 /* ────────────────────────────────────────────────────────────────────────────
    printCustomerInvoice — replicates the ADMIN dashboard customer invoice
@@ -91,9 +92,10 @@ export async function printCustomerInvoice(
 <html lang="en"><head>
 <meta charset="UTF-8">
 <title>Invoice ${invNum} — HomestaCars</title>
+${printFontStyles()}
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:#f0f2f5;color:#0f1117;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-family:var(--font-sans);background:#f0f2f5;color:#0f1117;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-bar{text-align:center;padding:24px 0 16px;background:#f0f2f5}
   .print-btn{padding:11px 32px;background:#4ba6ea;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.3px;box-shadow:0 4px 12px rgba(75,166,234,.35)}
   .print-btn:hover{background:#3a95d9}

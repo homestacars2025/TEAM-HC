@@ -618,7 +618,7 @@ const CarsPage: React.FC = () => {
           </div>
           <h1 style={{
             fontSize: 30,
-            fontWeight: 800,
+            fontWeight: 500,
             letterSpacing: '-0.8px',
             color: '#0f1117',
             marginBottom: 6,
@@ -879,7 +879,7 @@ const CarsPage: React.FC = () => {
                     <tr key={car.plate_number + idx} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
                       <td style={{ padding: '12px 14px' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
-                          {car.plate_number}
+                          <span className="hc-num">{car.plate_number}</span>
                         </span>
                       </td>
                       <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151' }}>

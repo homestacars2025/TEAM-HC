@@ -140,7 +140,7 @@ const RowItem: React.FC<{ row: AlertRow; divider: boolean }> = ({ row, divider }
     }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.3px', marginBottom: 3 }}>
-          {row.plate_number}
+          <span className="hc-num">{row.plate_number}</span>
         </div>
         <div style={{ fontSize: 12, color: '#9ca3af' }}>
           {row.model}

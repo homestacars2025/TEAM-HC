@@ -626,7 +626,7 @@ const ModelGroupsPage: React.FC = () => {
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4ba6ea', letterSpacing: '0.8px', textTransform: 'uppercase' }}>{t('eyebrow')}</span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
             {t('title')}
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280' }}>

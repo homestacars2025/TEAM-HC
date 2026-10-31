@@ -272,7 +272,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
             padding: '20px 24px', borderBottom: '1px solid #f0f0f0', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{title}</h3>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 500, color: '#0f1117' }}>{title}</h3>
             <button onClick={onClose} style={{
               width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb',
               background: '#fff', cursor: 'pointer', color: '#9ca3af',
@@ -480,7 +480,7 @@ const CarSheetsTab: React.FC<{
               >
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: active ? '#2e8fd4' : '#0f1117' }}>
-                    {car.plate_number}
+                    <span className="hc-num">{car.plate_number}</span>
                   </span>
                   <span style={{ display: 'block', fontSize: 12, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {car.model_name || '—'}
@@ -556,7 +556,7 @@ const CarSheetsTab: React.FC<{
                         : <span style={{ color: '#d1d5db' }}>—</span>}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: txn.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      {txn.direction === 'IN' ? '+' : '−'}{fmt(txn.amount)}
+                      <span className="hc-num">{txn.direction === 'IN' ? '+' : '−'}{fmt(txn.amount)}</span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -993,7 +993,7 @@ const CompanyExpensesSection: React.FC<{
                       ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', fontWeight: 600, textDecoration: 'none' }}>{t('receipt.view')}</a>
                       : '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
+                      <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -1353,7 +1353,7 @@ const WalletHistoryModal: React.FC<{
                       {r.receipt_url && <> · <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#4ba6ea', textDecoration: 'none' }}>{t('wallets.receipt')}</a></>}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      {r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}
+                      <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -1588,7 +1588,7 @@ const CustomersMovedPanel: React.FC = () => {
         <path d="M16 12h5v4h-5a2 2 0 010-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     </div>
-    <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#0f1117' }}>
+    <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 500, color: '#0f1117' }}>
       {t('customers.movedTitle')}
     </h3>
     <p style={{ margin: '0 auto 22px', fontSize: 14, color: '#6b7280', lineHeight: 1.6, maxWidth: 460 }}>
@@ -1922,7 +1922,7 @@ const AccountingPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.6px', color: '#0f1117' }}>{t('title')}</h1>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 500, letterSpacing: '-0.6px', color: '#0f1117' }}>{t('title')}</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>{t('subtitle')}</p>
         </div>
 

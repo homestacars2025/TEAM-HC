@@ -266,7 +266,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
             padding: '20px 24px', borderBottom: '1px solid #f0f0f0', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f1117' }}>{title}</h3>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 500, color: '#0f1117' }}>{title}</h3>
             <button onClick={onClose} style={{
               width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb',
               background: '#fff', cursor: 'pointer', color: '#9ca3af',
@@ -666,7 +666,7 @@ const CW_STYLES = `
 
 /* ── Header ── */
 .cw-head { margin-bottom:22px; }
-.cw-h1 { margin:0; font-size:28px; font-weight:800; letter-spacing:-.8px; color:var(--cw-ink); }
+.cw-h1 { margin:0; font-size:28px; font-weight:500; letter-spacing:-.8px; color:var(--cw-ink); }
 .cw-sub { margin:5px 0 0; font-size:14px; color:var(--cw-muted); }
 
 /* ── Stat cards ── */

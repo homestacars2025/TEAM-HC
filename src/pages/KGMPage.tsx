@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../lib/CurrencyContext';
+import { printFontStyles } from '../lib/printFonts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -443,10 +444,11 @@ const KGMPage: React.FC = () => {
 <head>
   <meta charset="utf-8"/>
   <title>KGM-${dateStr}</title>
+  ${printFontStyles()}
   <style>
     @page { size: A4 landscape; margin: 20mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #111827; }
+    body { font-family: var(--font-sans); color: #111827; }
   </style>
 </head>
 <body>
@@ -473,7 +475,7 @@ const KGMPage: React.FC = () => {
       <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px">${totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}${fmt(totalDiff)}</div>
     </div>
   </div>
-  <table style="width:100%;border-collapse:collapse;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table style="width:100%;border-collapse:collapse;font-family:var(--font-sans)">
     <thead>
       <tr style="background:#f9fafb;-webkit-print-color-adjust:exact;print-color-adjust:exact">
         <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;border-bottom:2px solid #e5e7eb">Plate</th>
@@ -498,8 +500,16 @@ const KGMPage: React.FC = () => {
   </div>
   <script>
     window.onload = function() {
-      window.print();
-      setTimeout(function() { window.close(); }, 500);
+      // Reading layout starts the font requests; \`ready\` then waits for them. The
+      // timeout means a stalled font costs the typeface, never the printout.
+      document.body.offsetHeight;
+      Promise.race([
+        document.fonts.ready,
+        new Promise(function(resolve) { setTimeout(resolve, 2000); }),
+      ]).then(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 500);
+      });
     };
   </script>
 </body>
@@ -610,7 +620,7 @@ const KGMPage: React.FC = () => {
               {t('eyebrow')}
             </span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', marginBottom: 6, lineHeight: 1.1 }}>
             {t('title')}
           </h1>
           <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>
@@ -745,7 +755,7 @@ const KGMPage: React.FC = () => {
                           letterSpacing: '0.3px', whiteSpace: 'nowrap', overflow: 'hidden',
                           textOverflow: 'ellipsis', maxWidth: '100%',
                         }}>
-                          {car.plate_number}
+                          <span className="hc-num">{car.plate_number}</span>
                         </div>
                       </td>
                       <td style={{ padding: '14px 12px', overflow: 'hidden' }}>
@@ -758,7 +768,7 @@ const KGMPage: React.FC = () => {
                       </td>
                       <td style={{ padding: '14px 16px', textAlign: 'end' }}>
                         <span style={{ fontSize: 14, color: yVal === 0 ? '#d1d5db' : '#9ca3af', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                          {yVal === 0 ? '—' : fmt(yVal)}
+                          <span className="hc-num">{yVal === 0 ? '—' : fmt(yVal)}</span>
                         </span>
                       </td>
                       <td style={{ paddingBlock: '10px', paddingInlineStart: '8px', paddingInlineEnd: '12px', textAlign: 'end' }}>
@@ -802,7 +812,7 @@ const KGMPage: React.FC = () => {
                           fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap',
                           color: diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : '#d1d5db',
                         }}>
-                          {tVal === 0 && yVal === 0 ? '—' : `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(diff)}`}
+                          <span className="hc-num">{tVal === 0 && yVal === 0 ? '—' : `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(diff)}`}</span>
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
@@ -860,12 +870,12 @@ const KGMPage: React.FC = () => {
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'end' }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {fmt(totalYesterday)}
+                      <span className="hc-num">{fmt(totalYesterday)}</span>
                     </span>
                   </td>
                   <td style={{ padding: '14px 12px', textAlign: 'end' }}>
                     <span style={{ fontSize: 15, fontWeight: 800, color: '#0f1117', whiteSpace: 'nowrap' }}>
-                      {fmt(totalToday)}
+                      <span className="hc-num">{fmt(totalToday)}</span>
                     </span>
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'end' }}>
@@ -873,7 +883,7 @@ const KGMPage: React.FC = () => {
                       fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap',
                       color: totalDiff > 0 ? '#22c55e' : totalDiff < 0 ? '#ef4444' : '#9ca3af',
                     }}>
-                      {totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}{fmt(totalDiff)}
+                      <span className="hc-num">{totalDiff > 0 ? '+' : totalDiff < 0 ? '-' : ''}{fmt(totalDiff)}</span>
                     </span>
                   </td>
                   <td />
