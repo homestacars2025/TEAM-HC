@@ -98,6 +98,24 @@ export async function completeTask(id: string, notes?: string | null, proofUrl?:
   return { ok: true };
 }
 
+/**
+ * For the moment the page is going away. The browser cancels an ordinary request at
+ * that point, and supabase-js has no way to ask for `keepalive`, so this one is sent
+ * by hand. Nothing is left to read the answer, so there is no result.
+ */
+export function completeTaskOnExit(id: string, notes: string | null, proofUrl: string | null, accessToken: string): void {
+  fetch(`${process.env.REACT_APP_SUPABASE_URL}/rest/v1/rpc/complete_task`, {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: process.env.REACT_APP_SUPABASE_ANON_KEY as string,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ p_task_id: id, p_notes: notes, p_proof_url: proofUrl }),
+  }).catch(() => {});
+}
+
 export const proofTooLarge = (file: File): boolean => file.size > MAX_PROOF_BYTES;
 
 /** `{user_id}/{task_id}/{time}.{ext}`. A new name each time, so nothing is overwritten. */

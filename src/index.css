@@ -241,26 +241,97 @@ html[dir="rtl"] .hc-flip-path {
   100% { opacity: 0; transform: translateY(90px) rotate(320deg); }
 }
 
-/* A task being marked done: a check lands, then the card goes. */
-.hc-task-finishing {
-  animation: hc-task-out 300ms ease-in 420ms forwards;
+/* Marking a task done: the circle fills, the check draws, the card folds away. */
+.hc-task-fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 260ms ease-in, opacity 260ms ease-in;
 }
 
-.hc-task-check {
-  animation: hc-task-check 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+.hc-task-fold[data-leaving="true"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition-delay: 460ms;
 }
 
-@keyframes hc-task-check {
-  from { opacity: 0; transform: scale(0.4); }
-  to { opacity: 1; transform: scale(1); }
+.hc-task-circle {
+  transition: background-color 180ms ease, border-color 180ms ease;
 }
 
-@keyframes hc-task-out {
-  to { opacity: 0; transform: scale(0.97); }
+.hc-task-tick {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+}
+
+.hc-task-circle[data-done="true"] .hc-task-tick {
+  animation: hc-tick-draw 240ms ease-out 120ms forwards;
+}
+
+@keyframes hc-tick-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.hc-task-card {
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+@media (hover: hover) {
+  .hc-task-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(15, 17, 23, 0.07);
+  }
+}
+
+.hc-task-card:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.hc-segment-pill {
+  transition: inset-inline-start 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hc-progress-fill {
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hc-badge-bounce {
+  animation: hc-badge-bounce 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes hc-badge-bounce {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.hc-toast-in {
+  animation: hc-toast-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes hc-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hc-undo-timer {
+  animation: hc-undo-timer linear forwards;
+  transform-origin: left;
+}
+
+[dir="rtl"] .hc-undo-timer {
+  transform-origin: right;
+}
+
+@keyframes hc-undo-timer {
+  to { transform: scaleX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hc-task-finishing, .hc-task-check { animation: none; }
+  .hc-task-fold, .hc-task-fold[data-leaving="true"], .hc-task-circle, .hc-task-card, .hc-segment-pill, .hc-progress-fill { transition: none; }
+  .hc-task-tick { stroke-dashoffset: 0; }
+  .hc-task-circle[data-done="true"] .hc-task-tick, .hc-badge-bounce, .hc-toast-in { animation: none; }
+  .hc-task-card:hover { transform: none; }
   .hc-ring-fill { transition: none; }
   .hc-sheet { animation: none; }
   .hc-confetti { display: none; }

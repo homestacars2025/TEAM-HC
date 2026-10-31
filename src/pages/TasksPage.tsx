@@ -1,283 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import { useStaffProfiles } from '../hooks/useStaffProfiles';
 import { useInbox } from '../lib/InboxContext';
-import { BUSINESS_TIME_ZONE } from '../lib/istanbulTime';
 import { useUiDir } from '../lib/notifications/renderI18n';
-import { TASK_PAGE_SIZE, completeTask, getMyTasks, proofTooLarge, uploadTaskProof } from '../lib/queries/tasks';
-import { useTimeFormat } from '../lib/relative-time';
-import { TASK_GROUPS, groupTasks } from '../lib/taskGroups';
-import type { MyTask, TaskActionResult, TaskPriority } from '../lib/types/tasks';
-import { ReceiptThumb } from '../components/WalletParts';
+import { TASK_PAGE_SIZE, completeTask, completeTaskOnExit, getMyTasks, uploadTaskProof } from '../lib/queries/tasks';
+import { supabase } from '../lib/supabase';
+import { getDefaultStaffAvatar } from '../lib/staffAvatar';
+import { TASK_GROUPS, groupTasks, taskGroup, weekProgress } from '../lib/taskGroups';
+import type { MyTask, TaskActionResult } from '../lib/types/tasks';
+import Confetti from '../components/Confetti';
+import TaskCard from '../components/tasks/TaskCard';
+import TaskProofSheet from '../components/tasks/TaskProofSheet';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
-import { ReceiptLightbox, useDateLocale } from './AccountingPage';
+import { ReceiptLightbox } from './AccountingPage';
 
 /**
- * The signed-in person's tasks. Everything arrives assigned, so there is nothing to
- * claim: a task is done, missed, or still to do. Every write goes through an RPC,
- * and each one re-reads the list afterwards, because whether a task is still open
- * is a fact only the server holds.
+ * The signed-in person's tasks.
+ *
+ * Completing is optimistic, and there is no RPC to undo it, so the write itself
+ * waits: a card leaves at once, sits in Done for the length of the Undo toast, and
+ * only then reaches the server. Anything still waiting when the page goes away is
+ * sent right then, so leaving or closing the tab never loses a completion.
  */
 
 type Tab = 'active' | 'done' | 'missed';
 
 const TABS: Tab[] = ['active', 'done', 'missed'];
 
-/** Long enough for the check to land before the card leaves. */
-const FINISH_MS = 720;
-const DESCRIPTION_PREVIEW = 120;
-
-const PRIORITY_CHIP: Record<TaskPriority, string> = {
-  urgent: 'bg-red-50 text-red-700',
-  high: 'bg-orange-50 text-orange-700',
-  normal: 'bg-[var(--accent-soft)] text-[var(--accent-strong)]',
-  low: 'bg-gray-100 text-gray-600',
-};
-
-const GROUP_COLOR: Record<string, string> = { overdue: 'text-red-600' };
-
-const wait = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms));
-
-function useDateTime(): (iso: string) => string {
-  const locale = useDateLocale();
-  return useCallback((iso: string) => new Date(iso).toLocaleString(locale, {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: BUSINESS_TIME_ZONE,
-  }), [locale]);
-}
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-type ToastState = { message: string; tone: 'success' | 'error' | 'info' } | null;
-
-const TOAST_CLASS = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-[#0f1117]' };
-
-const Toast: React.FC<{ toast: NonNullable<ToastState>; dir: 'ltr' | 'rtl' }> = ({ toast, dir }) =>
-  ReactDOM.createPortal(
-    <div
-      dir={dir}
-      role="status"
-      className={`fixed start-1/2 top-5 z-[10000] max-w-[90vw] -translate-x-1/2 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-lg rtl:translate-x-1/2 ${TOAST_CLASS[toast.tone]}`}
-    >
-      {toast.message}
-    </div>,
-    document.body,
-  );
-
-function refusalMessage(t: TFunction, result: TaskActionResult): NonNullable<ToastState> {
-  switch (result.code) {
-    case 'not_open': return { message: t('toast.notOpen'), tone: 'info' };
-    case 'proof_required': return { message: t('toast.proofRequired'), tone: 'error' };
-    case 'forbidden': return { message: t('toast.forbidden'), tone: 'error' };
-    default: return { message: t('toast.completeFailed'), tone: 'error' };
-  }
-}
-
-// ─── Mark done ────────────────────────────────────────────────────────────────
-
-const CompleteDialog: React.FC<{
-  task: MyTask;
-  onCancel: () => void;
-  /** Resolves with a message to show, or `null` once the dialog can close. */
-  onConfirm: (notes: string, file: File | null) => Promise<string | null>;
-}> = ({ task, onCancel, onConfirm }) => {
-  const { t } = useTranslation('tasks');
-  const [notes, setNotes] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!file) { setPreview(null); return; }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onCancel(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel, saving]);
-
-  const pick = (picked: File | undefined) => {
-    if (!picked) return;
-    if (proofTooLarge(picked)) { setError(t('dialog.proofTooLarge')); return; }
-    setError(null);
-    setFile(picked);
-  };
-
-  const submit = async () => {
-    if (task.requires_proof && !file) { setError(t('dialog.proofMissing')); return; }
-    setSaving(true);
-    setError(null);
-    const message = await onConfirm(notes, file);
-    if (message) {
-      setError(message);
-      setSaving(false);
-    }
-  };
-
-  return ReactDOM.createPortal(
-    <div
-      className="fixed inset-0 z-[9000] flex items-end justify-center bg-[rgba(15,17,23,0.45)] p-3 sm:items-center"
-      onMouseDown={e => { if (e.target === e.currentTarget && !saving) onCancel(); }}
-    >
-      <div role="dialog" aria-modal="true" aria-label={t('dialog.title')} className="flex max-h-[calc(100dvh-24px)] w-full max-w-md flex-col overflow-y-auto rounded-2xl bg-[var(--surface)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-6">
-        <h2 className="text-base font-semibold text-[#0f1117]">{t('dialog.title')}</h2>
-        <p className="mt-1 text-sm text-gray-500">{task.title}</p>
-
-        {task.requires_proof && (
-          <div className="mt-4">
-            <div className="mb-1.5 text-[13px] font-medium text-gray-700">
-              {t('dialog.proofLabel')} <span className="font-normal text-red-600">{t('dialog.proofRequired')}</span>
-            </div>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={e => { pick(e.target.files?.[0]); e.target.value = ''; }}
-            />
-            {preview && <img src={preview} alt={t('dialog.proofAlt')} className="mb-2 max-h-48 w-full rounded-xl object-contain" />}
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => fileInput.current?.click()}
-              className="min-h-11 w-full cursor-pointer rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-700 transition-colors hover:border-[var(--accent)] disabled:cursor-default"
-            >
-              {file ? t('dialog.replacePhoto') : t('dialog.takePhoto')}
-            </button>
-          </div>
-        )}
-
-        <label className="mt-4 block">
-          <span className="mb-1.5 block text-[13px] font-medium text-gray-700">
-            {t('dialog.notesLabel')} <span className="font-normal text-gray-400">{t('dialog.notesOptional')}</span>
-          </span>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={3}
-            placeholder={t('dialog.notesPlaceholder')}
-            className="w-full resize-none rounded-xl border border-[var(--border-subtle)] p-3 text-base text-[#0f1117] outline-none transition-colors focus:border-[var(--accent)] sm:text-sm"
-          />
-        </label>
-
-        {error && <p role="alert" className="mt-2 text-[13px] text-red-600">{error}</p>}
-
-        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} disabled={saving} className="min-h-11 cursor-pointer rounded-xl border border-[var(--border-subtle)] px-5 text-sm font-medium text-gray-700 disabled:cursor-default disabled:opacity-60">
-            {t('dialog.cancel')}
-          </button>
-          <button type="button" onClick={submit} disabled={saving} className="min-h-11 cursor-pointer rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-default disabled:opacity-60">
-            {saving ? t('dialog.saving') : t('dialog.confirm')}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
-
-// ─── Task card ────────────────────────────────────────────────────────────────
-
-const TaskCard: React.FC<{
-  task: MyTask;
-  finishing: boolean;
-  onComplete: (task: MyTask) => void;
-  onOpenProof: (url: string) => void;
-}> = ({ task, finishing, onComplete, onOpenProof }) => {
-  const { t } = useTranslation('tasks');
-  const { due } = useTimeFormat();
-  const dateTime = useDateTime();
-  const [expanded, setExpanded] = useState(false);
-
-  const isActive = task.status === 'open' || task.status === 'claimed';
-  const deadline = isActive && task.due_at ? due(task.due_at) : null;
-  const description = task.description ?? '';
-  const isLong = description.length > DESCRIPTION_PREVIEW;
-
-  return (
-    <article className={`relative flex flex-col gap-2.5 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-4 sm:p-5 ${finishing ? 'hc-task-finishing' : ''}`}>
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="min-w-0 text-[15px] font-semibold leading-snug text-[#0f1117]">{task.title}</h3>
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${PRIORITY_CHIP[task.priority] ?? PRIORITY_CHIP.normal}`}>
-          {t(`priority.${task.priority}`)}
-        </span>
-      </div>
-
-      {description && (
-        <div className="text-[13px] leading-relaxed text-gray-600">
-          <p className={expanded || !isLong ? 'whitespace-pre-wrap' : 'line-clamp-2'}>{description}</p>
-          {isLong && (
-            <button type="button" onClick={() => setExpanded(open => !open)} aria-expanded={expanded} className="mt-1 min-h-8 cursor-pointer font-medium text-[var(--accent-strong)]">
-              {t(expanded ? 'showLess' : 'showMore')}
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-        {task.kind === 'recurring' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 12a8 8 0 0113.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 01-13.7 5.6L4 15M4 20v-5h5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            {t('kind.recurring')}
-          </span>
-        )}
-        {task.due_at && isActive && <bdi>{dateTime(task.due_at)}</bdi>}
-        {deadline && <span className={deadline.overdue ? 'font-semibold text-red-600' : 'font-medium text-[var(--accent-strong)]'}>{deadline.text}</span>}
-        {task.status === 'done' && task.completed_at && <span>{t('completedOn', { date: dateTime(task.completed_at) })}</span>}
-        {task.status === 'missed' && task.due_at && <span className="font-medium text-red-600">{t('wasDue', { date: dateTime(task.due_at) })}</span>}
-        {task.created_by_name && <span>{t('from', { name: task.created_by_name })}</span>}
-        {isActive && task.requires_proof && <span className="font-medium text-amber-700">{t('requiresProof')}</span>}
-      </div>
-
-      {task.status === 'done' && (task.completion_notes || task.proof_url) && (
-        <div className="flex items-start gap-3 rounded-xl bg-black/[0.03] p-3">
-          {task.proof_url && <ReceiptThumb url={task.proof_url} label={t('viewProof')} onOpen={onOpenProof} />}
-          {task.completion_notes && (
-            <p className="min-w-0 whitespace-pre-wrap text-[13px] leading-relaxed text-gray-600">
-              <span className="font-medium text-gray-700">{t('note')}: </span>{task.completion_notes}
-            </p>
-          )}
-        </div>
-      )}
-
-      {isActive && (
-        <div className="mt-1">
-          <button
-            type="button"
-            onClick={() => onComplete(task)}
-            disabled={finishing}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-default lg:min-h-10"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            {t('actions.complete')}
-          </button>
-        </div>
-      )}
-
-      {finishing && (
-        <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-white/80">
-          <span className="hc-task-check flex size-14 items-center justify-center rounded-full bg-emerald-600 text-white">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </span>
-        </span>
-      )}
-    </article>
-  );
-};
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+/** Circle fills and the check draws, then the card folds. Matches index.css. */
+const LEAVE_MS = 720;
+const UNDO_MS = 5000;
+const CLOCK_MS = 60_000;
 
 type Lists = Record<Tab, MyTask[]>;
 
@@ -288,11 +44,104 @@ const fetchLists = async (): Promise<Lists> => {
   return { active, done, missed };
 };
 
+function refusalMessage(t: TFunction, result: TaskActionResult): string {
+  switch (result.code) {
+    case 'not_open': return t('toast.notOpen');
+    case 'proof_required': return t('toast.proofRequired');
+    case 'forbidden': return t('toast.forbidden');
+    default: return t('toast.completeFailed');
+  }
+}
+
+interface Pending {
+  task: MyTask;
+  notes: string | null;
+  proofUrl: string | null;
+  timer: number;
+  /** Read up front, because a closing page has no time to ask for it. */
+  accessToken: string | null;
+}
+
+// ─── Pieces ───────────────────────────────────────────────────────────────────
+
+const Segments: React.FC<{ value: Tab; counts: Record<Tab, string | null>; onChange: (tab: Tab) => void }> = ({ value, counts, onChange }) => {
+  const { t } = useTranslation('tasks');
+  const index = TABS.indexOf(value);
+
+  return (
+    <div role="tablist" aria-label={t('tabs.aria')} className="relative grid w-full max-w-md grid-cols-3 rounded-full bg-black/[0.05] p-1">
+      <span
+        aria-hidden
+        className="hc-segment-pill absolute bottom-1 top-1 rounded-full bg-[var(--surface)] shadow-[0_1px_4px_rgba(15,17,23,0.12)]"
+        style={{ width: 'calc((100% - 8px) / 3)', insetInlineStart: `calc(4px + ${index} * (100% - 8px) / 3)` }}
+      />
+      {TABS.map(key => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={value === key}
+          onClick={() => onChange(key)}
+          className={`relative z-[1] inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full text-[13.5px] font-semibold transition-colors ${value === key ? 'text-[#0f1117]' : 'text-gray-500'}`}
+        >
+          {t(`tabs.${key}`)}
+          {counts[key] !== null && <span className="text-xs font-medium text-gray-400">{counts[key]}</span>}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const CardSkeleton: React.FC = () => (
+  <div className="flex gap-3 rounded-2xl border border-[var(--border-subtle)] p-4">
+    <div className="size-[26px] shrink-0 animate-pulse rounded-full bg-black/[0.06]" />
+    <div className="min-w-0 flex-1">
+      <div className="h-4 w-1/2 animate-pulse rounded bg-black/[0.06]" />
+      <div className="mt-2.5 h-3 w-4/5 animate-pulse rounded bg-black/[0.04]" />
+      <div className="mt-3 flex gap-3">
+        <div className="h-3 w-16 animate-pulse rounded bg-black/[0.04]" />
+        <div className="h-3 w-20 animate-pulse rounded bg-black/[0.04]" />
+      </div>
+    </div>
+  </div>
+);
+
+const EmptyState: React.FC<{ tab: Tab; image: string }> = ({ tab, image }) => {
+  const { t } = useTranslation('tasks');
+  return (
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      <img src={image} alt="" loading="lazy" width={132} height={132} className="size-[132px] rounded-full object-cover object-top" />
+      <div className="mt-5 text-[17px] font-semibold text-[#0f1117]">{t(`empty.${tab}Title`)}</div>
+      <div className="mt-1.5 max-w-xs text-sm leading-relaxed text-gray-500">{t(`empty.${tab}Body`)}</div>
+    </div>
+  );
+};
+
+const UndoToast: React.FC<{ task: MyTask; onUndo: () => void }> = ({ task, onUndo }) => {
+  const { t } = useTranslation('tasks');
+  return (
+    <div role="status" className="hc-toast-in relative overflow-hidden rounded-2xl bg-[#0f1117] text-white shadow-[0_12px_40px_rgba(15,17,23,0.3)]">
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{t('undo.done', { title: task.title })}</span>
+        <button type="button" onClick={onUndo} className="min-h-9 shrink-0 cursor-pointer rounded-lg px-2 text-sm font-semibold text-[var(--accent)]">
+          {t('undo.action')}
+        </button>
+      </div>
+      <span aria-hidden className="hc-undo-timer absolute inset-x-0 bottom-0 h-0.5 bg-[var(--accent)]" style={{ animationDuration: `${UNDO_MS}ms` }} />
+    </div>
+  );
+};
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 const TasksPage: React.FC = () => {
   const { t } = useTranslation('tasks');
   const dir = useUiDir();
-  const { userId } = useCurrentUser();
-  const { refresh: refreshInbox } = useInbox();
+  const { userId, profile } = useCurrentUser();
+  const { refresh: refreshInbox, tasksVersion, bumpTasks, adjustOpenTasks } = useInbox();
+  const staffProfiles = useStaffProfiles();
+  const [params] = useSearchParams();
+  const highlighted = params.get('task');
 
   const [tab, setTab] = useState<Tab>('active');
   const [lists, setLists] = useState<Lists>(NO_TASKS);
@@ -300,14 +149,20 @@ const TasksPage: React.FC = () => {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [completing, setCompleting] = useState<MyTask | null>(null);
-  const [finishing, setFinishing] = useState<Set<string>>(new Set());
-  const [proof, setProof] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
+  const [proving, setProving] = useState<MyTask | null>(null);
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
+  const [waiting, setWaiting] = useState<MyTask[]>([]);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState(0);
+  const [now, setNow] = useState(() => new Date());
 
-  const showToast = useCallback((next: NonNullable<ToastState>) => {
-    setToast(next);
-    window.setTimeout(() => setToast(null), 3200);
+  const pending = useRef(new Map<string, Pending>());
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    const clock = window.setInterval(() => setNow(new Date()), CLOCK_MS);
+    return () => window.clearInterval(clock);
   }, []);
 
   useEffect(() => {
@@ -323,49 +178,133 @@ const TasksPage: React.FC = () => {
 
   /** Silent: this runs after an action, and a spinner would flash more than it informs. */
   const reload = useCallback(async () => {
-    try { setLists(await fetchLists()); } catch { /* the list stays as it was */ }
+    try {
+      const next = await fetchLists();
+      if (mounted.current) setLists(next);
+    } catch { /* the list stays as it was */ }
   }, []);
 
-  const setFinished = (id: string, on: boolean) => setFinishing(prev => {
-    const next = new Set(prev);
-    if (on) next.add(id); else next.delete(id);
-    return next;
-  });
+  // A new task arrived, or another tab changed something.
+  useEffect(() => {
+    if (tasksVersion > 0) reload();
+  }, [tasksVersion, reload]);
 
-  /** Optimistic: the check lands at once, and a refusal puts the card back. */
-  const finish = async (task: MyTask, notes: string, proofUrl: string | null) => {
-    setCompleting(null);
-    setFinished(task.id, true);
-    const [result] = await Promise.all([completeTask(task.id, notes, proofUrl), wait(FINISH_MS)]);
+  const showError = useCallback((message: string) => {
+    setErrorToast(message);
+    window.setTimeout(() => setErrorToast(null), 3600);
+  }, []);
 
-    if (result.ok) {
-      showToast({ message: t('toast.completed'), tone: 'success' });
-    } else {
-      showToast(refusalMessage(t, result));
+  const commit = useCallback(async (id: string) => {
+    const entry = pending.current.get(id);
+    if (!entry) return;
+    window.clearTimeout(entry.timer);
+    pending.current.delete(id);
+
+    const result = await completeTask(id, entry.notes, entry.proofUrl);
+    if (mounted.current) {
+      await reload();
+      setWaiting(list => list.filter(task => task.id !== id));
+      if (!result.ok) showError(refusalMessage(t, result));
     }
-    await reload();
-    setFinished(task.id, false);
     refreshInbox();
+    bumpTasks();
+  }, [reload, refreshInbox, bumpTasks, showError, t]);
+
+  // Leaving is the moment nothing can wait any longer. Through a ref, so that a new
+  // `commit` (a language change remakes it) cannot count as leaving.
+  const latestCommit = useRef(commit);
+  latestCommit.current = commit;
+  useEffect(() => {
+    mounted.current = true;
+    const queue = pending.current;
+
+    // Closing or reloading: the browser would cancel an ordinary request.
+    const onPageHide = () => {
+      queue.forEach((entry, id) => {
+        window.clearTimeout(entry.timer);
+        if (entry.accessToken) completeTaskOnExit(id, entry.notes, entry.proofUrl, entry.accessToken);
+      });
+      queue.clear();
+    };
+    window.addEventListener('pagehide', onPageHide);
+
+    return () => {
+      mounted.current = false;
+      window.removeEventListener('pagehide', onPageHide);
+      // Moving to another page of the app: nothing is unloading, so the normal way.
+      Array.from(queue.keys()).forEach(id => { latestCommit.current(id); });
+    };
+  }, []);
+
+  const pendingIds = useMemo(() => new Set(waiting.map(task => task.id)), [waiting]);
+  const active = useMemo(() => lists.active.filter(task => !pendingIds.has(task.id)), [lists.active, pendingIds]);
+  const done = useMemo(() => [
+    ...waiting.map(task => ({ ...task, status: 'done' as const, completed_at: now.toISOString() })),
+    ...lists.done.filter(task => !pendingIds.has(task.id)),
+  ], [lists.done, waiting, pendingIds, now]);
+
+  const groups = useMemo(() => groupTasks(active, now), [active, now]);
+  const progress = useMemo(() => weekProgress(active, done, lists.missed, now), [active, done, lists.missed, now]);
+
+  const complete = useCallback((task: MyTask, notes: string | null, proofUrl: string | null) => {
+    setLeaving(prev => new Set(prev).add(task.id));
+    adjustOpenTasks(-1);
+
+    const isDueNow = ['overdue', 'today'].includes(taskGroup(task, now));
+    const remaining = active.filter(other => other.id !== task.id && ['overdue', 'today'].includes(taskGroup(other, now)));
+
+    const entry: Pending = {
+      task, notes, proofUrl,
+      accessToken: null,
+      timer: window.setTimeout(() => { commit(task.id); }, LEAVE_MS + UNDO_MS),
+    };
+    pending.current.set(task.id, entry);
+    supabase.auth.getSession().then(({ data }) => { entry.accessToken = data.session?.access_token ?? null; });
+
+    window.setTimeout(() => {
+      if (!mounted.current || !pending.current.has(task.id)) return;
+      setLeaving(prev => { const next = new Set(prev); next.delete(task.id); return next; });
+      setWaiting(list => [task, ...list]);
+      if (isDueNow && remaining.length === 0) setCelebrate(n => n + 1);
+    }, LEAVE_MS);
+  }, [active, adjustOpenTasks, commit, now]);
+
+  const undo = (id: string) => {
+    const entry = pending.current.get(id);
+    if (!entry) return;
+    window.clearTimeout(entry.timer);
+    pending.current.delete(id);
+    setWaiting(list => list.filter(task => task.id !== id));
+    adjustOpenTasks(1);
   };
 
-  const confirmDialog = async (notes: string, file: File | null): Promise<string | null> => {
-    const task = completing;
-    if (!task) return null;
-    let proofUrl: string | null = null;
-    if (file) {
-      if (!userId) return t('dialog.uploadFailed');
-      try {
-        proofUrl = await uploadTaskProof(userId, task.id, file);
-      } catch {
-        return t('dialog.uploadFailed');
-      }
+  const onTapCircle = useCallback((task: MyTask) => {
+    if (task.requires_proof) setProving(task);
+    else complete(task, null, null);
+  }, [complete]);
+
+  const confirmProof = async (notes: string, file: File): Promise<string | null> => {
+    const task = proving;
+    if (!task || !userId) return t('proof.uploadFailed');
+    try {
+      const url = await uploadTaskProof(userId, task.id, file);
+      setProving(null);
+      complete(task, notes.trim() || null, url);
+      return null;
+    } catch {
+      return t('proof.uploadFailed');
     }
-    finish(task, notes, proofUrl);
-    return null;
   };
 
-  const closeDialog = useCallback(() => setCompleting(null), []);
-  const closeProof = useCallback(() => setProof(null), []);
+  const closeProofSheet = useCallback(() => setProving(null), []);
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+
+  // Opened from a notification: bring that task to the middle of the screen.
+  useEffect(() => {
+    if (!highlighted || loading) return;
+    setTab('active');
+    document.querySelector(`[data-task="${highlighted}"]`)?.scrollIntoView({ block: 'center' });
+  }, [highlighted, loading]);
 
   const hasMore = (key: Tab) => lists[key].length > 0 && lists[key].length % TASK_PAGE_SIZE === 0;
 
@@ -375,55 +314,60 @@ const TasksPage: React.FC = () => {
       const rows = await getMyTasks(tab, TASK_PAGE_SIZE, lists[tab].length);
       setLists(prev => ({ ...prev, [tab]: [...prev[tab], ...rows] }));
     } catch {
-      showToast({ message: t('failed'), tone: 'error' });
+      showError(t('failed'));
     }
     setLoadingMore(false);
   };
 
-  const countOf = (key: Tab) => {
-    const count = key === 'active'
-      ? lists.active.filter(task => !finishing.has(task.id)).length
-      : lists[key].length;
-    return hasMore(key) ? `${count}+` : String(count);
+  const visible: Record<Tab, MyTask[]> = { active, done, missed: lists.missed };
+  const ready = !loading && !failed;
+  const counts: Record<Tab, string | null> = {
+    active: ready ? String(active.length) : null,
+    done: ready ? `${done.length}${hasMore('done') ? '+' : ''}` : null,
+    missed: ready ? `${lists.missed.length}${hasMore('missed') ? '+' : ''}` : null,
   };
 
-  const groups = useMemo(() => groupTasks(lists.active), [lists.active]);
-  const card = (task: MyTask) => (
-    <TaskCard key={task.id} task={task} finishing={finishing.has(task.id)} onComplete={setCompleting} onOpenProof={setProof} />
+  const creators = useMemo(
+    () => new Map(Array.from(staffProfiles?.values() ?? []).map(person => [person.full_name, person])),
+    [staffProfiles],
   );
-  const grid = 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3';
+  const card = (task: MyTask) => (
+    <TaskCard
+      key={task.id}
+      task={task}
+      now={now}
+      leaving={leaving.has(task.id)}
+      highlighted={task.id === highlighted}
+      from={creators.get(task.created_by_name)}
+      onComplete={onTapCircle}
+      onOpenProof={setLightbox}
+    />
+  );
+
+  const dueToday = groups.today.length;
+  const overdue = groups.overdue.length;
+  const todayLine = t('summary.today', { count: dueToday });
+  const overdueLine = t('summary.overdue', { count: overdue });
+  const summary = overdue > 0 ? t('summary.joined', { today: todayLine, overdue: overdueLine }) : todayLine;
+  const percent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-10">
-      <header>
-        <div className="mb-1 flex items-center gap-2">
-          <span className="size-1.5 rounded-full bg-[var(--accent)]" />
-          <span className="text-xs font-semibold text-[var(--accent-strong)]">{t('eyebrow')}</span>
-        </div>
-        <h1 className="text-2xl font-semibold text-[#0f1117] sm:text-[28px]">{t('title')}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t('subtitle')}</p>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 sm:p-6 lg:py-10">
+      <header className="relative">
+        {celebrate > 0 && <Confetti key={celebrate} pieces={22} />}
+        <h1 className="text-[32px] font-semibold leading-tight text-[#0f1117] sm:text-[36px]">{t('title')}</h1>
+        <p className="mt-1 min-h-6 text-[15px] text-gray-500">{ready && summary}</p>
+        {ready && progress.total > 0 && (
+          <div className="mt-3">
+            <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+              <div className="hc-progress-fill h-full rounded-full bg-[var(--accent)]" style={{ width: `${percent}%` }} />
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500">{t('progress', { done: progress.done, total: progress.total })}</p>
+          </div>
+        )}
       </header>
 
-      <div role="tablist" aria-label={t('tabs.aria')} className="flex flex-wrap gap-1.5">
-        {TABS.map(key => {
-          const selected = tab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => setTab(key)}
-              className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors lg:min-h-10 ${selected ? 'border-transparent bg-[var(--accent-strong)] text-white' : 'border-[var(--border-subtle)] bg-[var(--surface)] text-gray-600 hover:border-gray-300'}`}
-            >
-              {t(`tabs.${key}`)}
-              {!loading && !failed && (
-                <span className={`rounded-full px-1.5 text-xs font-bold leading-5 ${selected ? 'bg-white/20' : 'bg-black/[0.05] text-gray-500'}`}>{countOf(key)}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <Segments value={tab} counts={counts} onChange={setTab} />
 
       {failed ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--border-subtle)] px-6 py-14 text-center">
@@ -433,28 +377,29 @@ const TasksPage: React.FC = () => {
           </button>
         </div>
       ) : loading ? (
-        <div aria-busy className={grid}>
-          {[0, 1, 2].map(i => <div key={i} className="h-40 animate-pulse rounded-2xl bg-black/[0.04]" />)}
+        <div aria-busy className="flex flex-col gap-3">
+          {[0, 1, 2, 3].map(i => <CardSkeleton key={i} />)}
         </div>
-      ) : lists[tab].length === 0 ? (
-        <div className="rounded-2xl border border-[var(--border-subtle)] px-6 py-14 text-center">
-          <div className="text-[17px] font-semibold text-[#0f1117]">{t(`empty.${tab}Title`)}</div>
-          <div className="mt-2 text-sm text-gray-500">{t(`empty.${tab}Body`)}</div>
-        </div>
+      ) : visible[tab].length === 0 ? (
+        <EmptyState tab={tab} image={getDefaultStaffAvatar(profile)} />
       ) : tab === 'active' ? (
-        TASK_GROUPS.filter(group => groups[group].length > 0).map(group => (
-          <section key={group}>
-            <h2 className={`mb-2.5 text-[13px] font-semibold ${GROUP_COLOR[group] ?? 'text-gray-600'}`}>
-              {t(`groups.${group}`)} <span className="font-normal opacity-70">({groups[group].length})</span>
-            </h2>
-            <div className={grid}>{groups[group].map(card)}</div>
-          </section>
-        ))
+        <div className="flex flex-col gap-5">
+          {TASK_GROUPS.filter(group => groups[group].length > 0).map(group => (
+            <section key={group}>
+              <h2 className="sticky top-0 z-10 -mx-1 mb-1.5 flex items-center gap-2 bg-white/85 px-1 py-2 text-[13px] font-semibold text-gray-600 backdrop-blur-sm">
+                {group === 'overdue' && <span className="size-2 rounded-full bg-red-500" />}
+                <span className={group === 'overdue' ? 'text-red-600' : undefined}>{t(`groups.${group}`)}</span>
+                <span className="font-normal text-gray-400">{groups[group].length}</span>
+              </h2>
+              <div className="flex flex-col gap-2.5">{groups[group].map(card)}</div>
+            </section>
+          ))}
+        </div>
       ) : (
-        <div className={grid}>{lists[tab].map(card)}</div>
+        <div className="flex flex-col gap-2.5">{visible[tab].map(card)}</div>
       )}
 
-      {!loading && !failed && hasMore(tab) && (
+      {ready && hasMore(tab) && (
         <div className="flex justify-center">
           <button type="button" onClick={loadMore} disabled={loadingMore} className="min-h-11 cursor-pointer rounded-xl border border-[var(--border-subtle)] px-5 text-sm font-medium text-gray-700 disabled:cursor-default disabled:opacity-60">
             {t('loadMore')}
@@ -462,9 +407,18 @@ const TasksPage: React.FC = () => {
         </div>
       )}
 
-      {completing && <CompleteDialog task={completing} onCancel={closeDialog} onConfirm={confirmDialog} />}
-      {proof && <ReceiptLightbox url={proof} onClose={closeProof} />}
-      {toast && <Toast toast={toast} dir={dir} />}
+      {proving && <TaskProofSheet task={proving} onCancel={closeProofSheet} onConfirm={confirmProof} />}
+      {lightbox && <ReceiptLightbox url={lightbox} onClose={closeLightbox} />}
+
+      {ReactDOM.createPortal(
+        <div dir={dir} className="pointer-events-none fixed inset-x-3 bottom-4 z-[9400] mx-auto flex max-w-sm flex-col gap-2 [&>*]:pointer-events-auto">
+          {errorToast && <div role="alert" className="hc-toast-in rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg">{errorToast}</div>}
+          {waiting.filter(task => pending.current.has(task.id)).map(task => (
+            <UndoToast key={task.id} task={task} onUndo={() => undo(task.id)} />
+          ))}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 };

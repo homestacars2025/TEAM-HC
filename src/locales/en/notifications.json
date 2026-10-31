@@ -66,5 +66,8 @@
       "title": "Overdue: {{title}}",
       "body": "Past its due time"
     }
+  },
+  "toast": {
+    "open": "Open"
   }
 }

@@ -26,7 +26,7 @@ const TasksBell: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { unreadCount, refresh, notificationsOpen: open, setNotificationsOpen: setOpen } = useInbox();
+  const { unreadCount, refresh, notificationsOpen: open, setNotificationsOpen: setOpen, arrival } = useInbox();
   const { pages, canAccessPage } = usePageAccess();
   const { t } = useTranslation('notifications');
   const openNotification = useOpenNotification();
@@ -48,6 +48,12 @@ const TasksBell: React.FC = () => {
   useEffect(() => {
     if (open) load();
   }, [open, load]);
+
+  // Delivered live while the panel is open: it goes straight to the top.
+  useEffect(() => {
+    if (!arrival) return;
+    setItems(prev => [arrival, ...prev.filter(x => x.id !== arrival.id)].slice(0, PANEL_LIMIT));
+  }, [arrival]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +98,8 @@ const TasksBell: React.FC = () => {
           <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
         {unreadCount > 0 && (
-          <span style={{
+          // Keyed on the arrival, so each new one replays the bounce.
+          <span key={arrival?.id ?? 'badge'} className={arrival ? 'hc-badge-bounce' : undefined} style={{
             position: 'absolute', top: -5, insetInlineEnd: -5,
             minWidth: 18, height: 18, padding: '0 5px',
             borderRadius: 9, background: '#ef4444', color: '#fff',

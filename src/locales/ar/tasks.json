@@ -1,7 +1,21 @@
 {
-  "eyebrow": "الفريق",
   "title": "مهامي",
-  "subtitle": "المهام الموجّهة لك. علّمها كمنجزة عند الانتهاء.",
+  "summary": {
+    "today_zero": "ما عندك مهام اليوم",
+    "today_one": "عندك مهمة واحدة اليوم",
+    "today_two": "عندك مهمتان اليوم",
+    "today_few": "عندك {{count}} مهام اليوم",
+    "today_many": "عندك {{count}} مهمة اليوم",
+    "today_other": "عندك {{count}} مهمة اليوم",
+    "overdue_zero": "لا شيء متأخر",
+    "overdue_one": "وحدة متأخرة",
+    "overdue_two": "ثنتين متأخرتين",
+    "overdue_few": "{{count}} متأخرة",
+    "overdue_many": "{{count}} متأخرة",
+    "overdue_other": "{{count}} متأخرة",
+    "joined": "{{today}}، {{overdue}}"
+  },
+  "progress": "أنجزت {{done}} من {{total}} هذا الأسبوع",
   "tabs": {
     "aria": "حالة المهام",
     "active": "نشطة",
@@ -13,36 +27,34 @@
   "groups": {
     "overdue": "متأخرة",
     "today": "اليوم",
-    "upcoming": "القادمة",
+    "tomorrow": "غداً",
+    "week": "هذا الأسبوع",
+    "later": "لاحقاً",
     "noDue": "بدون موعد"
   },
   "empty": {
-    "activeTitle": "ما عندك مهام — عاش! 🎉",
-    "activeBody": "كل شي مخلّص. رح تشوف المهام الجديدة هون أول ما تنضاف.",
+    "activeTitle": "ما عندك مهام اليوم — يومك نظيف ✨",
+    "activeBody": "رح تشوف المهام الجديدة هون أول ما تنضاف.",
     "doneTitle": "ما في مهام منجزة بعد",
-    "doneBody": "أول ما تخلّص مهمة رح تنتقل لهون.",
-    "missedTitle": "لا توجد مهام فائتة",
-    "missedBody": "تظهر هنا المهام التي فات موعدها دون إنجاز."
+    "doneBody": "كل مهمة تخلّصها رح تنتقل لهون.",
+    "missedTitle": "ما فاتتك أي مهمة",
+    "missedBody": "ماشي تمام، خلّيك هيك."
   },
-  "priority": {
-    "urgent": "عاجلة",
-    "high": "مهمة",
-    "normal": "عادية",
-    "low": "منخفضة"
+  "card": {
+    "complete": "إنجاز «{{title}}»",
+    "completeWithProof": "إضافة صورة وإنجاز «{{title}}»",
+    "more": "المزيد",
+    "less": "أقل",
+    "recurring": "متكررة",
+    "proof": "صورة",
+    "from": "من {{name}}",
+    "completedOn": "أُنجزت {{date}}",
+    "missedOn": "فاتت في {{date}}",
+    "viewProof": "عرض صورة الإثبات"
   },
-  "kind": {
-    "recurring": "متكررة"
-  },
-  "from": "من {{name}}",
-  "showMore": "عرض المزيد",
-  "showLess": "عرض أقل",
-  "requiresProof": "تتطلب صورة",
-  "completedOn": "أُنجزت {{date}}",
-  "wasDue": "كان موعدها {{date}}",
-  "note": "ملاحظة",
-  "viewProof": "عرض صورة الإثبات",
-  "actions": {
-    "complete": "تمّت"
+  "undo": {
+    "done": "تمّت: {{title}}",
+    "action": "تراجع"
   },
   "due": {
     "overdue_zero": "متأخرة {{count}} يوم",
@@ -82,25 +94,24 @@
     "inMinutes_many": "بعد {{count}} دقيقة",
     "inMinutes_other": "بعد {{count}} دقيقة"
   },
-  "dialog": {
-    "title": "إنجاز المهمة",
-    "notesLabel": "ملاحظة",
-    "notesOptional": "(اختيارية)",
-    "notesPlaceholder": "مثلاً: رفعت الملف وتم التحقق منه",
-    "proofLabel": "صورة الإثبات",
-    "proofRequired": "(مطلوبة)",
-    "takePhoto": "التقط أو اختر صورة",
-    "replacePhoto": "استبدال الصورة",
-    "proofAlt": "معاينة صورة الإثبات",
-    "proofMissing": "أضف صورة لإنجاز هذه المهمة.",
-    "proofTooLarge": "حجم الصورة أكبر من 10 ميغابايت.",
+  "proof": {
+    "title": "إنجاز مع صورة",
+    "dropTitle": "أفلت الصورة هنا أو اضغط للاختيار",
+    "dropHint": "JPG أو PNG، بحد أقصى 10 ميغابايت",
+    "camera": "التقط صورة",
+    "previewAlt": "معاينة صورة الإثبات",
+    "noteLabel": "ملاحظة",
+    "noteOptional": "(اختيارية)",
+    "notePlaceholder": "مثلاً: رفعت الملف وتم التحقق منه",
+    "missing": "أضف صورة لإنجاز هذه المهمة.",
+    "notImage": "هذا الملف ليس صورة.",
+    "tooLarge": "حجم الصورة أكبر من 10 ميغابايت.",
     "uploadFailed": "تعذّر رفع الصورة. حاول مرة أخرى.",
     "confirm": "تأكيد الإنجاز",
     "saving": "جارٍ الحفظ…",
     "cancel": "إلغاء"
   },
   "toast": {
-    "completed": "تمّت المهمة 🎉",
     "completeFailed": "تعذّر إنجاز المهمة",
     "notOpen": "هذه المهمة لم تعد مفتوحة",
     "proofRequired": "هذه المهمة تتطلب صورة",

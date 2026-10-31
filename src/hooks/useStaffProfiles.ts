@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { StaffAvatarProfile } from '../lib/staffAvatar';
 
-interface StaffProfileRow extends StaffAvatarProfile {
+export interface StaffProfileRow extends StaffAvatarProfile {
   id: string;
+  full_name: string | null;
 }
 
-export type StaffProfiles = Map<string, StaffAvatarProfile>;
+export type StaffProfiles = Map<string, StaffProfileRow>;
 
 /**
  * Avatar fields for every admin and staff account, for the screens whose data
@@ -23,7 +24,7 @@ export function useStaffProfiles(): StaffProfiles | null {
     let cancelled = false;
     supabase
       .from('profiles')
-      .select('id, avatar_url, gender')
+      .select('id, full_name, avatar_url, gender')
       .in('role', ['admin', 'staff'])
       .then(({ data }) => {
         if (cancelled) return;

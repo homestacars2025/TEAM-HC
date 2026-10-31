@@ -7,12 +7,11 @@ import {
   type GoalHint, type GoalMetric,
 } from '../../lib/queries/goals';
 import { useDateLocale } from '../../pages/AccountingPage';
+import Confetti from '../Confetti';
 import GoalRing, { useMetricText } from './GoalRing';
 import GoalSheet, { useMissingLabel } from './GoalSheet';
 
 const CONFETTI_KEY = 'hc_goal_confetti';
-const CONFETTI_COLORS = ['#16A34A', '#6EA4E7', '#F59E0B', '#7C3AED'];
-const CONFETTI_PIECES = 26;
 
 /** Once per session: seeing it on every visit to Tasks would stop meaning anything. */
 function claimConfetti(): boolean {
@@ -25,22 +24,6 @@ function claimConfetti(): boolean {
   }
 }
 
-const Confetti: React.FC = () => {
-  const pieces = useMemo(() => Array.from({ length: CONFETTI_PIECES }, (_, i) => ({
-    left: `${(i * 97) % 100}%`,
-    delay: `${(i % 7) * 90}ms`,
-    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-  })), []);
-
-  return (
-    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {pieces.map((piece, i) => (
-        <span key={i} className="hc-confetti" style={{ left: piece.left, animationDelay: piece.delay, background: piece.color }} />
-      ))}
-    </span>
-  );
-};
-
 const Celebration: React.FC<{ current: boolean; monthLabel: string }> = ({ current, monthLabel }) => {
   const { t } = useTranslation('goals');
   const [burst, setBurst] = useState(false);
@@ -51,7 +34,7 @@ const Celebration: React.FC<{ current: boolean; monthLabel: string }> = ({ curre
 
   return (
     <div role="status" className="relative mt-4 overflow-hidden rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-      {burst && <Confetti />}
+      {burst && <Confetti pieces={26} />}
       {current ? t('celebration.current') : t('celebration.past', { month: monthLabel })}
     </div>
   );

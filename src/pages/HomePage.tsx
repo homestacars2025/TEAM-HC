@@ -183,7 +183,7 @@ const HomePage: React.FC = () => {
   const dateLocale = useDateLocale();
   const { userId, profile } = useCurrentUser();
   const { canAccessPage } = usePageAccess();
-  const { unreadCount, setNotificationsOpen } = useInbox();
+  const { unreadCount, setNotificationsOpen, tasksVersion } = useInbox();
   const openNotification = useOpenNotification();
 
   const [tasks, setTasks] = useState<MyTask[] | null>(null);
@@ -210,7 +210,7 @@ const HomePage: React.FC = () => {
       .then(rows => { if (!cancelled) setTasks(rows); })
       .catch(() => { if (!cancelled) setTasksFailed(true); });
     return () => { cancelled = true; };
-  }, []);
+  }, [tasksVersion]);
 
   // Re-read when the badge moves, so the list and the number agree.
   useEffect(() => {

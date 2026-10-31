@@ -1,7 +1,13 @@
 {
-  "eyebrow": "Team",
   "title": "My tasks",
-  "subtitle": "Tasks assigned to you. Mark them done as you finish.",
+  "summary": {
+    "today_one": "You have {{count}} task today",
+    "today_other": "You have {{count}} tasks today",
+    "overdue_one": "{{count}} overdue",
+    "overdue_other": "{{count}} overdue",
+    "joined": "{{today}}, {{overdue}}"
+  },
+  "progress": "{{done}} of {{total}} done this week",
   "tabs": {
     "aria": "Task status",
     "active": "Active",
@@ -13,36 +19,34 @@
   "groups": {
     "overdue": "Overdue",
     "today": "Today",
-    "upcoming": "Upcoming",
+    "tomorrow": "Tomorrow",
+    "week": "This week",
+    "later": "Later",
     "noDue": "No due date"
   },
   "empty": {
-    "activeTitle": "No tasks — nice work! 🎉",
-    "activeBody": "Everything is cleared. New tasks will show up here as soon as they arrive.",
-    "doneTitle": "Nothing completed yet",
-    "doneBody": "Tasks move here once you finish them.",
+    "activeTitle": "Nothing on your plate today ✨",
+    "activeBody": "Your day is clear. New tasks will show up here as soon as they arrive.",
+    "doneTitle": "Nothing finished yet",
+    "doneBody": "Every task you finish lands here.",
     "missedTitle": "Nothing missed",
-    "missedBody": "Tasks that pass their deadline unfinished appear here."
+    "missedBody": "You're keeping up. Long may it last."
   },
-  "priority": {
-    "urgent": "Urgent",
-    "high": "High",
-    "normal": "Normal",
-    "low": "Low"
+  "card": {
+    "complete": "Mark “{{title}}” done",
+    "completeWithProof": "Add a photo and mark “{{title}}” done",
+    "more": "More",
+    "less": "Less",
+    "recurring": "Recurring",
+    "proof": "Photo",
+    "from": "From {{name}}",
+    "completedOn": "Completed {{date}}",
+    "missedOn": "Missed on {{date}}",
+    "viewProof": "View proof photo"
   },
-  "kind": {
-    "recurring": "Recurring"
-  },
-  "from": "From {{name}}",
-  "showMore": "Show more",
-  "showLess": "Show less",
-  "requiresProof": "Photo required",
-  "completedOn": "Completed {{date}}",
-  "wasDue": "Was due {{date}}",
-  "note": "Note",
-  "viewProof": "View proof photo",
-  "actions": {
-    "complete": "Mark done"
+  "undo": {
+    "done": "Done: {{title}}",
+    "action": "Undo"
   },
   "due": {
     "overdue_one": "{{count}} day overdue",
@@ -58,25 +62,24 @@
     "inMinutes_one": "Due in {{count}} minute",
     "inMinutes_other": "Due in {{count}} minutes"
   },
-  "dialog": {
-    "title": "Mark task done",
-    "notesLabel": "Note",
-    "notesOptional": "(optional)",
-    "notesPlaceholder": "e.g. Uploaded the file and verified it",
-    "proofLabel": "Proof photo",
-    "proofRequired": "(required)",
-    "takePhoto": "Take or choose a photo",
-    "replacePhoto": "Replace photo",
-    "proofAlt": "Proof photo preview",
-    "proofMissing": "Add a photo to finish this task.",
-    "proofTooLarge": "That photo is over 10 MB.",
+  "proof": {
+    "title": "Finish with a photo",
+    "dropTitle": "Drop a photo here, or tap to choose",
+    "dropHint": "JPG or PNG, up to 10 MB",
+    "camera": "Take a photo",
+    "previewAlt": "Proof photo preview",
+    "noteLabel": "Note",
+    "noteOptional": "(optional)",
+    "notePlaceholder": "e.g. Uploaded the file and verified it",
+    "missing": "Add a photo to finish this task.",
+    "notImage": "That file is not an image.",
+    "tooLarge": "That photo is over 10 MB.",
     "uploadFailed": "Could not upload the photo. Try again.",
     "confirm": "Mark done",
     "saving": "Saving…",
     "cancel": "Cancel"
   },
   "toast": {
-    "completed": "Task completed 🎉",
     "completeFailed": "Couldn't complete the task",
     "notOpen": "This task is no longer open",
     "proofRequired": "This task needs a photo",

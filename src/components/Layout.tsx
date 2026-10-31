@@ -5,6 +5,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import NotificationToasts from './NotificationToasts';
 import { InboxProvider } from '../lib/InboxContext';
 import { readBootCollapsed } from '../lib/userSettings';
 import { CurrentUserProvider, useCurrentUser } from '../contexts/CurrentUserContext';
@@ -145,6 +146,7 @@ const Shell: React.FC = () => {
         </main>
       </div>
 
+      <NotificationToasts />
       {showWarning && <InactivityWarning onStay={stayLoggedIn} />}
     </div>
   );
