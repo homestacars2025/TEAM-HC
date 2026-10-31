@@ -84,14 +84,24 @@
     "paidAmount": "Paid Amount",
     "selectCountry": "Select country…",
     "selectLocation": "Select location…",
-    "selectInsurance": "Select insurance type…"
+    "selectInsurance": "Select insurance type…",
+    "insuranceServices": "Insurance and extras",
+    "dateRange": "Booking dates",
+    "review": "Review"
   },
   "errors": {
     "idRequired": "ID number is required",
     "nationalityRequired": "Nationality is required",
     "phoneRequired": "Phone number is required",
     "phoneInvalid": "Invalid phone number for selected country",
-    "licenseDateRequired": "License issue date is required"
+    "licenseDateRequired": "License issue date is required",
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required",
+    "idTypeRequired": "ID type is required",
+    "carRequired": "Choose a car",
+    "datesRequired": "Pick the booking dates",
+    "carBusy": "This car is taken for these dates. Choose another car or change the dates.",
+    "saveFailed": "Couldn't save. Check your connection and try again."
   },
   "toast": {
     "added": "Booking added successfully",
@@ -151,7 +161,15 @@
     "editSubtitle": "Sheet {{number}} — the sheet number and the original booking do not change.",
     "edit": "Edit",
     "saveChanges": "Save changes",
-    "loadingSheet": "Loading sheet…"
+    "loadingSheet": "Loading sheet…",
+    "pickPlateFirst": "Choose the original car first.",
+    "loadingBookings": "Loading bookings…",
+    "pickBooking": "Choose the booking",
+    "noBookingsHint": "No bookings found for this car. A replacement sheet needs a customer, so choose a different plate.",
+    "changeBooking": "Change",
+    "created": "Replacement sheet {{number}} created",
+    "dates": "Dates",
+    "handover": "Condition at handover"
   },
   "customerLanguages": {
     "ar": "Arabic",
@@ -193,8 +211,22 @@
     },
     "toast": {
       "done": "Booking extended to {{date}}",
-      "doneWithBalance": "Booking extended to {{date}} · new balance {{balance}} TRY"
-    }
+      "doneWithBalance": "Booking extended to {{date}} · new balance {{balance}} TRY",
+      "noteFailed": "The extension is saved, but the USD note couldn't be added to the account line."
+    },
+    "currentBooking": "Current booking",
+    "extension": "Extension",
+    "amount": "Amount",
+    "plusDays_one": "+{{count}} day",
+    "plusDays_other": "+{{count}} days",
+    "oldBalance": "Current balance",
+    "charge": "Extension charge",
+    "paidNow": "Paid now",
+    "newBalance": "New balance",
+    "startsOn": "The new period starts on {{date}}.",
+    "blockAhead": "{{type}} block on this car from {{date}}. Check it before extending.",
+    "labelRental": "Rental amount",
+    "labelPaid": "Paid amount"
   },
   "customerStep": {
     "searchLabel": "Search by ID / passport, phone or name",
@@ -219,5 +251,119 @@
       "checkFailed": "Could not check this customer's status. Check your connection and try again.",
       "loadFailed": "Could not load this customer. Try again."
     }
+  },
+  "steps": {
+    "customer": "Customer",
+    "trip": "Car and dates",
+    "insurance": "Insurance and extras",
+    "delivery": "Car at delivery",
+    "review": "Review and payment"
+  },
+  "sheet": {
+    "discardTitle": "Discard your changes?",
+    "discardBody": "What you entered in this form will be lost.",
+    "discard": "Discard",
+    "keepEditing": "Keep editing",
+    "changed": "Changed",
+    "summary": "Summary",
+    "next": "Next",
+    "back": "Back",
+    "create": "Create booking",
+    "generatingNumber": "Generating…",
+    "saveChanges": "Save changes ({{count}})",
+    "saveNoChanges": "Save changes",
+    "fileReady": "Ready · {{size}} KB",
+    "loading": "Loading this booking…",
+    "moveNote": "This booking's account, replacement sheets and HGS tolls will move to the new customer when you save.",
+    "moveFailed": "The booking now belongs to the new customer, but some of its records didn't move. Press save again to retry.",
+    "keepCustomer": "Keep the current customer"
+  },
+  "summary": {
+    "car": "Car",
+    "dates": "Dates",
+    "days": "Days",
+    "insurance": "Insurance",
+    "extras": "Extras",
+    "total": "Total",
+    "paid": "Paid",
+    "remaining": "Remaining",
+    "customer": "Customer",
+    "locations": "Pickup and drop-off",
+    "km": "KM",
+    "fuel": "Fuel"
+  },
+  "range": {
+    "previous": "Previous month",
+    "next": "Next month",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "span": "{{start}} → {{end}}",
+    "pickStart": "Pick the first day",
+    "pickEnd": "Now pick the last day"
+  },
+  "money": {
+    "todaysRate": "today's rate {{rate}}"
+  },
+  "fuel": {
+    "notRecorded": "Not recorded",
+    "stored": "Recorded as {{value}}",
+    "clear": "Clear"
+  },
+  "dateParts": {
+    "day": "Day",
+    "month": "Month",
+    "year": "Year"
+  },
+  "carBusy": {
+    "booked": "Booked",
+    "maintenance": "Maintenance",
+    "replacement": "Replacement",
+    "selling": "For sale",
+    "pickDates": "Pick the dates first to see which cars are free.",
+    "checkFailed": "Couldn't check availability. You can still choose a car: double bookings are refused on save."
+  },
+  "warnings": {
+    "licenseRecent": "This driving license was issued less than a year ago. The booking may need extra review.",
+    "underAge": "This customer is under 22. A young driver surcharge may apply."
+  },
+  "presets": {
+    "other": "Other",
+    "otherInsurance": "Type the insurance name",
+    "location": {
+      "sisli": "Şişli branch",
+      "kayasehir": "Kayaşehir branch",
+      "ist": "Istanbul Airport (IST)",
+      "saw": "Sabiha Gökçen Airport (SAW)"
+    },
+    "insurance": {
+      "none": {
+        "name": "No cover",
+        "desc": "No extra cover"
+      },
+      "partial": {
+        "name": "Partial cover",
+        "desc": "Limited cover"
+      },
+      "medium": {
+        "name": "Medium cover",
+        "desc": "Mid-level cover"
+      },
+      "full": {
+        "name": "Full cover",
+        "desc": "The highest level of cover"
+      }
+    },
+    "services": {
+      "childSeat": "Child seat",
+      "extraDriver": "Additional driver",
+      "extraKm": "Extra kilometers"
+    }
+  },
+  "stepsShort": {
+    "customer": "Customer",
+    "trip": "Car",
+    "insurance": "Insurance",
+    "delivery": "Delivery",
+    "review": "Payment"
   }
 }

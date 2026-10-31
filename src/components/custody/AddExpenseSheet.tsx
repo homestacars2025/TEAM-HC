@@ -11,7 +11,7 @@ import { addCustodyExpense, getActiveCars, uploadCustodyReceipt, type CustodyMov
 import { prepareReceipt, receiptRejection } from '../../lib/receiptImage';
 import { addDays } from '../../lib/taskGroups';
 import Button from '../Button';
-import CarPicker from './CarPicker';
+import CarPicker from '../booking/CarPicker';
 import ConfirmDialog from './ConfirmDialog';
 import ReceiptField from './ReceiptField';
 

@@ -13,6 +13,10 @@ interface CarPickerProps {
   value: number | null;
   onChange: (id: number | null) => void;
   disabled: boolean;
+  /** Cars that can't be chosen for the dates in play, each with its reason. */
+  busy?: ReadonlyMap<number, string>;
+  /** Shows the green and red dots. Leave off where availability doesn't apply. */
+  showAvailability?: boolean;
 }
 
 interface Section {
@@ -26,8 +30,7 @@ interface Section {
  * scrolling sheet a popup gets clipped, and on a phone the thumb can scroll and tap
  * without typing at all.
  */
-const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, recent, value, onChange, disabled }) => {
-  const { t } = useTranslation('custody');
+const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, recent, value, onChange, disabled, busy, showAvailability = false }) => {
   const { t: tc } = useTranslation('common');
   const baseId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,19 +43,27 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
     if (!cars) return [];
     const found = groupCars(filterCars(cars, query)).map(group => ({
       key: group.model ?? 'none',
-      label: group.model ?? t('expense.car.noModel'),
+      label: group.model ?? tc('carPicker.noModel'),
       cars: group.cars,
     }));
     return !query.trim() && recent.length > 0
-      ? [{ key: 'recent', label: t('expense.car.recent'), cars: recent }, ...found]
+      ? [{ key: 'recent', label: tc('carPicker.recent'), cars: recent }, ...found]
       : found;
-  }, [cars, query, recent, t]);
+  }, [cars, query, recent, tc]);
 
   const options = useMemo(() => sections.flatMap(section => section.cars.map(car => ({ section: section.key, car }))), [sections]);
   const optionId = (index: number) => `${baseId}-option-${index}`;
+  const free = (index: number) => !busy?.has(options[index]?.car.id);
 
-  const move = (index: number) => {
-    const next = Math.max(0, Math.min(options.length - 1, index));
+  // Busy cars stay on the list, since knowing why matters, but the arrows pass over them.
+  const move = (step: number) => {
+    let next = active;
+    for (let tries = 0; tries < options.length; tries += 1) {
+      next += step;
+      if (next < 0 || next >= options.length) return;
+      if (free(next)) break;
+    }
+    if (next === active || !free(next)) return;
     setActive(next);
     listRef.current?.querySelector(`[data-index="${next}"]`)?.scrollIntoView({ block: 'nearest' });
   };
@@ -64,11 +75,11 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); move(active + 1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); move(active - 1); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
     else if (e.key === 'Enter') {
       e.preventDefault();
-      if (options[active]) choose(options[active].car.id);
+      if (options[active] && free(active)) choose(options[active].car.id);
     } else if (e.key === 'Escape' && query) {
       // Clears the search; only a second Esc reaches the sheet.
       e.stopPropagation();
@@ -84,6 +95,7 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <PlateChip plate={selected.plate_number} />
           {selected.model && <span className="truncate text-sm text-gray-600">{selected.model}</span>}
+          {busy?.has(selected.id) && <span className="text-xs font-semibold text-red-600">{busy.get(selected.id)}</span>}
         </div>
         <button
           type="button"
@@ -94,7 +106,7 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
           }}
           className="min-h-11 shrink-0 cursor-pointer px-1 text-[13px] font-semibold text-[var(--accent-strong)]"
         >
-          {t('expense.car.change')}
+          {tc('carPicker.change')}
         </button>
       </div>
     );
@@ -103,7 +115,7 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
   if (failed) {
     return (
       <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] p-3 text-sm text-gray-600">
-        <span role="alert">{t('expense.car.failed')}</span>
+        <span role="alert">{tc('carPicker.failed')}</span>
         <button type="button" onClick={onRetry} className="min-h-11 cursor-pointer font-semibold text-[var(--accent-strong)]">{tc('actions.tryAgain')}</button>
       </div>
     );
@@ -125,16 +137,16 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
         spellCheck={false}
         disabled={disabled}
         value={query}
-        placeholder={t('expense.car.search')}
+        placeholder={tc('carPicker.search')}
         onChange={e => { setQuery(e.target.value); setActive(e.target.value.trim() ? 0 : -1); }}
         onKeyDown={onKeyDown}
         className="h-12 w-full border-b border-[var(--border-subtle)] bg-transparent px-3 text-base text-[#0f1117] outline-none sm:text-sm"
       />
       <div ref={listRef} id={`${baseId}-list`} role="listbox" aria-labelledby={labelId} className="max-h-64 overflow-y-auto overscroll-contain">
         {!cars ? (
-          <p className="p-4 text-center text-sm text-gray-500">{t('expense.car.loading')}</p>
+          <p className="p-4 text-center text-sm text-gray-500">{tc('carPicker.loading')}</p>
         ) : options.length === 0 ? (
-          <p className="p-4 text-center text-sm text-gray-500">{t('expense.car.empty')}</p>
+          <p className="p-4 text-center text-sm text-gray-500">{tc('carPicker.empty')}</p>
         ) : sections.map(section => (
           <div key={section.key} role="group" aria-label={section.label}>
             <div className="sticky top-0 bg-[var(--surface)] px-3 pb-1 pt-2.5 text-xs font-semibold text-gray-500">{section.label}</div>
@@ -146,13 +158,16 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
                   id={optionId(index)}
                   role="option"
                   aria-selected={index === active}
+                  aria-disabled={busy?.has(car.id) ? true : undefined}
                   data-index={index}
                   onMouseDown={e => e.preventDefault()}
-                  onClick={() => { if (!disabled) choose(car.id); }}
-                  className={`flex min-h-12 cursor-pointer items-center gap-3 px-3 py-1.5 ${index === active ? 'bg-[var(--accent-soft)]' : 'hover:bg-black/[0.03]'}`}
+                  onClick={() => { if (!disabled && !busy?.has(car.id)) choose(car.id); }}
+                  className={`flex min-h-12 items-center gap-3 px-3 py-1.5 ${busy?.has(car.id) ? 'cursor-not-allowed' : 'cursor-pointer'} ${index === active ? 'bg-[var(--accent-soft)]' : busy?.has(car.id) ? '' : 'hover:bg-black/[0.03]'}`}
                 >
-                  <PlateChip plate={car.plate_number} />
-                  {car.model && <span className="min-w-0 truncate text-sm text-gray-600">{car.model}</span>}
+                  {showAvailability && <span aria-hidden="true" className={`hc-car-dot ${busy?.has(car.id) ? 'is-busy' : ''}`} />}
+                  <span className={busy?.has(car.id) ? 'opacity-50' : undefined}><PlateChip plate={car.plate_number} /></span>
+                  {car.model && <span className={`min-w-0 flex-1 truncate text-sm text-gray-600 ${busy?.has(car.id) ? 'opacity-50' : ''}`}>{car.model}</span>}
+                  {busy?.has(car.id) && <span className="shrink-0 text-xs font-semibold text-red-600">{busy.get(car.id)}</span>}
                 </div>
               );
             })}

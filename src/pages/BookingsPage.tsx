@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
@@ -13,11 +13,26 @@ import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
+import { addDay, rentalDays } from '../lib/bookingDates';
+import type { ExpenseCar } from '../lib/custodyExpense';
+import {
+  firstBusyDay, getBlocks, isCarBusyError, recentCarIds, rememberCar, type CalendarBlock,
+} from '../lib/queries/availability';
+import { appendLedgerNote, customerBalance } from '../lib/queries/ledger';
 import Button from '../components/Button';
 import FilterBar from '../components/FilterBar';
+import BookingSheet from '../components/booking/BookingSheet';
+import CarPicker from '../components/booking/CarPicker';
+import DateParts from '../components/booking/DateParts';
+import DateRangePicker from '../components/booking/DateRangePicker';
+import { ChoiceCard, Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar } from '../components/booking/FormParts';
+import FuelSlider from '../components/booking/FuelSlider';
+import MoneyField, { CurrencySwitch, formatMoney, formatRate, type FormCurrency } from '../components/booking/MoneyField';
+import PlateChip from '../components/booking/PlateChip';
+import { useCarAvailability } from '../components/booking/useCarAvailability';
 import BanAlert from '../components/customers/BanAlert';
 import BannedBadge from '../components/customers/BannedBadge';
-import CustomerSearch from '../components/customers/CustomerSearch';
+import CustomerSearch, { initialsOf } from '../components/customers/CustomerSearch';
 import {
   banForExistingCustomer, classifyTyped, customerBanMatch, customersWithPhone, findCustomers,
   isRealIdNumber, parseCustomerError,
@@ -98,17 +113,6 @@ interface BookingRow {
   customers: CustomerJoin | CustomerJoin[] | null;
 }
 
-interface CarOption {
-  id: number;
-  plate_number: string;
-  model: string;
-}
-
-interface CustomerOption {
-  id: number;
-  full_name: string; // derived: first_name + ' ' + last_name
-}
-
 type SortCol = 'booking_number' | 'start_date' | 'end_date' | null;
 type SortDir = 'asc' | 'desc';
 
@@ -162,6 +166,12 @@ function useCountryName(): (c: { code: string; name: string }) => string {
     (c: { code: string; name: string }) => localisedCountryName(lang, c.code, c.name),
     [lang],
   );
+}
+
+/** `null` until the rates have loaded, so nothing is ever converted at a guessed rate. */
+function useUsdRate(): number | null {
+  const { rates } = useCurrency();
+  return rates.find(r => r.currency === 'USD')?.rate_to_try || null;
 }
 
 function resolveBooking(row: BookingRow): Booking {
@@ -742,19 +752,15 @@ export const DialCodePicker: React.FC<{
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-      <button
-        type="button"
-        onClick={() => { setOpen(o => !o); setSearch(''); }}
-        style={{
-          height: 40, padding: '0 10px',
-          display: 'flex', alignItems: 'center', gap: 5,
-          background: '#fff', border: '1.5px solid #e5e7eb',
-          borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 13, color: '#0f1117', whiteSpace: 'nowrap',
-          transition: 'border-color 150ms ease',
-        }}
-      >
+    <div
+      ref={ref}
+      style={{ position: 'relative', flexShrink: 0 }}
+      onKeyDown={e => {
+        if (open && e.key === 'Escape') { e.preventDefault(); setOpen(false); setSearch(''); }
+        if (open && e.key === 'Enter' && e.target instanceof HTMLInputElement) e.preventDefault();
+      }}
+    >
+      <button type="button" className="hc-input hc-dial" onClick={() => { setOpen(o => !o); setSearch(''); }}>
         <span style={{ fontSize: 17, lineHeight: 1 }}>{selected.flag}</span>
         <span style={{ fontWeight: 500 }}>{selected.dial}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
@@ -764,9 +770,9 @@ export const DialCodePicker: React.FC<{
 
       {open && (
         <div style={{
-          position: 'absolute', top: 44, insetInlineStart: 0, zIndex: 300,
+          position: 'absolute', top: 'calc(100% + 4px)', insetInlineStart: 0, zIndex: 300,
           background: '#fff', border: '1.5px solid #e5e7eb',
-          borderRadius: 10, width: 272,
+          borderRadius: 10, width: 'min(272px, calc(100vw - 64px))',
           boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
           overflow: 'hidden',
         }}>
@@ -904,18 +910,53 @@ const isInsurancePreset = (val: string): boolean =>
 
 const ADDITIONAL_SERVICE_OPTS = ['Çocuk Koltuğu', 'Yedek Sürücü', 'Ek Kilometre'] as const;
 
-const INPUT_STYLE: React.CSSProperties = {
-  width: '100%', height: 40, padding: '0 12px',
-  fontSize: 14, color: '#0f1117',
-  background: '#fff', border: '1.5px solid #e5e7eb',
-  borderRadius: 8, outline: 'none', fontFamily: 'inherit',
-  boxSizing: 'border-box', transition: 'border-color 150ms ease',
+/** What a stored value is called on screen. The stored values themselves never change. */
+const LOCATION_KEY: Record<string, string> = {
+  'Şişli Branch': 'presets.location.sisli',
+  'Kayaşehir Branch': 'presets.location.kayasehir',
+  'Istanbul Airport (IST)': 'presets.location.ist',
+  'Sabiha Gökçen Airport (SAW)': 'presets.location.saw',
 };
 
-const focusBlue = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-  { (e.target as HTMLElement & { style: CSSStyleDeclaration }).style.borderColor = '#4ba6ea'; };
-const blurGray = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-  { (e.target as HTMLElement & { style: CSSStyleDeclaration }).style.borderColor = '#e5e7eb'; };
+const INSURANCE_KEY: Record<string, string> = {
+  'Korumasız': 'none',
+  'Kısmi Koruma': 'partial',
+  'Orta Koruma': 'medium',
+  'Tam Koruma': 'full',
+};
+
+const SERVICE_KEY: Record<string, string> = {
+  'Çocuk Koltuğu': 'presets.services.childSeat',
+  'Yedek Sürücü': 'presets.services.extraDriver',
+  'Ek Kilometre': 'presets.services.extraKm',
+};
+
+const STEP_KEYS = ['customer', 'trip', 'insurance', 'delivery', 'review'] as const;
+
+/** Compared to spot edits. Phone and money need more care, so they're handled apart. */
+const BOOKING_FIELDS = ['car_id', 'start_date', 'end_date', 'pickup_location', 'dropoff_location', 'km_at_delivery', 'fuel_at_delivery', 'insurance_type', 'status'] as const;
+const CUSTOMER_FIELDS = [
+  'cust_id_type', 'cust_language', 'cust_id_number', 'cust_first_name', 'cust_last_name', 'cust_nationality',
+  'cust_driving_license_number', 'cust_license_issue_date', 'cust_address', 'cust_birth_date', 'cust_notes',
+] as const;
+const MONEY_FIELDS = ['fin_rental_amount', 'fin_deposit', 'fin_paid_amount'] as const;
+
+const icon = (children: React.ReactNode) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+);
+
+const ICONS = {
+  customer: icon(<><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></>),
+  document: icon(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></>),
+  calendar: icon(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>),
+  car: icon(<><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" /><circle cx="7.5" cy="17.5" r="2.5" /><circle cx="16.5" cy="17.5" r="2.5" /></>),
+  shield: icon(<path d="M12 2L3 7v5c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V7L12 2z" />),
+  gauge: icon(<><path d="M4 18a9 9 0 1116 0" /><path d="M12 14l4-4" /></>),
+  money: icon(<><circle cx="12" cy="12" r="9" /><path d="M15 9.5A2.5 2.5 0 0012.5 8h-1a2 2 0 000 4h1a2 2 0 010 4h-1A2.5 2.5 0 019 14.5M12 6v2M12 16v2" /></>),
+  check: icon(<><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.5 2.5 4.5-5" /></>),
+  swap: icon(<path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12" />),
+  note: icon(<><path d="M4 4h16v12H8l-4 4V4z" /><path d="M8 9h8M8 12h5" /></>),
+};
 
 // ─── Document upload field ────────────────────────────────────────────────────
 
@@ -951,7 +992,7 @@ const DocUploadField: React.FC<{
       {existingUrl && !file && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, padding: '6px 10px', borderRadius: 8, background: '#f8faff', border: '1px solid rgba(75,166,234,0.18)' }}>
           {isImage(existingUrl) ? (
-            <img src={existingUrl} alt="doc" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', flexShrink: 0 }} />
+            <img src={existingUrl} alt={label} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #e5e7eb', flexShrink: 0 }} />
           ) : (
             <div style={{ width: 36, height: 36, borderRadius: 6, background: '#e0edfa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -970,7 +1011,7 @@ const DocUploadField: React.FC<{
       {file && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, border: '1.5px solid #4ba6ea', background: 'rgba(75,166,234,0.04)', marginBottom: 0 }}>
           {preview ? (
-            <img src={preview} alt="preview" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid rgba(75,166,234,0.2)' }} />
+            <img src={preview} alt={label} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid rgba(75,166,234,0.2)' }} />
           ) : (
             <div style={{ width: 44, height: 44, borderRadius: 6, background: 'rgba(75,166,234,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -978,7 +1019,7 @@ const DocUploadField: React.FC<{
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#0f1117', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-            <div style={{ fontSize: 11, color: '#3A74C2', marginTop: 1 }}>Ready · {(file.size / 1024).toFixed(0)} KB</div>
+            <div style={{ fontSize: 11, color: '#3A74C2', marginTop: 1 }}>{tc2('sheet.fileReady', { size: (file.size / 1024).toFixed(0) })}</div>
           </div>
           <button type="button" onClick={() => onChange(null)}
             style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', flexShrink: 0 }}
@@ -1007,27 +1048,6 @@ const DocUploadField: React.FC<{
   );
 };
 
-// Section heading inside the form
-const SectionHeading: React.FC<{ icon: React.ReactNode; title: string }> = ({ icon, title }) => (
-  <div style={{
-    display: 'flex', alignItems: 'center', gap: 8,
-    gridColumn: 'span 2', margin: '4px 0 2px',
-  }}>
-    <div style={{
-      width: 28, height: 28, borderRadius: 8,
-      background: 'rgba(75,166,234,0.10)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#3A74C2', flexShrink: 0,
-    }}>
-      {icon}
-    </div>
-    <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-      {title}
-    </span>
-    <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
-  </div>
-);
-
 interface FormModalProps {
   mode: 'add' | 'edit';
   initial: BookingFormData;
@@ -1047,9 +1067,26 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const [form, setForm] = useState<BookingFormData>(initial);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [cars, setCars] = useState<CarOption[]>([]);
+  const [cars, setCars] = useState<ExpenseCar[] | null>(null);
+  const [carsFailed, setCarsFailed] = useState(false);
+  const [carsAttempt, setCarsAttempt] = useState(0);
   const [bookingNumLoading, setBookingNumLoading] = useState(mode === 'add');
   const { rates } = useCurrency();
+  const usdRate = useUsdRate();
+  const carLabelId = useId();
+  const closeRef = useRef<(() => void) | null>(null);
+  const submitting = useRef(false);
+  const currencySwitch = useRef<{ original: Record<typeof MONEY_FIELDS[number], string>; converted: Record<typeof MONEY_FIELDS[number], string> } | null>(null);
+
+  // The guided steps of a new booking
+  const [step, setStep] = useState(0);
+  const [reached, setReached] = useState(0);
+  const [checkingStep, setCheckingStep] = useState(false);
+
+  // What an edit is compared against, taken once the customer and the money have arrived
+  const [customerLoaded, setCustomerLoaded] = useState(mode === 'add' || !editCustomerId);
+  const [ledgerLoaded, setLedgerLoaded] = useState(mode === 'add' || !editId);
+  const [baseline, setBaseline] = useState<{ form: BookingFormData; extras: string | null } | null>(null);
 
   // Location dropdown "Other" mode — true when value doesn't match a preset
   const [pickupOther,  setPickupOther]  = useState(() => !!initial.pickup_location  && !isLocationPreset(initial.pickup_location));
@@ -1096,7 +1133,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
   // Who this booking is for. A booking only ever points at one customer record, so an
   // existing customer is reused: inserting them again is how the duplicates came about.
-  const [customerStep, setCustomerStep] = useState<CustomerStep>(mode === 'add' ? 'search' : 'existing');
+  const [customerStep, setCustomerStep] = useState<CustomerStep>(mode === 'add' || !editCustomerId ? 'search' : 'existing');
   const [existingCustomerId, setExistingCustomerId] = useState<string | null>(null);
   const [customerRequired, setCustomerRequired] = useState(false);
   const [idOwner, setIdOwner] = useState<IdOwner | null>(null);
@@ -1107,11 +1144,16 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const originalIdNumber = useRef('');
 
   // Field-level validation errors
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<'cust_id_number' | 'cust_id_type' | 'cust_nationality' | 'cust_phone' | 'cust_license_issue_date', string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<
+    'cust_id_number' | 'cust_id_type' | 'cust_first_name' | 'cust_last_name' | 'cust_nationality' | 'cust_phone' | 'cust_license_issue_date' | 'car_id' | 'dates',
+    string
+  >>>({});
 
   // Refs for scroll-to-error
   const refIdNumber         = useRef<HTMLDivElement>(null);
   const refIdType           = useRef<HTMLDivElement>(null);
+  const refName             = useRef<HTMLDivElement>(null);
+  const refTrip             = useRef<HTMLDivElement>(null);
   const refNationality      = useRef<HTMLDivElement>(null);
   const refPhone            = useRef<HTMLDivElement>(null);
   const refLicenseIssueDate = useRef<HTMLDivElement>(null);
@@ -1132,46 +1174,44 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
+    let active = true;
+    setCarsFailed(false);
+    const query = supabase.from('cars').select('id, plate_number, model_group(name)');
+    // A booking keeps its car even if that car has since left the fleet.
+    (initial.car_id ? query.or(`is_active.eq.true,id.eq.${initial.car_id}`) : query.eq('is_active', true))
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) { setCarsFailed(true); return; }
+        setCars(sortCarsByModel(((data ?? []) as Array<{
+          id: number;
+          plate_number: string;
+          model_group: { name: string } | { name: string }[] | null;
+        }>).map(c => {
+          const mg = c.model_group;
+          const model = Array.isArray(mg) ? (mg[0]?.name ?? '') : (mg as { name: string } | null)?.name ?? '';
+          return { id: c.id, plate_number: c.plate_number, model: model || null };
+        })));
+      });
+    return () => { active = false; };
+  }, [initial.car_id, carsAttempt]);
 
+  // Auto-generate booking number (add mode only)
   useEffect(() => {
+    if (mode !== 'add') return;
     let active = true;
     (async () => {
-      // Cars — sorted by model name
-      const { data: carsData } = await supabase
-        .from('cars').select('id, plate_number, model_group(name)').eq('is_active', true);
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yy = String(now.getFullYear()).slice(-2);
+      const prefix = `HOM-${mm}-${yy}-`;
+      const { count } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .like('booking_number', `${prefix}%`);
       if (!active) return;
-      const carOpts: CarOption[] = ((carsData ?? []) as Array<{
-        id: number;
-        plate_number: string;
-        model_group: { name: string } | { name: string }[] | null;
-      }>).map(c => {
-        const mg = c.model_group;
-        const model = Array.isArray(mg) ? (mg[0]?.name ?? '') : (mg as { name: string } | null)?.name ?? '';
-        return { id: c.id, plate_number: c.plate_number, model };
-      });
-      setCars(sortCarsByModel(carOpts));
-
-      // Auto-generate booking number (add mode only)
-      if (mode === 'add') {
-        const now = new Date();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const yy = String(now.getFullYear()).slice(-2);
-        const prefix = `HOM-${mm}-${yy}-`;
-        const { count } = await supabase
-          .from('bookings')
-          .select('id', { count: 'exact', head: true })
-          .like('booking_number', `${prefix}%`);
-        if (!active) return;
-        const seq = String((count ?? 0) + 1).padStart(3, '0');
-        setForm(f => ({ ...f, booking_number: `${prefix}${seq}` }));
-        setBookingNumLoading(false);
-      }
+      const seq = String((count ?? 0) + 1).padStart(3, '0');
+      setForm(f => ({ ...f, booking_number: `${prefix}${seq}` }));
+      setBookingNumLoading(false);
     })();
     return () => { active = false; };
   }, [mode]);
@@ -1213,15 +1253,17 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       .eq('id', editCustomerId)
       .single()
       .then(({ data, error }) => {
-        if (!active || error || !data) return;
+        if (!active) return;
+        if (error || !data) { setFormError(t('customerStep.errors.loadFailed')); return; }
         const customer = data as CustomerRecord;
         applyCustomer(customer);
+        setCustomerLoaded(true);
         if (customer.is_banned) {
           setEditingBanned({ full_name: `${customer.first_name} ${customer.last_name}`.trim(), ban_reason: customer.ban_reason });
         }
       });
     return () => { active = false; };
-  }, [mode, editCustomerId, applyCustomer]);
+  }, [mode, editCustomerId, applyCustomer, t]);
 
   // Fetch existing ledger rows in edit mode
   const [existingLedgerIds, setExistingLedgerIds] = useState<{ rental?: number; deposit?: number; payment?: number }>({});
@@ -1235,7 +1277,9 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       .eq('booking_id', editId)
       .in('type', ['rental', 'deposit', 'payment'])
       .then(({ data }) => {
-        if (!active || !data) return;
+        if (!active) return;
+        setLedgerLoaded(true);
+        if (!data) return;
         const ids: typeof existingLedgerIds = {};
         const amts: Record<string, string> = {};
         for (const row of data as { id: number; type: string; amount: number }[]) {
@@ -1256,10 +1300,18 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return () => { active = false; };
   }, [mode, editId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Convert field amounts when currency toggle is switched
+  // Convert field amounts when currency toggle is switched. Rounding means there and back
+  // doesn't land on the same number, so going back restores what was there if untouched.
   const handleFinCurrencyChange = (newCurrency: 'TRY' | 'USD') => {
     const oldCurrency = form.fin_currency;
     if (oldCurrency === newCurrency) return;
+    const previous = currencySwitch.current;
+    const amounts = { fin_rental_amount: form.fin_rental_amount, fin_deposit: form.fin_deposit, fin_paid_amount: form.fin_paid_amount };
+    if (previous && MONEY_FIELDS.every(key => amounts[key] === previous.converted[key])) {
+      currencySwitch.current = null;
+      setForm(f => ({ ...f, fin_currency: newCurrency, ...previous.original }));
+      return;
+    }
     const usdRate = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
     const convert = (val: string) => {
       const num = parseFloat(val);
@@ -1267,19 +1319,23 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const result = oldCurrency === 'TRY' ? num / usdRate : num * usdRate;
       return result.toFixed(2);
     };
-    setForm(f => ({
-      ...f,
-      fin_currency:      newCurrency,
-      fin_rental_amount: convert(f.fin_rental_amount),
-      fin_deposit:     convert(f.fin_deposit),
-      fin_paid_amount:   convert(f.fin_paid_amount),
-    }));
+    const converted = {
+      fin_rental_amount: convert(amounts.fin_rental_amount),
+      fin_deposit:       convert(amounts.fin_deposit),
+      fin_paid_amount:   convert(amounts.fin_paid_amount),
+    };
+    currencySwitch.current = { original: amounts, converted };
+    setForm(f => ({ ...f, fin_currency: newCurrency, ...converted }));
   };
 
   const chooseCustomer = useCallback(async (customerId: string) => {
     const { data, error } = await supabase.from('customers').select('*').eq('id', customerId).single();
     if (error || !data) { setFormError(t('customerStep.errors.loadFailed')); return; }
-    applyCustomer(data as CustomerRecord);
+    const customer = data as CustomerRecord;
+    applyCustomer(customer);
+    setEditingBanned(customerId === String(editCustomerId) && customer.is_banned
+      ? { full_name: `${customer.first_name} ${customer.last_name}`.trim(), ban_reason: customer.ban_reason }
+      : null);
     setExistingCustomerId(customerId);
     setCustomerStep('existing');
     setCustomerRequired(false);
@@ -1287,7 +1343,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     setPhoneSharers([]);
     setBanAlert(null);
     setFormError(null);
-  }, [applyCustomer, t]);
+  }, [applyCustomer, editCustomerId, t]);
+
+  /** Back to who the booking was already for, after starting to change them. */
+  const keepOriginalCustomer = async () => {
+    await chooseCustomer(String(editCustomerId));
+    setExistingCustomerId(null);
+  };
 
   const startNewCustomer = (typedText: string) => {
     const typed = classifyTyped(typedText);
@@ -1314,6 +1376,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       cust_address: '', cust_birth_date: '', cust_notes: '',
     }));
     setExistingCustomerId(null);
+    setEditingBanned(null);
     setExistingDocUrls({ id_photo_url: null, id_photo_back_url: null, driving_license_photo_url: null, driving_license_back_url: null, entry_stamp_photo_url: null });
     originalIdNumber.current = '';
     setIdOwner(null);
@@ -1325,7 +1388,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   };
 
   /** The customer this form is saving, or nobody yet. */
-  const thisCustomerId = existingCustomerId ?? (editCustomerId != null ? String(editCustomerId) : null);
+  const thisCustomerId = existingCustomerId ?? (customerStep !== 'new' && editCustomerId != null ? String(editCustomerId) : null);
+
+  /** An edit that moves the booking to someone else, whether they're on file or new. */
+  const customerSwapped = mode === 'edit'
+    && (customerStep === 'new' || (!!existingCustomerId && existingCustomerId !== String(editCustomerId)));
 
   const checkIdOwner = async () => {
     const idNumber = form.cust_id_number.trim();
@@ -1350,7 +1417,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     }
   };
 
-  /** The database's two refusals, in words. Anything else is shown as it came. */
+  /** After a change of step the field isn't on screen yet, hence the frame. */
+  const reveal = (ref: React.RefObject<HTMLDivElement | null>) => {
+    window.requestAnimationFrame(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  };
+
+  /** The database's refusals, in words. */
   const showSaveError = (message: string) => {
     const refusal = parseCustomerError(message);
     if (refusal?.kind === 'banned') {
@@ -1358,9 +1430,15 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     } else if (refusal?.kind === 'duplicate') {
       if (refusal.customerId) setIdOwner({ id: refusal.customerId, name: refusal.name, banned: false, reason: null });
       setFormError(t('customerStep.errors.duplicate', { name: refusal.name }));
-      refIdNumber.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (mode === 'add') setStep(0);
+      reveal(refIdNumber);
+    } else if (isCarBusyError(message)) {
+      setFormError(t('errors.carBusy'));
+      if (mode === 'add') setStep(1);
+      reveal(refTrip);
     } else {
-      setFormError(message);
+      console.error('[Booking] save error:', message);
+      setFormError(t('errors.saveFailed'));
     }
   };
 
@@ -1374,117 +1452,197 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return parts.length > 0 ? parts.join(',') : null;
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFormError(null);
-    setBanAlert(null);
+  const selectedCarId = form.car_id ? Number(form.car_id) : null;
+  const selectedCar = cars?.find(car => car.id === selectedCarId) ?? null;
+  const days = rentalDays(form.start_date, form.end_date);
+  const recentCars = useMemo(() => (cars ? recentCarIds().flatMap(id => cars.filter(car => car.id === id)) : []), [cars]);
+  const { busy, failed: availabilityFailed } = useCarAvailability(form.start_date, form.end_date, { bookingId: editId });
 
+  useEffect(() => {
+    if (mode === 'edit' && !baseline && customerLoaded && ledgerLoaded) setBaseline({ form, extras: buildAdditionalServices() });
+  }, [mode, baseline, customerLoaded, ledgerLoaded, form]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const changedFields = useMemo(() => {
+    const changed = new Set<string>();
+    if (!baseline) return changed;
+    const before = baseline.form;
+    for (const key of BOOKING_FIELDS) if (form[key] !== before[key]) changed.add(key);
+    if ((buildAdditionalServices() ?? '') !== (baseline.extras ?? '')) changed.add('additional_services');
+    // Stored in lira, so switching the form to dollars alone is not an edit.
+    const rate = usdRate ?? 1;
+    for (const key of MONEY_FIELDS) {
+      const now = parseFloat(form[key]) || 0;
+      const was = parseFloat(before[key]) || 0;
+      if (form.fin_currency === 'USD' ? Math.abs(now * rate - was) >= rate * 0.01 : now !== was) changed.add(key);
+    }
+    // A different customer is one change, however many of their details differ.
+    if (customerSwapped) changed.add('customer');
+    else {
+      for (const key of CUSTOMER_FIELDS) if (form[key] !== before[key]) changed.add(key);
+      if (form.cust_phone !== before.cust_phone || form.cust_phone_dial !== before.cust_phone_dial) changed.add('cust_phone');
+    }
+    ([docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp] as const)
+      .forEach((file, index) => { if (file) changed.add(`document_${index}`); });
+    return changed;
+  }, [form, baseline, customerSwapped, usdRate, additionalChecked, additionalOtherText, docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = mode === 'edit'
+    ? changedFields.size > 0
+    : customerStep !== 'search' || additionalChecked.length > 0
+      || (Object.keys(initial) as (keyof BookingFormData)[]).some(key => key !== 'booking_number' && form[key] !== initial[key]);
+
+  /** Everything the first step asks for. */
+  const validateCustomer = (): boolean => {
     if (customerStep === 'search') {
       setCustomerRequired(true);
-      refCustomerSearch.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
+      reveal(refCustomerSearch);
+      return false;
     }
     if (idOwner) {
       setFormError(t('customerStep.errors.duplicate', { name: idOwner.name }));
-      refIdNumber.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
+      reveal(refIdNumber);
+      return false;
     }
 
-    // Validate required customer fields
     const errors: typeof fieldErrors = {};
     if (!form.cust_id_number.trim())        errors.cust_id_number        = t('errors.idRequired');
-    if (!form.cust_id_type)                 errors.cust_id_type          = 'ID type is required';
-    if (!form.cust_nationality)             errors.cust_nationality      = t('errors.nationalityRequired');
+    if (!form.cust_id_type)                 errors.cust_id_type          = t('errors.idTypeRequired');
+    if (!form.cust_first_name.trim())       errors.cust_first_name       = t('errors.firstNameRequired');
+    if (!form.cust_last_name.trim())        errors.cust_last_name        = t('errors.lastNameRequired');
+    if (!form.cust_license_issue_date)      errors.cust_license_issue_date = t('errors.licenseDateRequired');
     if (!form.cust_phone.trim()) {
       errors.cust_phone = t('errors.phoneRequired');
     } else {
       const fullPhone = `${form.cust_phone_dial}${form.cust_phone}`;
       if (!isValidPhoneNumber(fullPhone)) errors.cust_phone = t('errors.phoneInvalid');
     }
-    if (!form.cust_license_issue_date)      errors.cust_license_issue_date = t('errors.licenseDateRequired');
+    if (!form.cust_nationality)             errors.cust_nationality      = t('errors.nationalityRequired');
 
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      // Scroll to first error
-      const firstRef = errors.cust_id_number        ? refIdNumber
-                     : errors.cust_id_type          ? refIdType
-                     : errors.cust_nationality      ? refNationality
-                     : errors.cust_phone            ? refPhone
-                     : refLicenseIssueDate;
-      firstRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
+    setFieldErrors(fe => ({ ...fe, ...errors }));
+    if (Object.keys(errors).length === 0) return true;
+
+    reveal(errors.cust_id_number          ? refIdNumber
+         : errors.cust_id_type            ? refIdType
+         : errors.cust_first_name || errors.cust_last_name ? refName
+         : errors.cust_license_issue_date ? refLicenseIssueDate
+         : errors.cust_phone              ? refPhone
+         : refNationality);
+    return false;
+  };
+
+  const validateTrip = (): boolean => {
+    const errors: typeof fieldErrors = {};
+    const moved = !baseline || form.car_id !== baseline.form.car_id
+      || form.start_date !== baseline.form.start_date || form.end_date !== baseline.form.end_date;
+    if (!form.start_date || !form.end_date) errors.dates = t('errors.datesRequired');
+    if (!form.car_id) errors.car_id = t('errors.carRequired');
+    // An old booking may overlap a block already. Only a new car or new dates have to fit.
+    else if (moved && form.status !== 'cancelled' && busy?.has(Number(form.car_id))) errors.car_id = t('errors.carBusy');
+    setFieldErrors(fe => ({ ...fe, dates: errors.dates, car_id: errors.car_id }));
+    if (Object.keys(errors).length === 0) return true;
+    reveal(refTrip);
+    return false;
+  };
+
+  const goNext = async () => {
+    setFormError(null);
+    setBanAlert(null);
+    if (step === 0) {
+      if (!validateCustomer()) return;
+      setCheckingStep(true);
+      try {
+        const phone = form.cust_phone ? `${form.cust_phone_dial}${form.cust_phone}` : null;
+        const ban = await customerBanMatch(existingCustomerId, form.cust_id_number.trim() || null, phone);
+        if (ban) { setBanAlert(ban); return; }
+      } catch {
+        // Only saves time: the save asks again, and that answer can't be skipped.
+      } finally {
+        setCheckingStep(false);
+      }
     }
-    setFieldErrors({});
+    if (step === 1 && !validateTrip()) return;
+    setStep(step + 1);
+    setReached(furthest => Math.max(furthest, step + 1));
+  };
 
+  /** Writes the chosen or new customer and their documents. `null` means stop: the reason is on screen. */
+  const saveChosenCustomer = async (): Promise<string | null> => {
+    const phone = form.cust_phone
+      ? `${form.cust_phone_dial}${form.cust_phone}`
+      : null;
+
+    // Never start anything for someone who can't be booked. No answer counts as a
+    // stop too: it's better to retry than to let a banned person through.
+    try {
+      const ban = await customerBanMatch(existingCustomerId, form.cust_id_number.trim() || null, phone);
+      if (ban) { setBanAlert(ban); return null; }
+    } catch {
+      setFormError(t('customerStep.errors.checkFailed'));
+      return null;
+    }
+
+    // Someone already on file is updated in place; a new person is created once, so a
+    // retry after a failed booking finds them already there.
+    const customerFields = {
+      id_type:             form.cust_id_type,
+      first_name:          form.cust_first_name,
+      last_name:           form.cust_last_name,
+      phone:               phone,
+      nationality:         form.cust_nationality        || null,
+      language:            form.cust_language,
+      driving_license_number: form.cust_driving_license_number || null,
+      license_issue_date:  form.cust_license_issue_date || null,
+      address:             form.cust_address            || null,
+      birth_date:          form.cust_birth_date         || null,
+      notes:               form.cust_notes              || null,
+    };
+    let savedCustomerId = existingCustomerId;
+    if (savedCustomerId) {
+      const { error: custError } = await supabase.from('customers').update(customerFields).eq('id', savedCustomerId);
+      if (custError) { showSaveError(custError.message); return null; }
+    } else {
+      const { data: custData, error: custError } = await supabase
+        .from('customers')
+        .insert({ ...customerFields, id_number: form.cust_id_number || null })
+        .select('id')
+        .single();
+      if (custError) { showSaveError(custError.message); return null; }
+      savedCustomerId = (custData as { id: string }).id;
+      originalIdNumber.current = form.cust_id_number;
+      setExistingCustomerId(savedCustomerId);
+    }
+
+    // Upload documents and patch the customer
+    const customerId = savedCustomerId as unknown as number;
+    const docUpdates: Record<string, string> = {};
+
+    const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
+      docIdPhoto            ? uploadDocById(docIdPhoto,            'id-photo',             customerId)            : Promise.resolve(null),
+      docIdPhotoBack        ? uploadDocById(docIdPhotoBack,        'id-photo-back',        customerId)            : Promise.resolve(null),
+      docDrivingLicense     ? uploadDocById(docDrivingLicense,     'driving-license',      customerId)            : Promise.resolve(null),
+      docDrivingLicenseBack ? uploadDocById(docDrivingLicenseBack, 'driving-license-back', customerId)            : Promise.resolve(null),
+      docEntryStamp         ? uploadDocById(docEntryStamp,         'entry-stamp',          customerId)            : Promise.resolve(null),
+    ]);
+    if (idUrl)     docUpdates.id_photo_url                  = idUrl;
+    if (idBackUrl) docUpdates.id_photo_back_url             = idBackUrl;
+    if (dlUrl)     docUpdates.driving_license_photo_url     = dlUrl;
+    if (dlBackUrl) docUpdates.driving_license_back_url      = dlBackUrl;
+    if (esUrl)     docUpdates.entry_stamp_photo_url         = esUrl;
+    if (Object.keys(docUpdates).length > 0) {
+      const { error: docErr } = await supabase.from('customers').update(docUpdates).eq('id', customerId);
+      if (docErr) console.error('[Booking] customer doc update error:', docErr);
+    }
+
+    return savedCustomerId;
+  };
+
+  const save = async () => {
     setSaving(true);
 
     if (mode === 'add') {
-      const phone = form.cust_phone
-        ? `${form.cust_phone_dial}${form.cust_phone}`
-        : null;
-
-      // Step 1: never start anything for someone who can't be booked. No answer counts
-      // as a stop too: it's better to retry than to let a banned person through.
-      try {
-        const ban = await customerBanMatch(existingCustomerId, form.cust_id_number.trim() || null, phone);
-        if (ban) { setSaving(false); setBanAlert(ban); return; }
-      } catch {
-        setSaving(false);
-        setFormError(t('customerStep.errors.checkFailed'));
-        return;
-      }
-
-      // Step 2: the customer. Someone already on file is updated in place; a new person
-      // is created once, so a retry after a failed booking finds them already there.
-      const customerFields = {
-        id_type:             form.cust_id_type,
-        first_name:          form.cust_first_name,
-        last_name:           form.cust_last_name,
-        phone:               phone,
-        nationality:         form.cust_nationality        || null,
-        language:            form.cust_language,
-        driving_license_number: form.cust_driving_license_number || null,
-        license_issue_date:  form.cust_license_issue_date || null,
-        address:             form.cust_address            || null,
-        birth_date:          form.cust_birth_date         || null,
-        notes:               form.cust_notes              || null,
-      };
-      let savedCustomerId = existingCustomerId;
-      if (savedCustomerId) {
-        const { error: custError } = await supabase.from('customers').update(customerFields).eq('id', savedCustomerId);
-        if (custError) { setSaving(false); showSaveError(custError.message); return; }
-      } else {
-        const { data: custData, error: custError } = await supabase
-          .from('customers')
-          .insert({ ...customerFields, id_number: form.cust_id_number || null })
-          .select('id')
-          .single();
-        if (custError) { setSaving(false); showSaveError(custError.message); return; }
-        savedCustomerId = (custData as { id: string }).id;
-        originalIdNumber.current = form.cust_id_number;
-        setExistingCustomerId(savedCustomerId);
-      }
-
-      // Step 3: upload documents and patch customer
-      const customerId = savedCustomerId as unknown as number;
-      const docUpdates: Record<string, string> = {};
-
-      const [idUrl, idBackUrl, dlUrl, dlBackUrl, esUrl] = await Promise.all([
-        docIdPhoto            ? uploadDocById(docIdPhoto,            'id-photo',             customerId)            : Promise.resolve(null),
-        docIdPhotoBack        ? uploadDocById(docIdPhotoBack,        'id-photo-back',        customerId)            : Promise.resolve(null),
-        docDrivingLicense     ? uploadDocById(docDrivingLicense,     'driving-license',      customerId)            : Promise.resolve(null),
-        docDrivingLicenseBack ? uploadDocById(docDrivingLicenseBack, 'driving-license-back', customerId)            : Promise.resolve(null),
-        docEntryStamp         ? uploadDocById(docEntryStamp,         'entry-stamp',          customerId)            : Promise.resolve(null),
-      ]);
-      if (idUrl)     docUpdates.id_photo_url                  = idUrl;
-      if (idBackUrl) docUpdates.id_photo_back_url             = idBackUrl;
-      if (dlUrl)     docUpdates.driving_license_photo_url     = dlUrl;
-      if (dlBackUrl) docUpdates.driving_license_back_url      = dlBackUrl;
-      if (esUrl)     docUpdates.entry_stamp_photo_url         = esUrl;
-      if (Object.keys(docUpdates).length > 0) {
-        const { error: docErr } = await supabase.from('customers').update(docUpdates).eq('id', customerId);
-        if (docErr) console.error('[Booking] customer doc update error:', docErr);
-      }
+      const savedCustomer = await saveChosenCustomer();
+      if (!savedCustomer) return;
+      const customerId = savedCustomer as unknown as number;
 
       // Step 4: create the booking
       const { data: bookingData, error: bookingError } = await supabase
@@ -1535,7 +1693,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       setSaving(false);
     } else {
       // Edit: the customer first, so a refused ID leaves the booking as it was
-      if (editCustomerId) {
+      let bookingCustomerId = editCustomerId;
+      if (customerSwapped) {
+        const savedCustomer = await saveChosenCustomer();
+        if (!savedCustomer) return;
+        bookingCustomerId = savedCustomer as unknown as number;
+      } else if (editCustomerId) {
         const phone    = form.cust_phone
           ? `${form.cust_phone_dial}${form.cust_phone}`
           : null;
@@ -1589,10 +1752,26 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           fuel_at_delivery: form.fuel_at_delivery !== '' ? form.fuel_at_delivery : null,
           insurance_type:   form.insurance_type   || null,
           additional_services: buildAdditionalServices(),
+          ...(customerSwapped && { customer_id: bookingCustomerId }),
         })
         .eq('id', editId!);
 
       if (bookingErr) { setSaving(false); showSaveError(bookingErr.message); return; }
+
+      // The money and paperwork of a booking follow it, or the old customer's balance
+      // stays wrong. Running this again is harmless, so a failure can simply be retried.
+      if (customerSwapped) {
+        const moved = await Promise.all([
+          supabase.from('customer_accounting_ledger').update({ customer_id: bookingCustomerId }).eq('booking_id', editId!),
+          supabase.from('hgs_transactions').update({ customer_id: bookingCustomerId }).eq('booking_id', editId!),
+          supabase.from('replacement_sheets').update({ customer_id: bookingCustomerId }).eq('original_booking_id', editId!),
+        ]);
+        if (moved.some(result => result.error)) {
+          setSaving(false);
+          setFormError(t('sheet.moveFailed'));
+          return;
+        }
+      }
 
       // Edit: upsert / delete ledger rows
       const carIdNum   = Number(form.car_id);
@@ -1619,7 +1798,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           }
         } else if (amt > 0) {
           await supabase.from('customer_accounting_ledger').insert({
-            booking_id: editId!, customer_id: editCustomerId!, car_id: carIdNum,
+            booking_id: editId!, customer_id: bookingCustomerId!, car_id: carIdNum,
             type: key, amount: toTRY(amt), direction, description, ...rateStamp,
           });
         }
@@ -1628,660 +1807,491 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       setSaving(false);
     }
 
+    rememberCar(Number(form.car_id));
     onSaved();
     onClose();
   };
 
-  return ReactDOM.createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '24px 16px', overflowY: 'auto',
-        animation: 'fadeIn 150ms ease',
-      }}
-    >
-      <div className="surface-depth surface-float"
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 720,
-          marginTop: 'auto', marginBottom: 'auto',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
-          animation: 'slideUp 180ms ease',
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (submitting.current || checkingStep) return;
+    if (mode === 'add' && step < STEP_KEYS.length - 1) { void goNext(); return; }
+
+    setFormError(null);
+    setBanAlert(null);
+
+    // Earlier steps can be jumped back to and changed, so all of it is checked once more.
+    if (!validateCustomer()) { setStep(0); return; }
+    if (!validateTrip()) { setStep(1); return; }
+
+    submitting.current = true;
+    try {
+      await save();
+    } catch (error) {
+      console.error('[Booking] save error:', error);
+      setFormError(t('errors.saveFailed'));
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
+  };
+
+  const customerName = `${form.cust_first_name} ${form.cust_last_name}`.trim();
+  const inputClass = (invalid: unknown) => (invalid ? 'hc-input is-invalid' : 'hc-input');
+  const dot = (key: string) => mode === 'edit' && changedFields.has(key);
+  const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
+  const dateSpan = form.start_date && form.end_date ? t('range.span', { start: shortDate(form.start_date), end: shortDate(form.end_date) }) : '—';
+  const listSeparator = dateLocale.startsWith('ar') ? '، ' : ', ';
+
+  const insuranceName = isInsurancePreset(form.insurance_type)
+    ? t(`presets.insurance.${INSURANCE_KEY[form.insurance_type]}.name`)
+    : form.insurance_type;
+  const extrasName = additionalChecked
+    .map(option => (option === 'Diğer' ? additionalOtherText.trim() || t('presets.other') : t(SERVICE_KEY[option])))
+    .join(listSeparator);
+  const locationName = (value: string) => (isLocationPreset(value) ? t(LOCATION_KEY[value]) : value);
+
+  const rental = parseFloat(form.fin_rental_amount) || 0;
+  const paid = parseFloat(form.fin_paid_amount) || 0;
+  const summaryRows = [
+    { label: t('summary.car'), value: selectedCar ? <PlateChip plate={selectedCar.plate_number} /> : '—' },
+    { label: t('summary.dates'), value: dateSpan },
+    { label: t('summary.days'), value: days || '—' },
+    { label: t('summary.insurance'), value: insuranceName || '—' },
+    { label: t('summary.extras'), value: extrasName || '—' },
+    { label: t('summary.total'), value: <bdi dir="ltr">{formatMoney(rental, form.fin_currency)}</bdi> },
+    { label: t('summary.paid'), value: <bdi dir="ltr">{formatMoney(paid, form.fin_currency)}</bdi> },
+    { label: t('summary.remaining'), value: <bdi dir="ltr">{formatMoney(rental - paid, form.fin_currency)}</bdi> },
+  ];
+
+  const locationField = (key: 'pickup_location' | 'dropoff_location', label: string, other: boolean, setOther: (value: boolean) => void) => (
+    <Field label={label} changed={dot(key)}>
+      <select
+        className="hc-input"
+        aria-label={label}
+        value={other ? 'other' : form[key]}
+        onChange={e => {
+          setOther(e.target.value === 'other');
+          set(key, e.target.value === 'other' ? '' : e.target.value);
         }}
       >
-        {/* Modal header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
-        }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              {mode === 'add' ? t('form.newTitle') : t('form.editTitle')}
-            </div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {mode === 'add' ? t('form.newSubtitle') : t('form.editSubtitle')}
-            </div>
+        <option value="">{t('form.selectLocation')}</option>
+        {LOCATION_PRESETS.map(preset => <option key={preset} value={preset}>{t(LOCATION_KEY[preset])}</option>)}
+        <option value="other">{tc('actions.other')}</option>
+      </select>
+      {other && (
+        <input className="hc-input" autoFocus={mode === 'add'} value={form[key]} onChange={e => set(key, e.target.value)} placeholder={t('form.customLocation')} aria-label={label} />
+      )}
+    </Field>
+  );
+
+  const customerCard = (
+    <FormCard icon={ICONS.customer} title={t('form.customerInfo')}>
+      {editingBanned && <div className="hc-field-wide"><BanAlert ban={editingBanned} notice /></div>}
+
+      {customerStep === 'search' ? (
+        <div ref={refCustomerSearch} className="hc-field-wide">
+          <CustomerSearch
+            required={customerRequired}
+            onSelect={(customer: CustomerMatch) => chooseCustomer(customer.id)}
+            onNew={startNewCustomer}
+            flagFor={nationality => COUNTRIES.find(c => c.name === nationality)?.flag ?? ''}
+            formatDate={date => formatDateDisplay(date, dateLocale)}
+          />
+          {mode === 'edit' && editCustomerId != null && (
+            <button type="button" className="hc-cust-new" onClick={keepOriginalCustomer}>{t('sheet.keepCustomer')}</button>
+          )}
+        </div>
+      ) : (<>
+        <div className="hc-field-wide">
+          <div className="hc-cust-chosen">
+            <span className="flex items-center gap-2">
+              {customerStep === 'existing' ? t('customerStep.existing', { name: customerName }) : t('customerStep.creating')}
+              {customerSwapped && <span role="img" aria-label={t('sheet.changed')} title={t('sheet.changed')} className="hc-field-dot" />}
+            </span>
+            <button type="button" onClick={clearCustomer}>{t('customerStep.change')}</button>
           </div>
-          <button
-            onClick={onClose}
-            style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
+          {customerSwapped && <FormNote>{t('sheet.moveNote')}</FormNote>}
         </div>
 
-        {/* Form body */}
-        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
-
-            {/* ── Booking Details ── */}
-            <SectionHeading
-              title={t('form.bookingDetails')}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+        <div ref={refIdNumber}>
+          <Field label={t('form.idNumber')} required changed={dot('cust_id_number')}>
+            <input
+              className={inputClass(fieldErrors.cust_id_number)}
+              value={form.cust_id_number}
+              readOnly={!!existingCustomerId && customerStep === 'existing'}
+              onChange={e => {
+                set('cust_id_number', e.target.value);
+                setIdOwner(null);
+                if (fieldErrors.cust_id_number) setFieldErrors(fe => ({ ...fe, cust_id_number: undefined }));
+              }}
+              placeholder={t('form.documentNumber')}
+              onBlur={checkIdOwner}
             />
-
-            <Field label={t('form.bookingNumber')}>
-              <div style={{
-                ...INPUT_STYLE, display: 'flex', alignItems: 'center',
-                background: '#f9fafb', color: bookingNumLoading ? '#9ca3af' : '#0f1117',
-                fontWeight: bookingNumLoading ? 400 : 700, letterSpacing: bookingNumLoading ? 0 : '0.3px',
-                cursor: 'default',
-              }}>
-                {bookingNumLoading ? 'Generating…' : form.booking_number}
+            <FieldError>{fieldErrors.cust_id_number}</FieldError>
+            {idOwner && (
+              <div role="alert" className="hc-cust-owner">
+                <span>{t('customerStep.idBelongs', { name: idOwner.name })}</span>
+                {idOwner.banned
+                  ? <BannedBadge reason={idOwner.reason} showReason />
+                  : <button type="button" onClick={() => chooseCustomer(idOwner.id)}>{t('customerStep.useThis')}</button>}
               </div>
-            </Field>
+            )}
+          </Field>
+        </div>
 
-            <Field label={tc('fields.status')}>
-              <select value={form.status} onChange={e => set('status', e.target.value as BookingStatus)}
-                style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                <option value="pending">{t('status.pending')}</option>
-                <option value="confirmed">{t('status.confirmed')}</option>
-                <option value="cancelled">{t('status.cancelled')}</option>
-              </select>
-            </Field>
+        <div ref={refIdType}>
+          <Field label={t('form.idType')} required changed={dot('cust_id_type')}>
+            <select
+              className={inputClass(fieldErrors.cust_id_type)}
+              aria-label={t('form.idType')}
+              value={form.cust_id_type}
+              onChange={e => { set('cust_id_type', e.target.value as 'passport' | 'national_id'); if (fieldErrors.cust_id_type) setFieldErrors(fe => ({ ...fe, cust_id_type: undefined })); }}
+            >
+              <option value="passport">{t('form.passport')}</option>
+              <option value="national_id">{t('form.nationalId')}</option>
+            </select>
+            <FieldError>{fieldErrors.cust_id_type}</FieldError>
+          </Field>
+        </div>
 
-            <div style={{ gridColumn: 'span 2' }}>
-              <Field label={tc('fields.car')} required>
-                <select required value={form.car_id} onChange={e => set('car_id', e.target.value)}
-                  style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                  <option value="">Select car…</option>
-                  {cars.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.plate_number}{c.model ? ` — ${c.model}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+        <div ref={refName}>
+          <Field label={tc('fields.firstName')} required changed={dot('cust_first_name')}>
+            <input
+              className={inputClass(fieldErrors.cust_first_name)}
+              value={form.cust_first_name}
+              onChange={e => { set('cust_first_name', e.target.value); if (fieldErrors.cust_first_name) setFieldErrors(fe => ({ ...fe, cust_first_name: undefined })); }}
+              placeholder={t('form.firstNamePlaceholder')}
+            />
+            <FieldError>{fieldErrors.cust_first_name}</FieldError>
+          </Field>
+        </div>
+
+        <Field label={tc('fields.lastName')} required changed={dot('cust_last_name')}>
+          <input
+            className={inputClass(fieldErrors.cust_last_name)}
+            value={form.cust_last_name}
+            onChange={e => { set('cust_last_name', e.target.value); if (fieldErrors.cust_last_name) setFieldErrors(fe => ({ ...fe, cust_last_name: undefined })); }}
+            placeholder={t('form.lastNamePlaceholder')}
+          />
+          <FieldError>{fieldErrors.cust_last_name}</FieldError>
+        </Field>
+
+        <Field label={t('form.drivingLicense')} changed={dot('cust_driving_license_number')}>
+          <input className="hc-input" value={form.cust_driving_license_number} onChange={e => set('cust_driving_license_number', e.target.value)} placeholder={t('form.licenseNumber')} />
+        </Field>
+
+        <div ref={refLicenseIssueDate}>
+          <Field label={t('form.licenseIssueDate')} required changed={dot('cust_license_issue_date')}>
+            <DateParts
+              label={t('form.licenseIssueDate')}
+              locale={dateLocale}
+              invalid={!!fieldErrors.cust_license_issue_date}
+              value={form.cust_license_issue_date}
+              onChange={value => { set('cust_license_issue_date', value); if (fieldErrors.cust_license_issue_date) setFieldErrors(fe => ({ ...fe, cust_license_issue_date: undefined })); }}
+            />
+            <FieldError>{fieldErrors.cust_license_issue_date}</FieldError>
+            {form.cust_license_issue_date && (Date.now() - new Date(form.cust_license_issue_date).getTime()) / 86400000 < 365 && (
+              <FormNote>{t('warnings.licenseRecent')}</FormNote>
+            )}
+          </Field>
+        </div>
+
+        <div ref={refPhone}>
+          <Field label={tc('fields.phone')} required changed={dot('cust_phone')}>
+            <div className="hc-phone-row">
+              <DialCodePicker value={form.cust_phone_dial} onChange={dial => set('cust_phone_dial', dial)} />
+              <input
+                className={inputClass(fieldErrors.cust_phone)}
+                type="tel"
+                value={form.cust_phone}
+                onChange={e => { set('cust_phone', e.target.value); setPhoneSharers([]); if (fieldErrors.cust_phone) setFieldErrors(fe => ({ ...fe, cust_phone: undefined })); }}
+                placeholder={t('form.phonePlaceholder')}
+                onBlur={checkPhoneSharers}
+              />
             </div>
-
-            <Field label={tc('fields.startDate')} required>
-              <input required type="date" value={form.start_date}
-                onChange={e => set('start_date', e.target.value)}
-                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
-            </Field>
-
-            <Field label={tc('fields.endDate')} required>
-              <input required type="date" value={form.end_date}
-                onChange={e => set('end_date', e.target.value)}
-                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
-            </Field>
-
-            {/* ── Vehicle Condition at Delivery ── */}
-            <SectionHeading
-              title={t('form.vehicleCondition')}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>}
-            />
-
-            <Field label={t('form.pickupLocation')}>
-              <select
-                value={pickupOther ? 'other' : form.pickup_location}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === 'other') {
-                    setPickupOther(true);
-                    set('pickup_location', '');
-                  } else {
-                    setPickupOther(false);
-                    set('pickup_location', val);
-                  }
-                }}
-                style={{ ...INPUT_STYLE, cursor: 'pointer' }}
-                onFocus={focusBlue}
-                onBlur={blurGray}
-              >
-                <option value="">{t('form.selectLocation')}</option>
-                {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
-                <option value="other">{tc('actions.other')}</option>
-              </select>
-              {pickupOther && (
-                <input
-                  type="text"
-                  value={form.pickup_location}
-                  onChange={e => set('pickup_location', e.target.value)}
-                  placeholder={t('form.customLocation')}
-                  style={{ ...INPUT_STYLE, marginTop: 8 }}
-                  onFocus={focusBlue}
-                  onBlur={blurGray}
-                  autoFocus
-                />
-              )}
-            </Field>
-
-            <Field label={t('form.dropoffLocation')}>
-              <select
-                value={dropoffOther ? 'other' : form.dropoff_location}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === 'other') {
-                    setDropoffOther(true);
-                    set('dropoff_location', '');
-                  } else {
-                    setDropoffOther(false);
-                    set('dropoff_location', val);
-                  }
-                }}
-                style={{ ...INPUT_STYLE, cursor: 'pointer' }}
-                onFocus={focusBlue}
-                onBlur={blurGray}
-              >
-                <option value="">{t('form.selectLocation')}</option>
-                {LOCATION_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
-                <option value="other">{tc('actions.other')}</option>
-              </select>
-              {dropoffOther && (
-                <input
-                  type="text"
-                  value={form.dropoff_location}
-                  onChange={e => set('dropoff_location', e.target.value)}
-                  placeholder={t('form.customLocation')}
-                  style={{ ...INPUT_STYLE, marginTop: 8 }}
-                  onFocus={focusBlue}
-                  onBlur={blurGray}
-                  autoFocus
-                />
-              )}
-            </Field>
-
-            <Field label={t('form.kmAtDelivery')}>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={form.km_at_delivery}
-                onChange={e => set('km_at_delivery', e.target.value)}
-                placeholder={t('form.kmPlaceholder')}
-                style={INPUT_STYLE}
-                onFocus={focusBlue}
-                onBlur={blurGray}
-              />
-            </Field>
-
-            <Field label={t('form.fuelAtDelivery')}>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={form.fuel_at_delivery}
-                onChange={e => set('fuel_at_delivery', e.target.value)}
-                placeholder={t('form.fuelPlaceholder')}
-                style={INPUT_STYLE}
-                onFocus={focusBlue}
-                onBlur={blurGray}
-              />
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{t('form.fuelHint')}</div>
-            </Field>
-
-            {/* ── Insurance & Additional Services ── */}
-            <SectionHeading
-              title="SİGORTA VE EK HİZMETLER"
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V7L12 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            />
-
-            <Field label={t('form.insuranceType')}>
-              <select
-                value={insuranceOther ? 'other' : form.insurance_type}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === 'other') {
-                    setInsuranceOther(true);
-                    set('insurance_type', '');
-                  } else {
-                    setInsuranceOther(false);
-                    set('insurance_type', val);
-                  }
-                }}
-                style={{ ...INPUT_STYLE, cursor: 'pointer' }}
-                onFocus={focusBlue}
-                onBlur={blurGray}
-              >
-                <option value="">{t('form.selectInsurance')}</option>
-                {INSURANCE_PRESETS.map(p => <option key={p} value={p}>{p}</option>)}
-                <option value="other" style={{ color: '#ef4444' }}>Diğer</option>
-              </select>
-              {insuranceOther && (
-                <input
-                  type="text"
-                  value={form.insurance_type}
-                  onChange={e => set('insurance_type', e.target.value)}
-                  placeholder={t('form.specifyInsurance')}
-                  style={{ ...INPUT_STYLE, marginTop: 8 }}
-                  onFocus={focusBlue}
-                  onBlur={blurGray}
-                  autoFocus
-                />
-              )}
-            </Field>
-
-            <Field label={t('form.additionalServices')}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
-                {([...ADDITIONAL_SERVICE_OPTS, 'Diğer'] as string[]).map(opt => (
-                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', minHeight: 24 }}>
-                    <input
-                      type="checkbox"
-                      checked={additionalChecked.includes(opt)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setAdditionalChecked(prev => [...prev, opt]);
-                        } else {
-                          setAdditionalChecked(prev => prev.filter(x => x !== opt));
-                          if (opt === 'Diğer') setAdditionalOtherText('');
-                        }
-                      }}
-                      style={{ width: 16, height: 16, accentColor: '#4ba6ea', cursor: 'pointer', flexShrink: 0 }}
-                    />
-                    <span style={{ fontSize: 14, color: opt === 'Diğer' ? '#ef4444' : '#374151', userSelect: 'none' }}>{opt}</span>
-                  </label>
-                ))}
-                {additionalChecked.includes('Diğer') && (
-                  <input
-                    type="text"
-                    value={additionalOtherText}
-                    onChange={e => setAdditionalOtherText(e.target.value)}
-                    placeholder={t('form.specifyService')}
-                    style={{ ...INPUT_STYLE }}
-                    onFocus={focusBlue}
-                    onBlur={blurGray}
-                    autoFocus
-                  />
-                )}
+            <FieldError>{fieldErrors.cust_phone}</FieldError>
+            {phoneSharers.length > 0 && (
+              <div role="status" className="hc-cust-phone">
+                {t('customerStep.phoneShared', { names: phoneSharers.map(p => p.full_name).join(listSeparator) })}
               </div>
-            </Field>
+            )}
+          </Field>
+        </div>
 
-            {/* ── Customer Information ── */}
-            <>
-              <SectionHeading
-                title={t('form.customerInfo')}
-                icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
-              />
+        <div ref={refNationality}>
+          <Field label={tc('fields.nationality')} required changed={dot('cust_nationality')}>
+            <select
+              className={inputClass(fieldErrors.cust_nationality)}
+              aria-label={tc('fields.nationality')}
+              value={form.cust_nationality}
+              onChange={e => { set('cust_nationality', e.target.value); if (fieldErrors.cust_nationality) setFieldErrors(fe => ({ ...fe, cust_nationality: undefined })); }}
+            >
+              <option value="">{t('form.selectCountry')}</option>
+              {COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.flag} {countryName(c)}</option>)}
+            </select>
+            <FieldError>{fieldErrors.cust_nationality}</FieldError>
+          </Field>
+        </div>
 
-                {editingBanned && (
-                  <div style={{ gridColumn: 'span 2' }}><BanAlert ban={editingBanned} notice /></div>
-                )}
+        <Field label={tc('fields.language')} changed={dot('cust_language')}>
+          <select className="hc-input" aria-label={tc('fields.language')} value={form.cust_language} onChange={e => set('cust_language', e.target.value as CustomerLanguage)}>
+            {CUSTOMER_LANGUAGES.map(l => <option key={l.value} value={l.value}>{t(l.labelKey)}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">{t('whatsappHint')}</p>
+        </Field>
 
-                {customerStep === 'search' ? (
-                  <div ref={refCustomerSearch} style={{ gridColumn: 'span 2' }}>
-                    <CustomerSearch
-                      required={customerRequired}
-                      onSelect={(customer: CustomerMatch) => chooseCustomer(customer.id)}
-                      onNew={startNewCustomer}
-                      flagFor={nationality => COUNTRIES.find(c => c.name === nationality)?.flag ?? ''}
-                      formatDate={date => formatDateDisplay(date, dateLocale)}
-                    />
-                  </div>
-                ) : (<>
-                {mode === 'add' && (
-                  <div className="hc-cust-chosen" style={{ gridColumn: 'span 2' }}>
-                    <span>
-                      {customerStep === 'existing'
-                        ? t('customerStep.existing', { name: `${form.cust_first_name} ${form.cust_last_name}`.trim() })
-                        : t('customerStep.creating')}
-                    </span>
-                    <button type="button" onClick={clearCustomer}>{t('customerStep.change')}</button>
-                  </div>
-                )}
-
-                {/* ── ID Number first ── */}
-                <div ref={refIdNumber}>
-                <Field label={t('form.idNumber')} required>
-                  <input value={form.cust_id_number}
-                    readOnly={mode === 'add' && customerStep === 'existing'}
-                    onChange={e => {
-                      set('cust_id_number', e.target.value);
-                      setIdOwner(null);
-                      if (fieldErrors.cust_id_number) setFieldErrors(fe => ({ ...fe, cust_id_number: undefined }));
-                    }}
-                    placeholder={t('form.documentNumber')}
-                    style={{ ...INPUT_STYLE, borderColor: fieldErrors.cust_id_number ? '#ef4444' : '#e5e7eb' }}
-                    onFocus={focusBlue}
-                    onBlur={e => {
-                      if (!fieldErrors.cust_id_number) blurGray(e);
-                      checkIdOwner();
-                    }}
-                  />
-                  {fieldErrors.cust_id_number && (
-                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_id_number}</div>
-                  )}
-                  {idOwner && (
-                    <div role="alert" className="hc-cust-owner">
-                      <span>{t('customerStep.idBelongs', { name: idOwner.name })}</span>
-                      {idOwner.banned
-                        ? <BannedBadge reason={idOwner.reason} showReason />
-                        : <button type="button" onClick={() => chooseCustomer(idOwner.id)}>{t('customerStep.useThis')}</button>}
-                    </div>
-                  )}
-                </Field>
-                </div>
-
-                <div ref={refIdType}>
-                <Field label={t('form.idType')} required>
-                  <select value={form.cust_id_type}
-                    onChange={e => { set('cust_id_type', e.target.value as 'passport' | 'national_id'); if (fieldErrors.cust_id_type) setFieldErrors(fe => ({ ...fe, cust_id_type: undefined })); }}
-                    style={{ ...INPUT_STYLE, cursor: 'pointer', borderColor: fieldErrors.cust_id_type ? '#ef4444' : '#e5e7eb' }} onFocus={focusBlue} onBlur={blurGray}>
-                    <option value="passport">{t('form.passport')}</option>
-                    <option value="national_id">{t('form.nationalId')}</option>
-                  </select>
-                  {fieldErrors.cust_id_type && (
-                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_id_type}</div>
-                  )}
-                </Field>
-                </div>
-
-                {/* Row 2: First Name | Last Name */}
-                <Field label={tc('fields.firstName')} required>
-                  <input required value={form.cust_first_name}
-                    onChange={e => set('cust_first_name', e.target.value)}
-                    placeholder={t('form.firstNamePlaceholder')} style={INPUT_STYLE}
-                    onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
-
-                <Field label={tc('fields.lastName')} required>
-                  <input required value={form.cust_last_name}
-                    onChange={e => set('cust_last_name', e.target.value)}
-                    placeholder={t('form.lastNamePlaceholder')} style={INPUT_STYLE}
-                    onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
-
-                {/* Row 3: Driving License | License Issue Date */}
-                <Field label={t('form.drivingLicense')}>
-                  <input value={form.cust_driving_license_number}
-                    onChange={e => set('cust_driving_license_number', e.target.value)}
-                    placeholder={t('form.licenseNumber')} style={INPUT_STYLE}
-                    onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
-
-                <div ref={refLicenseIssueDate}>
-                <Field label={t('form.licenseIssueDate')} required>
-                  <input type="date" value={form.cust_license_issue_date}
-                    onChange={e => { set('cust_license_issue_date', e.target.value); if (fieldErrors.cust_license_issue_date) setFieldErrors(fe => ({ ...fe, cust_license_issue_date: undefined })); }}
-                    style={{ ...INPUT_STYLE, borderColor: fieldErrors.cust_license_issue_date ? '#ef4444' : '#e5e7eb' }}
-                    onFocus={focusBlue}
-                    onBlur={e => { if (!fieldErrors.cust_license_issue_date) blurGray(e); }} />
-                  {fieldErrors.cust_license_issue_date && (
-                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_license_issue_date}</div>
-                  )}
-                  {form.cust_license_issue_date && (() => {
-                    const diffDays = (Date.now() - new Date(form.cust_license_issue_date).getTime()) / 86400000;
-                    return diffDays < 365 ? (
-                      <div style={{ marginTop: 6, padding: '7px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 7, fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
-                        ⚠️ Driver's license was issued less than 1 year ago. This booking may require additional review.
-                      </div>
-                    ) : null;
-                  })()}
-                </Field>
-                </div>
-
-                {/* Row 4: Phone | Nationality */}
-                <div ref={refPhone}>
-                <Field label={tc('fields.phone')} required>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <DialCodePicker
-                      value={form.cust_phone_dial}
-                      onChange={dial => set('cust_phone_dial', dial)}
-                    />
-                    <input value={form.cust_phone}
-                      onChange={e => { set('cust_phone', e.target.value); setPhoneSharers([]); if (fieldErrors.cust_phone) setFieldErrors(fe => ({ ...fe, cust_phone: undefined })); }}
-                      placeholder={t('form.phonePlaceholder')} type="tel"
-                      style={{ ...INPUT_STYLE, flex: 1, borderColor: fieldErrors.cust_phone ? '#ef4444' : '#e5e7eb' }}
-                      onFocus={focusBlue}
-                      onBlur={e => { if (!fieldErrors.cust_phone) blurGray(e); checkPhoneSharers(); }} />
-                  </div>
-                  {fieldErrors.cust_phone && (
-                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_phone}</div>
-                  )}
-                  {phoneSharers.length > 0 && (
-                    <div role="status" className="hc-cust-phone">
-                      {t('customerStep.phoneShared', { names: phoneSharers.map(p => p.full_name).join('، ') })}
-                    </div>
-                  )}
-                </Field>
-                </div>
-
-                <div ref={refNationality}>
-                <Field label={tc('fields.nationality')} required>
-                  <select value={form.cust_nationality}
-                    onChange={e => { set('cust_nationality', e.target.value); if (fieldErrors.cust_nationality) setFieldErrors(fe => ({ ...fe, cust_nationality: undefined })); }}
-                    style={{ ...INPUT_STYLE, cursor: 'pointer', borderColor: fieldErrors.cust_nationality ? '#ef4444' : '#e5e7eb' }} onFocus={focusBlue} onBlur={blurGray}>
-                    <option value="">{t('form.selectCountry')}</option>
-                    {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.name}>{c.flag} {countryName(c)}</option>
-                    ))}
-                  </select>
-                  {fieldErrors.cust_nationality && (
-                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{fieldErrors.cust_nationality}</div>
-                  )}
-                </Field>
-                </div>
-
-                <Field label={tc('fields.language')}>
-                  <select value={form.cust_language}
-                    onChange={e => set('cust_language', e.target.value as CustomerLanguage)}
-                    style={{ ...INPUT_STYLE, cursor: 'pointer' }} onFocus={focusBlue} onBlur={blurGray}>
-                    {CUSTOMER_LANGUAGES.map(l => (
-                      <option key={l.value} value={l.value}>{t(l.labelKey)}</option>
-                    ))}
-                  </select>
-                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                    {t('whatsappHint')}
-                  </div>
-                </Field>
-
-                {/* Row 5: Birth Date | Address */}
-                <Field label={t('form.birthDate')}>
-                  <input type="date" value={form.cust_birth_date}
-                    onChange={e => set('cust_birth_date', e.target.value)}
-                    style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray} />
-                  {form.cust_birth_date && (() => {
-                    const diffYears = (Date.now() - new Date(form.cust_birth_date).getTime()) / (365.25 * 86400000);
-                    return diffYears < 22 ? (
-                      <div style={{ marginTop: 6, padding: '7px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 7, fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
-                        ⚠️ Customer is under 22 years old. Young driver surcharge may apply.
-                      </div>
-                    ) : null;
-                  })()}
-                </Field>
-
-                <Field label={tc('fields.address')}>
-                  <input value={form.cust_address}
-                    onChange={e => set('cust_address', e.target.value)}
-                    placeholder={t('form.addressPlaceholder')} style={INPUT_STYLE}
-                    onFocus={focusBlue} onBlur={blurGray} />
-                </Field>
-
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-                    {tc('fields.notes')}
-                  </label>
-                  <textarea
-                    value={form.cust_notes}
-                    onChange={e => set('cust_notes', e.target.value)}
-                    placeholder={t('form.notesPlaceholder')}
-                    rows={2}
-                    style={{ ...INPUT_STYLE, height: 'auto', padding: '10px 12px', resize: 'vertical' }}
-                    onFocus={focusBlue} onBlur={blurGray}
-                  />
-                </div>
-
-                {/* ── Customer Documents ── */}
-                <SectionHeading
-                  title={t('form.customerDocuments')}
-                  icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
-                />
-
-                <DocUploadField
-                  label={t('form.idPhoto')}
-                  existingUrl={existingDocUrls.id_photo_url}
-                  file={docIdPhoto}
-                  onChange={setDocIdPhoto}
-                />
-
-                <DocUploadField
-                  label={t('form.idPhotoBack')}
-                  existingUrl={existingDocUrls.id_photo_back_url}
-                  file={docIdPhotoBack}
-                  onChange={setDocIdPhotoBack}
-                />
-
-                <DocUploadField
-                  label={t('form.drivingLicense')}
-                  existingUrl={existingDocUrls.driving_license_photo_url}
-                  file={docDrivingLicense}
-                  onChange={setDocDrivingLicense}
-                />
-
-                <DocUploadField
-                  label={t('form.licenseBack')}
-                  existingUrl={existingDocUrls.driving_license_back_url}
-                  file={docDrivingLicenseBack}
-                  onChange={setDocDrivingLicenseBack}
-                />
-
-                <DocUploadField
-                  label={t('form.entryStamp')}
-                  existingUrl={existingDocUrls.entry_stamp_photo_url}
-                  file={docEntryStamp}
-                  onChange={setDocEntryStamp}
-                />
-
-                </>)}
-
-                {/* ── Financial Information ── */}
-                <>
-                  <SectionHeading
-                    title={t('form.financialInfo')}
-                    icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7v1m0 8v1M9.5 9.5A2.5 2.5 0 0112 8a2.5 2.5 0 012.5 2.5c0 1.5-1.5 2-2.5 2.5s-2.5 1-2.5 2.5A2.5 2.5 0 0012 18a2.5 2.5 0 002.5-2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
-                  />
-
-                  {/* Currency toggle */}
-                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{tc('fields.currency')}</span>
-                    <div style={{ display: 'flex', borderRadius: 8, border: '1.5px solid #e5e7eb', overflow: 'hidden' }}>
-                      {(['TRY', 'USD'] as const).map(c => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => handleFinCurrencyChange(c)}
-                          style={{
-                            padding: '5px 14px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
-                            background: form.fin_currency === c ? '#4ba6ea' : '#fff',
-                            color:      form.fin_currency === c ? '#fff'    : '#6b7280',
-                            transition: 'background 120ms ease, color 120ms ease',
-                          }}
-                        >
-                          {c === 'TRY' ? '₺ TRY' : '$ USD'}
-                        </button>
-                      ))}
-                    </div>
-                    {form.fin_currency === 'USD' && (
-                      <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                        {t('convertHint')}
-                      </span>
-                    )}
-                  </div>
-
-                  <Field label={`${t('form.rentalAmount')} (${form.fin_currency})`}>
-                    <input
-                      type="number" min="0" step="0.01" placeholder="0.00"
-                      value={form.fin_rental_amount}
-                      onChange={e => set('fin_rental_amount', e.target.value)}
-                      style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-                    />
-                  </Field>
-
-                  <Field label={`${t('form.deposit')} (${form.fin_currency})`}>
-                    <input
-                      type="number" min="0" step="0.01" placeholder="0.00"
-                      value={form.fin_deposit}
-                      onChange={e => set('fin_deposit', e.target.value)}
-                      style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-                    />
-                  </Field>
-
-                  <Field label={`${t('form.paidAmount')} (${form.fin_currency})`}>
-                    <input
-                      type="number" min="0" step="0.01" placeholder="0.00"
-                      value={form.fin_paid_amount}
-                      onChange={e => set('fin_paid_amount', e.target.value)}
-                      style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-                    />
-                  </Field>
-                </>
-            </>
-          </div>
-
-          {banAlert && <BanAlert ban={banAlert} />}
-          {formError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
-                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <span style={{ fontSize: 13, color: '#ef4444' }}>{formError}</span>
-            </div>
+        <Field label={t('form.birthDate')} changed={dot('cust_birth_date')}>
+          <DateParts label={t('form.birthDate')} locale={dateLocale} value={form.cust_birth_date} onChange={value => set('cust_birth_date', value)} />
+          {form.cust_birth_date && (Date.now() - new Date(form.cust_birth_date).getTime()) / (365.25 * 86400000) < 22 && (
+            <FormNote>{t('warnings.underAge')}</FormNote>
           )}
+        </Field>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
-            <Button variant="secondary" type="button" onClick={onClose}
-            >
-              {tc('actions.cancel')}
-            </Button>
-            <Button type="submit" disabled={saving}
-            >
-              {saving ? 'Saving…' : mode === 'add' ? t('form.submitAdd') : t('form.submitSave')}
-            </Button>
-          </div>
-        </form>
-      </div>
+        <Field label={tc('fields.address')} wide changed={dot('cust_address')}>
+          <input className="hc-input" value={form.cust_address} onChange={e => set('cust_address', e.target.value)} placeholder={t('form.addressPlaceholder')} />
+        </Field>
+      </>)}
+    </FormCard>
+  );
 
-      <style>{`
-        @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideUp { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        @keyframes spin    { to { transform: rotate(360deg); } }
-      `}</style>
-    </div>,
-    document.body,
+  const documentsCard = customerStep !== 'search' && (
+    <FormCard icon={ICONS.document} title={t('form.customerDocuments')}>
+      <DocUploadField label={t('form.idPhoto')} existingUrl={existingDocUrls.id_photo_url} file={docIdPhoto} onChange={setDocIdPhoto} />
+      <DocUploadField label={t('form.idPhotoBack')} existingUrl={existingDocUrls.id_photo_back_url} file={docIdPhotoBack} onChange={setDocIdPhotoBack} />
+      <DocUploadField label={t('form.drivingLicense')} existingUrl={existingDocUrls.driving_license_photo_url} file={docDrivingLicense} onChange={setDocDrivingLicense} />
+      <DocUploadField label={t('form.licenseBack')} existingUrl={existingDocUrls.driving_license_back_url} file={docDrivingLicenseBack} onChange={setDocDrivingLicenseBack} />
+      <DocUploadField label={t('form.entryStamp')} existingUrl={existingDocUrls.entry_stamp_photo_url} file={docEntryStamp} onChange={setDocEntryStamp} />
+    </FormCard>
+  );
+
+  const tripCard = (
+    <div ref={refTrip}>
+      <FormCard icon={ICONS.calendar} title={t('steps.trip')}>
+        <Field label={t('form.dateRange')} required wide changed={dot('start_date') || dot('end_date')}>
+          <DateRangePicker
+            label={t('form.dateRange')}
+            locale={dateLocale}
+            start={form.start_date}
+            end={form.end_date}
+            onChange={(start, end) => {
+              setForm(f => ({ ...f, start_date: start, end_date: end }));
+              setFieldErrors(fe => ({ ...fe, dates: undefined, car_id: undefined }));
+            }}
+          />
+          <FieldError>{fieldErrors.dates}</FieldError>
+        </Field>
+
+        <Field label={tc('fields.car')} required wide changed={dot('car_id')}>
+          {!form.start_date || !form.end_date ? (
+            <p className="text-[13px] text-gray-500">{t('carBusy.pickDates')}</p>
+          ) : (
+            <CarPicker
+              labelId={carLabelId}
+              cars={cars}
+              failed={carsFailed}
+              onRetry={() => setCarsAttempt(attempt => attempt + 1)}
+              recent={recentCars}
+              value={selectedCarId}
+              onChange={id => { set('car_id', id == null ? '' : String(id)); setFieldErrors(fe => ({ ...fe, car_id: undefined })); }}
+              disabled={saving}
+              busy={busy}
+              showAvailability={!!busy}
+            />
+          )}
+          {availabilityFailed && <FormNote>{t('carBusy.checkFailed')}</FormNote>}
+          <FieldError>{fieldErrors.car_id}</FieldError>
+        </Field>
+
+        {locationField('pickup_location', t('form.pickupLocation'), pickupOther, setPickupOther)}
+        {locationField('dropoff_location', t('form.dropoffLocation'), dropoffOther, setDropoffOther)}
+      </FormCard>
+    </div>
+  );
+
+  const insuranceCard = (
+    <FormCard icon={ICONS.shield} title={t('form.insuranceServices')}>
+      <Field label={t('form.insuranceType')} wide changed={dot('insurance_type')}>
+        <div className="hc-choice-grid">
+          {INSURANCE_PRESETS.map(preset => (
+            <ChoiceCard
+              key={preset}
+              selected={!insuranceOther && form.insurance_type === preset}
+              title={t(`presets.insurance.${INSURANCE_KEY[preset]}.name`)}
+              description={t(`presets.insurance.${INSURANCE_KEY[preset]}.desc`)}
+              onClick={() => { setInsuranceOther(false); set('insurance_type', form.insurance_type === preset ? '' : preset); }}
+            />
+          ))}
+          <ChoiceCard
+            selected={insuranceOther}
+            title={t('presets.other')}
+            description={t('presets.otherInsurance')}
+            onClick={() => { setInsuranceOther(other => !other); set('insurance_type', ''); }}
+          />
+        </div>
+        {insuranceOther && (
+          <input className="hc-input mt-2" autoFocus={mode === 'add'} value={form.insurance_type} onChange={e => set('insurance_type', e.target.value)} placeholder={t('form.specifyInsurance')} aria-label={t('form.specifyInsurance')} />
+        )}
+      </Field>
+
+      <Field label={t('form.additionalServices')} wide changed={dot('additional_services')}>
+        <div className="hc-choice-grid">
+          {[...ADDITIONAL_SERVICE_OPTS, 'Diğer'].map(option => (
+            <ChoiceCard
+              key={option}
+              selected={additionalChecked.includes(option)}
+              title={option === 'Diğer' ? t('presets.other') : t(SERVICE_KEY[option])}
+              onClick={() => {
+                const chosen = additionalChecked.includes(option);
+                setAdditionalChecked(prev => (chosen ? prev.filter(x => x !== option) : [...prev, option]));
+                if (chosen && option === 'Diğer') setAdditionalOtherText('');
+              }}
+            />
+          ))}
+        </div>
+        {additionalChecked.includes('Diğer') && (
+          <input className="hc-input mt-2" autoFocus={mode === 'add'} value={additionalOtherText} onChange={e => setAdditionalOtherText(e.target.value)} placeholder={t('form.specifyService')} aria-label={t('form.specifyService')} />
+        )}
+      </Field>
+    </FormCard>
+  );
+
+  const deliveryCard = (
+    <FormCard icon={ICONS.gauge} title={t('form.vehicleCondition')}>
+      <Field label={t('form.kmAtDelivery')} changed={dot('km_at_delivery')}>
+        <input className="hc-input" type="number" inputMode="numeric" min="0" step="1" dir="ltr" value={form.km_at_delivery} onChange={e => set('km_at_delivery', e.target.value)} placeholder={t('form.kmPlaceholder')} />
+      </Field>
+      <Field label={t('form.fuelAtDelivery')} changed={dot('fuel_at_delivery')}>
+        <FuelSlider ariaLabel={t('form.fuelAtDelivery')} value={form.fuel_at_delivery} onChange={value => set('fuel_at_delivery', value)} />
+      </Field>
+    </FormCard>
+  );
+
+  const statuses: BookingStatus[] = form.status === 'completed' ? ['pending', 'confirmed', 'cancelled', 'completed'] : ['pending', 'confirmed', 'cancelled'];
+
+  const detailsCard = (
+    <FormCard icon={ICONS.calendar} title={t('form.bookingDetails')}>
+      <Field label={tc('fields.status')} wide changed={dot('status')}>
+        <div role="group" aria-label={tc('fields.status')} className="hc-seg hc-seg-full">
+          {statuses.map(status => (
+            <button key={status} type="button" aria-pressed={form.status === status} onClick={() => set('status', status)}>{t(`status.${status}`)}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label={tc('fields.notes')} wide changed={dot('cust_notes')}>
+        <textarea className="hc-input" rows={2} value={form.cust_notes} onChange={e => set('cust_notes', e.target.value)} placeholder={t('form.notesPlaceholder')} />
+      </Field>
+    </FormCard>
+  );
+
+  const paymentCard = (
+    <FormCard
+      icon={ICONS.money}
+      title={t('form.financialInfo')}
+      action={<CurrencySwitch value={form.fin_currency} onChange={handleFinCurrencyChange} disabled={usdRate === null} label={tc('fields.currency')} />}
+    >
+      <Field label={t('form.rentalAmount')} changed={dot('fin_rental_amount')}>
+        <MoneyField ariaLabel={t('form.rentalAmount')} currency={form.fin_currency} rate={usdRate} value={form.fin_rental_amount} onChange={value => set('fin_rental_amount', value)} />
+      </Field>
+      <Field label={t('form.deposit')} changed={dot('fin_deposit')}>
+        <MoneyField ariaLabel={t('form.deposit')} currency={form.fin_currency} rate={usdRate} value={form.fin_deposit} onChange={value => set('fin_deposit', value)} />
+      </Field>
+      <Field label={t('form.paidAmount')} changed={dot('fin_paid_amount')}>
+        <MoneyField ariaLabel={t('form.paidAmount')} currency={form.fin_currency} rate={usdRate} value={form.fin_paid_amount} onChange={value => set('fin_paid_amount', value)} />
+      </Field>
+    </FormCard>
+  );
+
+  const reviewCard = (
+    <FormCard icon={ICONS.check} title={t('form.review')}>
+      <dl className="hc-review hc-field-wide">
+        <div><dt>{t('summary.customer')}</dt><dd dir="auto">{customerName || '—'}</dd></div>
+        <div>
+          <dt>{t('summary.car')}</dt>
+          <dd className="flex flex-wrap items-center justify-end gap-2">
+            {selectedCar ? <><PlateChip plate={selectedCar.plate_number} /><span>{selectedCar.model}</span></> : '—'}
+          </dd>
+        </div>
+        <div><dt>{t('summary.dates')}</dt><dd>{dateSpan}{days > 0 && ` · ${t('range.days', { count: days })}`}</dd></div>
+        <div>
+          <dt>{t('summary.locations')}</dt>
+          <dd>{form.pickup_location || form.dropoff_location ? `${locationName(form.pickup_location) || '—'} · ${locationName(form.dropoff_location) || '—'}` : '—'}</dd>
+        </div>
+        <div><dt>{t('summary.insurance')}</dt><dd>{insuranceName || '—'}</dd></div>
+        <div><dt>{t('summary.extras')}</dt><dd>{extrasName || '—'}</dd></div>
+        <div><dt>{t('summary.km')}</dt><dd><bdi dir="ltr">{form.km_at_delivery || '—'}</bdi></dd></div>
+        <div><dt>{t('summary.fuel')}</dt><dd><bdi dir="ltr">{form.fuel_at_delivery ? `${form.fuel_at_delivery}%` : '—'}</bdi></dd></div>
+      </dl>
+    </FormCard>
+  );
+
+  const stepBodies = [
+    <>{customerCard}{documentsCard}</>,
+    tripCard,
+    insuranceCard,
+    deliveryCard,
+    <>{reviewCard}{detailsCard}{paymentCard}</>,
+  ];
+
+  const lastStep = STEP_KEYS.length - 1;
+  const onLastStep = mode === 'edit' || step === lastStep;
+  const busyLoading = saving || checkingStep;
+  const submitLabel = mode === 'add'
+    ? onLastStep ? t('sheet.create') : t('sheet.next')
+    : changedFields.size > 0 ? t('sheet.saveChanges', { count: changedFields.size }) : t('sheet.saveNoChanges');
+
+  return (
+    <BookingSheet
+      title={mode === 'add' ? t('form.newTitle') : t('form.editTitle')}
+      subtitle={mode === 'add' ? t('form.newSubtitle') : t('form.editSubtitle')}
+      chip={<span className="hc-bs-chip">{bookingNumLoading ? t('sheet.generatingNumber') : form.booking_number}</span>}
+      stepper={mode === 'add' ? (
+        <Stepper
+          steps={STEP_KEYS.map(key => ({ key, label: t(`steps.${key}`), short: t(`stepsShort.${key}`) }))}
+          current={step}
+          reached={reached}
+          onJump={index => { setFormError(null); setBanAlert(null); setStep(index); }}
+        />
+      ) : undefined}
+      scrollKey={step}
+      summary={form.car_id || form.start_date ? <SummaryBar rows={summaryRows} headline={summaryRows[7]} /> : undefined}
+      alerts={banAlert || formError ? <>{banAlert && <BanAlert ban={banAlert} />}<FormError>{formError}</FormError></> : undefined}
+      dirty={dirty}
+      busy={busyLoading}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      closeRef={closeRef}
+      footer={(
+        <>
+          {mode === 'add' && step > 0 && (
+            <Button variant="secondary" disabled={busyLoading} onClick={() => setStep(current => current - 1)}>{t('sheet.back')}</Button>
+          )}
+          <Button variant="secondary" className={mode === 'add' && step > 0 ? 'hc-bs-cancel' : undefined} disabled={busyLoading} onClick={() => closeRef.current?.()}>
+            {tc('actions.cancel')}
+          </Button>
+          <Button type="submit" className="hc-bs-primary" disabled={busyLoading || (mode === 'edit' && changedFields.size === 0)}>
+            {saving ? tc('actions.saving') : submitLabel}
+          </Button>
+        </>
+      )}
+    >
+      <span id={carLabelId} hidden>{tc('fields.car')}</span>
+      {mode === 'add' ? stepBodies[step] : baseline ? (
+        <>
+          {customerCard}
+          {documentsCard}
+          {tripCard}
+          {insuranceCard}
+          {deliveryCard}
+          {detailsCard}
+          {paymentCard}
+        </>
+      ) : (
+        !formError && <p role="status" className="py-8 text-center text-sm text-gray-500">{t('sheet.loading')}</p>
+      )}
+    </BookingSheet>
   );
 };
-
-// Small form field wrapper
-const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode }> = ({
-  label, required, children,
-}) => (
-  <div>
-    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-      {label}{required && <span style={{ color: '#ef4444', marginInlineStart: 3 }}>*</span>}
-    </label>
-    {children}
-  </div>
-);
 
 // ─── Delete confirm modal ─────────────────────────────────────────────────────
 
@@ -2297,14 +2307,13 @@ interface ExtendResult {
   new_balance: number | string;
 }
 
-const nextDayOf = (isoDate: string): string => {
-  const d = new Date(`${isoDate}T00:00:00`);
-  d.setDate(d.getDate() + 1);
-  return toDateStr(d);
-};
+const nextDayOf = (isoDate: string): string => addDay(isoDate, 1);
+
+/** Further than anyone books ahead, for "anything after this day". */
+const FAR_FUTURE = '2100-01-01';
 
 /**
- * Extending a booking is one RPC and nothing else.
+ * Extending a booking is one RPC, plus a note on what it wrote (see `appendLedgerNote`).
  *
  * `extend_booking` is SECURITY DEFINER and does the whole thing in a
  * transaction: moves `end_date`, forces `status` to confirmed, writes the rental
@@ -2316,35 +2325,71 @@ const nextDayOf = (isoDate: string): string => {
 const ExtendBookingModal: React.FC<{
   booking: Booking;
   onClose: () => void;
-  onExtended: (newEndDate: string, newBalance: number | null) => void;
+  onExtended: (newEndDate: string, newBalance: number | null, noteSaved: boolean) => void;
 }> = ({ booking, onClose, onExtended }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
+  const usdRate = useUsdRate();
+  const closeRef = useRef<(() => void) | null>(null);
+  const submitting = useRef(false);
 
-  // Not editable, and not sent: the function derives the same day itself. It is
-  // shown so the person can see which period they are actually paying for.
+  // Not sent: the function derives the same day itself. It is shown so the person
+  // can see which period they are actually paying for.
   const periodStart = nextDayOf(booking.end_date);
 
   const [newEndDate, setNewEndDate] = useState('');
   const [rentalAmount, setRentalAmount] = useState('');
+  const [rentalCurrency, setRentalCurrency] = useState<FormCurrency>('TRY');
   const [paidAmount, setPaidAmount] = useState('');
+  const [paidCurrency, setPaidCurrency] = useState<FormCurrency>('TRY');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [banAlert, setBanAlert] = useState<BanMatch | null>(
     booking.customer_banned ? { customer_id: '', full_name: booking.customer_name, ban_reason: booking.customer_ban_reason ?? null, matched_on: 'customer' } : null,
   );
+  const [blocksAhead, setBlocksAhead] = useState<CalendarBlock[]>([]);
+  const [oldBalance, setOldBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    let active = true;
+    // Only a courtesy: the database still refuses a clash with another booking.
+    getBlocks(periodStart, FAR_FUTURE, booking.car_id)
+      .then(found => { if (active) setBlocksAhead(found); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [periodStart, booking.car_id]);
+
+  useEffect(() => {
+    let active = true;
+    // Only for the preview: if it can't be read the balance shows as a dash.
+    customerBalance(booking.customer_id)
+      .then(balance => { if (active) setOldBalance(balance); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [booking.customer_id]);
+
+  // Only another booking stops the dates, as the database does. Maintenance and the like
+  // get a warning, since this car is already out with the customer either way.
+  const blockedFrom = firstBusyDay(blocksAhead.filter(block => block.block_type.startsWith('booked')), periodStart, { bookingId: booking.id });
+  const softBlock = newEndDate
+    ? blocksAhead.find(block => !block.block_type.startsWith('booked') && block.start_date <= newEndDate)
+    : undefined;
 
   const rentalNum = Number(rentalAmount);
   const paidNum   = paidAmount.trim() === '' ? 0 : Number(paidAmount);
+  const inLira = (amount: number, currency: FormCurrency) => (currency === 'USD' && usdRate !== null ? amount * usdRate : amount);
+  const rentalTry = inLira(rentalNum, rentalCurrency);
+  const paidTry   = inLira(paidNum, paidCurrency);
+  const extraDays = newEndDate ? rentalDays(booking.end_date, newEndDate) : 0;
+  const nextBalance = oldBalance === null ? null : oldBalance - (rentalTry || 0) + (paidTry || 0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
+  const balanceValue = (balance: number | null) => (balance === null
+    ? '—'
+    : <bdi dir="ltr" className={balance < 0 ? 'text-red-600' : undefined}>{formatMoney(balance, 'TRY')}</bdi>);
+
+  const save = async () => {
     setFormError(null);
 
     if (!newEndDate) { setFormError(t('extend.errors.endRequired')); return; }
@@ -2379,152 +2424,138 @@ const ExtendBookingModal: React.FC<{
     const { data, error } = await supabase.rpc('extend_booking', {
       p_booking_id:    booking.id,
       p_new_end_date:  newEndDate,
-      p_rental_amount: rentalNum,
-      p_paid_amount:   paidNum,
+      p_rental_amount: rentalTry,
+      p_paid_amount:   paidTry,
       p_created_by:    user?.id ?? null,
     });
-    setSaving(false);
 
     if (error) {
+      setSaving(false);
       const refusal = parseCustomerError(error.message);
       if (refusal?.kind === 'banned') setBanAlert({ customer_id: '', full_name: refusal.name, ban_reason: refusal.reason || null, matched_on: 'customer' });
-      else setFormError(error.message || t('extend.errors.failed'));
+      else if (isCarBusyError(error.message)) setFormError(t('errors.carBusy'));
+      else setFormError(t('extend.errors.failed'));
       return;
     }
+
+    const notes = await Promise.all([
+      rentalCurrency === 'USD' && usdRate !== null
+        ? appendLedgerNote(booking.id, 'Rental extension', ` ($${rentalNum} × ${formatRate(usdRate)})`) : true,
+      paidCurrency === 'USD' && paidNum > 0 && usdRate !== null
+        ? appendLedgerNote(booking.id, 'Extension payment', ` ($${paidNum} × ${formatRate(usdRate)})`) : true,
+    ]);
+    setSaving(false);
 
     // The function returns a TABLE, which PostgREST hands back as an array.
     const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
     const balance = result?.new_balance == null ? null : Number(result.new_balance);
-    onExtended(newEndDate, Number.isFinite(balance as number) ? balance : null);
+    onExtended(newEndDate, Number.isFinite(balance as number) ? balance : null, notes.every(Boolean));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+    try {
+      await save();
+    } catch {
+      setFormError(t('extend.errors.failed'));
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
   };
 
   const canSave = !saving && !!newEndDate && rentalAmount.trim() !== '';
+  const summaryRows = [
+    { label: t('extend.oldBalance'), value: balanceValue(oldBalance) },
+    { label: t('extend.charge'), value: <bdi dir="ltr">{formatMoney(-(rentalTry || 0), 'TRY')}</bdi> },
+    { label: t('extend.paidNow'), value: <bdi dir="ltr">{formatMoney(paidTry || 0, 'TRY')}</bdi> },
+    { label: t('extend.newBalance'), value: balanceValue(nextBalance) },
+  ];
 
-  return ReactDOM.createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '24px 16px', overflowY: 'auto', animation: 'fadeIn 150ms ease',
-      }}
+  return (
+    <BookingSheet
+      title={t('extend.title')}
+      subtitle={t('extend.subtitle', { number: booking.booking_number, customer: booking.customer_name || '—' })}
+      summary={<SummaryBar rows={summaryRows} headline={summaryRows[3]} />}
+      alerts={banAlert || formError ? <>{banAlert && <BanAlert ban={banAlert} />}<FormError>{formError}</FormError></> : undefined}
+      dirty={!!newEndDate || rentalAmount !== '' || paidAmount !== ''}
+      busy={saving}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      closeRef={closeRef}
+      footer={(
+        <>
+          <Button variant="secondary" disabled={saving} onClick={() => closeRef.current?.()}>{tc('actions.cancel')}</Button>
+          <Button type="submit" className="hc-bs-primary" disabled={!canSave}>{saving ? tc('actions.saving') : t('extend.submit')}</Button>
+        </>
+      )}
     >
-      <div className="surface-depth surface-float"
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 460,
-          marginTop: 'auto', marginBottom: 'auto',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
-          animation: 'slideUp 180ms ease',
-        }}
+      <FormCard icon={ICONS.customer} title={t('extend.currentBooking')}>
+        <dl className="hc-review hc-field-wide">
+          <div><dt>{t('summary.customer')}</dt><dd dir="auto">{booking.customer_name || '—'}</dd></div>
+          <div>
+            <dt>{t('summary.car')}</dt>
+            <dd className="flex flex-wrap items-center justify-end gap-2"><PlateChip plate={booking.plate_number} /><span>{booking.car_model}</span></dd>
+          </div>
+          <div>
+            <dt>{t('summary.dates')}</dt>
+            <dd>{t('range.span', { start: formatDateDisplay(booking.start_date, dateLocale), end: formatDateDisplay(booking.end_date, dateLocale) })}</dd>
+          </div>
+        </dl>
+      </FormCard>
+
+      <FormCard
+        icon={ICONS.calendar}
+        title={t('extend.extension')}
+        action={extraDays > 0 ? <span className="hc-range-count text-[13px]">{t('extend.plusDays', { count: extraDays })}</span> : undefined}
       >
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#0f1117', letterSpacing: '-0.3px' }}>
-            {t('extend.title')}
+        <Field label={t('extend.newEndDate')} required wide>
+          <DateRangePicker
+            label={t('extend.newEndDate')}
+            locale={dateLocale}
+            fixedStart
+            start={booking.end_date}
+            end={newEndDate}
+            min={periodStart}
+            blockedFrom={blockedFrom}
+            onChange={(_, end) => setNewEndDate(end)}
+          />
+        </Field>
+        <div className="hc-field-wide">
+          <div aria-hidden="true" className="hc-timeline">
+            <span className="hc-timeline-old" style={{ flex: `${rentalDays(booking.start_date, booking.end_date)} 1 0` }} />
+            {extraDays > 0 && <span className="hc-timeline-new" style={{ flex: `${extraDays} 1 0` }} />}
           </div>
-          <div dir="auto" style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>
-            {t('extend.subtitle', {
-              number: booking.booking_number,
-              customer: booking.customer_name || '—',
-            })}
+          <div className="hc-timeline-labels">
+            <span>{shortDate(booking.start_date)}</span>
+            <span>{shortDate(booking.end_date)}</span>
+            {newEndDate && <span className="font-semibold text-[#0f1117]">{shortDate(newEndDate)}</span>}
           </div>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ padding: '18px 24px 4px', display: 'grid', gap: 14 }}>
-          <Field label={t('extend.newPeriodStarts')}>
-            <input
-              type="date"
-              value={periodStart}
-              readOnly
-              tabIndex={-1}
-              style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', cursor: 'not-allowed' }}
-            />
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-              {t('extend.newPeriodHint')} {t('extend.currentEnd')}: {booking.end_date}
-            </div>
-          </Field>
-
-          <Field label={t('extend.newEndDate')} required>
-            <input
-              type="date"
-              value={newEndDate}
-              min={periodStart}
-              onChange={e => setNewEndDate(e.target.value)}
-              onFocus={focusBlue} onBlur={blurGray}
-              style={INPUT_STYLE}
-            />
-          </Field>
-
-          <Field label={t('extend.rentalAmount')} required>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              dir="ltr"
-              value={rentalAmount}
-              onChange={e => setRentalAmount(e.target.value)}
-              onFocus={focusBlue} onBlur={blurGray}
-              style={INPUT_STYLE}
-            />
-          </Field>
-
-          <Field label={t('extend.paidAmount')}>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              dir="ltr"
-              value={paidAmount}
-              onChange={e => setPaidAmount(e.target.value)}
-              onFocus={focusBlue} onBlur={blurGray}
-              style={INPUT_STYLE}
-            />
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{t('extend.paidHint')}</div>
-          </Field>
-
-          <div style={{
-            fontSize: 12, lineHeight: 1.55, color: '#6b7280',
-            background: 'var(--surface)', border: '1px solid var(--border-subtle)',
-            borderRadius: 9, padding: '9px 12px',
-          }}>
-            {t('extend.insuranceNote')}
-          </div>
-
-          {banAlert && <BanAlert ban={banAlert} />}
-          {formError && (
-            <div style={{
-              padding: '9px 12px', background: '#fef2f2', border: '1px solid #fecaca',
-              borderRadius: 9, fontSize: 12.5, color: '#ef4444',
-            }}>
-              {formError}
-            </div>
+          <p className="mt-2 text-xs text-gray-500">{t('extend.startsOn', { date: formatDateDisplay(periodStart, dateLocale) })}</p>
+          {softBlock && (
+            <FormNote>
+              {t('extend.blockAhead', {
+                type: t(softBlock.block_type === 'maintenance' ? 'carBusy.maintenance' : softBlock.block_type === 'selling' ? 'carBusy.selling' : 'carBusy.replacement'),
+                date: formatDateDisplay(softBlock.start_date, dateLocale),
+              })}
+            </FormNote>
           )}
-        </form>
-
-        <div style={{
-          padding: '14px 24px 20px', display: 'flex', gap: 10,
-          justifyContent: 'flex-end', borderTop: '1px solid #f0f0f0', marginTop: 16,
-        }}>
-          <Button variant="secondary"
-            type="button"
-            onClick={onClose}
-          >
-            {tc('actions.cancel')}
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={!canSave}
-          >
-            {saving ? tc('actions.saving') : t('extend.submit')}
-          </Button>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </FormCard>
+
+      <FormCard icon={ICONS.money} title={t('extend.amount')}>
+        <Field label={t('extend.labelRental')} required wide>
+          <MoneyField ariaLabel={t('extend.labelRental')} currency={rentalCurrency} rate={usdRate} onCurrency={setRentalCurrency} value={rentalAmount} onChange={setRentalAmount} />
+        </Field>
+        <Field label={t('extend.labelPaid')} wide>
+          <MoneyField ariaLabel={t('extend.labelPaid')} currency={paidCurrency} rate={usdRate} onCurrency={setPaidCurrency} value={paidAmount} onChange={setPaidAmount} />
+          <p className="mt-1 text-xs text-gray-500">{t('extend.paidHint')}</p>
+        </Field>
+        <p className="hc-field-wide text-xs leading-relaxed text-gray-500">{t('extend.insuranceNote')}</p>
+      </FormCard>
+    </BookingSheet>
   );
 };
 
@@ -2665,124 +2696,7 @@ function mapSheetRow(row: SheetRowRaw): ReplacementSheetRecord {
 
 const todayStr = (): string => toDateStr(new Date());
 
-// ─── Searchable car picker (original car, by plate or model) ──────────────────
-
-const CarSearchSelect: React.FC<{
-  cars: ReplacementCarOption[];
-  value: string;
-  onChange: (carId: string) => void;
-  loading: boolean;
-}> = ({ cars, value, onChange, loading }) => {
-  const { t } = useTranslation('bookings');
-  const [open, setOpen]     = useState(false);
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  const selected = cars.find(c => String(c.id) === value) ?? null;
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return cars;
-    return cars.filter(c =>
-      c.plate_number.toLowerCase().includes(q) ||
-      (c.model ?? '').toLowerCase().includes(q)
-    );
-  }, [cars, search]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setSearch(''); }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={() => { setOpen(o => !o); setSearch(''); }}
-        style={{
-          ...INPUT_STYLE, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 8, cursor: 'pointer', textAlign: 'start',
-          color: selected ? '#0f1117' : '#9ca3af',
-        }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {loading
-            ? 'Loading cars…'
-            : selected
-              ? `${selected.plate_number}${selected.model ? ` — ${selected.model}` : ''}`
-              : 'Search plate or model…'}
-        </span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M6 9l6 6 6-6" stroke="#9ca3af" strokeWidth="2.2" strokeLinecap="round"/>
-        </svg>
-      </button>
-
-      {open && (
-        <div style={{
-          position: 'absolute', top: 44, insetInlineStart: 0, insetInlineEnd: 0, zIndex: 300,
-          background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.13)', overflow: 'hidden',
-        }}>
-          <div style={{ padding: '8px 8px 6px' }}>
-            <input
-              autoFocus type="text" value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={t('form.searchCar')}
-              style={{
-                width: '100%', height: 36, padding: '0 10px', fontSize: 13,
-                border: '1.5px solid #e5e7eb', borderRadius: 7, outline: 'none',
-                fontFamily: 'inherit', boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-            {filtered.map(c => (
-              <button
-                key={c.id} type="button"
-                onClick={() => { onChange(String(c.id)); setOpen(false); setSearch(''); }}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 9,
-                  padding: '11px 12px', minHeight: 44, border: 'none', background: 'none',
-                  cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                  textAlign: 'start', color: '#374151',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f9fafb'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
-              >
-                <span className="hc-num" style={{ fontWeight: 700, flexShrink: 0 }}>{c.plate_number}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>
-                  {c.model ?? ''}
-                </span>
-                {c.status && (
-                  <span style={{ color: '#9ca3af', fontSize: 11, flexShrink: 0 }}>
-                    {t(AVAILABILITY_LABEL_KEY[c.status])}
-                  </span>
-                )}
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <div style={{ padding: '12px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                {t('noResults')}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ─── Replacement form modal ───────────────────────────────────────────────────
-
-const WARN_STYLE: React.CSSProperties = {
-  display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 6,
-  padding: '7px 10px', background: '#fffbeb', borderRadius: 7,
-  border: '1px solid rgba(245,158,11,0.28)', fontSize: 12, color: '#b45309', lineHeight: 1.45,
-};
 
 const ReplacementFormModal: React.FC<{
   onClose: () => void;
@@ -2797,9 +2711,16 @@ const ReplacementFormModal: React.FC<{
 }> = ({ onClose, onSaved, sheet }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const dateLocale = useDateLocale();
   const isEdit = !!sheet;
+  const closeRef = useRef<(() => void) | null>(null);
+  const submitting = useRef(false);
+  const originalLabelId = useId();
+  const replacementLabelId = useId();
   const [cars, setCars]               = useState<ReplacementCarOption[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
+  const [carsFailed, setCarsFailed]   = useState(false);
+  const [carsAttempt, setCarsAttempt] = useState(0);
 
   const [originalCarId, setOriginalCarId] = useState(
     sheet?.original_car_id != null ? String(sheet.original_car_id) : '');
@@ -2819,15 +2740,20 @@ const ReplacementFormModal: React.FC<{
   const [saving, setSaving]       = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const { busy, failed: availabilityFailed } = useCarAvailability(startDate, endDate, { blockId: sheet?.calendar_block_id });
+
   // ── All cars (no is_active filter — a car being replaced may already be parked up) ──
   useEffect(() => {
     let active = true;
+    setCarsLoading(true);
+    setCarsFailed(false);
     (async () => {
       const [carsRes, availRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group(name)').order('plate_number'),
         supabase.from('car_availability').select('id, status'),
       ]);
       if (!active) return;
+      setCarsFailed(!!carsRes.error);
 
       const statusById = new Map<number, AvailabilityStatus>();
       for (const row of (availRes.data ?? []) as Array<{ id: number; status: string | null }>) {
@@ -2849,7 +2775,9 @@ const ReplacementFormModal: React.FC<{
       setCarsLoading(false);
     })();
     return () => { active = false; };
-  }, []);
+  }, [carsAttempt]);
+
+  const recentCars = useMemo(() => recentCarIds().flatMap(id => cars.filter(car => car.id === id)), [cars]);
 
   // ── Bookings for the chosen plate — every booking, newest first, no status filter ──
   useEffect(() => {
@@ -2894,33 +2822,28 @@ const ReplacementFormModal: React.FC<{
   // Return date defaults to the original booking's end date, and stays editable
   // after. In edit mode the stored date is the truth and is never overwritten.
   useEffect(() => {
-    if (!isEdit && selectedBooking) setEndDate(selectedBooking.end_date);
-  }, [selectedBooking, isEdit]);
+    if (!isEdit && selectedBooking) setEndDate(selectedBooking.end_date >= startDate ? selectedBooking.end_date : '');
+  }, [selectedBooking, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const originalCar    = cars.find(c => String(c.id) === originalCarId) ?? null;
   const replacementCar = cars.find(c => String(c.id) === replacementCarId) ?? null;
 
-  const noBookings   = !!originalCarId && !bookingsLoading && carBookings.length === 0;
+  const noBookings   = !isEdit && !!originalCarId && !bookingsLoading && carBookings.length === 0;
   const sameCarWarn  = !!replacementCarId && replacementCarId === originalCarId;
   const nonParkWarn  = !!replacementCar && replacementCar.status !== null && replacementCar.status !== 'parking';
 
-  // Parking cars first — they are the ones genuinely free to hand over.
-  const { parkingCars, otherCars } = useMemo(() => ({
-    parkingCars: cars.filter(c => c.status === 'parking'),
-    otherCars:   cars.filter(c => c.status !== 'parking'),
-  }), [cars]);
-
-  const carLabel = (c: ReplacementCarOption) =>
-    `${c.plate_number}${c.model ? ` — ${c.model}` : ''}${c.status ? ` · ${t(AVAILABILITY_LABEL_KEY[c.status])}` : ''}`;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const save = async () => {
     setFormError(null);
 
     // Shared by both modes — the fields anyone may change.
     if (!replacementCarId)               { setFormError(t('replacement.errors.replacementCar')); return; }
     if (!startDate || !endDate)          { setFormError(t('replacement.errors.datesRequired')); return; }
     if (endDate < startDate)             { setFormError(t('replacement.errors.returnBeforeHandover')); return; }
+
+    // An old sheet may overlap a block already. Only a new car or new dates have to fit.
+    const moved = !sheet || String(sheet.replacement_car_id ?? '') !== replacementCarId
+      || sheet.start_date !== startDate || sheet.end_date !== endDate;
+    if (moved && busy?.has(Number(replacementCarId))) { setFormError(t('errors.carBusy')); return; }
 
     // ── Edit ─────────────────────────────────────────────────────────────────
     if (sheet) {
@@ -2956,7 +2879,7 @@ const ReplacementFormModal: React.FC<{
 
       if (updateError || !updated) {
         setSaving(false);
-        setFormError(updateError?.message ?? t('replacement.errors.saveEdit'));
+        setFormError(t('replacement.errors.saveEdit'));
         return;
       }
 
@@ -2983,12 +2906,14 @@ const ReplacementFormModal: React.FC<{
           // a split the person has to know about. The modal stays open with the
           // sheet's own fields intact so they can see what is now out of step.
           setSaving(false);
-          setFormError(`${t('replacement.errors.calendarOutOfSync')} (${calendarError.message})`);
+          console.error('[Replacement] calendar sync error:', calendarError.message);
+          setFormError(t('replacement.errors.calendarOutOfSync'));
           return;
         }
       }
 
       setSaving(false);
+      rememberCar(Number(replacementCarId));
       onSaved(mapSheetRow(updated as unknown as SheetRowRaw));
       return;
     }
@@ -3033,7 +2958,7 @@ const ReplacementFormModal: React.FC<{
 
     if (blockError || !blockData) {
       setSaving(false);
-      setFormError(blockError?.message ?? t('replacement.errors.blockCalendar'));
+      setFormError(isCarBusyError(blockError?.message) ? t('errors.carBusy') : t('replacement.errors.blockCalendar'));
       return;
     }
 
@@ -3062,255 +2987,182 @@ const ReplacementFormModal: React.FC<{
       // Roll the block back so a failed sheet never leaves an orphan on the calendar.
       await supabase.from('car_calendar').delete().eq('id', blockId);
       setSaving(false);
-      setFormError(sheetError?.message ?? t('replacement.errors.saveSheet'));
+      setFormError(t('replacement.errors.saveSheet'));
       return;
     }
 
     setSaving(false);
+    rememberCar(Number(replacementCarId));
     onSaved(mapSheetRow(sheetData as unknown as SheetRowRaw));
   };
 
-  return ReactDOM.createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '24px 16px', overflowY: 'auto',
-        animation: 'fadeIn 150ms ease',
-      }}
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+    try {
+      await save();
+    } catch {
+      setFormError(t('replacement.errors.saveSheet'));
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
+  };
+
+  const shortDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' });
+  const dateSpan = startDate && endDate ? t('range.span', { start: shortDate(startDate), end: shortDate(endDate) }) : '—';
+  const days = rentalDays(startDate, endDate);
+  const summaryRows = [
+    { label: t('summary.car'), value: replacementCar ? <PlateChip plate={replacementCar.plate_number} /> : '—' },
+    { label: t('summary.dates'), value: dateSpan },
+    { label: t('summary.days'), value: days || '—' },
+    { label: t('summary.customer'), value: (isEdit ? sheet?.customer_name : selectedBooking?.customer_name) || '—' },
+  ];
+
+  const dirty = isEdit
+    ? String(sheet?.replacement_car_id ?? '') !== replacementCarId || sheet?.start_date !== startDate || sheet?.end_date !== endDate
+      || (sheet?.km_at_handover != null ? String(sheet.km_at_handover) : '') !== km || (sheet?.fuel_at_handover ?? '') !== fuel || (sheet?.notes ?? '') !== notes
+    : !!originalCarId || !!replacementCarId || !!km || !!fuel || !!notes;
+
+  const bookingRow = (booking: CarBookingOption, onClick: () => void, chosen = false) => (
+    <button key={booking.id} type="button" disabled={booking.customer_banned} onClick={onClick} className={`hc-booking-row ${chosen ? 'is-chosen' : ''}`}>
+      <span aria-hidden="true" className="hc-cust-avatar">{initialsOf(booking.customer_name) || '?'}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span dir="auto" className="truncate text-sm font-semibold text-[#0f1117]">{booking.customer_name}</span>
+          {booking.customer_banned && <BannedBadge />}
+        </span>
+        <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-gray-500">
+          <span className="hc-num">{booking.booking_number ?? `#${booking.id}`}</span>
+          <span>{t('range.span', { start: formatDateDisplay(booking.start_date, dateLocale), end: formatDateDisplay(booking.end_date, dateLocale) })}</span>
+        </span>
+      </span>
+      {chosen && <span className="shrink-0 text-[13px] font-bold text-[var(--accent-strong)]">{t('replacement.changeBooking')}</span>}
+    </button>
+  );
+
+  return (
+    <BookingSheet
+      title={isEdit ? t('replacement.editTitle') : t('replacementCarButton')}
+      subtitle={isEdit ? t('replacement.editSubtitle', { number: sheet?.sheet_number ?? '—' }) : t('replacement.subtitle')}
+      summary={replacementCarId || selectedBooking || isEdit ? <SummaryBar rows={summaryRows} headline={summaryRows[1]} /> : undefined}
+      alerts={banAlert || formError ? <>{banAlert && <BanAlert ban={banAlert} />}<FormError>{formError}</FormError></> : undefined}
+      dirty={dirty}
+      busy={saving}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      closeRef={closeRef}
+      footer={(
+        <>
+          <Button variant="secondary" disabled={saving} onClick={() => closeRef.current?.()}>{tc('actions.cancel')}</Button>
+          <Button type="submit" className="hc-bs-primary" disabled={saving || noBookings}>
+            {saving ? tc('actions.saving') : isEdit ? t('replacement.saveChanges') : t('replacement.createPrint')}
+          </Button>
+        </>
+      )}
     >
-      <div className="surface-depth surface-float"
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff', borderRadius: 18, width: '100%', maxWidth: 640,
-          marginTop: 'auto', marginBottom: 'auto',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
-          animation: 'slideUp 180ms ease',
-        }}
-      >
-        {/* Modal header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6',
-        }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              {isEdit ? t('replacement.editTitle') : t('replacementCarButton')}
+      <FormCard icon={ICONS.car} title={t('replacement.originalVehicle')}>
+        <Field label={t('replacement.originalCar')} required={!isEdit} wide>
+          {isEdit ? (
+            <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
+              {sheet?.original_plate ? <PlateChip plate={sheet.original_plate} /> : '—'}
+              {sheet?.original_model && <span className="text-sm text-gray-600">{sheet.original_model}</span>}
             </div>
-            <div dir="auto" style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {isEdit
-                ? t('replacement.editSubtitle', { number: sheet?.sheet_number ?? '—' })
-                : t('replacement.subtitle')}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#e5e7eb'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
-          <div className="rp-grid">
-
-            {/* ── Original vehicle ── */}
-            <SectionHeading
-              title={t('replacement.originalVehicle')}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2v-4a2 2 0 012-2h1l2-4h10l2 4h1a2 2 0 012 2v4a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="16.5" cy="17.5" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>}
+          ) : (
+            <CarPicker
+              labelId={originalLabelId}
+              cars={carsLoading ? null : cars}
+              failed={carsFailed}
+              onRetry={() => setCarsAttempt(attempt => attempt + 1)}
+              recent={recentCars}
+              value={originalCarId ? Number(originalCarId) : null}
+              onChange={id => setOriginalCarId(id == null ? '' : String(id))}
+              disabled={saving}
             />
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Field label={t('replacement.originalCar')} required={!isEdit}>
-                {isEdit ? (
-                  <div dir="auto" style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
-                    <span className="hc-num">{sheet?.original_plate ?? '—'}</span>
-                    {sheet?.original_model ? ` — ${sheet.original_model}` : ''}
-                  </div>
-                ) : (
-                  <CarSearchSelect
-                    cars={cars}
-                    value={originalCarId}
-                    onChange={setOriginalCarId}
-                    loading={carsLoading}
-                  />
-                )}
-              </Field>
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Field label={t('replacement.originalBooking')} required={!isEdit}>
-                {isEdit ? (
-                  <div dir="auto" style={{ ...INPUT_STYLE, background: '#f9fafb', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
-                    {sheet?.customer_name || '—'}
-                    {sheet?.original_booking_number ? ` · ${sheet.original_booking_number}` : ''}
-                  </div>
-                ) : (
-                <select
-                  value={bookingId}
-                  onChange={e => setBookingId(e.target.value)}
-                  disabled={!originalCarId || bookingsLoading || carBookings.length === 0}
-                  style={{
-                    ...INPUT_STYLE, cursor: originalCarId && carBookings.length > 0 ? 'pointer' : 'not-allowed',
-                    background: originalCarId && carBookings.length > 0 ? '#fff' : '#f9fafb',
-                    color: bookingId ? '#0f1117' : '#9ca3af',
-                  }}
-                  onFocus={focusBlue} onBlur={blurGray}
-                >
-                  <option value="">
-                    {!originalCarId    ? 'Select a plate first…'
-                      : bookingsLoading ? 'Loading bookings…'
-                      : carBookings.length === 0 ? t('replacement.noBookings')
-                      : 'Select booking…'}
-                  </option>
-                  {carBookings.map(b => (
-                    <option key={b.id} value={b.id} disabled={b.customer_banned}>
-                      {b.customer_name}{b.customer_banned ? ` (${tc('customer.banned')})` : ''} · {b.booking_number ?? `#${b.id}`} · {b.start_date} → {b.end_date}
-                    </option>
-                  ))}
-                </select>
-                )}
-              </Field>
-              {!isEdit && noBookings && (
-                <div style={WARN_STYLE}>
-                  <span>
-                    No bookings found for this car. A replacement sheet needs a customer, so pick a
-                    different plate.
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* ── Replacement vehicle ── */}
-            <SectionHeading
-              title={t('replacement.replacementVehicle')}
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            />
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Field label={t('replacement.replacementCar')} required>
-                <select
-                  value={replacementCarId}
-                  onChange={e => setReplacementCarId(e.target.value)}
-                  style={{ ...INPUT_STYLE, cursor: 'pointer', color: replacementCarId ? '#0f1117' : '#9ca3af' }}
-                  onFocus={focusBlue} onBlur={blurGray}
-                >
-                  <option value="">{carsLoading ? t('replacement.loadingCars') : t('replacement.selectCar')}</option>
-                  {parkingCars.length > 0 && (
-                    <optgroup label={t('replacement.freeToHandOver')}>
-                      {parkingCars.map(c => <option key={c.id} value={c.id}>{carLabel(c)}</option>)}
-                    </optgroup>
-                  )}
-                  {otherCars.length > 0 && (
-                    <optgroup label={t('replacement.otherVehicles')}>
-                      {otherCars.map(c => <option key={c.id} value={c.id}>{carLabel(c)}</option>)}
-                    </optgroup>
-                  )}
-                </select>
-              </Field>
-              {sameCarWarn && (
-                <div style={WARN_STYLE}>
-                  <span>{t('replacement.sameCarWarn')}</span>
-                </div>
-              )}
-              {nonParkWarn && !sameCarWarn && replacementCar?.status && (
-                <div style={WARN_STYLE}>
-                  <span>
-                    <Trans
-                      t={t}
-                      i18nKey="replacement.notParking"
-                      values={{ status: t(AVAILABILITY_LABEL_KEY[replacementCar.status]) }}
-                      components={[<strong />]}
-                    />
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <Field label={t('replacement.handoverDate')} required>
-              <input
-                required type="date" value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-              />
-            </Field>
-
-            <Field label={t('replacement.returnDate')} required>
-              <input
-                required type="date" value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-              />
-            </Field>
-
-            <Field label={t('replacement.kmAtHandover')}>
-              <input
-                type="number" min="0" step="1" placeholder={t('replacement.kmPlaceholder')}
-                value={km} onChange={e => setKm(e.target.value)}
-                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-              />
-            </Field>
-
-            <Field label={t('replacement.fuelAtHandover')}>
-              <input
-                type="text" placeholder={t('replacement.fuelPlaceholder')}
-                value={fuel} onChange={e => setFuel(e.target.value)}
-                style={INPUT_STYLE} onFocus={focusBlue} onBlur={blurGray}
-              />
-            </Field>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Field label={tc('fields.notes')}>
-                <textarea
-                  rows={2} placeholder={t('replacement.notesPlaceholder')}
-                  value={notes} onChange={e => setNotes(e.target.value)}
-                  style={{ ...INPUT_STYLE, height: 'auto', padding: '9px 12px', resize: 'vertical' }}
-                  onFocus={focusBlue} onBlur={blurGray}
-                />
-              </Field>
-            </div>
-          </div>
-
-          {banAlert && <BanAlert ban={banAlert} />}
-          {formError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
-                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <span style={{ fontSize: 13, color: '#ef4444' }}>{formError}</span>
-            </div>
           )}
+        </Field>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3f4f6' }}>
-            <Button variant="secondary" type="button" onClick={onClose}
-            >
-              {tc('actions.cancel')}
-            </Button>
-            <Button type="submit" disabled={saving || noBookings}
-            >
-              {saving
-                ? tc('actions.saving')
-                : isEdit ? t('replacement.saveChanges') : t('replacement.createPrint')}
-            </Button>
-          </div>
-        </form>
-      </div>
+        <Field label={t('replacement.originalBooking')} required={!isEdit} wide>
+          {isEdit ? (
+            <p dir="auto" className="text-sm text-gray-600">
+              {sheet?.customer_name || '—'}{sheet?.original_booking_number ? ` · ${sheet.original_booking_number}` : ''}
+            </p>
+          ) : !originalCarId ? (
+            <p className="text-[13px] text-gray-500">{t('replacement.pickPlateFirst')}</p>
+          ) : bookingsLoading ? (
+            <p role="status" className="text-[13px] text-gray-500">{t('replacement.loadingBookings')}</p>
+          ) : selectedBooking ? (
+            bookingRow(selectedBooking, () => setBookingId(''), true)
+          ) : carBookings.length > 0 ? (
+            <div role="group" aria-label={t('replacement.pickBooking')} className="hc-booking-rows">
+              {carBookings.map(booking => bookingRow(booking, () => setBookingId(String(booking.id))))}
+            </div>
+          ) : (
+            <FormNote>{t('replacement.noBookingsHint')}</FormNote>
+          )}
+        </Field>
+      </FormCard>
 
-      <style>{`
-        @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideUp { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        .rp-grid { display: grid; grid-template-columns: 1fr; gap: 14px 16px; }
-        @media (min-width: 640px) { .rp-grid { grid-template-columns: 1fr 1fr; } }
-      `}</style>
-    </div>,
-    document.body,
+      <FormCard icon={ICONS.swap} title={t('replacement.replacementVehicle')}>
+        <Field label={t('replacement.replacementCar')} required wide>
+          <CarPicker
+            labelId={replacementLabelId}
+            cars={carsLoading ? null : cars}
+            failed={carsFailed}
+            onRetry={() => setCarsAttempt(attempt => attempt + 1)}
+            recent={recentCars}
+            value={replacementCarId ? Number(replacementCarId) : null}
+            onChange={id => setReplacementCarId(id == null ? '' : String(id))}
+            disabled={saving}
+            busy={busy}
+            showAvailability={!!busy}
+          />
+          {availabilityFailed && <FormNote>{t('carBusy.checkFailed')}</FormNote>}
+          {sameCarWarn && <FormNote>{t('replacement.sameCarWarn')}</FormNote>}
+          {nonParkWarn && !sameCarWarn && replacementCar?.status && (
+            <FormNote>
+              <Trans
+                t={t}
+                i18nKey="replacement.notParking"
+                values={{ status: t(AVAILABILITY_LABEL_KEY[replacementCar.status]) }}
+                components={[<strong />]}
+              />
+            </FormNote>
+          )}
+        </Field>
+      </FormCard>
+
+      <FormCard icon={ICONS.calendar} title={t('replacement.dates')}>
+        <Field label={`${t('replacement.handoverDate')} · ${t('replacement.returnDate')}`} required wide>
+          <DateRangePicker
+            label={t('replacement.dates')}
+            locale={dateLocale}
+            start={startDate}
+            end={endDate}
+            onChange={(start, end) => { setStartDate(start); setEndDate(end); }}
+          />
+        </Field>
+      </FormCard>
+
+      <FormCard icon={ICONS.gauge} title={t('replacement.handover')}>
+        <Field label={t('replacement.kmAtHandover')}>
+          <input className="hc-input" type="number" inputMode="numeric" min="0" step="1" dir="ltr" placeholder={t('replacement.kmPlaceholder')} value={km} onChange={e => setKm(e.target.value)} />
+        </Field>
+        <Field label={t('replacement.fuelAtHandover')}>
+          <FuelSlider ariaLabel={t('replacement.fuelAtHandover')} value={fuel} onChange={setFuel} />
+        </Field>
+      </FormCard>
+
+      <FormCard icon={ICONS.note} title={tc('fields.notes')}>
+        <Field label={tc('fields.notes')} wide>
+          <textarea className="hc-input" rows={2} placeholder={t('replacement.notesPlaceholder')} value={notes} onChange={e => setNotes(e.target.value)} />
+        </Field>
+      </FormCard>
+
+      <span id={originalLabelId} hidden>{t('replacement.originalCar')}</span>
+      <span id={replacementLabelId} hidden>{t('replacement.replacementCar')}</span>
+    </BookingSheet>
   );
 };
 
@@ -3916,19 +3768,17 @@ const BookingsPage: React.FC = () => {
         <ExtendBookingModal
           booking={extendTarget}
           onClose={() => setExtendTarget(null)}
-          onExtended={(newEndDate, newBalance) => {
+          onExtended={(newEndDate, newBalance, noteSaved) => {
             setExtendTarget(null);
-            showToast(
-              newBalance == null
-                ? t('extend.toast.done', { date: newEndDate })
-                : t('extend.toast.doneWithBalance', {
-                    date: newEndDate,
-                    balance: newBalance.toLocaleString('en-US', {
-                      minimumFractionDigits: 2, maximumFractionDigits: 2,
-                    }),
+            const done = newBalance == null
+              ? t('extend.toast.done', { date: newEndDate })
+              : t('extend.toast.doneWithBalance', {
+                  date: newEndDate,
+                  balance: newBalance.toLocaleString('en-US', {
+                    minimumFractionDigits: 2, maximumFractionDigits: 2,
                   }),
-              'success',
-            );
+                });
+            showToast(noteSaved ? done : `${done} · ${t('extend.toast.noteFailed')}`, 'success');
             // The function moved end_date and forced status to confirmed, so
             // both the list and the month counters are stale until refetched.
             fetchStats(selectedMonth);
@@ -3954,7 +3804,7 @@ const BookingsPage: React.FC = () => {
         <ReplacementFormModal
           onClose={() => setReplacementOpen(false)}
           onSaved={sheet => {
-            showToast(`Replacement sheet ${sheet.sheet_number} created`, 'success');
+            showToast(t('replacement.created', { number: sheet.sheet_number }), 'success');
             setReplacementOpen(false);
             fetchSheets();
             printReplacementSheet(sheet);

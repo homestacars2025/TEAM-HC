@@ -62,14 +62,7 @@
       "company": "Company expenses"
     },
     "car": {
-      "label": "Car",
-      "search": "Search by plate or model",
-      "recent": "Recent cars",
-      "noModel": "No model group",
-      "empty": "No car matches this search.",
-      "change": "Change car",
-      "loading": "Loading cars…",
-      "failed": "Could not load the cars."
+      "label": "Car"
     },
     "category": {
       "label": "Category"

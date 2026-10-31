@@ -16,7 +16,7 @@ interface CustomerSearchProps {
   required: boolean;
 }
 
-const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toLocaleUpperCase('tr');
+export const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toLocaleUpperCase('tr');
 
 const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFor, formatDate, required }) => {
   const { t } = useTranslation('bookings');

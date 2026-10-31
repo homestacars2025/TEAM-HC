@@ -84,14 +84,24 @@
     "paidAmount": "المبلغ المدفوع",
     "selectCountry": "اختر الدولة…",
     "selectLocation": "اختر المكان…",
-    "selectInsurance": "اختر نوع التأمين…"
+    "selectInsurance": "اختر نوع التأمين…",
+    "insuranceServices": "التأمين والخدمات الإضافية",
+    "dateRange": "فترة الحجز",
+    "review": "المراجعة"
   },
   "errors": {
     "idRequired": "رقم الهوية مطلوب",
     "nationalityRequired": "الجنسية مطلوبة",
     "phoneRequired": "رقم الهاتف مطلوب",
     "phoneInvalid": "رقم الهاتف غير صالح للدولة المختارة",
-    "licenseDateRequired": "تاريخ إصدار الرخصة مطلوب"
+    "licenseDateRequired": "تاريخ إصدار الرخصة مطلوب",
+    "firstNameRequired": "الاسم الأول مطلوب",
+    "lastNameRequired": "اسم العائلة مطلوب",
+    "idTypeRequired": "نوع الهوية مطلوب",
+    "carRequired": "اختر السيارة",
+    "datesRequired": "اختر تواريخ الحجز",
+    "carBusy": "هذه السيارة غير متاحة في هذه التواريخ. اختر سيارة أخرى أو غيّر التواريخ.",
+    "saveFailed": "تعذّر الحفظ. تحقق من الاتصال وحاول مجدداً."
   },
   "toast": {
     "added": "تم إضافة الحجز",
@@ -151,7 +161,15 @@
     "editSubtitle": "الورقة {{number}} — رقم الورقة والحجز الأصلي لا يتغيّران.",
     "edit": "تعديل",
     "saveChanges": "حفظ التغييرات",
-    "loadingSheet": "جارٍ تحميل الورقة…"
+    "loadingSheet": "جارٍ تحميل الورقة…",
+    "pickPlateFirst": "اختر السيارة الأصلية أولاً.",
+    "loadingBookings": "جارٍ تحميل الحجوزات…",
+    "pickBooking": "اختر الحجز",
+    "noBookingsHint": "لا توجد حجوزات لهذه السيارة. ورقة البديلة تحتاج إلى عميل، فاختر لوحة أخرى.",
+    "changeBooking": "تغيير",
+    "created": "تم إنشاء ورقة البديلة {{number}}",
+    "dates": "التواريخ",
+    "handover": "حالة التسليم"
   },
   "customerLanguages": {
     "ar": "العربية",
@@ -193,8 +211,26 @@
     },
     "toast": {
       "done": "تم تمديد الحجز حتى {{date}}",
-      "doneWithBalance": "تم تمديد الحجز حتى {{date}} · الرصيد الجديد {{balance}} TRY"
-    }
+      "doneWithBalance": "تم تمديد الحجز حتى {{date}} · الرصيد الجديد {{balance}} TRY",
+      "noteFailed": "تم حفظ التمديد، لكن تعذّر إضافة ملاحظة الدولار إلى قيد الحساب."
+    },
+    "currentBooking": "الحجز الحالي",
+    "extension": "التمديد",
+    "amount": "المبلغ",
+    "plusDays_zero": "+{{count}} يوم",
+    "plusDays_one": "+يوم واحد",
+    "plusDays_two": "+يومان",
+    "plusDays_few": "+{{count}} أيام",
+    "plusDays_many": "+{{count}} يوماً",
+    "plusDays_other": "+{{count}} يوم",
+    "oldBalance": "الرصيد الحالي",
+    "charge": "قيمة التمديد",
+    "paidNow": "المدفوع الآن",
+    "newBalance": "الرصيد الجديد",
+    "startsOn": "تبدأ الفترة الجديدة يوم {{date}}.",
+    "blockAhead": "على هذه السيارة حجز تقويم ({{type}}) من {{date}}. راجعه قبل التمديد.",
+    "labelRental": "مبلغ الإيجار",
+    "labelPaid": "المبلغ المدفوع"
   },
   "customerStep": {
     "searchLabel": "ابحث برقم الهوية أو جواز السفر أو الهاتف أو الاسم",
@@ -223,5 +259,123 @@
       "checkFailed": "تعذّر التحقق من حالة العميل. تحقق من الاتصال وحاول مجدداً.",
       "loadFailed": "تعذّر تحميل بيانات العميل. حاول مجدداً."
     }
+  },
+  "steps": {
+    "customer": "العميل",
+    "trip": "السيارة والتواريخ",
+    "insurance": "التأمين والخدمات",
+    "delivery": "حالة السيارة عند التسليم",
+    "review": "المراجعة والدفع"
+  },
+  "sheet": {
+    "discardTitle": "تجاهل التعديلات؟",
+    "discardBody": "سيضيع ما أدخلته في هذا النموذج.",
+    "discard": "تجاهل",
+    "keepEditing": "متابعة التعديل",
+    "changed": "تم تعديله",
+    "summary": "الملخص",
+    "next": "التالي",
+    "back": "رجوع",
+    "create": "إنشاء الحجز",
+    "generatingNumber": "جارٍ إنشاء الرقم…",
+    "saveChanges": "حفظ التعديلات ({{count}})",
+    "saveNoChanges": "حفظ التعديلات",
+    "fileReady": "جاهز · {{size}} KB",
+    "loading": "جارٍ تحميل الحجز…",
+    "moveNote": "عند الحفظ سينتقل حساب هذا الحجز وأوراق السيارة البديلة ورسوم HGS إلى العميل الجديد.",
+    "moveFailed": "أصبح الحجز باسم العميل الجديد، لكن بعض سجلاته لم تنتقل. اضغط حفظ مرة أخرى للمحاولة.",
+    "keepCustomer": "الإبقاء على العميل الحالي"
+  },
+  "summary": {
+    "car": "السيارة",
+    "dates": "التواريخ",
+    "days": "الأيام",
+    "insurance": "التأمين",
+    "extras": "الخدمات",
+    "total": "الإجمالي",
+    "paid": "المدفوع",
+    "remaining": "المتبقي",
+    "customer": "العميل",
+    "locations": "الاستلام والتسليم",
+    "km": "الكيلومترات",
+    "fuel": "الوقود"
+  },
+  "range": {
+    "previous": "الشهر السابق",
+    "next": "الشهر التالي",
+    "days_zero": "{{count}} يوم",
+    "days_one": "يوم واحد",
+    "days_two": "يومان",
+    "days_few": "{{count}} أيام",
+    "days_many": "{{count}} يوماً",
+    "days_other": "{{count}} يوم",
+    "span": "{{start}} ← {{end}}",
+    "pickStart": "اختر اليوم الأول",
+    "pickEnd": "والآن اختر اليوم الأخير"
+  },
+  "money": {
+    "todaysRate": "سعر اليوم {{rate}}"
+  },
+  "fuel": {
+    "notRecorded": "غير مسجّل",
+    "stored": "مسجّل: {{value}}",
+    "clear": "مسح"
+  },
+  "dateParts": {
+    "day": "اليوم",
+    "month": "الشهر",
+    "year": "السنة"
+  },
+  "carBusy": {
+    "booked": "محجوزة",
+    "maintenance": "صيانة",
+    "replacement": "بديلة",
+    "selling": "للبيع",
+    "pickDates": "اختر التواريخ أولاً لتظهر السيارات المتاحة.",
+    "checkFailed": "تعذّر فحص التوفر. يمكنك اختيار سيارة، والنظام يرفض الحجز المتعارض عند الحفظ."
+  },
+  "warnings": {
+    "licenseRecent": "صدرت رخصة القيادة هذه قبل أقل من سنة. قد يحتاج الحجز إلى مراجعة إضافية.",
+    "underAge": "عمر هذا العميل أقل من 22 سنة. قد تُطبَّق رسوم السائق الشاب."
+  },
+  "presets": {
+    "other": "أخرى",
+    "otherInsurance": "اكتب اسم التأمين",
+    "location": {
+      "sisli": "فرع شيشلي",
+      "kayasehir": "فرع كاياشهير",
+      "ist": "مطار إسطنبول (IST)",
+      "saw": "مطار صبيحة كوكجن (SAW)"
+    },
+    "insurance": {
+      "none": {
+        "name": "بدون حماية",
+        "desc": "بدون تغطية إضافية"
+      },
+      "partial": {
+        "name": "حماية جزئية",
+        "desc": "تغطية محدودة"
+      },
+      "medium": {
+        "name": "حماية متوسطة",
+        "desc": "تغطية متوسطة"
+      },
+      "full": {
+        "name": "حماية كاملة",
+        "desc": "أعلى مستوى من التغطية"
+      }
+    },
+    "services": {
+      "childSeat": "كرسي أطفال",
+      "extraDriver": "سائق إضافي",
+      "extraKm": "كيلومترات إضافية"
+    }
+  },
+  "stepsShort": {
+    "customer": "العميل",
+    "trip": "السيارة",
+    "insurance": "التأمين",
+    "delivery": "التسليم",
+    "review": "الدفع"
   }
 }

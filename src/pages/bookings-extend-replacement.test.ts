@@ -28,6 +28,13 @@ describe('extend booking', () => {
     expect(modal).not.toMatch(/from\('bookings'\)[\s\S]{0,80}\.update\(/);
   });
 
+  test('the USD note changes the wording of a ledger row, never a figure', () => {
+    const ledger = fs.readFileSync(path.join(__dirname, '../lib/queries/ledger.ts'), 'utf8');
+    expect(ledger.match(/\.update\(/g)).toHaveLength(1);
+    expect(ledger).toMatch(/\.update\(\{ description: `\$\{row\.description\}\$\{note\}` \}\)/);
+    expect(ledger).not.toMatch(/\.(insert|upsert|delete)\(/);
+  });
+
   test('sends exactly the five parameters the function declares', () => {
     for (const p of ['p_booking_id', 'p_new_end_date', 'p_rental_amount', 'p_paid_amount', 'p_created_by']) {
       expect(SRC).toContain(`${p}:`);

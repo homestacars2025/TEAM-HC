@@ -16,7 +16,7 @@ import { ReceiptLightbox, categoryLabel, formatDateDisplay, useDateLocale } from
 import Button from '../components/Button';
 import AddExpenseSheet from '../components/custody/AddExpenseSheet';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
-import PlateChip from '../components/custody/PlateChip';
+import PlateChip from '../components/booking/PlateChip';
 
 /**
  * The signed-in employee's custody (الوديعة): company money they hold. Money in is
