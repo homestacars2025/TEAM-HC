@@ -243,7 +243,8 @@ const ConfirmModal: React.FC<{
 
         <div style={{ padding: '16px 24px 20px' }}>
           <div style={{
-            background: '#f9fafb', borderRadius: 10, padding: '12px 14px',
+            background: 'var(--surface)', border: '1px solid var(--border-subtle)',
+            borderRadius: 10, padding: '12px 14px',
             marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 7,
           }}>
             {[
@@ -466,7 +467,7 @@ const KabisPage: React.FC = () => {
   return (
     <div className="kb-page" style={{
       minHeight: '100%',
-      background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: 'var(--surface)',
     }}>
       {/* ── Page header ── */}
       <div style={{ marginBottom: 26 }}>
@@ -493,7 +494,7 @@ const KabisPage: React.FC = () => {
 
       {/* ── Filters ── */}
       <div style={{
-        background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+        background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
         padding: '12px 14px', marginBottom: 16,
         display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -585,14 +586,14 @@ const KabisPage: React.FC = () => {
         </div>
       ) : loading ? (
         <div style={{
-          background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+          background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14,
         }}>
           {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{
-          background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+          background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
@@ -611,7 +612,7 @@ const KabisPage: React.FC = () => {
           </div>
 
           <div style={{
-            background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+            background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
             overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}>
             <div style={{ overflowX: 'auto' }}>

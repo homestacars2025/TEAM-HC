@@ -1124,8 +1124,8 @@ const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({ fine, onClose
 
           {/* Summary card */}
           <div style={{
-            background: '#f9fafb', borderRadius: 12, padding: '16px 18px',
-            border: '1px solid #e5e7eb', marginBottom: 20,
+            background: 'var(--surface)', borderRadius: 12, padding: '16px 18px',
+            border: '1px solid var(--border-subtle)', marginBottom: 20,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>{t('view.plateNumber')}</span>
@@ -1375,12 +1375,13 @@ const FinesPage: React.FC = () => {
   });
 
   return (
-    <div style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100%', background: 'var(--surface)', padding: '44px 40px' }}>
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes slideUpIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fine-row td { border-bottom: 1px solid var(--border-subtle); }
         .fine-row:hover { background: rgba(75,166,234,0.03) !important; }
       `}</style>
 
@@ -1417,7 +1418,7 @@ const FinesPage: React.FC = () => {
         {/* Total Fines */}
         <div style={{
           background: '#fff', borderRadius: 14, padding: '20px 22px',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
           position: 'relative', overflow: 'hidden',
           transition: 'transform 180ms ease, box-shadow 180ms ease',
         }}
@@ -1453,7 +1454,7 @@ const FinesPage: React.FC = () => {
         {/* Total Unpaid */}
         <div style={{
           background: '#fff', borderRadius: 14, padding: '20px 22px',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
           position: 'relative', overflow: 'hidden',
           transition: 'transform 180ms ease, box-shadow 180ms ease',
         }}
@@ -1489,7 +1490,7 @@ const FinesPage: React.FC = () => {
       {/* Toolbar */}
       <div style={{
         background: '#fff', borderRadius: 14, padding: '16px 18px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
         marginBottom: 16,
         display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
       }}>
@@ -1556,7 +1557,7 @@ const FinesPage: React.FC = () => {
       {/* Table */}
       <div style={{
         background: '#fff', borderRadius: 14, overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #f0f0f0',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border-subtle)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
@@ -1585,8 +1586,8 @@ const FinesPage: React.FC = () => {
                       </td>
                     </tr>
                   )
-                  : filtered.map((fine, idx) => (
-                    <tr key={fine.id} className="fine-row" style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 100ms ease' }}>
+                  : filtered.map(fine => (
+                    <tr key={fine.id} className="fine-row" style={{ background: 'var(--surface)', transition: 'background 100ms ease' }}>
                       <td style={{ padding: '11px 12px' }}>
                         <span style={{
                           display: 'inline-block', background: '#f3f4f6', borderRadius: 6,

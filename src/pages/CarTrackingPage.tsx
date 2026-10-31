@@ -140,7 +140,7 @@ const CarTrackingPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100%',
-      background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: 'var(--surface)',
       padding: '44px 40px',
     }}>
       {/* Page header */}
@@ -188,7 +188,7 @@ const CarTrackingPage: React.FC = () => {
       </div>
 
       {/* Table card */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
             <thead>

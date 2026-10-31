@@ -920,7 +920,7 @@ const CalendarPage: React.FC = () => {
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      background: 'white',
+      background: 'var(--surface)',
       fontFamily: FONT,
       color: TEXT_DARK,
     }}>
@@ -1316,8 +1316,8 @@ const CalendarPage: React.FC = () => {
               </div>
             )}
 
-            {filteredCars.map((car, rowIdx) => {
-              const rowBg  = rowIdx % 2 === 0 ? 'white' : '#fafafa';
+            {filteredCars.map(car => {
+              const rowBg  = 'var(--surface)';
               const status = car.car_status;
 
               return (

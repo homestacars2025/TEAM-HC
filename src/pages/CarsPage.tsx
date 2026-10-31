@@ -140,13 +140,13 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
   const handleEnter = () => {
     if (!ref.current) return;
     ref.current.style.transform = 'translateY(-4px)';
-    ref.current.style.boxShadow = `0 16px 40px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04)`;
+    ref.current.style.boxShadow = `0 16px 40px rgba(0,0,0,0.10), 0 0 0 1px var(--border-subtle)`;
   };
 
   const handleLeave = () => {
     if (!ref.current) return;
     ref.current.style.transform = 'translateY(0)';
-    ref.current.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)';
+    ref.current.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border-subtle)';
   };
 
   const pct = total > 0 && card.key !== 'all' ? Math.round((count / total) * 100) : null;
@@ -160,7 +160,7 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
         background: '#ffffff',
         borderRadius: 16,
         overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border-subtle)',
         transition: 'transform 200ms ease, box-shadow 200ms ease',
         cursor: 'default',
         display: 'flex',
@@ -233,7 +233,7 @@ const SkeletonCard: React.FC = () => (
     background: '#ffffff',
     borderRadius: 16,
     overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border-subtle)',
   }}>
     <div style={{ height: 4, background: '#f3f4f6' }} />
     <div style={{ padding: '24px' }}>
@@ -599,7 +599,7 @@ const CarsPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100%',
-      background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: 'var(--surface)',
       padding: '44px 40px',
     }}>
       {/* Page header */}
@@ -757,7 +757,7 @@ const CarsPage: React.FC = () => {
         </div>
 
         {/* Table card */}
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
               <thead>

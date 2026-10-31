@@ -15,8 +15,8 @@
   --text-primary: #0f1117;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
-  --surface: #ffffff;
-  --surface-secondary: #f9fafb;
+  --surface: #FFFFFF;
+  --border-subtle: #EBEBEB;
   --border: #e5e7eb;
   --border-focus: #4ba6ea;
   --error: #ef4444;
@@ -58,7 +58,7 @@ html {
 body {
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
-  background: var(--surface-secondary);
+  background: var(--surface);
   color: var(--text-primary);
   line-height: 1.5;
 }

@@ -233,7 +233,7 @@ const primaryBtn: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: '#fff', borderRadius: 16, border: '1px solid #ebebeb',
+  background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)',
   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
 };
 
@@ -325,7 +325,7 @@ const DirectionBadge: React.FC<{ direction: Direction }> = ({ direction }) => {
 const Th: React.FC<{ children?: React.ReactNode; align?: 'start' | 'end' }> = ({ children, align = 'start' }) => (
   <th style={{
     padding: '9px 14px', fontSize: 11, fontWeight: 700, color: '#6b7280',
-    background: '#fafafa', borderBottom: '1px solid #ebebeb', textAlign: align,
+    background: 'var(--surface)', borderBottom: '1px solid var(--border-subtle)', textAlign: align,
     textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap',
   }}>{children}</th>
 );
@@ -1918,7 +1918,7 @@ const AccountingPage: React.FC = () => {
   const monthNavDisabled = tab === 'customers'; // customers ledger is not month-scoped
 
   return (
-    <div style={{ padding: '24px 32px', background: '#fafafa', minHeight: '100%' }}>
+    <div style={{ padding: '24px 32px', background: 'var(--surface)', minHeight: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
@@ -1940,7 +1940,7 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid #ebebeb', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
         {TABS.map(key => {
           const on = tab === key;
           return (

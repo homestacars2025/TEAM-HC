@@ -65,7 +65,7 @@ const LoginPage: React.FC = () => {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
-      background: 'var(--surface-secondary)',
+      background: 'var(--surface)',
     }}>
       {/* Left panel */}
       <div style={{

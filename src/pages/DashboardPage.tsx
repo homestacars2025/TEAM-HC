@@ -22,7 +22,7 @@ const DashboardPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--surface-secondary)',
+      background: 'var(--surface)',
       display: 'flex',
       flexDirection: 'column',
     }}>

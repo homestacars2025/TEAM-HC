@@ -1987,7 +1987,7 @@ const MetricCard: React.FC<{
 }> = ({ label, value, raw, incomplete, warning }) => {
   const { t } = useTranslation('operations');
   return (
-  <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px', background: '#fafafa' }}>
+  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px', background: 'var(--surface)' }}>
     <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
       {label}
     </div>
@@ -2326,7 +2326,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                     </div>
                   )}
 
-                  <div style={{ border: '1px solid #f0f0f0', borderRadius: 12, background: '#fafafa', padding: '2px 16px' }}>
+                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, background: 'var(--surface)', padding: '2px 16px' }}>
                     <ChargeRow
                       label={t('report.extraKm')}
                       amount={Number(charges.km.charge)}
@@ -2543,7 +2543,7 @@ const OperationsPage: React.FC = () => {
   const activeStatCards = tab === 'dp' ? dpStatCards : otherStatCards;
 
   return (
-    <div style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100%', background: 'var(--surface)', padding: '44px 40px' }}>
 
       {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>
@@ -2641,7 +2641,7 @@ const OperationsPage: React.FC = () => {
       </div>
 
       {/* ── Table ── */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', boxShadow: '0 1px 6px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         {error && (
           <div style={{ padding: '16px 20px', color: '#ef4444', fontSize: 13, borderBottom: '1px solid #fef2f2', background: '#fef2f2' }}>
             {error}

@@ -179,7 +179,7 @@ const TaskCard: React.FC<{
 
   return (
     <article style={{
-      background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+      background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
       // The priority reads as a spine down the leading edge, so a column of
       // cards can be scanned by colour without reading a single word.
       borderInlineStartWidth: 4,
@@ -380,7 +380,7 @@ const TasksPage: React.FC = () => {
       className="tp-page"
       style={{
         minHeight: '100%',
-        background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+        background: 'var(--surface)',
         textAlign: dir === 'rtl' ? 'right' : 'left',
       }}
     >
@@ -434,7 +434,7 @@ const TasksPage: React.FC = () => {
         </div>
       ) : rendered.length === 0 ? (
         <div style={{
-          background: '#fff', borderRadius: 16, border: '1px solid #ebebeb',
+          background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)',
           padding: '56px 24px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: '#0f1117', marginBottom: 8 }}>

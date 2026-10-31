@@ -617,7 +617,7 @@ const ModelGroupsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100%', background: 'var(--surface)', padding: '44px 40px' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36 }}>
@@ -651,7 +651,7 @@ const ModelGroupsPage: React.FC = () => {
 
       {/* Row list — grouped by category */}
       {loading && (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
         </div>
       )}
@@ -675,7 +675,7 @@ const ModelGroupsPage: React.FC = () => {
               position: 'sticky', top: 0, zIndex: 10,
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 0 10px',
-              background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)',
+              background: 'var(--surface)',
             }}>
               <span style={{
                 fontSize: 11.5, fontWeight: 700,

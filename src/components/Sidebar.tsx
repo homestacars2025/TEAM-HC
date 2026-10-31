@@ -285,7 +285,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
               {pageIcons[page.key] ?? fallbackIcon}
               {/* In the rail the count has nowhere to sit, so it shrinks to a dot. */}
               {hasTaskCount && rail && (
-                <span aria-hidden className="absolute -end-[3px] -top-[3px] size-2 rounded-full bg-red-500 ring-2 ring-[#fafafa]" />
+                <span aria-hidden className="absolute -end-[3px] -top-[3px] size-2 rounded-full bg-red-500 ring-2 ring-[var(--surface)]" />
               )}
             </span>
             {!rail && <span className="min-w-0 truncate">{label}</span>}
@@ -308,14 +308,14 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
       data-open={mobileOpen}
       className={clsx(
         'hc-sidebar fixed inset-y-0 start-0 z-[500] flex h-dvh w-72 max-w-[85vw] flex-col overflow-hidden',
-        'border-e border-[#ebebeb] bg-[#fafafa]',
+        'border-e border-[var(--border-subtle)] bg-[var(--surface)]',
         'lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:max-w-none lg:shrink-0 lg:transition-[width] lg:duration-200 lg:ease-out',
         rail ? 'lg:w-[68px]' : 'lg:w-64',
       )}
     >
       {/* Brand */}
       <div className={clsx(
-        'relative flex h-[68px] shrink-0 items-center border-b border-[#ebebeb]',
+        'relative flex h-[68px] shrink-0 items-center border-b border-[var(--border-subtle)]',
         rail ? 'justify-center' : 'gap-3 px-4',
       )}>
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#4ba6ea] to-[#2e8fd4] shadow-sm">
@@ -389,7 +389,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
           return (
             <div key={group.key} className={index > 0 ? 'mt-2' : undefined}>
               {rail ? (
-                index > 0 && <div className="mx-1 mb-2 h-px bg-[#ebebeb]" />
+                index > 0 && <div className="mx-1 mb-2 h-px bg-[var(--border-subtle)]" />
               ) : (
                 <button
                   type="button"
@@ -422,7 +422,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) 
       </nav>
 
       {/* Currency selector + Profile + Sign out */}
-      <div className="shrink-0 border-t border-[#ebebeb] p-2">
+      <div className="shrink-0 border-t border-[var(--border-subtle)] p-2">
         {/* Currency selector */}
         <div className="mb-2">
           {!rail && (

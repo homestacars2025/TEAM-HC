@@ -851,7 +851,7 @@ const KGMPage: React.FC = () => {
 
         {/* ── Sticky Footer ── */}
         {!isLoading && cars.length > 0 && (
-          <div style={{ borderTop: '2px solid #f0f0f0', background: '#fafafa', flexShrink: 0 }}>
+          <div style={{ borderTop: '2px solid #f0f0f0', background: 'var(--surface)', flexShrink: 0 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: 48 }} />

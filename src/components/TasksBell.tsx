@@ -220,7 +220,7 @@ const TasksBell: React.FC = () => {
             position: 'absolute',
             top: 48, insetInlineEnd: 0, zIndex: 400,
             width: 336, maxWidth: 'calc(100vw - 32px)',
-            background: '#fff', border: '1px solid #ebebeb', borderRadius: 14,
+            background: 'var(--surface)', border: '1px solid var(--border-subtle)', borderRadius: 14,
             boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
             overflow: 'hidden',
             animation: 'tbFade 140ms ease',
@@ -328,12 +328,12 @@ const TasksBell: React.FC = () => {
               onClick={() => { setOpen(false); navigate(tasksRoute); }}
               style={{
                 display: 'block', width: '100%', padding: '11px 14px',
-                border: 'none', borderTop: '1px solid #f3f4f6', background: '#fbfcfd',
+                border: 'none', borderTop: '1px solid #f3f4f6', background: 'var(--surface)',
                 cursor: 'pointer', fontFamily: 'inherit',
                 fontSize: 12.5, fontWeight: 700, color: BRAND,
               }}
               onMouseEnter={e => { e.currentTarget.style.background = '#f3f7fb'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fbfcfd'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
             >
               {t('bell.viewAll')}
             </button>

@@ -91,7 +91,7 @@ export function PostsMonthView({
       onDragCancel={() => setDraggingId(null)}
     >
       <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
-        <div className="grid grid-cols-7 border-b border-black/[0.06] bg-black/[0.015]">
+        <div className="grid grid-cols-7 border-b border-[var(--border-subtle)] bg-[var(--surface)]">
           {d.weekdaysShort.map((name, i) => (
             <div
               key={name}
@@ -173,7 +173,6 @@ function DayCell({
       className={cn(
         'group/day relative flex min-h-[124px] flex-col gap-1.5 border-b border-e border-black/[0.05] p-2 transition-colors duration-150',
         '[&:nth-child(7n)]:border-e-0',
-        !inMonth && 'bg-black/[0.012]',
         isOver && 'bg-[#6ea4e7]/[0.06] ring-1 ring-inset ring-[#6ea4e7]/30',
       )}
     >

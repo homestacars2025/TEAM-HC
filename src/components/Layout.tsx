@@ -98,7 +98,7 @@ const Layout: React.FC = () => {
   return (
     // Both badge counts are polled once here, for the bell and the sidebar alike.
     <InboxProvider>
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-secondary)' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--surface)' }}>
       <Sidebar mobileOpen={menuOpen} onMobileClose={() => setMenuOpen(false)} />
 
       {/* Drawer backdrop. Below 1024px only; the sidebar is in the flow above that. */}
@@ -168,8 +168,8 @@ const Layout: React.FC = () => {
           justify-content: flex-end;
           gap: 10px;
           padding: 0 16px;
-          background: #fff;
-          border-bottom: 1px solid #ebebeb;
+          background: var(--surface);
+          border-bottom: 1px solid var(--border-subtle);
           position: relative;
           z-index: 300;
         }

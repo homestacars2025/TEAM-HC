@@ -334,7 +334,6 @@ const ActionBtn: React.FC<{
 interface RowProps {
   booking: Booking;
   isSelected: boolean;
-  isEven: boolean;
   onSelect: () => void;
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
@@ -344,14 +343,14 @@ interface RowProps {
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, isEven, onSelect, onToggle, onEdit, onPrint, onExtend,
+  booking, isSelected, onSelect, onToggle, onEdit, onPrint, onExtend,
 }) => {
   const { t } = useTranslation('bookings');
   const dateLocale = useDateLocale();
   return (
   <tr
     className="bk-row"
-    style={{ background: isSelected ? 'rgba(75,166,234,0.05)' : isEven ? '#fafafa' : '#fff' }}
+    style={{ background: isSelected ? 'rgba(75,166,234,0.05)' : 'var(--surface)' }}
   >
     <td style={{ padding: '9px 8px 9px 16px' }}>
       <input type="checkbox" checked={isSelected} onChange={onSelect}
@@ -2336,7 +2335,7 @@ const ExtendBookingModal: React.FC<{
 
           <div style={{
             fontSize: 12, lineHeight: 1.55, color: '#6b7280',
-            background: '#f9fafb', border: '1px solid #f0f0f0',
+            background: 'var(--surface)', border: '1px solid var(--border-subtle)',
             borderRadius: 9, padding: '9px 12px',
           }}>
             {t('extend.insuranceNote')}
@@ -3378,7 +3377,7 @@ const BookingsPage: React.FC = () => {
   });
 
   return (
-    <div style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)', padding: '44px 40px' }}>
+    <div style={{ minHeight: '100%', background: 'var(--surface)', padding: '44px 40px' }}>
       <div>
 
         {/* ── Page header ── */}
@@ -3468,7 +3467,7 @@ const BookingsPage: React.FC = () => {
         {/* ── Search + filter bar ── */}
         <div style={{
           background: '#fff', borderRadius: 14,
-          border: '1px solid #ebebeb', padding: '12px 14px',
+          border: '1px solid var(--border-subtle)', padding: '12px 14px',
           marginBottom: 16,
           display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
           boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -3534,7 +3533,7 @@ const BookingsPage: React.FC = () => {
         )}
 
         {/* ── Table ── */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #ebebeb', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
               <thead>
@@ -3583,12 +3582,11 @@ const BookingsPage: React.FC = () => {
                   </tr>
                 )}
 
-                {!loading && sorted.map((booking, idx) => (
+                {!loading && sorted.map(booking => (
                   <BookingTableRow
                     key={booking.id}
                     booking={booking}
                     isSelected={selectedIds.has(booking.id)}
-                    isEven={idx % 2 === 1}
                     onSelect={() => toggleSelectRow(booking.id)}
                     onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
@@ -3621,7 +3619,7 @@ const BookingsPage: React.FC = () => {
 
         {/* ── Replacement sheets ── */}
         <div style={{
-          background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+          background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           marginTop: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
           <div style={{
@@ -3839,6 +3837,7 @@ const BookingsPage: React.FC = () => {
       <style>{`
         .bk-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
         @media (min-width: 768px) { .bk-stats { grid-template-columns: repeat(4, 1fr); gap: 16px; } }
+        .bk-row td { border-bottom: 1px solid var(--border-subtle); }
         .bk-row:hover td { background: #f9fafb !important; }
         @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes slideUpIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }

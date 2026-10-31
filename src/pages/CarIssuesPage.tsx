@@ -873,7 +873,8 @@ const IssueDetailModal: React.FC<{
         ) : (
           <div style={{
             fontSize: 14, color: '#374151', lineHeight: 1.6,
-            background: '#f9fafb', borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+            background: 'var(--surface)', border: '1px solid var(--border-subtle)',
+            borderRadius: 10, padding: '12px 14px', marginBottom: 16,
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}>
             {issue.description?.trim() ? issue.description : <span style={{ color: '#9ca3af' }}>{t('detail.noDescription')}</span>}
@@ -976,7 +977,7 @@ const IssueCard: React.FC<{ issue: IssueRow; onClick: () => void }> = ({ issue, 
       style={{
         display: 'flex', flexDirection: 'column', gap: 0,
         textAlign: 'start', width: '100%', padding: 0,
-        background: '#fff', border: '1px solid #ebebeb', borderRadius: 14,
+        background: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 14,
         cursor: 'pointer', fontFamily: 'inherit', overflow: 'hidden',
         boxShadow: hover ? '0 8px 24px rgba(0,0,0,0.09)' : '0 1px 3px rgba(0,0,0,0.04)',
         transform: hover ? 'translateY(-2px)' : 'translateY(0)',
@@ -1155,7 +1156,7 @@ const CarIssuesPage: React.FC = () => {
   }, [showToast, fetchIssues]);
 
   return (
-    <div className="ci-page" style={{ minHeight: '100%', background: 'linear-gradient(160deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+    <div className="ci-page" style={{ minHeight: '100%', background: 'var(--surface)' }}>
 
       {/* ── Page header ── */}
       <div style={{
@@ -1207,7 +1208,7 @@ const CarIssuesPage: React.FC = () => {
 
       {/* ── Filters ── */}
       <div style={{
-        background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+        background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
         padding: '12px 14px', marginBottom: 18,
         display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -1261,14 +1262,14 @@ const CarIssuesPage: React.FC = () => {
         </div>
       ) : loading ? (
         <div style={{
-          background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+          background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14,
         }}>
           {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{
-          background: '#fff', borderRadius: 14, border: '1px solid #ebebeb',
+          background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
           padding: '48px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
