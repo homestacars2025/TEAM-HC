@@ -49,6 +49,11 @@ HomestaCars is a premium car rental company based in Istanbul, Turkey (founded 2
 - Font sizes scale down on mobile
 - Touch-friendly tap targets (min 44px height) on mobile
 
+## Workflow
+- For each task: run tsc, the build, the tests related to the changed files, and a quick browser check of the touched pages (desktop and mobile, AR and EN where relevant). Then commit and push to main immediately.
+- Do not run the full regression suite (all specs, both engines) before a push. Run it only when asked, or at most once a day in the background after pushing, and report any failures.
+- If a full gate is running for finished work, stop waiting: push now and let it finish in the background.
+
 ## Goals
 - Zero technical bugs
 - Fast performance — no waterfalls
