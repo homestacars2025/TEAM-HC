@@ -95,5 +95,17 @@
     },
     "body": "{{model}} · تاريخ الانتهاء {{expiry}}",
     "bodyNoModel": "تاريخ الانتهاء {{expiry}}"
+  },
+  "fines": {
+    "unpaid": {
+      "title_zero": "لا مخالفات غير مدفوعة",
+      "title_one": "مخالفة واحدة غير مدفوعة — {{total}}",
+      "title_two": "مخالفتان غير مدفوعتين — {{total}}",
+      "title_few": "{{count}} مخالفات غير مدفوعة — {{total}}",
+      "title_many": "{{count}} مخالفة غير مدفوعة — {{total}}",
+      "title_other": "{{count}} مخالفة غير مدفوعة — {{total}}",
+      "unassigned": "{{unassigned}} غير مربوطة بعميل",
+      "oldest": "أقدمها بتاريخ {{day}}"
+    }
   }
 }

@@ -48,7 +48,8 @@
     "openDocument": "Open document",
     "noMatch": "No cars match your search.",
     "none": "No cars found.",
-    "km": "km"
+    "km": "km",
+    "noStatus": "No cars with this status."
   },
   "columns": {
     "plateNumber": "Plate Number",

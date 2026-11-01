@@ -3,11 +3,13 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useTileFilter } from '../hooks/useTileFilter';
 import { useUrlSearch } from '../hooks/useUrlSearch';
-import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
+import type { CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 import Button from '../components/Button';
 import CarDatesSheet from '../components/cars/CarDatesSheet';
+import StatusArt from '../components/cars/StatusArt';
 import { ComplianceBanner, ComplianceCard, ComplianceFailed, ComplianceModal, ComplianceTriangle } from '../components/cars/Compliance';
 import { useCarCompliance } from '../hooks/useCarCompliance';
 import type { CarCompliance, ComplianceField } from '../lib/carCompliance';
@@ -61,7 +63,6 @@ interface StatCard {
   key: 'all' | CarStatus;
   accentColor: string;
   iconBg: string;
-  icon: React.ReactNode;
 }
 
 const CARDS: StatCard[] = [
@@ -69,130 +70,83 @@ const CARDS: StatCard[] = [
     key: 'all',
     accentColor: '#4ba6ea',
     iconBg: 'rgba(75,166,234,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
-        <circle cx="9" cy="7" r="4" stroke="#4ba6ea" strokeWidth="1.8"/>
-        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#4ba6ea" strokeWidth="1.8" strokeLinecap="round"/>
-      </svg>
-    ),
   },
   {
     key: 'working',
     accentColor: '#22c55e',
     iconBg: 'rgba(34,197,94,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M9 12l2 2 4-4" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="12" cy="12" r="9" stroke="#22c55e" strokeWidth="1.8"/>
-      </svg>
-    ),
   },
   {
     key: 'parking',
     accentColor: '#ef4444',
     iconBg: 'rgba(239,68,68,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="3" width="18" height="18" rx="3" stroke="#ef4444" strokeWidth="1.8"/>
-        <path d="M9 17V7h4.5a3 3 0 010 6H9" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
   },
   {
     key: 'maintenance',
     accentColor: '#6b7280',
     iconBg: 'rgba(107,114,128,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
   },
   {
     key: 'selling',
     accentColor: '#eab308',
     iconBg: 'rgba(234,179,8,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="#eab308" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="7" cy="7" r="1.5" fill="#eab308"/>
-      </svg>
-    ),
   },
   {
     key: 'replacement',
     accentColor: '#06b6d4',
     iconBg: 'rgba(6,182,212,0.1)',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M1 4v6h6" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M23 20v-6h-6" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
   },
 ];
+
+const CAR_FILTERS = ['working', 'parking', 'maintenance', 'selling', 'replacement'] as const;
 
 interface HoverCardProps {
   card: StatCard;
   count: number;
   total: number;
+  pressed: boolean;
+  onPress: () => void;
 }
 
-const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => {
+const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total, pressed, onPress }) => {
   const { t } = useTranslation('cars');
-  const ref = useRef<HTMLDivElement>(null);
-
-  const handleEnter = () => {
-    if (!ref.current) return;
-    ref.current.style.transform = 'translateY(-4px)';
-    ref.current.style.boxShadow = `0 16px 40px rgba(0,0,0,0.10), 0 0 0 1px var(--border-subtle)`;
-  };
-
-  const handleLeave = () => {
-    if (!ref.current) return;
-    ref.current.style.transform = 'translateY(0)';
-    ref.current.style.boxShadow = '';
-  };
-
   const pct = total > 0 && card.key !== 'all' ? Math.round((count / total) * 100) : null;
 
   return (
-    <div className="surface-depth"
-      ref={ref}
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
-      style={{
-        border: '1px solid var(--border-subtle)', background: '#ffffff',
-        borderRadius: 16,
-        overflow: 'hidden',
-        transition: 'transform 200ms ease, box-shadow 200ms ease',
-        cursor: 'default',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onPress}
+      className={`hc-car-tile surface-depth ${pressed ? 'is-active' : ''}`}
+      style={{ '--tile-accent': card.accentColor } as React.CSSProperties}
     >
       {/* Colored top bar */}
-      <div style={{ height: 4, background: card.accentColor, flexShrink: 0 }} />
+      <div className="hc-car-tile-bar" />
+      <StatusArt name={card.key === 'all' ? 'total' : card.key} className="hc-car-tile-art" />
+      {pressed && (
+        <span aria-hidden="true" className="hc-tile-check">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+      )}
 
-      <div style={{ padding: '24px 24px 22px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Icon + label row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="hc-car-tile-body">
+        {/* Room for the render */}
+        <div className="hc-car-tile-top" />
+
+        {/* Number + percentage */}
+        <div className="hc-car-tile-figures">
           <div style={{
-            width: 42,
-            height: 42,
-            borderRadius: 11,
-            background: card.iconBg,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
+            fontSize: 52,
+            fontWeight: 800,
+            letterSpacing: '-3px',
+            color: '#0f1117',
+            lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums',
           }}>
-            {card.icon}
+            {count}
           </div>
           {pct !== null && (
-            <span style={{
+            <span className="hc-car-tile-pct" style={{
               fontSize: 12,
               fontWeight: 600,
               color: card.accentColor,
@@ -206,20 +160,6 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
           )}
         </div>
 
-        {/* Number */}
-        <div>
-          <div style={{
-            fontSize: 52,
-            fontWeight: 800,
-            letterSpacing: '-3px',
-            color: '#0f1117',
-            lineHeight: 1,
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {count}
-          </div>
-        </div>
-
         {/* Label + description */}
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#0f1117', marginBottom: 2 }}>
@@ -230,7 +170,7 @@ const StatCardComponent: React.FC<HoverCardProps> = ({ card, count, total }) => 
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -490,6 +430,7 @@ const CarsPage: React.FC = () => {
   const [complianceOpen, setComplianceOpen] = useState(false);
   const [fixing, setFixing] = useState<CarCompliance | null>(null);
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [carFilter, setCarFilter] = useTileFilter(CAR_FILTERS);
   const warned = useRef(false);
   const [params, setParams] = useSearchParams();
   const linkedCar = params.get('car');
@@ -718,6 +659,8 @@ const CarsPage: React.FC = () => {
                 card={card}
                 count={countFor(card.key)}
                 total={total}
+                pressed={carFilter === card.key}
+                onPress={() => setCarFilter(card.key)}
               />
             ))
         }
@@ -907,6 +850,7 @@ const CarsPage: React.FC = () => {
                   const q = tableSearch.trim().toLowerCase();
                   const filtered = cars.filter(car => {
                     if (onlyIssues && !compliance.byId.get(car.id)?.severity) return false;
+                    if (carFilter !== 'all' && car.status.toLowerCase() !== carFilter) return false;
                     if (!q) return true;
                     return car.plate_number.toLowerCase().includes(q) || car.model.toLowerCase().includes(q);
                   });
@@ -932,7 +876,12 @@ const CarsPage: React.FC = () => {
                     return (
                       <tr>
                         <td colSpan={11} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
-                          {tableSearch || onlyIssues ? t('table.noMatch') : t('table.none')}
+                          {carFilter !== 'all' && !tableSearch && !onlyIssues ? (
+                            <div className="hc-car-empty">
+                              <StatusArt name={carFilter} />
+                              {t('table.noStatus')}
+                            </div>
+                          ) : tableSearch || onlyIssues || carFilter !== 'all' ? t('table.noMatch') : t('table.none')}
                         </td>
                       </tr>
                     );

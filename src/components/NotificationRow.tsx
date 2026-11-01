@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { expiryBodyKey, expiryNotice, expiryTitleKey, expiryVars } from '../lib/notifications/compliance';
+import { isUnpaidFinesReminder, unpaidFinesWords } from '../lib/notifications/fines';
 import { useNotifText, useUiDir } from '../lib/notifications/renderI18n';
 import { useTimeFormat } from '../lib/relative-time';
 import { useInbox } from '../lib/InboxContext';
@@ -9,6 +10,7 @@ import { usePageAccess } from '../contexts/PageAccessContext';
 import { markNotificationRead } from '../lib/queries/tasks';
 import type { MyNotification, NotificationCategory } from '../lib/types/tasks';
 import { ComplianceTriangle } from './cars/Compliance';
+import FineArt from './FineArt';
 
 /** One notification, as shown in the bell and on Home. */
 
@@ -88,7 +90,7 @@ export function resolveNotificationPath(
 ): string {
   if (!link) return fallback;
   const path = link.startsWith('/dashboard') ? link : `/dashboard${link.startsWith('/') ? '' : '/'}${link}`;
-  return canOpen(path) ? path : fallback;
+  return canOpen(path.split(/[?#]/)[0]) ? path : fallback;
 }
 
 // ─── Task events ──────────────────────────────────────────────────────────────
@@ -108,10 +110,12 @@ export function notificationBodyKey(n: Pick<MyNotification, 'body_i18n_key' | 'e
 
 /** Title and body in the reader's language, the same in the bell, on Home and in a toast. */
 export function useNotificationWords(): (n: MyNotification) => { title: string; body: string } {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation('notifications');
   const notifText = useNotifText();
   const locale = i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
   return useCallback((n: MyNotification) => {
+    const fines = unpaidFinesWords(n, t, locale);
+    if (fines) return fines;
     const notice = expiryNotice(n);
     const vars = notice ? expiryVars(n.vars, locale) : n.vars;
     return {
@@ -120,11 +124,14 @@ export function useNotificationWords(): (n: MyNotification) => { title: string; 
       title: notifText(notice ? expiryTitleKey(notice) : n.i18n_key, vars, n.title),
       body: notifText(notificationBodyKey(n), vars, n.body),
     };
-  }, [notifText, locale]);
+  }, [t, notifText, locale]);
 }
 
-/** Amber with days to spare, red from the last day. `null` for any other notification. */
-export const NotificationTriangle: React.FC<{ notification: MyNotification; size: number }> = ({ notification, size }) => {
+export const hasNotificationArt = (n: MyNotification): boolean => Boolean(expiryNotice(n)) || isUnpaidFinesReminder(n);
+
+/** Fines get their render. Expiry dates get a triangle: amber with days to spare, red from the last day. */
+export const NotificationArt: React.FC<{ notification: MyNotification; size: number }> = ({ notification, size }) => {
+  if (isUnpaidFinesReminder(notification)) return <FineArt size={size} />;
   const notice = expiryNotice(notification);
   return notice ? <ComplianceTriangle severity={notice.urgent ? 'expired' : 'missing'} size={size} /> : null;
 };
@@ -180,7 +187,7 @@ const NotificationRow: React.FC<{ notification: MyNotification; onOpen: (n: MyNo
       onMouseLeave={e => { e.currentTarget.style.background = background; }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-        {expiryNotice(n) ? <NotificationTriangle notification={n} size={28} /> : (
+        {hasNotificationArt(n) ? <NotificationArt notification={n} size={28} /> : (
           <span
             aria-hidden
             title={t(`category.${n.category}`)}

@@ -3,9 +3,8 @@ import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInbox } from '../lib/InboxContext';
-import { expiryNotice } from '../lib/notifications/compliance';
 import type { MyNotification } from '../lib/types/tasks';
-import { NotificationTriangle, useNotificationWords, useOpenNotification } from './NotificationRow';
+import { hasNotificationArt, NotificationArt, useNotificationWords, useOpenNotification } from './NotificationRow';
 import Button from './Button';
 
 /** A notification arriving live, in the corner. A new task gets an Open button. */
@@ -51,8 +50,8 @@ const NotificationToasts: React.FC = () => {
         return (
           <div key={n.id} role="status" className="surface-depth surface-float hc-toast-in pointer-events-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3.5 shadow-[0_12px_40px_rgba(15,17,23,0.14)]">
             <div className="flex items-start gap-3">
-              {expiryNotice(n)
-                ? <NotificationTriangle notification={n} size={36} />
+              {hasNotificationArt(n)
+                ? <NotificationArt notification={n} size={36} />
                 : <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--accent)]" />}
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-snug text-[#0f1117]">{title}</div>

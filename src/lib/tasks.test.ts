@@ -157,6 +157,11 @@ describe('notification link resolution', () => {
     expect(resolve('/dashboard/kabis')).toBe('/dashboard/kabis');
   });
 
+  test('a link can carry a filter, which stays on it', () => {
+    expect(resolve('/cars?filter=parking')).toBe('/dashboard/cars?filter=parking');
+    expect(resolve('/accounting?filter=x')).toBe(TASKS);
+  });
+
   test('a path TEAM does not have lands on the fallback, not a dead route', () => {
     expect(resolve('/cars/24')).toBe(TASKS);
     expect(resolve('/reports/monthly')).toBe(TASKS);

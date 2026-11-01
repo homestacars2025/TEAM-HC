@@ -112,5 +112,9 @@
     "car": "Choose the car.",
     "amount": "Amount is required.",
     "date": "Violation date is required."
+  },
+  "banner": {
+    "unpaid_one": "{{count}} unpaid fine",
+    "unpaid_other": "{{count}} unpaid fines"
   }
 }

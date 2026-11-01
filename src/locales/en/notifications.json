@@ -83,5 +83,13 @@
     },
     "body": "{{model}} · Expires {{expiry}}",
     "bodyNoModel": "Expires {{expiry}}"
+  },
+  "fines": {
+    "unpaid": {
+      "title_one": "{{count}} unpaid fine — {{total}}",
+      "title_other": "{{count}} unpaid fines — {{total}}",
+      "unassigned": "{{unassigned}} not linked to a customer",
+      "oldest": "Oldest from {{day}}"
+    }
   }
 }

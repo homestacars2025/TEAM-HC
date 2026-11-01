@@ -29,16 +29,20 @@ interface StatTileProps {
   /** Makes the tile a filter. See "Stat tiles double as filters" in CLAUDE.md. */
   onPress?: () => void;
   pressed?: boolean;
+  /** A 3D render in place of the round icon. */
+  art?: React.ReactNode;
 }
 
 /** The first tile in `.hc-tiles` becomes the wide one on a phone. */
-export const StatTile: React.FC<StatTileProps> = ({ tone, label, value, sub, onPress, pressed = false }) => {
+export const StatTile: React.FC<StatTileProps> = ({ tone, label, value, sub, onPress, pressed = false, art }) => {
   const content = (
     <>
       <div className="hc-tile-head">
-        <span aria-hidden="true" className="hc-tile-icon">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">{TILE_ICONS[tone]}</svg>
-        </span>
+        {art ?? (
+          <span aria-hidden="true" className="hc-tile-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">{TILE_ICONS[tone]}</svg>
+          </span>
+        )}
         <div className="hc-tile-label">{label}</div>
       </div>
       <div className="hc-tile-bottom">

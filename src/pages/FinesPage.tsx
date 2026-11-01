@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../components/Button';
 import CustomerAvatar from '../components/CustomerAvatar';
+import FineArt from '../components/FineArt';
 import { StatTile } from '../components/WalletParts';
 import PlateChip from '../components/booking/PlateChip';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
@@ -137,9 +138,18 @@ const FinesPage: React.FC = () => {
         </div>
       )}
 
+      {stats.unpaid.count > 0 && (
+        <div role="status" className="hc-compliance-banner surface-depth is-red">
+          <FineArt size={48} />
+          <p className="hc-compliance-banner-title min-w-0 flex-1">
+            {t('banner.unpaid', { count: stats.unpaid.count })} — <bdi dir="ltr">{fmt(stats.unpaid.total).replace(/[.,]0+$/, '')}</bdi>
+          </p>
+        </div>
+      )}
+
       <div className="hc-tiles hc-tiles-filter">
         <StatTile tone="total" label={t('tiles.all')} value={amount(stats.all.total)} sub={t('tiles.count', { count: stats.all.count })} pressed={filter === 'all'} onPress={() => setFilter('all')} />
-        <StatTile tone="negative" label={t('tiles.unpaid')} value={amount(stats.unpaid.total)} sub={t('tiles.count', { count: stats.unpaid.count })} pressed={filter === 'unpaid'} onPress={() => setFilter('unpaid')} />
+        <StatTile tone="negative" label={t('tiles.unpaid')} value={amount(stats.unpaid.total)} sub={t('tiles.count', { count: stats.unpaid.count })} pressed={filter === 'unpaid'} onPress={() => setFilter('unpaid')} art={<FineArt size={44} className="hc-tile-art" />} />
         <StatTile tone="received" label={t('tiles.paid')} value={amount(stats.paid.total)} sub={t('tiles.count', { count: stats.paid.count })} pressed={filter === 'paid'} onPress={() => setFilter('paid')} />
         <StatTile tone="balance" label={t('tiles.month')} value={amount(stats.month.total)} sub={t('tiles.count', { count: stats.month.count })} pressed={filter === 'month'} onPress={() => setFilter('month')} />
         <StatTile tone={stats.unassigned.count > 0 ? 'warn' : 'paid'} label={t('tiles.unassigned')} value={amount(stats.unassigned.total)} sub={t('tiles.count', { count: stats.unassigned.count })} pressed={filter === 'unassigned'} onPress={() => setFilter('unassigned')} />
