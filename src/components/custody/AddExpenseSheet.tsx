@@ -12,13 +12,16 @@ import { prepareReceipt, receiptRejection } from '../../lib/receiptImage';
 import { addDays } from '../../lib/taskGroups';
 import Button from '../Button';
 import CarPicker from '../booking/CarPicker';
+import { usePageAccess } from '../../contexts/PageAccessContext';
+import type { SupplierOption } from '../../lib/suppliers';
 import ConfirmDialog from './ConfirmDialog';
 import ReceiptField from './ReceiptField';
+import SupplierPicker from './SupplierPicker';
 
 type DateMode = 'today' | 'yesterday' | 'other';
 type Stage = 'idle' | 'uploading' | 'saving';
 
-const FOCUSABLE = 'button:not(:disabled), input:not(:disabled):not([type="file"])';
+const FOCUSABLE = 'button:not(:disabled), input:not(:disabled):not([type="file"]), select:not(:disabled)';
 
 const textInput = 'h-12 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-base text-[#0f1117] outline-none transition-colors focus:border-[var(--accent)] sm:text-sm';
 const fieldError = 'mt-1.5 text-[13px] text-red-600';
@@ -60,6 +63,8 @@ interface AddExpenseSheetProps {
 const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows, onClose, onSaved }) => {
   const { t } = useTranslation('custody');
   const { t: tc } = useTranslation('common');
+  const { t: tf } = useTranslation('finance');
+  const { canAccessPage } = usePageAccess();
   const baseId = useId();
   const dialogRef = useRef<HTMLFormElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -71,6 +76,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
   const [scope, setScope] = useState<ExpenseScope>('car');
   const [carId, setCarId] = useState<number | null>(null);
   const [category, setCategory] = useState<string | null>(null);
+  const [supplier, setSupplier] = useState<SupplierOption | null>(null);
   const [description, setDescription] = useState('');
   const [dateMode, setDateMode] = useState<DateMode>('today');
   const [otherDate, setOtherDate] = useState('');
@@ -97,7 +103,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
 
   const problems = expenseProblems({ amount, scope, carId, category, description, date, hasReceipt: !!file }, today);
   const ready = problems.length === 0 && !preparing;
-  const dirty = !!amount || scope !== 'car' || carId !== null || !!category || !!description || dateMode !== 'today' || !!file;
+  const dirty = !!amount || scope !== 'car' || carId !== null || !!category || !!supplier || !!description || dateMode !== 'today' || !!file;
 
   useEffect(() => {
     let cancelled = false;
@@ -184,7 +190,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
       setStage('saving');
       setProgress(null);
       const trimmed = description.trim();
-      const id = await addCustodyExpense({ amount: parsed, category, description: trimmed, date, scope, carId, receiptUrl });
+      const id = await addCustodyExpense({ amount: parsed, category, description: trimmed, date, scope, carId, receiptUrl, supplierId: supplier?.id ?? null });
       const car = scope === 'car' ? cars?.find(c => c.id === carId) : undefined;
       onSaved({
         id,
@@ -200,7 +206,10 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
         car_id: car?.id ?? null,
         posted_car_tx_id: null,
         posted_company_expense_id: null,
+        review_status: 'pending',
+        review_note: null,
         car: car ? { plate_number: car.plate_number } : null,
+        supplier: supplier ? { name: supplier.name } : null,
       });
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : (failure as { message?: string })?.message;
@@ -211,7 +220,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
     }
   };
 
-  const labels = { amount: `${baseId}-amount`, scope: `${baseId}-scope`, car: `${baseId}-car`, category: `${baseId}-category`, description: `${baseId}-description`, date: `${baseId}-date`, receipt: `${baseId}-receipt`, title: `${baseId}-title` };
+  const labels = { amount: `${baseId}-amount`, scope: `${baseId}-scope`, car: `${baseId}-car`, category: `${baseId}-category`, supplier: `${baseId}-supplier`, description: `${baseId}-description`, date: `${baseId}-date`, receipt: `${baseId}-receipt`, title: `${baseId}-title` };
   const amountInvalid = !!amount && parsed === null;
   const descriptionInvalid = touched.description && !description.trim();
   const dateInvalid = dateMode === 'other' && touched.date && problems.includes('date');
@@ -299,6 +308,10 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
                 </Choice>
               ))}
             </div>
+          </Field>
+
+          <Field id={labels.supplier} label={tf('picker.label')}>
+            <SupplierPicker labelId={labels.supplier} value={supplier} onChange={setSupplier} disabled={busy} canAdd={canAccessPage('accounting')} userId={userId} />
           </Field>
 
           <div>

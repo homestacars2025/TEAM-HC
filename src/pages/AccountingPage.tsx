@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import ExpenseApprovals from '../components/accounting/ExpenseApprovals';
+import { getPendingReviewCount } from '../lib/queries/expenseReview';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
@@ -25,7 +27,7 @@ import Button, { buttonClass } from '../components/Button';
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Direction = 'IN' | 'OUT';
-type Tab = 'cars' | 'expenses' | 'customers';
+type Tab = 'custody' | 'cars' | 'expenses' | 'customers';
 
 interface CarOption {
   id: number;
@@ -69,6 +71,8 @@ interface WalletBalance {
 }
 
 interface WalletTxn {
+  posted_car_tx_id: number | null;
+  posted_company_expense_id: number | null;
   id: number;
   transaction_date: string;
   direction: Direction;
@@ -216,6 +220,8 @@ async function uploadTransactionReceipt(carKey: string, file: File): Promise<str
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const COLOR_IN = '#16a34a';
+/** The row a link from an approved expense came to find. */
+const FOCUSED_ROW: React.CSSProperties = { background: 'var(--accent-soft)' };
 const COLOR_OUT = '#ef4444';
 
 const labelStyle: React.CSSProperties = {
@@ -339,7 +345,10 @@ const tdStyle: React.CSSProperties = {
 const CarSheetsTab: React.FC<{
   monthDate: Date;
   notify: (t: ToastState) => void;
-}> = ({ monthDate, notify }) => {
+  /** From a link to one posted row. */
+  focusCar: number | null;
+  focusEntry: number | null;
+}> = ({ monthDate, notify, focusCar, focusEntry }) => {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
@@ -350,7 +359,7 @@ const CarSheetsTab: React.FC<{
   const [txns, setTxns] = useState<CarTxn[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
+  const [selectedCarId, setSelectedCarId] = useState<number | null>(focusCar);
   const [showAdd, setShowAdd] = useState(false);
   const [editTxn, setEditTxn] = useState<CarTxn | null>(null);
   const [deleteTxn, setDeleteTxn] = useState<CarTxn | null>(null);
@@ -542,7 +551,7 @@ const CarSheetsTab: React.FC<{
               </thead>
               <tbody>
                 {carTxns.map(txn => (
-                  <tr key={txn.id}>
+                  <tr key={txn.id} style={txn.id === focusEntry ? FOCUSED_ROW : undefined}>
                     <td style={tdStyle}>{formatDateDisplay(txn.date, dateLocale)}</td>
                     <td style={tdStyle}><DirectionBadge direction={txn.direction} /></td>
                     <td style={tdStyle}>{categoryLabel(t, txn.category)}</td>
@@ -883,7 +892,8 @@ const ExpensesTab: React.FC<{
   monthDate: Date;
   userId: string | null;
   notify: (t: ToastState) => void;
-}> = ({ monthDate, userId, notify }) => {
+  focusEntry: number | null;
+}> = ({ monthDate, userId, notify, focusEntry }) => {
   const { t } = useTranslation('accounting');
   const [sub, setSub] = useState<'company' | 'wallets'>('company');
   return (
@@ -903,7 +913,7 @@ const ExpensesTab: React.FC<{
         })}
       </div>
       {sub === 'company'
-        ? <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} />
+        ? <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} />
         : <EmployeeWalletsSection userId={userId} notify={notify} />}
     </div>
   );
@@ -913,7 +923,8 @@ const CompanyExpensesSection: React.FC<{
   monthDate: Date;
   userId: string | null;
   notify: (t: ToastState) => void;
-}> = ({ monthDate, userId, notify }) => {
+  focusEntry: number | null;
+}> = ({ monthDate, userId, notify, focusEntry }) => {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
@@ -985,7 +996,7 @@ const CompanyExpensesSection: React.FC<{
               </thead>
               <tbody>
                 {rows.map(r => (
-                  <tr key={r.id}>
+                  <tr key={r.id} style={r.id === focusEntry ? FOCUSED_ROW : undefined}>
                     <td style={tdStyle}>{formatDateDisplay(r.expense_date, dateLocale)}</td>
                     <td style={tdStyle}><DirectionBadge direction={r.direction} /></td>
                     <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
@@ -1295,7 +1306,7 @@ const WalletHistoryModal: React.FC<{
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('employee_wallets')
-      .select('id, transaction_date, direction, category, amount, description, receipt_url')
+      .select('id, transaction_date, direction, category, amount, description, receipt_url, posted_car_tx_id, posted_company_expense_id')
       .eq('employee_id', employee.employee_id)
       .order('transaction_date', { ascending: false });
     setRows((data ?? []) as WalletTxn[]);
@@ -1351,7 +1362,8 @@ const WalletHistoryModal: React.FC<{
                       <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end' }}>
-                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                      {/* Once it is on a sheet, changing it here would leave that row behind. */}
+                      {(r.posted_car_tx_id ?? r.posted_company_expense_id) == null && <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button onClick={() => setEditRow(r)} title={tc('actions.edit')} style={rowActionBtn}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -1362,7 +1374,7 @@ const WalletHistoryModal: React.FC<{
                             <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </button>
-                      </div>
+                      </div>}
                     </td>
                   </tr>
                 ))}
@@ -1880,13 +1892,19 @@ const ReceiptField: React.FC<{
 //  Page shell
 // ════════════════════════════════════════════════════════════════════════════
 
-const TABS: Tab[] = ['cars', 'expenses', 'customers'];
+const TABS: Tab[] = ['custody', 'cars', 'expenses', 'customers'];
 
 const AccountingPage: React.FC = () => {
   const { t } = useTranslation('accounting');
   const dateLocale = useDateLocale();
-  const [tab, setTab] = useState<Tab>('cars');
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab') as Tab | null;
+  const tab: Tab = requested && TABS.includes(requested) ? requested : 'custody';
+  const focusEntry = Number(params.get('entry')) || null;
+  const focusCar = Number(params.get('car')) || null;
   const [monthDate, setMonthDate] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -1901,12 +1919,28 @@ const AccountingPage: React.FC = () => {
     if (t) window.setTimeout(() => setToast(null), 2600);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    getPendingReviewCount().then(count => { if (active) setPendingCount(count); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // A link to a posted row names its month.
+  const linkedMonth = params.get('month');
+  useEffect(() => {
+    if (!linkedMonth || !/^\d{4}-\d{2}$/.test(linkedMonth)) return;
+    const [year, month] = linkedMonth.split('-').map(Number);
+    setMonthDate(new Date(year, month - 1, 1));
+  }, [linkedMonth]);
+
+  const openTab = (next: Tab) => setParams(() => new URLSearchParams(next === 'custody' ? '' : `tab=${next}`), { replace: true });
+
   // Access is enforced by <RequirePage page="accounting"> on the route.
 
-  const monthNavDisabled = tab === 'customers'; // customers ledger is not month-scoped
+  const monthNavDisabled = tab === 'customers' || tab === 'custody'; // neither is month-scoped
 
   return (
-    <div style={{ padding: '24px 32px', background: 'var(--surface)', minHeight: '100%' }}>
+    <div style={{ padding: '24px clamp(16px, 4vw, 32px)', background: 'var(--surface)', minHeight: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
@@ -1932,19 +1966,25 @@ const AccountingPage: React.FC = () => {
         {TABS.map(key => {
           const on = tab === key;
           return (
-            <button key={key} onClick={() => setTab(key)} style={{
+            <button key={key} onClick={() => openTab(key)} style={{
               padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#3A74C2' : '#6b7280',
               borderBottom: on ? '2px solid #4ba6ea' : '2px solid transparent', marginBottom: -1,
-            }}>{t(`tabs.${key}`)}</button>
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+              {t(`tabs.${key}`)}
+              {key === 'custody' && !!pendingCount && <span className="hc-appr-badge">{pendingCount}</span>}
+            </button>
           );
         })}
       </div>
 
-      {tab === 'cars' && <CarSheetsTab monthDate={monthDate} notify={notify} />}
-      {tab === 'expenses' && <ExpensesTab monthDate={monthDate} userId={userId} notify={notify} />}
+      {tab === 'custody' && <ExpenseApprovals onOpenReceipt={setReceipt} onPendingChange={setPendingCount} notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}
+      {tab === 'cars' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} />}
+      {tab === 'expenses' && <ExpensesTab monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} />}
       {tab === 'customers' && <CustomersMovedPanel />}
 
+      {receipt && <ReceiptLightbox url={receipt} onClose={() => setReceipt(null)} />}
       <Toast toast={toast} />
     </div>
   );

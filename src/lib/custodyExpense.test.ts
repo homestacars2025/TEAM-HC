@@ -74,7 +74,7 @@ test('every category is stored in English, with both scopes ending in Other', ()
 
 describe('canDeleteExpense', () => {
   const NOW = Date.parse('2026-10-31T12:00:00Z');
-  const row = { direction: 'OUT' as const, created_by: 'me', created_at: '2026-10-31T01:00:00Z', posted_car_tx_id: null, posted_company_expense_id: null };
+  const row = { direction: 'OUT' as const, created_by: 'me', created_at: '2026-10-31T01:00:00Z', posted_car_tx_id: null, posted_company_expense_id: null, review_status: 'pending' };
   test('own, recent, unposted', () => expect(canDeleteExpense(row, 'me', NOW)).toBe(true));
   test('after 24 hours', () => expect(canDeleteExpense({ ...row, created_at: '2026-10-30T11:59:00Z' }, 'me', NOW)).toBe(false));
   test('someone else recorded it', () => expect(canDeleteExpense({ ...row, created_by: 'finance' }, 'me', NOW)).toBe(false));

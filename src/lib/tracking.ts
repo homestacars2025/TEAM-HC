@@ -212,15 +212,3 @@ export function relativeSignal(iso: string, at: number, locale: string): string 
   if (minutes < 48 * 60) return format.format(-Math.floor(minutes / 60), 'hour');
   return format.format(-Math.floor(minutes / 1440), 'day');
 }
-
-/** A spreadsheet runs a cell that starts with one of these, so it is kept as text. */
-const csvCell = (value: string | number | null) => {
-  const text = value === null ? '' : String(value);
-  const safe = typeof value === 'string' && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
-  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-};
-
-/** With a byte order mark, or Excel shows Arabic headers as gibberish. */
-export function toCsv(rows: (string | number | null)[][]): string {
-  return `﻿${rows.map(row => row.map(csvCell).join(',')).join('\r\n')}\r\n`;
-}

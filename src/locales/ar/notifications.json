@@ -107,5 +107,10 @@
       "unassigned": "{{unassigned}} غير مربوطة بعميل",
       "oldest": "أقدمها بتاريخ {{day}}"
     }
+  },
+  "custody": {
+    "expense": {
+      "pending": "مصروف جديد بانتظار التأكيد: ⁦₺{{amount}}⁩"
+    }
   }
 }

@@ -161,11 +161,13 @@ interface DeletableRow {
   created_at?: string | null;
   posted_car_tx_id?: number | null;
   posted_company_expense_id?: number | null;
+  review_status?: string | null;
 }
 
 /** The same test `staff_delete_custody_expense` applies, so the button never lies. */
 export function canDeleteExpense(row: DeletableRow, userId: string | null, now = Date.now()): boolean {
   if (!userId || row.direction !== 'OUT' || row.created_by !== userId || !row.created_at) return false;
+  if (row.review_status !== 'pending') return false;
   if (row.posted_car_tx_id != null || row.posted_company_expense_id != null) return false;
   return now - new Date(row.created_at).getTime() < HOURS_24;
 }

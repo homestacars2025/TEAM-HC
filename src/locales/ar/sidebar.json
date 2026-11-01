@@ -27,20 +27,14 @@
     "kabis": "KABIS",
     "ideas": "الأفكار",
     "influencers": "المؤثرون",
-    "mediaCalendar": "التقويم"
+    "mediaCalendar": "التقويم",
+    "suppliers": "الموردين"
   },
   "currency": {
     "label": "العملة",
     "switchHint": "العملة: {{currency}} — اضغط للتبديل"
   },
-  "language": {
-    "label": "اللغة",
-    "switchHint": "اللغة: {{language}} — اضغط للتبديل",
-    "en": "English",
-    "ar": "العربية",
-    "enShort": "EN",
-    "arShort": "ع"
-  },
+  "language": "اللغة",
   "openMenu": "فتح القائمة",
   "closeMenu": "إغلاق القائمة",
   "departmentHead": "رئيس القسم",
@@ -48,7 +42,6 @@
   "expand": "توسيع القائمة",
   "signOut": "تسجيل الخروج",
   "brandSubtitle": "فريق العمل",
-  "language": "اللغة",
   "profileFallback": "مستخدم",
   "openTasks": "{{count}} مهمة مفتوحة"
 }

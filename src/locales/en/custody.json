@@ -31,7 +31,8 @@
     "receipt": "Receipt",
     "running": "Balance",
     "target": "On",
-    "actions": "Actions"
+    "actions": "Actions",
+    "status": "Status"
   },
   "viewReceipt": "View receipt",
   "empty": "No movements yet.",

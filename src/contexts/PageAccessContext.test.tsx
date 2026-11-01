@@ -413,6 +413,8 @@ describe('App.tsx', () => {
       fines: 'fines',
       operations: 'operations',
       'customer-wallets': 'customer_wallets',
+      suppliers: 'suppliers',
+      'suppliers/:id': 'suppliers',
       tasks: 'tasks',
       accounting: 'accounting',
       kabis: 'kabis',

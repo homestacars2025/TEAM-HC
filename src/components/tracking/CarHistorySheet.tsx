@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
 import { getDailyKm } from '../../lib/queries/tracking';
-import { addDays, daysEnding, HISTORY_START, toCsv, type DailyKmRow, type DayEntry } from '../../lib/tracking';
+import { downloadCsv } from '../../lib/csv';
+import { addDays, daysEnding, HISTORY_START, type DailyKmRow, type DayEntry } from '../../lib/tracking';
 import Button from '../Button';
 import BookingSheet from '../booking/BookingSheet';
 import { FormCard } from '../booking/FormParts';
@@ -64,20 +65,10 @@ const CarHistorySheet: React.FC<CarHistorySheetProps> = ({ live, entry, today, o
   const byDay = useMemo(() => new Map(rows.map(row => [row.day, row.km])), [rows]);
   const total = rows.reduce((sum, row) => sum + row.km, 0);
 
-  const exportCsv = () => {
-    const csv = toCsv([
-      [t('sheet.day'), t('sheet.start'), t('sheet.end'), t('sheet.km')],
-      ...rows.map(row => [row.day, row.start_km, row.end_km, row.km]),
-    ]);
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `km-${entry.plate.replace(/[^\p{L}\p{N}-]+/gu, '')}-${today}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
+  const exportCsv = () => downloadCsv(`km-${entry.plate}-${today}`, [
+    [t('sheet.day'), t('sheet.start'), t('sheet.end'), t('sheet.km')],
+    ...rows.map(row => [row.day, row.start_km, row.end_km, row.km]),
+  ]);
 
   return (
     <BookingSheet

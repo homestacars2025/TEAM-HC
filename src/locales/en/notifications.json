@@ -91,5 +91,10 @@
       "unassigned": "{{unassigned}} not linked to a customer",
       "oldest": "Oldest from {{day}}"
     }
+  },
+  "custody": {
+    "expense": {
+      "pending": "New expense to confirm: ⁦₺{{amount}}⁩"
+    }
   }
 }

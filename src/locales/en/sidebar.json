@@ -27,20 +27,14 @@
     "kabis": "KABIS",
     "ideas": "Ideas",
     "influencers": "Influencers",
-    "mediaCalendar": "Calendar"
+    "mediaCalendar": "Calendar",
+    "suppliers": "Suppliers"
   },
   "currency": {
     "label": "Currency",
     "switchHint": "Currency: {{currency}} — click to switch"
   },
-  "language": {
-    "label": "Language",
-    "switchHint": "Language: {{language}} — click to switch",
-    "en": "English",
-    "ar": "العربية",
-    "enShort": "EN",
-    "arShort": "AR"
-  },
+  "language": "Language",
   "openMenu": "Open menu",
   "closeMenu": "Close menu",
   "departmentHead": "Head",
@@ -48,7 +42,6 @@
   "expand": "Expand sidebar",
   "signOut": "Sign out",
   "brandSubtitle": "Team",
-  "language": "Language",
   "profileFallback": "User",
   "openTasks": "{{count}} open task(s)"
 }

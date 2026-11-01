@@ -31,7 +31,8 @@
     "receipt": "الإيصال",
     "running": "الرصيد",
     "target": "على",
-    "actions": "إجراءات"
+    "actions": "إجراءات",
+    "status": "الحالة"
   },
   "viewReceipt": "عرض الإيصال",
   "empty": "لا توجد حركات بعد.",

@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { istanbulDate } from '../istanbulTime';
 import type { ExpenseCar, ExpenseScope } from '../custodyExpense';
+import type { ReviewStatus } from '../expenseReview';
 
 /**
  * The signed-in employee's custody: company money they hold, not money they earned.
@@ -25,8 +26,11 @@ export interface CustodyMovement {
   car_id: number | null;
   posted_car_tx_id: number | null;
   posted_company_expense_id: number | null;
+  review_status: ReviewStatus;
+  review_note: string | null;
   /** Kept for the row even once the car has left the fleet. */
   car: { plate_number: string } | null;
+  supplier: { name: string } | null;
 }
 
 export interface CustodyMovementWithBalance extends CustodyMovement {
@@ -43,7 +47,7 @@ export interface CustodyTotals {
 export async function getMyCustodyMovements(userId: string): Promise<CustodyMovement[]> {
   const { data, error } = await supabase
     .from('employee_wallets')
-    .select('id, transaction_date, direction, category, amount, description, receipt_url, created_at, created_by, expense_scope, car_id, posted_car_tx_id, posted_company_expense_id, car:car_id(plate_number)')
+    .select('id, transaction_date, direction, category, amount, description, receipt_url, created_at, created_by, expense_scope, car_id, posted_car_tx_id, posted_company_expense_id, review_status, review_note, car:car_id(plate_number), supplier:supplier_id(name)')
     .eq('employee_id', userId)
     .order('transaction_date')
     .order('created_at')
@@ -105,6 +109,7 @@ export interface NewCustodyExpense {
   scope: ExpenseScope;
   carId: number | null;
   receiptUrl: string;
+  supplierId: number | null;
 }
 
 export async function addCustodyExpense(expense: NewCustodyExpense): Promise<number> {
@@ -116,6 +121,7 @@ export async function addCustodyExpense(expense: NewCustodyExpense): Promise<num
     p_scope: expense.scope,
     p_car_id: expense.scope === 'car' ? expense.carId : null,
     p_receipt_url: expense.receiptUrl,
+    p_supplier_id: expense.supplierId,
   });
   if (error) throw error;
   return Number(data);

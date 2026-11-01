@@ -101,6 +101,12 @@ export const pageIcons: Record<string, React.ReactNode> = {
     <path d="M8 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
     <circle cx="16" cy="16" r="1.1" fill="currentColor"/>
   </>),
+  suppliers: icon(<>
+    <path d="M3 17V6a1 1 0 011-1h10a1 1 0 011 1v11M15 9h3.5L21 12.5V17h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 17h2M9 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <circle cx="7" cy="17.5" r="2" stroke="currentColor" strokeWidth="1.8"/>
+    <circle cx="17" cy="17.5" r="2" stroke="currentColor" strokeWidth="1.8"/>
+  </>),
   media_ideas: icon(<>
     <path d="M15 14c.2-1 .7-1.7 1.5-2.5A5.7 5.7 0 0018 8 6 6 0 006 8c0 1 .2 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M9 18h6M10 22h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -139,6 +145,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   kabis: 'nav.kabis',
   accounting: 'nav.accounting',
   customer_wallets: 'nav.customerWallets',
+  suppliers: 'nav.suppliers',
   media_ideas: 'nav.ideas',
   media_calendar: 'nav.mediaCalendar',
   media_influencers: 'nav.influencers',

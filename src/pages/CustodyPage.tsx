@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
 import { istanbulDate } from '../lib/istanbulTime';
-import { EXPENSE_CATEGORIES, canDeleteExpense, expenseErrorKey, formatPlate } from '../lib/custodyExpense';
+import { canDeleteExpense, expenseErrorKey, formatPlate } from '../lib/custodyExpense';
 import {
   custodyBalance, custodyTotals, deleteCustodyExpense, getMyCustodyMovements, withRunningCustody,
   type CustodyMovement, type CustodyMovementWithBalance,
@@ -12,11 +12,13 @@ import {
 import { ReceiptThumb, PeriodToggle, StatTile, selectClass, type Period } from '../components/WalletParts';
 import FilterBar from '../components/FilterBar';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
-import { ReceiptLightbox, categoryLabel, formatDateDisplay, useDateLocale } from './AccountingPage';
+import { ReceiptLightbox, formatDateDisplay, useDateLocale } from './AccountingPage';
 import Button from '../components/Button';
 import AddExpenseSheet from '../components/custody/AddExpenseSheet';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
 import PlateChip from '../components/booking/PlateChip';
+import ReviewPill from '../components/custody/ReviewPill';
+import { useExpenseCategoryLabel } from '../components/custody/useExpenseCategoryLabel';
 
 /**
  * The signed-in employee's custody (الوديعة): company money they hold. Money in is
@@ -84,7 +86,6 @@ const DeleteButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
 
 const CustodyPage: React.FC = () => {
   const { t } = useTranslation('custody');
-  const { t: ta } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
   const { userId } = useCurrentUser();
@@ -191,11 +192,7 @@ const CustodyPage: React.FC = () => {
   const totals = useMemo(() => custodyTotals(rows ?? [], period === 'month' ? thisMonth : undefined), [rows, period, thisMonth]);
   const balance = useMemo(() => custodyBalance(rows ?? []), [rows]);
 
-  /** The expense's own wording where it has one: this page says بنزين, finance says وقود. */
-  const labelFor = useCallback((value: string | null) => {
-    const own = [...EXPENSE_CATEGORIES.car, ...EXPENSE_CATEGORIES.company].find(option => option.value === value);
-    return own ? t(`expense.categories.${own.key}`) : categoryLabel(ta, value);
-  }, [t, ta]);
+  const labelFor = useExpenseCategoryLabel();
 
   const targets = useMemo(() => {
     const plates = new Map<number, string>();
@@ -342,6 +339,7 @@ const CustodyPage: React.FC = () => {
                     <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.target')}</th>
                     <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.description')}</th>
                     <th scope="col" className="px-3 py-3 text-end font-medium">{t('table.amount')}</th>
+                    <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.status')}</th>
                     <th scope="col" className="px-3 py-3 text-center font-medium">{t('table.receipt')}</th>
                     <th scope="col" className="px-3 py-3 text-end font-medium">{t('table.running')}</th>
                     <th scope="col" className="w-12 px-3 py-3"><span className="sr-only">{t('table.actions')}</span></th>
@@ -353,8 +351,12 @@ const CustodyPage: React.FC = () => {
                       <td className="whitespace-nowrap px-5 py-3 text-gray-700">{formatDateDisplay(row.transaction_date, dateLocale)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-gray-700">{labelFor(row.category)}</td>
                       <td className="whitespace-nowrap px-3 py-3"><Target movement={row} /></td>
-                      <td className="max-w-[240px] px-3 py-3 text-gray-500">{row.description || '—'}</td>
+                      <td className="max-w-[240px] px-3 py-3 text-gray-500">
+                        {row.description || '—'}
+                        {row.supplier && <div className="mt-0.5 text-xs text-gray-400" dir="auto">{row.supplier.name}</div>}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-3 text-end"><Amount movement={row} /></td>
+                      <td className="whitespace-nowrap px-3 py-3">{row.direction === 'OUT' && <ReviewPill status={row.review_status} note={row.review_note} />}</td>
                       <td className="px-3 py-2"><div className="flex justify-center"><ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} /></div></td>
                       <td className="whitespace-nowrap px-3 py-3 text-end"><Running value={row.running} /></td>
                       <td className="px-3 py-1">{canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}</td>
@@ -371,7 +373,10 @@ const CustodyPage: React.FC = () => {
                     <div className="truncate text-sm font-medium text-[#0f1117]">{labelFor(row.category)}</div>
                     {row.direction === 'OUT' && (row.car || row.expense_scope === 'company') && <div className="mt-1 text-[13px]"><Target movement={row} /></div>}
                     {row.description && <div className="mt-1 text-[13px] text-gray-500">{row.description}</div>}
+                    {row.supplier && <div className="mt-1 text-xs text-gray-500" dir="auto">{row.supplier.name}</div>}
                     <div className="mt-1 text-xs text-gray-400">{formatDateDisplay(row.transaction_date, dateLocale)}</div>
+                    {row.direction === 'OUT' && <div className="mt-1.5"><ReviewPill status={row.review_status} note={row.review_note} /></div>}
+                    {row.direction === 'OUT' && row.review_status === 'rejected' && row.review_note && <div className="mt-1 text-xs text-red-600" dir="auto">{row.review_note}</div>}
                   </div>
                   <div className="shrink-0 text-end text-sm">
                     <div><Amount movement={row} /></div>

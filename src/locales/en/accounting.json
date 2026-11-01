@@ -3,6 +3,7 @@
   "subtitle": "Rental sheets, company & employee expenses, and customer balances.",
   "loading": "Loading…",
   "tabs": {
+    "custody": "Expense approvals",
     "cars": "Car Rental Sheets",
     "expenses": "Company & Employee Expenses",
     "customers": "Customers"
