@@ -1,14 +1,118 @@
 {
   "eyebrow": "Fleet",
   "title": "Car Tracking",
-  "subtitle": "Live vehicle tracking data.",
-  "allVehicles": "All Vehicles",
-  "search": "Search plate…",
-  "currentKm": "Current KM",
-  "dailyKm": "Daily KM",
-  "nextOilChange": "Next Oil Change",
-  "kmRemaining": "KM Remaining",
+  "subtitle": "Distance driven each day, and the fleet right now.",
   "km": "km",
-  "empty": "No cars match your search.",
-  "emptyNone": "No tracking data found."
+  "kmh": "km/h",
+  "loading": "Loading",
+  "search": "Search plate or model…",
+  "noMatch": "No cars match.",
+  "emptyNone": "No tracking data found.",
+  "loadFailed": "Could not load tracking data.",
+  "tabs": {
+    "day": "Daily report",
+    "live": "Live fleet"
+  },
+  "banner": {
+    "stopped": "Tracking has stopped — last signal {{time}}. Check the Trio connection.",
+    "stoppedNever": "Tracking has stopped — no signal has arrived. Check the Trio connection."
+  },
+  "day": {
+    "today": "Today, {{date}}",
+    "past": "{{weekday}}, {{date}}",
+    "previous": "Previous day",
+    "next": "Next day",
+    "pick": "Choose a day",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "backToToday": "Back to today"
+  },
+  "tiles": {
+    "totalKm": "Total km",
+    "moved": "Cars that moved",
+    "idle": "Idle cars",
+    "noSignal": "No signal",
+    "over500": "Over 500 km",
+    "all": "All cars",
+    "moving": "Moving now",
+    "ignition": "Ignition on",
+    "oilDue": "Oil change due",
+    "oilOverdue": "Overdue oil",
+    "cars_one": "{{count}} car",
+    "cars_other": "{{count}} cars",
+    "kmSub": "{{km}} km",
+    "idleSub": "0 km",
+    "over24h": "Over 24 hours",
+    "rightNow": "Right now",
+    "allSub": "In the fleet",
+    "oilDueSub": "1,000 km or less",
+    "oilOverdueSub": "Past the limit"
+  },
+  "chart": {
+    "title": "Km per car",
+    "note": "Cars that moved, highest first. Tap one for its history.",
+    "limit": "500 km",
+    "empty": "No car moved."
+  },
+  "list": {
+    "car": "Car",
+    "odometer": "Start → end",
+    "driven": "Driven",
+    "week": "7 days",
+    "signal": "Last signal",
+    "noModel": "Not linked to a car",
+    "open": "{{plate}}, {{km}} km, open history"
+  },
+  "empty": {
+    "title": "History starts on {{date}}",
+    "body": "Each car's distance is saved every night at midnight, so days before that have no record.",
+    "missingTitle": "Nothing was saved for this day",
+    "missingBody": "The nightly save did not run for this day."
+  },
+  "sheet": {
+    "title": "Car history",
+    "subtitle_one": "Last {{count}} day",
+    "subtitle_other": "Last {{count}} days",
+    "chart_one": "Km per day, {{count}} day",
+    "chart_other": "Km per day, {{count}} days",
+    "chartTitle": "{{km}} km in total",
+    "tableTitle": "Day by day",
+    "day": "Day",
+    "start": "Start",
+    "end": "End",
+    "km": "Km",
+    "today": "Today",
+    "export": "Export CSV",
+    "loadFailed": "Could not load this car's history.",
+    "firstNight": "The first day is saved tonight.",
+    "unlinked": "This tracker is not linked to a car, so its distance is not saved at night."
+  },
+  "table": {
+    "plate": "Plate",
+    "model": "Model",
+    "currentKm": "Current km",
+    "todayKm": "Today",
+    "ignition": "Ignition",
+    "speed": "Speed",
+    "nextOil": "Next oil change",
+    "remaining": "Km remaining",
+    "signal": "Last signal"
+  },
+  "ignition": {
+    "on": "ON",
+    "off": "OFF"
+  },
+  "signal": {
+    "now": "Just now",
+    "never": "No signal yet"
+  },
+  "oil": {
+    "left": "{{km}} km left",
+    "overdue": "Overdue by {{km}} km",
+    "edit": "Edit next oil change for {{plate}}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "invalid": "Enter a whole number of km, or leave it empty.",
+    "failed": "Could not save the oil change. Try again."
+  }
 }
