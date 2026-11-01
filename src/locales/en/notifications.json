@@ -69,5 +69,19 @@
   },
   "toast": {
     "open": "Open"
+  },
+  "compliance": {
+    "insurance": {
+      "d3": "Insurance expires in 3 days — {{plate}}",
+      "d1": "Insurance expires tomorrow — {{plate}}",
+      "d0": "Insurance expires today — {{plate}}"
+    },
+    "inspection": {
+      "d3": "Periodic inspection expires in 3 days — {{plate}}",
+      "d1": "Periodic inspection expires tomorrow — {{plate}}",
+      "d0": "Periodic inspection expires today — {{plate}}"
+    },
+    "body": "{{model}} · Expires {{expiry}}",
+    "bodyNoModel": "Expires {{expiry}}"
   }
 }

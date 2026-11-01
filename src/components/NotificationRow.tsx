@@ -1,12 +1,14 @@
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { expiryBodyKey, expiryNotice, expiryTitleKey, expiryVars } from '../lib/notifications/compliance';
 import { useNotifText, useUiDir } from '../lib/notifications/renderI18n';
 import { useTimeFormat } from '../lib/relative-time';
 import { useInbox } from '../lib/InboxContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { markNotificationRead } from '../lib/queries/tasks';
 import type { MyNotification, NotificationCategory } from '../lib/types/tasks';
+import { ComplianceTriangle } from './cars/Compliance';
 
 /** One notification, as shown in the bell and on Home. */
 
@@ -97,11 +99,35 @@ export function resolveNotificationPath(
  */
 export function notificationBodyKey(n: Pick<MyNotification, 'body_i18n_key' | 'event_key' | 'vars'>): string | null {
   if (n.body_i18n_key) return n.body_i18n_key;
+  if (expiryNotice(n)) return expiryBodyKey(n);
   if (n.event_key === 'task.assigned') return n.vars?.due ? 'task.assigned.body' : 'task.assigned.noDue';
   if (n.event_key === 'task.due_soon') return 'task.due_soon.body';
   if (n.event_key === 'task.overdue') return 'task.overdue.body';
   return null;
 }
+
+/** Title and body in the reader's language, the same in the bell, on Home and in a toast. */
+export function useNotificationWords(): (n: MyNotification) => { title: string; body: string } {
+  const { i18n } = useTranslation();
+  const notifText = useNotifText();
+  const locale = i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
+  return useCallback((n: MyNotification) => {
+    const notice = expiryNotice(n);
+    const vars = notice ? expiryVars(n.vars, locale) : n.vars;
+    return {
+      // Never `n.title` / `n.body` directly: the stored wording is a fallback for a key
+      // this build has no translation for.
+      title: notifText(notice ? expiryTitleKey(notice) : n.i18n_key, vars, n.title),
+      body: notifText(notificationBodyKey(n), vars, n.body),
+    };
+  }, [notifText, locale]);
+}
+
+/** Amber with days to spare, red from the last day. `null` for any other notification. */
+export const NotificationTriangle: React.FC<{ notification: MyNotification; size: number }> = ({ notification, size }) => {
+  const notice = expiryNotice(notification);
+  return notice ? <ComplianceTriangle severity={notice.urgent ? 'expired' : 'missing'} size={size} /> : null;
+};
 
 // ─── Opening one ──────────────────────────────────────────────────────────────
 
@@ -111,14 +137,17 @@ export function useOpenNotification(): (n: MyNotification) => Promise<void> {
   const { pages, canAccessPage, canAccessRoute, firstAllowedRoute } = usePageAccess();
   const tasksRoute = canAccessPage('tasks') ? pages.find(p => p.key === 'tasks')?.route : undefined;
   const fallbackRoute = tasksRoute ?? firstAllowedRoute ?? '/dashboard';
+  const carsRoute = pages.find(p => p.key === 'cars')?.route;
 
   return useCallback(async (n: MyNotification) => {
     if (!n.is_read) {
       await markNotificationRead(n.id);
       refresh();
     }
-    navigate(resolveNotificationPath(n.link, canAccessRoute, fallbackRoute));
-  }, [navigate, refresh, canAccessRoute, fallbackRoute]);
+    const path = resolveNotificationPath(n.link, canAccessRoute, fallbackRoute);
+    // About one car, so the page can find its row.
+    navigate(path === carsRoute && n.entity_type === 'car' && n.entity_id ? `${path}?car=${n.entity_id}` : path);
+  }, [navigate, refresh, canAccessRoute, fallbackRoute, carsRoute]);
 }
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
@@ -129,14 +158,11 @@ const NotificationRow: React.FC<{ notification: MyNotification; onOpen: (n: MyNo
   notification: n, onOpen,
 }) => {
   const { t } = useTranslation('notifications');
-  const notifText = useNotifText();
+  const words = useNotificationWords();
   const { relative } = useTimeFormat();
   const dir = useUiDir();
   const style = styleFor(n.category);
-  // Never `n.title` / `n.body` directly — the stored wording is a fallback for a
-  // key this build has no translation for.
-  const title = notifText(n.i18n_key, n.vars, n.title);
-  const body = notifText(notificationBodyKey(n), n.vars, n.body);
+  const { title, body } = words(n);
   const background = n.is_read ? 'var(--surface)' : UNREAD_BACKGROUND;
 
   return (
@@ -154,18 +180,20 @@ const NotificationRow: React.FC<{ notification: MyNotification; onOpen: (n: MyNo
       onMouseLeave={e => { e.currentTarget.style.background = background; }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-        <span
-          aria-hidden
-          title={t(`category.${n.category}`)}
-          style={{
-            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-            background: style.tint, color: style.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginTop: 1,
-          }}
-        >
-          {style.icon}
-        </span>
+        {expiryNotice(n) ? <NotificationTriangle notification={n} size={28} /> : (
+          <span
+            aria-hidden
+            title={t(`category.${n.category}`)}
+            style={{
+              width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+              background: style.tint, color: style.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: 1,
+            }}
+          >
+            {style.icon}
+          </span>
+        )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>

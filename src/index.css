@@ -2165,6 +2165,14 @@ html[dir="rtl"] .hc-range-head svg { transform: scaleX(-1); }
   .hc-car-dates { width: min(440px, 100%); padding: 22px; border-radius: 20px; animation: none; }
 }
 
+/* The car a notification pointed at. */
+.hc-car-found td { animation: hc-car-found 4s ease-out; }
+
+@keyframes hc-car-found {
+  0%, 60% { background-color: rgba(110, 164, 231, 0.24); }
+  100% { background-color: transparent; }
+}
+
 /* The stripe is on the reading side, so it mirrors with the table. */
 .hc-car-row.is-expired td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
 .hc-car-row.is-missing td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
@@ -2217,4 +2225,5 @@ html[dir="rtl"] .hc-car-row.is-missing td:first-child { box-shadow: inset -3px 0
 
 @media (prefers-reduced-motion: reduce) {
   .hc-compliance, .hc-car-dates { animation: none; }
+  .hc-car-found td { animation: none; background-color: rgba(110, 164, 231, 0.24); }
 }

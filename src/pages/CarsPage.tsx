@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useUrlSearch } from '../hooks/useUrlSearch';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
@@ -490,6 +491,29 @@ const CarsPage: React.FC = () => {
   const [fixing, setFixing] = useState<CarCompliance | null>(null);
   const [onlyIssues, setOnlyIssues] = useState(false);
   const warned = useRef(false);
+  const [params, setParams] = useSearchParams();
+  const linkedCar = params.get('car');
+  const [highlighted, setHighlighted] = useState<number | null>(null);
+
+  // A notification points at one car. The warning below comes first on any visit, so the
+  // row waits for it: highlighted behind the dialog, nobody would see it.
+  useEffect(() => {
+    if (!linkedCar || carsLoading || !compliance.settled || complianceOpen || fixing) return;
+    if (summary.count > 0 && !warned.current) return;
+    setTableSearch('');
+    setOnlyIssues(false);
+    setHighlighted(Number(linkedCar));
+    setParams(current => { current.delete('car'); return current; }, { replace: true });
+  }, [linkedCar, carsLoading, compliance.settled, complianceOpen, fixing, summary.count, setParams]);
+
+  useEffect(() => {
+    if (highlighted === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector(`[data-car-id="${highlighted}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    const timer = window.setTimeout(() => setHighlighted(null), 4000);
+    return () => { window.cancelAnimationFrame(frame); window.clearTimeout(timer); };
+  }, [highlighted]);
 
   // Once per visit, and on every visit: there is no way to dismiss it for good.
   useEffect(() => {
@@ -917,7 +941,12 @@ const CarsPage: React.FC = () => {
                   return filtered.map((car, idx) => {
                     const checked = compliance.byId.get(car.id);
                     return (
-                    <tr key={car.plate_number + idx} className={checked?.severity ? `hc-car-row is-${checked.severity}` : undefined} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
+                    <tr
+                      key={car.plate_number + idx}
+                      data-car-id={car.id}
+                      className={[checked?.severity && `hc-car-row is-${checked.severity}`, car.id === highlighted && 'hc-car-found'].filter(Boolean).join(' ') || undefined}
+                      style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}
+                    >
                       <td style={{ padding: '12px 14px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
                           {checked?.severity && <ComplianceTriangle severity={checked.severity} size={18} />}

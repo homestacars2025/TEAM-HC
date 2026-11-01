@@ -3,9 +3,9 @@ import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInbox } from '../lib/InboxContext';
-import { useNotifText } from '../lib/notifications/renderI18n';
+import { expiryNotice } from '../lib/notifications/compliance';
 import type { MyNotification } from '../lib/types/tasks';
-import { notificationBodyKey, useOpenNotification } from './NotificationRow';
+import { NotificationTriangle, useNotificationWords, useOpenNotification } from './NotificationRow';
 import Button from './Button';
 
 /** A notification arriving live, in the corner. A new task gets an Open button. */
@@ -16,7 +16,7 @@ const MAX_VISIBLE = 3;
 const NotificationToasts: React.FC = () => {
   const { t } = useTranslation('notifications');
   const { arrival } = useInbox();
-  const notifText = useNotifText();
+  const words = useNotificationWords();
   const navigate = useNavigate();
   const openNotification = useOpenNotification();
   const [toasts, setToasts] = useState<MyNotification[]>([]);
@@ -42,8 +42,7 @@ const NotificationToasts: React.FC = () => {
     <div className="pointer-events-none fixed inset-x-3 top-[72px] z-[9500] flex flex-col gap-2 sm:inset-x-auto sm:bottom-6 sm:end-6 sm:top-auto sm:w-[340px]">
       {toasts.map(n => {
         const isNewTask = n.event_key === 'task.assigned';
-        const title = notifText(n.i18n_key, n.vars, n.title);
-        const body = notifText(notificationBodyKey(n), n.vars, n.body);
+        const { title, body } = words(n);
         const open = () => {
           dismiss(n.id);
           if (isNewTask && n.entity_id) navigate(`/dashboard/tasks?task=${n.entity_id}`);
@@ -52,7 +51,9 @@ const NotificationToasts: React.FC = () => {
         return (
           <div key={n.id} role="status" className="surface-depth surface-float hc-toast-in pointer-events-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3.5 shadow-[0_12px_40px_rgba(15,17,23,0.14)]">
             <div className="flex items-start gap-3">
-              <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--accent)]" />
+              {expiryNotice(n)
+                ? <NotificationTriangle notification={n} size={36} />
+                : <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--accent)]" />}
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold leading-snug text-[#0f1117]">{title}</div>
                 {body && <div className="mt-0.5 text-[13px] text-gray-500">{body}</div>}
