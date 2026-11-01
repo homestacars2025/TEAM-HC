@@ -1781,41 +1781,6 @@ html[dir="rtl"] .hc-range-head svg { transform: scaleX(-1); }
   font-weight: 700;
 }
 
-/* Fuel */
-.hc-fuel-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 32px;
-}
-
-.hc-fuel-top button {
-  min-height: 32px;
-  color: var(--accent-strong);
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.hc-fuel-range {
-  display: block;
-  width: 100%;
-  height: 32px;
-  margin: 0;
-  accent-color: var(--accent-strong);
-  cursor: pointer;
-}
-
-.hc-fuel.is-unset .hc-fuel-range { opacity: 0.5; }
-
-.hc-fuel-marks {
-  display: flex;
-  justify-content: space-between;
-  color: #9ca3af;
-  font-size: 11.5px;
-}
-
 /* Availability, rows and timelines */
 .hc-car-dot {
   flex: none;

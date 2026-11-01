@@ -102,5 +102,13 @@
     "change": "Change car",
     "loading": "Loading cars…",
     "failed": "Could not load the cars."
+  },
+  "fuelRange": {
+    "label": "Fuel range (km)",
+    "short": "Fuel range",
+    "placeholder": "e.g. 280",
+    "unit": "km",
+    "required": "Fuel range is required.",
+    "max": "Maximum fuel range is 2000 km"
   }
 }

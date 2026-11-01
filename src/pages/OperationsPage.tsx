@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 import StaffAvatar from '../components/StaffAvatar';
 import type { StaffAvatarProfile } from '../lib/staffAvatar';
 import Button from '../components/Button';
+import FuelRangeInput, { useFuelRange } from '../components/FuelRangeInput';
+import { fuelRangeProblem } from '../lib/fuelRange';
 import FilterBar from '../components/FilterBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -748,6 +750,7 @@ const AddOperationModal: React.FC<{
   editOp?: Operation;
 }> = ({ onClose, onSaved, editOp }) => {
   const { t } = useTranslation('operations');
+  const fuelRange = useFuelRange();
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
   const isEdit = !!editOp;
@@ -1032,8 +1035,8 @@ const AddOperationModal: React.FC<{
     if (!form.type)       { setFormError(t('errors.selectType')); return; }
     if (!form.performed_by) { setFormError(t('errors.selectPerson')); return; }
     if (customerMissing)  { setFormError(t('errors.customerRequired')); return; }
-    if (form.fuel_level === '')          { setFormError(t('errors.fuelRequired')); return; }
-    if (Number(form.fuel_level) > 2000)  { setFormError(t('errors.fuelMax')); return; }
+    const fuelProblem = fuelRangeProblem(form.fuel_level, true);
+    if (fuelProblem)      { setFormError(fuelRange.message(fuelProblem)); return; }
     // Required on NEW deliveries only: 169 legacy deliveries predate the checklist,
     // so editing one must never be blocked by it.
     if (!isEdit && form.type === 'DELIVERY') {
@@ -1371,22 +1374,14 @@ const AddOperationModal: React.FC<{
               <input type="number" min="0" placeholder={t('form.mileagePlaceholder')} value={form.current_km} onChange={set('current_km')} onFocus={onFocus} onBlur={onBlur} style={inputStyle} />
             </div>
 
-            {/* Fuel Level */}
+            {/* Fuel range */}
             <div style={fieldStyle}>
-              <label style={labelStyle}>{t('form.fuelRange')} <span style={{ color: '#ef4444' }}>*</span></label>
-              <input
-                type="number"
-                min="0"
-                max="2000"
-                placeholder={t('form.fuelPlaceholder')}
+              <label style={labelStyle}>{fuelRange.label} <span style={{ color: '#ef4444' }}>*</span></label>
+              <FuelRangeInput
                 value={form.fuel_level}
-                onChange={e => {
-                  setForm(f => ({ ...f, fuel_level: e.target.value }));
-                  if (e.target.value !== '' && Number(e.target.value) > 2000) {
-                    setFormError(t('errors.fuelMax'));
-                  } else {
-                    setFormError(null);
-                  }
+                onChange={fuel_level => {
+                  setForm(f => ({ ...f, fuel_level }));
+                  setFormError(fuelRangeProblem(fuel_level) ? fuelRange.message('max') : null);
                 }}
                 onFocus={onFocus}
                 onBlur={onBlur}
@@ -1983,8 +1978,7 @@ const MetricCard: React.FC<{
   value: React.ReactNode;
   raw: React.ReactNode;
   incomplete: boolean;
-  warning?: string;
-}> = ({ label, value, raw, incomplete, warning }) => {
+}> = ({ label, value, raw, incomplete }) => {
   const { t } = useTranslation('operations');
   return (
   <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px', background: 'var(--surface)' }}>
@@ -1997,9 +1991,6 @@ const MetricCard: React.FC<{
     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 7 }}>{raw}</div>
     {incomplete && (
       <div style={{ fontSize: 11, color: '#d97706', marginTop: 5, fontWeight: 600 }}>{t('report.incompleteData')}</div>
-    )}
-    {warning && (
-      <div style={{ fontSize: 11, color: '#b45309', marginTop: 5, fontWeight: 600 }}>{warning}</div>
     )}
   </div>
   );
@@ -2034,6 +2025,7 @@ const ChargeRow: React.FC<{
 
 const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = ({ pickup, onClose }) => {
   const { t } = useTranslation('operations');
+  const fuelRange = useFuelRange();
   const dateLocale = useDateLocale();
   const [delivery, setDelivery]   = useState<DeliveryMatch | null>(null);
   const [method, setMethod]       = useState<MatchMethod | null>(null);
@@ -2139,10 +2131,6 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
   const fuelOk   = delivery != null && delivery.fuel_level != null && pickup.fuel_level != null;
   const fuelDiff = fuelOk ? (pickup.fuel_level as number) - (delivery!.fuel_level as number) : null;
 
-  // Legacy rows stored fuel as a 0–100 percentage; new rows store range in km.
-  // Flag only when the two readings sit in different magnitudes — never convert.
-  const fuelUnitsSuspect = fuelOk
-    && ((delivery!.fuel_level as number) <= 100) !== ((pickup.fuel_level as number) <= 100);
 
   const cleanOk = delivery != null && delivery.cleanliness_status != null && pickup.cleanliness_status != null;
   const washNeeded = cleanOk
@@ -2252,19 +2240,18 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
                 <MetricCard
                   label={t('report.fuelDifference')}
                   incomplete={!fuelOk}
-                  warning={fuelUnitsSuspect ? t('report.inconsistentFuel') : undefined}
                   value={
                     fuelOk
                       ? <span style={{ color: (fuelDiff as number) < 0 ? '#ef4444' : '#16a34a' }}>
-                          {(fuelDiff as number) < 0 ? '−' : '+'}{Math.abs(fuelDiff as number).toLocaleString()} km
+                          {(fuelDiff as number) < 0 ? '−' : '+'}{fuelRange.format(Math.abs(fuelDiff as number))}
                         </span>
                       : dash
                   }
                   raw={
                     <>
-                      {t('report.deliveryLabel')} {delivery.fuel_level != null ? `${delivery.fuel_level.toLocaleString()} km` : '—'}
+                      {t('report.deliveryLabel')} {fuelRange.format(delivery.fuel_level)}
                       {' → '}
-                      {t('report.pickupLabel')} {pickup.fuel_level != null ? `${pickup.fuel_level.toLocaleString()} km` : '—'}
+                      {t('report.pickupLabel')} {fuelRange.format(pickup.fuel_level)}
                     </>
                   }
                 />
@@ -2399,6 +2386,7 @@ const PickupReportModal: React.FC<{ pickup: Operation; onClose: () => void }> = 
 
 const OperationsPage: React.FC = () => {
   const { t } = useTranslation('operations');
+  const fuelRange = useFuelRange();
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
   const [tab, setTab] = useState<TabKey>('dp');
@@ -2685,7 +2673,7 @@ const OperationsPage: React.FC = () => {
                 <Th>{t('table.handledBy')}</Th>
                 {tab === 'dp' && <Th>{tc('fields.customer')}</Th>}
                 <Th>{t('table.mileage')}</Th>
-                <Th>{t('table.fuelRange')}</Th>
+                <Th>{fuelRange.short}</Th>
                 <Th style={{ textAlign: 'center' }}>{t('table.cleanliness')}</Th>
                 <Th>{tc('fields.notes')}</Th>
                 <Th style={{ textAlign: 'center' }}>{t('table.photos')}</Th>
@@ -2739,7 +2727,7 @@ const OperationsPage: React.FC = () => {
 
                   <td style={{ ...td, fontVariantNumeric: 'tabular-nums' }}>
                     {op.fuel_level != null
-                      ? op.fuel_level.toLocaleString() + ' km'
+                      ? fuelRange.format(op.fuel_level)
                       : <span style={{ color: '#d1d5db' }}>—</span>}
                   </td>
 

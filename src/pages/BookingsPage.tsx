@@ -14,6 +14,7 @@ import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { addDay, rentalDays } from '../lib/bookingDates';
+import { fuelRangeProblem } from '../lib/fuelRange';
 import { formatExtras, hasExtras, parseExtras, type BookingExtras } from '../lib/bookingExtras';
 import type { ExpenseCar } from '../lib/custodyExpense';
 import {
@@ -22,12 +23,12 @@ import {
 import { appendLedgerNote, customerBalance } from '../lib/queries/ledger';
 import Button from '../components/Button';
 import FilterBar from '../components/FilterBar';
+import FuelRangeInput, { useFuelRange } from '../components/FuelRangeInput';
 import BookingSheet from '../components/booking/BookingSheet';
 import CarPicker from '../components/booking/CarPicker';
 import DateParts from '../components/booking/DateParts';
 import DateRangePicker from '../components/booking/DateRangePicker';
 import { Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar } from '../components/booking/FormParts';
-import FuelSlider from '../components/booking/FuelSlider';
 import MoneyField, { CurrencySwitch, formatMoney, formatRate, type FormCurrency } from '../components/booking/MoneyField';
 import { ExtraOption, preloadOptionArt, OptionSwitch, QuantityStepper, RadioOption, type OptionArtName } from '../components/booking/OptionCards';
 import PlateChip from '../components/booking/PlateChip';
@@ -1064,6 +1065,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const fuelRange = useFuelRange();
   const dateLocale = useDateLocale();
   const countryName = useCountryName();
   const [form, setForm] = useState<BookingFormData>(initial);
@@ -1131,7 +1133,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<
-    'cust_id_number' | 'cust_id_type' | 'cust_first_name' | 'cust_last_name' | 'cust_nationality' | 'cust_phone' | 'cust_license_issue_date' | 'car_id' | 'dates',
+    'cust_id_number' | 'cust_id_type' | 'cust_first_name' | 'cust_last_name' | 'cust_nationality' | 'cust_phone' | 'cust_license_issue_date' | 'car_id' | 'dates' | 'fuel',
     string
   >>>({});
 
@@ -1140,6 +1142,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const refIdType           = useRef<HTMLDivElement>(null);
   const refName             = useRef<HTMLDivElement>(null);
   const refTrip             = useRef<HTMLDivElement>(null);
+  const refDelivery         = useRef<HTMLDivElement>(null);
   const refNationality      = useRef<HTMLDivElement>(null);
   const refPhone            = useRef<HTMLDivElement>(null);
   const refLicenseIssueDate = useRef<HTMLDivElement>(null);
@@ -1527,6 +1530,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return false;
   };
 
+  // Optional here: a booking is often made before anyone has seen the car.
+  const validateFuel = (): boolean => {
+    const problem = fuelRangeProblem(form.fuel_at_delivery);
+    setFieldErrors(fe => ({ ...fe, fuel: problem ? fuelRange.message(problem) : undefined }));
+    if (problem) reveal(refDelivery);
+    return !problem;
+  };
+
   const goNext = async () => {
     setFormError(null);
     setBanAlert(null);
@@ -1544,6 +1555,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       }
     }
     if (step === 1 && !validateTrip()) return;
+    if (step === 3 && !validateFuel()) return;
     setStep(step + 1);
     setReached(furthest => Math.max(furthest, step + 1));
   };
@@ -1806,6 +1818,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     // Earlier steps can be jumped back to and changed, so all of it is checked once more.
     if (!validateCustomer()) { setStep(0); return; }
     if (!validateTrip()) { setStep(1); return; }
+    if (!validateFuel()) { setStep(3); return; }
 
     submitting.current = true;
     try {
@@ -2154,14 +2167,27 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   );
 
   const deliveryCard = (
-    <FormCard icon={ICONS.gauge} title={t('form.vehicleCondition')}>
-      <Field label={t('form.kmAtDelivery')} changed={dot('km_at_delivery')}>
-        <input className="hc-input" type="number" inputMode="numeric" min="0" step="1" dir="ltr" value={form.km_at_delivery} onChange={e => set('km_at_delivery', e.target.value)} placeholder={t('form.kmPlaceholder')} />
-      </Field>
-      <Field label={t('form.fuelAtDelivery')} changed={dot('fuel_at_delivery')}>
-        <FuelSlider ariaLabel={t('form.fuelAtDelivery')} value={form.fuel_at_delivery} onChange={value => set('fuel_at_delivery', value)} />
-      </Field>
-    </FormCard>
+    <div ref={refDelivery}>
+      <FormCard icon={ICONS.gauge} title={t('form.vehicleCondition')}>
+        <Field label={t('form.kmAtDelivery')} changed={dot('km_at_delivery')}>
+          <input className="hc-input" type="number" inputMode="numeric" min="0" step="1" dir="ltr" value={form.km_at_delivery} onChange={e => set('km_at_delivery', e.target.value)} placeholder={t('form.kmPlaceholder')} />
+        </Field>
+        <Field label={fuelRange.label} changed={dot('fuel_at_delivery')}>
+          <FuelRangeInput
+            className={inputClass(fieldErrors.fuel)}
+            dir="ltr"
+            aria-label={fuelRange.label}
+            value={form.fuel_at_delivery}
+            onChange={value => {
+              set('fuel_at_delivery', value);
+              const problem = fuelRangeProblem(value);
+              setFieldErrors(fe => ({ ...fe, fuel: problem ? fuelRange.message(problem) : undefined }));
+            }}
+          />
+          <FieldError>{fieldErrors.fuel}</FieldError>
+        </Field>
+      </FormCard>
+    </div>
   );
 
   const statuses: BookingStatus[] = form.status === 'completed' ? ['pending', 'confirmed', 'cancelled', 'completed'] : ['pending', 'confirmed', 'cancelled'];
@@ -2217,7 +2243,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         <div><dt>{t('summary.insurance')}</dt><dd>{insuranceName || '—'}</dd></div>
         <div><dt>{t('summary.extras')}</dt><dd>{extrasName || '—'}</dd></div>
         <div><dt>{t('summary.km')}</dt><dd><bdi dir="ltr">{form.km_at_delivery || '—'}</bdi></dd></div>
-        <div><dt>{t('summary.fuel')}</dt><dd><bdi dir="ltr">{form.fuel_at_delivery ? `${form.fuel_at_delivery}%` : '—'}</bdi></dd></div>
+        <div><dt>{fuelRange.short}</dt><dd>{fuelRange.format(form.fuel_at_delivery)}</dd></div>
       </dl>
     </FormCard>
   );
@@ -2715,6 +2741,7 @@ const ReplacementFormModal: React.FC<{
 }> = ({ onClose, onSaved, sheet }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const fuelRange = useFuelRange();
   const dateLocale = useDateLocale();
   const isEdit = !!sheet;
   const closeRef = useRef<(() => void) | null>(null);
@@ -2843,6 +2870,8 @@ const ReplacementFormModal: React.FC<{
     if (!replacementCarId)               { setFormError(t('replacement.errors.replacementCar')); return; }
     if (!startDate || !endDate)          { setFormError(t('replacement.errors.datesRequired')); return; }
     if (endDate < startDate)             { setFormError(t('replacement.errors.returnBeforeHandover')); return; }
+    const fuelProblem = fuelRangeProblem(fuel);
+    if (fuelProblem)                     { setFormError(fuelRange.message(fuelProblem)); return; }
 
     // An old sheet may overlap a block already. Only a new car or new dates have to fit.
     const moved = !sheet || String(sheet.replacement_car_id ?? '') !== replacementCarId
@@ -3153,8 +3182,8 @@ const ReplacementFormModal: React.FC<{
         <Field label={t('replacement.kmAtHandover')}>
           <input className="hc-input" type="number" inputMode="numeric" min="0" step="1" dir="ltr" placeholder={t('replacement.kmPlaceholder')} value={km} onChange={e => setKm(e.target.value)} />
         </Field>
-        <Field label={t('replacement.fuelAtHandover')}>
-          <FuelSlider ariaLabel={t('replacement.fuelAtHandover')} value={fuel} onChange={setFuel} />
+        <Field label={fuelRange.label}>
+          <FuelRangeInput className="hc-input" dir="ltr" aria-label={fuelRange.label} value={fuel} onChange={setFuel} />
         </Field>
       </FormCard>
 

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
+import { formatFuelRange } from './fuelRange';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,10 +48,7 @@ export function fmtKm(n: number | null | undefined): string {
   return n.toLocaleString('en-US') + ' km';
 }
 
-export function fmtFuel(s: string | null | undefined): string {
-  if (!s?.trim()) return '—';
-  return s.trim();
-}
+export const fmtFuel = (s: string | null | undefined): string => formatFuelRange(s);
 
 export function fmtDate(s: string | null | undefined): string {
   if (!s) return '—';

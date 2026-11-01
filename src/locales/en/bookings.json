@@ -49,9 +49,6 @@
     "customLocation": "Enter custom location",
     "kmAtDelivery": "KM at Delivery",
     "kmPlaceholder": "e.g. 45230",
-    "fuelAtDelivery": "Fuel at Delivery",
-    "fuelPlaceholder": "e.g. 75",
-    "fuelHint": "Enter value (0 or more)",
     "insuranceType": "Insurance Type",
     "specifyInsurance": "Specify insurance type",
     "additionalServices": "Additional Services",
@@ -129,8 +126,6 @@
     "returnDate": "Return Date",
     "kmAtHandover": "KM at Handover",
     "kmPlaceholder": "e.g. 45000",
-    "fuelAtHandover": "Fuel at Handover",
-    "fuelPlaceholder": "e.g. 3/4",
     "notesPlaceholder": "Anything worth recording on the sheet…",
     "createPrint": "Create & Print",
     "unknownCustomer": "Unknown customer",
@@ -289,8 +284,7 @@
     "remaining": "Remaining",
     "customer": "Customer",
     "locations": "Pickup and drop-off",
-    "km": "KM",
-    "fuel": "Fuel"
+    "km": "KM"
   },
   "range": {
     "previous": "Previous month",
@@ -303,11 +297,6 @@
   },
   "money": {
     "todaysRate": "today's rate {{rate}}"
-  },
-  "fuel": {
-    "notRecorded": "Not recorded",
-    "stored": "Recorded as {{value}}",
-    "clear": "Clear"
   },
   "dateParts": {
     "day": "Day",

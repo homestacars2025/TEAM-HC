@@ -49,9 +49,6 @@
     "customLocation": "أدخل مكاناً آخر",
     "kmAtDelivery": "الكيلومترات عند التسليم",
     "kmPlaceholder": "مثلاً 45230",
-    "fuelAtDelivery": "الوقود عند التسليم",
-    "fuelPlaceholder": "مثلاً 75",
-    "fuelHint": "أدخل قيمة (0 أو أكثر)",
     "insuranceType": "نوع التأمين",
     "specifyInsurance": "حدّد نوع التأمين",
     "additionalServices": "خدمات إضافية",
@@ -129,8 +126,6 @@
     "returnDate": "تاريخ الإرجاع",
     "kmAtHandover": "الكيلومترات عند التسليم",
     "kmPlaceholder": "مثلاً 45000",
-    "fuelAtHandover": "الوقود عند التسليم",
-    "fuelPlaceholder": "مثلاً 3/4",
     "notesPlaceholder": "أي شيء يستحق التسجيل في الورقة…",
     "createPrint": "إنشاء وطباعة",
     "unknownCustomer": "عميل غير معروف",
@@ -297,8 +292,7 @@
     "remaining": "المتبقي",
     "customer": "العميل",
     "locations": "الاستلام والتسليم",
-    "km": "الكيلومترات",
-    "fuel": "الوقود"
+    "km": "الكيلومترات"
   },
   "range": {
     "previous": "الشهر السابق",
@@ -315,11 +309,6 @@
   },
   "money": {
     "todaysRate": "سعر اليوم {{rate}}"
-  },
-  "fuel": {
-    "notRecorded": "غير مسجّل",
-    "stored": "مسجّل: {{value}}",
-    "clear": "مسح"
   },
   "dateParts": {
     "day": "اليوم",

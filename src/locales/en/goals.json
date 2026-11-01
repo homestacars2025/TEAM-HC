@@ -38,7 +38,7 @@
     "license": "License",
     "tutanak": "Tutanak",
     "km": "Kilometers",
-    "fuel": "Fuel",
+    "fuel": "Fuel range",
     "receipt": "Receipt",
     "photo": "Photo: {{slot}}",
     "photos": {
