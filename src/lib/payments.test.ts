@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { accountFilter, canReverse, cashErrorKey, findEnvelope, holdingSummary, inCashFilter, isOverdue, movementInFilter, pendingSettlement, type Envelope, type Movement } from './envelopes';
+import { accountFilter, canReverse, cashErrorKey, findEnvelope, holdingSummary, inCashFilter, isInternalTransfer, isOverdue, MOVEMENT_GROUPS, movementGroup, movementInFilter, pendingSettlement, type Envelope, type Movement } from './envelopes';
 import { accountsForMethod, emptyPayment, hasPayment, paymentErrorKey, paymentProblem, rateOf, toLira, type PaymentDraft } from './payments';
 
 const RATES = [{ currency: 'USD', rate_to_try: 49 }, { currency: 'EUR', rate_to_try: 53 }];
@@ -97,6 +97,35 @@ describe('envelopes', () => {
   it('finds a number typed by hand', () => {
     expect(findEnvelope([envelope()], ' env-2611-0001 ')?.id).toBe(1);
     expect(findEnvelope([envelope()], 'ENV-2611-0002')).toBeNull();
+  });
+});
+
+describe('the three movement types', () => {
+  const accounts = [{ id: 1, kind: 'safe' }, { id: 7, kind: 'bank' }];
+  const group = (kind: Movement['kind'], to: number | null = null) => movementGroup({ kind, to_account_id: to }, accounts);
+
+  it('has exactly three', () => {
+    expect(MOVEMENT_GROUPS).toEqual(['customer_payment', 'bank_deposit', 'admin_receipt']);
+  });
+
+  it('folds the stored kinds into them', () => {
+    expect(group('customer_payment')).toBe('customer_payment');
+    expect(group('bank_deposit')).toBe('bank_deposit');
+    expect(group('pos_settlement')).toBe('bank_deposit');
+    expect(group('admin_receipt')).toBe('admin_receipt');
+    expect(group('envelope_handover')).toBe('admin_receipt');
+  });
+
+  it('calls a transfer into a bank a bank deposit, and keeps others internal', () => {
+    expect(group('transfer', 7)).toBe('bank_deposit');
+    expect(group('transfer', 1)).toBeNull();
+    expect(isInternalTransfer({ kind: 'transfer', to_account_id: 1 }, accounts)).toBe(true);
+    expect(isInternalTransfer({ kind: 'transfer', to_account_id: 7 }, accounts)).toBe(false);
+  });
+
+  it.each(['custody_out', 'refund', 'adjustment', 'reversal'] as const)('never lists %s', kind => {
+    expect(group(kind, 1)).toBeNull();
+    expect(isInternalTransfer({ kind, to_account_id: 1 }, accounts)).toBe(false);
   });
 });
 

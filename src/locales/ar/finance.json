@@ -427,20 +427,14 @@
       "allAccounts": "كل الحسابات",
       "kind": "النوع",
       "allKinds": "كل الأنواع",
-      "from": "من تاريخ",
-      "to": "إلى تاريخ"
+      "dates": "التواريخ",
+      "allDates": "كل التواريخ",
+      "clearDates": "مسح التواريخ"
     },
     "movementKinds": {
       "customer_payment": "دفعة عميل",
-      "envelope_handover": "تسليم ظرف",
-      "transfer": "تحويل",
       "bank_deposit": "إيداع بنكي",
-      "pos_settlement": "تسوية POS",
-      "admin_receipt": "استلام الأدمن",
-      "custody_out": "صرف وديعة",
-      "refund": "استرداد",
-      "adjustment": "تسوية",
-      "reversal": "عكس"
+      "admin_receipt": "استلام الأدمن"
     },
     "counted": "المعدود {{amount}}",
     "expected": "المتوقع {{date}}",
@@ -479,6 +473,8 @@
       "sameAccount": "اختر حسابين مختلفين.",
       "destination": "اختر خزنة أو حساب الأدمن.",
       "generic": "تعذّر الحفظ. حاول مرة أخرى."
-    }
+    },
+    "more": "إجراءات أخرى",
+    "showInternal": "إظهار التحويلات الداخلية"
   }
 }

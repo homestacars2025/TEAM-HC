@@ -10,12 +10,11 @@ import Button from '../Button';
 
 interface TransferDialogProps {
   accounts: CashAccount[];
-  isAdmin: boolean;
   onClose: () => void;
   onDone: (ref: string) => void;
 }
 
-const TransferDialog: React.FC<TransferDialogProps> = ({ accounts, isAdmin, onClose, onDone }) => {
+const TransferDialog: React.FC<TransferDialogProps> = ({ accounts, onClose, onDone }) => {
   const { t } = useTranslation('finance');
   const { t: tc } = useTranslation('common');
   const first = useRef<HTMLSelectElement>(null);
@@ -29,8 +28,7 @@ const TransferDialog: React.FC<TransferDialogProps> = ({ accounts, isAdmin, onCl
 
   const value = parseAmount(amount);
   const ready = !!from && !!to && from !== to && value !== null;
-  // The server refuses this too. It just shouldn't look possible.
-  const targets = accounts.filter(account => String(account.id) !== from && (isAdmin || !account.is_final));
+  const targets = accounts.filter(account => String(account.id) !== from);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;

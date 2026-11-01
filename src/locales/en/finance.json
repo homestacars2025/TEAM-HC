@@ -383,20 +383,14 @@
       "allAccounts": "All accounts",
       "kind": "Type",
       "allKinds": "All types",
-      "from": "From date",
-      "to": "To date"
+      "dates": "Dates",
+      "allDates": "All dates",
+      "clearDates": "Clear dates"
     },
     "movementKinds": {
       "customer_payment": "Customer payment",
-      "envelope_handover": "Envelope handed over",
-      "transfer": "Transfer",
       "bank_deposit": "Bank deposit",
-      "pos_settlement": "POS settlement",
-      "admin_receipt": "Admin received",
-      "custody_out": "Custody out",
-      "refund": "Refund",
-      "adjustment": "Adjustment",
-      "reversal": "Reversal"
+      "admin_receipt": "Admin receipt"
     },
     "counted": "Counted {{amount}}",
     "expected": "Expected {{date}}",
@@ -423,6 +417,8 @@
       "sameAccount": "Choose two different accounts.",
       "destination": "Choose a safe or the admin account.",
       "generic": "Could not save. Try again."
-    }
+    },
+    "more": "More actions",
+    "showInternal": "Show internal transfers"
   }
 }

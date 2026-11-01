@@ -55,8 +55,11 @@ export function findEnvelope(envelopes: Envelope[], typed: string): Envelope | n
   return envelopes.find(envelope => envelope.ref.toUpperCase() === ref) ?? null;
 }
 
-export const MOVEMENT_KINDS = ['customer_payment', 'envelope_handover', 'transfer', 'bank_deposit', 'pos_settlement', 'admin_receipt', 'custody_out', 'refund', 'adjustment', 'reversal'] as const;
-export type MovementKind = typeof MOVEMENT_KINDS[number];
+export type MovementKind = 'customer_payment' | 'envelope_handover' | 'transfer' | 'bank_deposit' | 'pos_settlement' | 'admin_receipt' | 'custody_out' | 'refund' | 'adjustment' | 'reversal';
+
+/** All the Cash & Envelopes page ever calls a movement. The stored kinds stay as they are. */
+export const MOVEMENT_GROUPS = ['customer_payment', 'bank_deposit', 'admin_receipt'] as const;
+export type MovementGroup = typeof MOVEMENT_GROUPS[number];
 
 export interface Movement {
   id: number;
@@ -110,6 +113,22 @@ export function pendingSettlement(movements: Movement[]) {
     next: pending.map(movement => movement.expected_at).filter((date): date is string => !!date).sort()[0] ?? null,
   };
 }
+
+/**
+ * `null` is anything this page doesn't list: a reversal shows as its original struck
+ * through, custody payouts belong to Staff custody, and a transfer between safes is
+ * money that stayed in the company.
+ */
+export function movementGroup(movement: Pick<Movement, 'kind' | 'to_account_id'>, accounts: Pick<CashAccount, 'id' | 'kind'>[]): MovementGroup | null {
+  if (movement.kind === 'customer_payment') return 'customer_payment';
+  if (movement.kind === 'bank_deposit' || movement.kind === 'pos_settlement') return 'bank_deposit';
+  if (movement.kind === 'admin_receipt' || movement.kind === 'envelope_handover') return 'admin_receipt';
+  if (movement.kind === 'transfer' && accounts.find(account => account.id === movement.to_account_id)?.kind === 'bank') return 'bank_deposit';
+  return null;
+}
+
+export const isInternalTransfer = (movement: Pick<Movement, 'kind' | 'to_account_id'>, accounts: Pick<CashAccount, 'id' | 'kind'>[]): boolean =>
+  movement.kind === 'transfer' && movementGroup(movement, accounts) === null;
 
 export type CashFilter = 'all' | 'staff' | 'pos' | `account-${number}`;
 

@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '../../contexts/CurrentUserContext';
 import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
 import { useStaffProfiles } from '../../hooks/useStaffProfiles';
 import { useTileFilter } from '../../hooks/useTileFilter';
 import {
-  accountFilter, canReverse, cashErrorKey, envelopeCustomer, holdingSummary, inCashFilter, isOverdue, MOVEMENT_KINDS, movementInFilter, pendingSettlement,
+  accountFilter, canReverse, cashErrorKey, envelopeCustomer, holdingSummary, inCashFilter, isInternalTransfer, isOverdue, MOVEMENT_GROUPS, movementGroup, movementInFilter, pendingSettlement,
   type AccountBalance, type CashAccount, type Envelope, type Movement,
 } from '../../lib/envelopes';
 import { istanbulDate } from '../../lib/istanbulTime';
@@ -18,6 +18,7 @@ import ConfirmDialog from '../custody/ConfirmDialog';
 import ReasonDialog from '../custody/ReasonDialog';
 import StaffAvatar from '../StaffAvatar';
 import { StatTile, selectClass, type TileTone } from '../WalletParts';
+import DateFilter from './DateFilter';
 import ReceiveEnvelope from './ReceiveEnvelope';
 import TransferDialog from './TransferDialog';
 
@@ -31,6 +32,44 @@ const Money: React.FC<{ amount: number; currency: SupplierCurrency; lira?: numbe
 );
 
 const errorOf = (failure: unknown) => (failure as { message?: string })?.message;
+
+/** Rare and undoes real money, so it waits behind a menu rather than sitting on every row. */
+const RowMenu: React.FC<{ label: string; action: string; onAction: () => void }> = ({ label, action, onAction }) => {
+  const [open, setOpen] = useState(false);
+  const [above, setAbove] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  // The table's containment means the last row can't scroll a menu into view, so it flips.
+  const toggle = () => {
+    setAbove(window.innerHeight - (root.current?.getBoundingClientRect().bottom ?? 0) < 64);
+    setOpen(current => !current);
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointer = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={root} className="hc-cash-menu">
+      <button type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} className="is-more" onClick={toggle}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+      </button>
+      {open && (
+        <div role="menu" className={`hc-cash-menu-list surface-depth surface-float${above ? ' is-above' : ''}`}>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onAction(); }}>{action}</button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> = ({ notify }) => {
   const { t } = useTranslation('finance');
@@ -62,6 +101,7 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
   const [account, setAccount] = useState('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [showInternal, setShowInternal] = useState(false);
 
   const load = useCallback(async () => {
     const [nextAccounts, nextBalances, nextEnvelopes, nextMovements] = await Promise.all([getCashAccounts(), getAccountBalances(), getEnvelopes(), getMovements()]);
@@ -88,11 +128,13 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
   const shownEnvelopes = useMemo(() => (envelopes ?? []).filter(item => inCashFilter(item, filter)), [envelopes, filter]);
   const shownMovements = useMemo(() => movements.filter(item => {
     const day = istanbulDate(new Date(item.created_at));
-    return movementInFilter(item, filter)
-      && (kind === 'all' || item.kind === kind)
+    const group = movementGroup(item, accounts);
+    const listed = group !== null || (isAdmin && showInternal && isInternalTransfer(item, accounts));
+    return listed && movementInFilter(item, filter)
+      && (kind === 'all' || group === kind)
       && (account === 'all' || String(item.from_account_id) === account || String(item.to_account_id) === account)
       && (!from || day >= from) && (!to || day <= to);
-  }), [movements, filter, kind, account, from, to]);
+  }), [movements, accounts, isAdmin, showInternal, filter, kind, account, from, to]);
 
   const selectable = useMemo(() => shownEnvelopes.filter(item => item.status === 'in_safe'), [shownEnvelopes]);
   const chosen = useMemo(() => selectable.filter(item => selected.has(item.id)), [selectable, selected]);
@@ -193,7 +235,7 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
 
       <div className="hc-cash-actions">
         <Button onClick={() => setReceiving(true)}>{t('cash.receive.title')}</Button>
-        <Button variant="secondary" onClick={() => setTransferring(true)}>{t('cash.transfer.title')}</Button>
+        {isAdmin && <Button variant="secondary" onClick={() => setTransferring(true)}>{t('cash.transfer.title')}</Button>}
       </div>
 
       <section className="hc-cash-section" aria-label={t('cash.envelopes')}>
@@ -265,10 +307,15 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
           </select>
           <select className={selectClass} aria-label={t('cash.filters.kind')} value={kind} onChange={e => setKind(e.target.value)}>
             <option value="all">{t('cash.filters.allKinds')}</option>
-            {MOVEMENT_KINDS.map(item => <option key={item} value={item}>{t(`cash.movementKinds.${item}`)}</option>)}
+            {MOVEMENT_GROUPS.map(item => <option key={item} value={item}>{t(`cash.movementKinds.${item}`)}</option>)}
           </select>
-          <input type="date" className={selectClass} aria-label={t('cash.filters.from')} value={from} onChange={e => setFrom(e.target.value)} />
-          <input type="date" className={selectClass} aria-label={t('cash.filters.to')} value={to} onChange={e => setTo(e.target.value)} />
+          <DateFilter from={from} to={to} onChange={(start, end) => { setFrom(start); setTo(end); }} />
+          {isAdmin && (
+            <label className="hc-cash-internal">
+              <input type="checkbox" className="hc-appr-check" checked={showInternal} onChange={e => setShowInternal(e.target.checked)} />
+              {t('cash.showInternal')}
+            </label>
+          )}
         </div>
 
         {loading ? <div className="hc-fine-skeleton" /> : shownMovements.length === 0 ? <p className="hc-records-empty">{t('cash.noMovements')}</p> : (
@@ -290,11 +337,13 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
                 {shownMovements.map(movement => {
                   const person = movement.created_by ? staff?.get(movement.created_by) : undefined;
                   const pending = movement.status === 'pending' && movement.kind === 'pos_settlement';
+                  const group = movementGroup(movement, accounts);
+                  const isReversed = reversed.has(movement.id);
                   return (
-                    <tr key={movement.id} className={pending ? 'is-pending' : undefined}>
+                    <tr key={movement.id} className={isReversed ? 'is-reversed' : pending ? 'is-pending' : undefined}>
                       <td className="hc-cash-c-ref"><strong dir="ltr" className="hc-num">{movement.ref}</strong></td>
                       <td className="hc-cash-c-date">{formatDay(istanbulDate(new Date(movement.created_at)), locale)}</td>
-                      <td className="hc-cash-c-kind"><span className="hc-sup-chip">{t(`cash.movementKinds.${movement.kind}`)}</span></td>
+                      <td className="hc-cash-c-kind">{group && <span className="hc-sup-chip">{t(`cash.movementKinds.${group}`)}</span>}</td>
                       <td data-label={t('cash.table.route')} className="hc-cash-c-route">
                         <span>{accountName(movement.from_account_id) ?? '—'}</span>
                         <svg className="hc-trk-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -308,7 +357,7 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
                       </td>
                       <td className="hc-cash-c-actions">
                         {pending && <button type="button" className="is-go" disabled={completing === movement.id} onClick={() => void arrived(movement)}>{t('cash.arrived')}</button>}
-                        {isAdmin && canReverse(movement, reversed) && <button type="button" className="is-reverse" onClick={() => { setReverseError(null); setReversing(movement); }}>{t('cash.reverse')}</button>}
+                        {isAdmin && canReverse(movement, reversed) && <RowMenu label={t('cash.more')} action={t('cash.reverse')} onAction={() => { setReverseError(null); setReversing(movement); }} />}
                       </td>
                     </tr>
                   );
@@ -323,7 +372,7 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
         <ReceiveEnvelope envelopes={envelopes} accounts={accounts} holderName={holderName} onClose={() => setReceiving(false)} onDone={ref => { setReceiving(false); notify(t('cash.receive.done', { ref }), false); void refresh(); }} />
       )}
       {transferring && (
-        <TransferDialog accounts={accounts} isAdmin={isAdmin} onClose={() => setTransferring(false)} onDone={ref => { setTransferring(false); notify(t('cash.transfer.done', { ref }), false); void refresh(); }} />
+        <TransferDialog accounts={accounts} onClose={() => setTransferring(false)} onDone={ref => { setTransferring(false); notify(t('cash.transfer.done', { ref }), false); void refresh(); }} />
       )}
       {confirmingAdmin && (
         <ConfirmDialog
