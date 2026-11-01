@@ -17,6 +17,8 @@ interface CarPickerProps {
   busy?: ReadonlyMap<number, string>;
   /** Shows the green and red dots. Leave off where availability doesn't apply. */
   showAvailability?: boolean;
+  /** Cars that can still be chosen, but only with a warning. The text goes on a red badge. */
+  warned?: ReadonlyMap<number, string>;
 }
 
 interface Section {
@@ -30,7 +32,7 @@ interface Section {
  * scrolling sheet a popup gets clipped, and on a phone the thumb can scroll and tap
  * without typing at all.
  */
-const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, recent, value, onChange, disabled, busy, showAvailability = false }) => {
+const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, recent, value, onChange, disabled, busy, showAvailability = false, warned }) => {
   const { t: tc } = useTranslation('common');
   const baseId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +98,7 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
           <PlateChip plate={selected.plate_number} />
           {selected.model && <span className="truncate text-sm text-gray-600">{selected.model}</span>}
           {busy?.has(selected.id) && <span className="text-xs font-semibold text-red-600">{busy.get(selected.id)}</span>}
+          {warned?.has(selected.id) && <span className="hc-car-warn">{warned.get(selected.id)}</span>}
         </div>
         <button
           type="button"
@@ -166,7 +169,10 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
                 >
                   {showAvailability && <span aria-hidden="true" className={`hc-car-dot ${busy?.has(car.id) ? 'is-busy' : ''}`} />}
                   <span className={busy?.has(car.id) ? 'opacity-50' : undefined}><PlateChip plate={car.plate_number} /></span>
-                  {car.model && <span className={`min-w-0 flex-1 truncate text-sm text-gray-600 ${busy?.has(car.id) ? 'opacity-50' : ''}`}>{car.model}</span>}
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                    {car.model && <span className={`max-w-full truncate text-sm text-gray-600 ${busy?.has(car.id) ? 'opacity-50' : ''}`}>{car.model}</span>}
+                    {warned?.has(car.id) && <span className="hc-car-warn">{warned.get(car.id)}</span>}
+                  </span>
                   {busy?.has(car.id) && <span className="shrink-0 text-xs font-semibold text-red-600">{busy.get(car.id)}</span>}
                 </div>
               );

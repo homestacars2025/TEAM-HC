@@ -11,12 +11,30 @@
     "replacement": "Replacement"
   },
   "cards": {
-    "all": { "label": "Total Fleet", "description": "All registered vehicles" },
-    "working": { "label": "Working", "description": "Active on the road" },
-    "parking": { "label": "Parking", "description": "Parked at branch" },
-    "maintenance": { "label": "Maintenance", "description": "Under service" },
-    "selling": { "label": "Selling", "description": "Listed for sale" },
-    "replacement": { "label": "Replacement", "description": "Replacement vehicles" }
+    "all": {
+      "label": "Total Fleet",
+      "description": "All registered vehicles"
+    },
+    "working": {
+      "label": "Working",
+      "description": "Active on the road"
+    },
+    "parking": {
+      "label": "Parking",
+      "description": "Parked at branch"
+    },
+    "maintenance": {
+      "label": "Maintenance",
+      "description": "Under service"
+    },
+    "selling": {
+      "label": "Selling",
+      "description": "Listed for sale"
+    },
+    "replacement": {
+      "label": "Replacement",
+      "description": "Replacement vehicles"
+    }
   },
   "alerts": {
     "label": "Alerts",
@@ -40,7 +58,9 @@
     "status": "Status",
     "insurance": "Insurance",
     "ruhsat": "Ruhsat",
-    "kasko": "Kasko"
+    "kasko": "Kasko",
+    "insuranceExpiry": "Insurance expiry",
+    "inspectionExpiry": "Inspection expiry"
   },
   "modal": {
     "title": "Add New Car",
@@ -60,5 +80,45 @@
       "plate": "Plate number is required.",
       "investor": "Please select an investor."
     }
+  },
+  "compliance": {
+    "title": "Critical: cars without valid insurance or inspection",
+    "explain": "These cars must not be rented until this is fixed.",
+    "bannerTitle": "Cars without valid insurance or inspection",
+    "groups": {
+      "expired": "Expired",
+      "missing": "Date not recorded"
+    },
+    "issue": {
+      "insuranceExpired": "Insurance expired {{since}}",
+      "inspectionExpired": "Inspection expired {{since}}",
+      "insuranceMissing": "Insurance date not recorded",
+      "inspectionMissing": "Inspection date not recorded"
+    },
+    "since_one": "{{count}} day ago",
+    "since_other": "{{count}} days ago",
+    "addDate": "Add date",
+    "understood": "Got it",
+    "view": "View",
+    "countExpired": "{{count}} expired",
+    "countMissing": "{{count}} without a date",
+    "checkFailed": "Couldn't check the cars' insurance and inspection. Don't treat them as valid until this has run.",
+    "cardTitle": "Missing or expired data",
+    "filter": "Missing data",
+    "cell": {
+      "expired": "Expired",
+      "missing": "Not recorded"
+    },
+    "badge": "Insurance/inspection invalid",
+    "confirmTitle": "This car isn't valid to rent",
+    "confirmBody": "{{plate}}: {{issues}}. It must not be rented until this is fixed.",
+    "confirmAccept": "I understand and take responsibility",
+    "confirmCancel": "Choose another car",
+    "datesTitle": "Insurance and inspection dates",
+    "fields": {
+      "insurance": "Insurance expiry",
+      "inspection": "Inspection expiry"
+    },
+    "saveFailed": "Couldn't save the date. Check your connection and try again."
   }
 }

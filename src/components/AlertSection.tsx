@@ -293,19 +293,6 @@ const Modal: React.FC<ModalProps> = ({ title, icon, accentColor, rows, onClose }
 };
 
 // ---------------------------------------------------------------------------
-// DEBUG — remove after confirming data shape
-// ---------------------------------------------------------------------------
-
-const debugModelGroupShape = async () => {
-  const res = await supabase
-    .from('cars')
-    .select('plate_number, model_group_id, model_group(id, name)')
-    .limit(3);
-  // eslint-disable-next-line no-console
-  console.log('[DEBUG] cars + model_group raw response:', JSON.stringify(res, null, 2));
-};
-
-// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -315,11 +302,6 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-
-  // DEBUG — fires once from the first mounted section; remove after shape is confirmed
-  useEffect(() => {
-    if (viewName === 'upcoming_returns') debugModelGroupShape();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false;

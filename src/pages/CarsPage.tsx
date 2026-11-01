@@ -6,6 +6,10 @@ import { useUrlSearch } from '../hooks/useUrlSearch';
 import type { CarAvailabilityRow, CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 import Button from '../components/Button';
+import CarDatesSheet from '../components/cars/CarDatesSheet';
+import { ComplianceBanner, ComplianceCard, ComplianceFailed, ComplianceModal, ComplianceTriangle } from '../components/cars/Compliance';
+import { useCarCompliance } from '../hooks/useCarCompliance';
+import type { CarCompliance, ComplianceField } from '../lib/carCompliance';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
 
@@ -480,6 +484,40 @@ const CarsPage: React.FC = () => {
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('asc');
   const [totalCars, setTotalCars] = useState(0);
 
+  const compliance = useCarCompliance();
+  const { cars: checkedCars, summary } = compliance;
+  const [complianceOpen, setComplianceOpen] = useState(false);
+  const [fixing, setFixing] = useState<CarCompliance | null>(null);
+  const [onlyIssues, setOnlyIssues] = useState(false);
+  const warned = useRef(false);
+
+  // Once per visit, and on every visit: there is no way to dismiss it for good.
+  useEffect(() => {
+    if (warned.current || summary.count === 0) return;
+    warned.current = true;
+    setComplianceOpen(true);
+  }, [summary.count]);
+
+  useEffect(() => {
+    if (checkedCars && summary.count === 0) {
+      setComplianceOpen(false);
+      setOnlyIssues(false);
+    }
+  }, [checkedCars, summary.count]);
+
+  const expiryCell = (car: CarCompliance | undefined, field: ComplianceField, date: string | null | undefined) => {
+    const issue = car?.issues.find(item => item.field === field);
+    if (car && issue) {
+      return (
+        <button type="button" className={`hc-issue hc-issue-button ${issue.kind === 'expired' ? 'is-expired' : 'is-missing'}`} onClick={() => setFixing(car)}>
+          {t(`compliance.cell.${issue.kind}`)}
+        </button>
+      );
+    }
+    if (!date) return <span style={{ color: '#9ca3af' }}>—</span>;
+    return new Date(`${date}T12:00:00Z`).toLocaleDateString(numberLocale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  };
+
   const handleSort = (col: 'plate_number' | 'model' | 'year' | 'current_km' | 'status') => {
     if (sortCol !== col) { setSortCol(col); setSortDir('asc'); }
     else if (sortDir === 'asc') { setSortDir('desc'); }
@@ -584,13 +622,12 @@ const CarsPage: React.FC = () => {
   };
 
   return (
-    <div style={{
+    <div className="hc-cars-page" style={{
       minHeight: '100%',
       background: 'var(--surface)',
-      padding: '44px 40px',
     }}>
       {/* Page header */}
-      <div style={{ marginBottom: 36, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{
@@ -619,6 +656,9 @@ const CarsPage: React.FC = () => {
         </div>
       </div>
 
+      <ComplianceBanner summary={summary} onView={() => setComplianceOpen(true)} />
+      {compliance.failed && !checkedCars && <ComplianceFailed onRetry={compliance.refresh} />}
+
       {/* Error state */}
       {error && (
         <div style={{
@@ -645,12 +685,7 @@ const CarsPage: React.FC = () => {
       )}
 
       {/* Stat cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(6, 1fr)',
-        gap: 14,
-        marginBottom: 36,
-      }}>
+      <div className="hc-cars-stats">
         {loading
           ? CARDS.map(c => <SkeletonCard key={c.key} />)
           : CARDS.map(card => (
@@ -672,11 +707,8 @@ const CarsPage: React.FC = () => {
             {t('alerts.label')}
           </span>
         </div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 14,
-        }}>
+        <div className="hc-cars-alerts">
+          <ComplianceCard summary={summary} onView={() => setComplianceOpen(true)} />
           <AlertSection
             viewName="upcoming_returns"
             title={t('alerts.upcomingReturns')}
@@ -715,13 +747,20 @@ const CarsPage: React.FC = () => {
       {/* Fleet Table */}
       <div style={{ marginTop: 32 }}>
         {/* Section header + search */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
               {t('table.label')}
             </span>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          {summary.count > 0 && (
+            <button type="button" aria-pressed={onlyIssues} className="hc-issues-filter" onClick={() => setOnlyIssues(on => !on)}>
+              {t('compliance.filter')}
+              <span>{summary.count}</span>
+            </button>
+          )}
           {/* Search */}
           <div style={{ position: 'relative' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
@@ -741,12 +780,13 @@ const CarsPage: React.FC = () => {
               }}
             />
           </div>
+          </div>
         </div>
 
         {/* Table card */}
         <div className="surface-depth" style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1120 }}>
               <thead>
                 <tr>
                   {([
@@ -791,6 +831,17 @@ const CarsPage: React.FC = () => {
                       </th>
                     );
                   })}
+                  {(['insuranceExpiry', 'inspectionExpiry'] as const).map(key => (
+                    <th key={key} style={{
+                      padding: '9px 14px', fontSize: 11, fontWeight: 700,
+                      color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
+                      textAlign: 'start', background: '#fff',
+                      borderBottom: '1.5px solid #f0f0f0',
+                      whiteSpace: 'nowrap', userSelect: 'none',
+                    }}>
+                      {t(`columns.${key}`)}
+                    </th>
+                  ))}
                   {([
                     { key: 'insurance_url', labelKey: 'insurance' },
                     { key: 'ruhsat_url',    labelKey: 'ruhsat'    },
@@ -821,9 +872,9 @@ const CarsPage: React.FC = () => {
                 {carsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 8 }).map((__, j) => (
+                      {Array.from({ length: 10 }).map((__, j) => (
                         <td key={j} style={{ padding: '12px 14px' }}>
-                          <div style={{ height: 14, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: j === 0 ? '80px' : j >= 5 ? '20px' : '60%', margin: j >= 5 ? '0 auto' : undefined }} />
+                          <div style={{ height: 14, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: j === 0 ? '80px' : j >= 7 ? '20px' : '60%', margin: j >= 7 ? '0 auto' : undefined }} />
                         </td>
                       ))}
                     </tr>
@@ -831,6 +882,7 @@ const CarsPage: React.FC = () => {
                 ) : (() => {
                   const q = tableSearch.trim().toLowerCase();
                   const filtered = cars.filter(car => {
+                    if (onlyIssues && !compliance.byId.get(car.id)?.severity) return false;
                     if (!q) return true;
                     return car.plate_number.toLowerCase().includes(q) || car.model.toLowerCase().includes(q);
                   });
@@ -856,16 +908,19 @@ const CarsPage: React.FC = () => {
                     return (
                       <tr>
                         <td colSpan={11} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
-                          {tableSearch ? t('table.noMatch') : t('table.none')}
+                          {tableSearch || onlyIssues ? t('table.noMatch') : t('table.none')}
                         </td>
                       </tr>
                     );
                   }
 
-                  return filtered.map((car, idx) => (
-                    <tr key={car.plate_number + idx} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
+                  return filtered.map((car, idx) => {
+                    const checked = compliance.byId.get(car.id);
+                    return (
+                    <tr key={car.plate_number + idx} className={checked?.severity ? `hc-car-row is-${checked.severity}` : undefined} style={{ borderTop: idx === 0 ? 'none' : '1px solid #f7f7f7' }}>
                       <td style={{ padding: '12px 14px' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
+                          {checked?.severity && <ComplianceTriangle severity={checked.severity} size={18} />}
                           <span className="hc-num">{car.plate_number}</span>
                         </span>
                       </td>
@@ -883,6 +938,8 @@ const CarsPage: React.FC = () => {
                       <td style={{ padding: '12px 14px' }}>
                         {car.status && car.status !== '—' ? <CarStatusBadge status={car.status} /> : <span style={{ fontSize: 12, color: '#9ca3af' }}>—</span>}
                       </td>
+                      <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{expiryCell(checked, 'insurance', checked?.insuranceExpiry)}</td>
+                      <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>{expiryCell(checked, 'inspection', checked?.inspectionExpiry)}</td>
                       {([car.insurance_url, car.ruhsat_url, car.kasko_url] as (string | null)[]).map((url, di) => (
                         <td key={di} style={{ padding: '12px 14px', textAlign: 'center' }}>
                           {url ? (
@@ -906,7 +963,8 @@ const CarsPage: React.FC = () => {
                         </td>
                       ))}
                     </tr>
-                  ));
+                    );
+                  });
                 })()}
               </tbody>
             </table>
@@ -936,7 +994,19 @@ const CarsPage: React.FC = () => {
       {showAddCar && (
         <AddCarModal
           onClose={() => setShowAddCar(false)}
-          onAdded={() => setRefreshKey(k => k + 1)}
+          onAdded={() => { setRefreshKey(k => k + 1); compliance.refresh(); }}
+        />
+      )}
+
+      {complianceOpen && summary.severity && (
+        <ComplianceModal summary={summary} onFix={setFixing} onClose={() => setComplianceOpen(false)} covered={!!fixing} />
+      )}
+      {fixing && (
+        <CarDatesSheet
+          car={fixing}
+          locale={numberLocale}
+          onClose={() => setFixing(null)}
+          onSaved={() => { setFixing(null); compliance.refresh(); }}
         />
       )}
     </div>

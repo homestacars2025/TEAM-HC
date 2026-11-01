@@ -65,7 +65,8 @@ const BookingSheet: React.FC<BookingSheetProps> = ({ title, subtitle, chip, step
   // the focus to the page, and the keyboard would stop reaching the sheet.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (confirming) return;
+      // Any confirmation over the sheet has the keyboard to itself.
+      if (confirming || document.querySelector('[role="alertdialog"]')) return;
       if (e.key === 'Escape' && !e.defaultPrevented) {
         e.preventDefault();
         requestClose();

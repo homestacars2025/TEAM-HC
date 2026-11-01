@@ -13,6 +13,8 @@ import { useTimeFormat } from '../lib/relative-time';
 import type { MyNotification, MyTask } from '../lib/types/tasks';
 import GoalsPanel from '../components/goals/GoalsPanel';
 import HomeArt, { type HomeArtName } from '../components/HomeArt';
+import { ComplianceHomeCard } from '../components/cars/Compliance';
+import { useCarCompliance } from '../hooks/useCarCompliance';
 import NotificationRow, { useOpenNotification } from '../components/NotificationRow';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
@@ -217,6 +219,8 @@ const HomePage: React.FC = () => {
   const canOpenOperations = canAccessPage('operations');
   const canOpenWallet = canAccessPage('wallet');
   const canOpenCustody = canAccessPage('custody');
+  const canOpenCars = canAccessPage('cars');
+  const compliance = useCarCompliance(canOpenCars);
   // Customer names, so this follows the pages that already show them.
   const canSeeSchedule = canOpenOperations || canAccessPage('bookings');
 
@@ -280,7 +284,8 @@ const HomePage: React.FC = () => {
     && notifications !== null
     && (!canOpenWallet || wallet !== null || walletFailed)
     && (!canOpenCustody || custody !== null || custodyFailed)
-    && (!canSeeSchedule || schedule !== null || scheduleFailed);
+    && (!canSeeSchedule || schedule !== null || scheduleFailed)
+    && (!canOpenCars || compliance.settled);
 
   useEffect(() => {
     if (firstAnswersIn) releaseSplash.current();
@@ -311,6 +316,8 @@ const HomePage: React.FC = () => {
           {counts && `${t('summary.tasks', { count: counts.today })} · ${t('summary.unread', { count: unreadCount })}`}
         </p>
       </header>
+
+      {canOpenCars && <ComplianceHomeCard summary={compliance.summary} />}
 
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${showsPerformance ? `xl:grid-cols-4 ${LEFTOVER_CARD[cardCount] ?? ''}` : cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
         <GoalsPanel onPresence={setShowsPerformance} onSettled={onGoalsSettled} />

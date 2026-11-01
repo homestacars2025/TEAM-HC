@@ -36,6 +36,9 @@ import { useCarAvailability } from '../components/booking/useCarAvailability';
 import BanAlert from '../components/customers/BanAlert';
 import BannedBadge from '../components/customers/BannedBadge';
 import CustomerSearch, { initialsOf } from '../components/customers/CustomerSearch';
+import { useIssueText } from '../components/cars/Compliance';
+import ConfirmDialog from '../components/custody/ConfirmDialog';
+import { useCarCompliance } from '../hooks/useCarCompliance';
 import {
   banForExistingCustomer, classifyTyped, customerBanMatch, customersWithPhone, findCustomers,
   isRealIdNumber, parseCustomerError,
@@ -1443,6 +1446,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const days = rentalDays(form.start_date, form.end_date);
   const recentCars = useMemo(() => (cars ? recentCarIds().flatMap(id => cars.filter(car => car.id === id)) : []), [cars]);
   const { busy, failed: availabilityFailed } = useCarAvailability(form.start_date, form.end_date, { bookingId: editId });
+  const carWarning = useCarWarning(id => { set('car_id', id == null ? '' : String(id)); setFieldErrors(fe => ({ ...fe, car_id: undefined })); });
 
   useEffect(() => {
     if (mode === 'edit' && !baseline && customerLoaded && ledgerLoaded) setBaseline({ form, extras: buildAdditionalServices() });
@@ -2093,10 +2097,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               onRetry={() => setCarsAttempt(attempt => attempt + 1)}
               recent={recentCars}
               value={selectedCarId}
-              onChange={id => { set('car_id', id == null ? '' : String(id)); setFieldErrors(fe => ({ ...fe, car_id: undefined })); }}
+              onChange={carWarning.choose}
               disabled={saving}
               busy={busy}
               showAvailability={!!busy}
+              warned={carWarning.warned}
             />
           )}
           {availabilityFailed && <FormNote>{t('carBusy.checkFailed')}</FormNote>}
@@ -2305,6 +2310,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       )}
     >
       <span id={carLabelId} hidden>{tc('fields.car')}</span>
+      {carWarning.dialog}
       {mode === 'add' ? stepBodies[step] : baseline ? (
         <>
           {customerCard}
@@ -2589,6 +2595,44 @@ const ExtendBookingModal: React.FC<{
   );
 };
 
+// ─── Cars that shouldn't go out ───────────────────────────────────────────────
+
+/**
+ * A strong warning, not a block: nothing in the database stops the booking. Choosing a car
+ * with a missing or expired date has to be confirmed first.
+ */
+function useCarWarning(onChoose: (carId: number | null) => void) {
+  const { t } = useTranslation('cars');
+  const compliance = useCarCompliance();
+  const issueText = useIssueText();
+  const [pendingId, setPendingId] = useState<number | null>(null);
+
+  const warned = useMemo(() => {
+    const badges = new Map<number, string>();
+    compliance.byId.forEach((car, id) => { if (car.severity) badges.set(id, t('compliance.badge')); });
+    return badges;
+  }, [compliance.byId, t]);
+
+  const choose = (carId: number | null) => {
+    if (carId != null && compliance.byId.get(carId)?.severity) setPendingId(carId);
+    else onChoose(carId);
+  };
+
+  const pending = pendingId != null ? compliance.byId.get(pendingId) : undefined;
+  const dialog = pending ? (
+    <ConfirmDialog
+      title={t('compliance.confirmTitle')}
+      body={t('compliance.confirmBody', { plate: pending.plate, issues: pending.issues.map(issueText).join(' · ') })}
+      confirmLabel={t('compliance.confirmAccept')}
+      cancelLabel={t('compliance.confirmCancel')}
+      onConfirm={() => { onChoose(pending.id); setPendingId(null); }}
+      onCancel={() => setPendingId(null)}
+    />
+  ) : null;
+
+  return { warned, choose, dialog };
+}
+
 // ─── Replacement sheets ───────────────────────────────────────────────────────
 
 /** The real statuses car_availability can return. Nothing else is ever rendered. */
@@ -2772,6 +2816,7 @@ const ReplacementFormModal: React.FC<{
   const [formError, setFormError] = useState<string | null>(null);
 
   const { busy, failed: availabilityFailed } = useCarAvailability(startDate, endDate, { blockId: sheet?.calendar_block_id });
+  const carWarning = useCarWarning(id => setReplacementCarId(id == null ? '' : String(id)));
 
   // ── All cars (no is_active filter — a car being replaced may already be parked up) ──
   useEffect(() => {
@@ -3146,10 +3191,11 @@ const ReplacementFormModal: React.FC<{
             onRetry={() => setCarsAttempt(attempt => attempt + 1)}
             recent={recentCars}
             value={replacementCarId ? Number(replacementCarId) : null}
-            onChange={id => setReplacementCarId(id == null ? '' : String(id))}
+            onChange={carWarning.choose}
             disabled={saving}
             busy={busy}
             showAvailability={!!busy}
+            warned={carWarning.warned}
           />
           {availabilityFailed && <FormNote>{t('carBusy.checkFailed')}</FormNote>}
           {sameCarWarn && <FormNote>{t('replacement.sameCarWarn')}</FormNote>}
@@ -3195,6 +3241,7 @@ const ReplacementFormModal: React.FC<{
 
       <span id={originalLabelId} hidden>{t('replacement.originalCar')}</span>
       <span id={replacementLabelId} hidden>{t('replacement.replacementCar')}</span>
+      {carWarning.dialog}
     </BookingSheet>
   );
 };

@@ -11,12 +11,30 @@
     "replacement": "بديلة"
   },
   "cards": {
-    "all": { "label": "إجمالي الأسطول", "description": "كل المركبات المسجّلة" },
-    "working": { "label": "تعمل", "description": "على الطريق" },
-    "parking": { "label": "متوقفة", "description": "متوقفة في الفرع" },
-    "maintenance": { "label": "في الصيانة", "description": "تحت الخدمة" },
-    "selling": { "label": "للبيع", "description": "معروضة للبيع" },
-    "replacement": { "label": "بديلة", "description": "مركبات بديلة" }
+    "all": {
+      "label": "إجمالي الأسطول",
+      "description": "كل المركبات المسجّلة"
+    },
+    "working": {
+      "label": "تعمل",
+      "description": "على الطريق"
+    },
+    "parking": {
+      "label": "متوقفة",
+      "description": "متوقفة في الفرع"
+    },
+    "maintenance": {
+      "label": "في الصيانة",
+      "description": "تحت الخدمة"
+    },
+    "selling": {
+      "label": "للبيع",
+      "description": "معروضة للبيع"
+    },
+    "replacement": {
+      "label": "بديلة",
+      "description": "مركبات بديلة"
+    }
   },
   "alerts": {
     "label": "تنبيهات",
@@ -40,7 +58,9 @@
     "status": "الحالة",
     "insurance": "التأمين",
     "ruhsat": "الرخصة",
-    "kasko": "كاسكو"
+    "kasko": "كاسكو",
+    "insuranceExpiry": "انتهاء التأمين",
+    "inspectionExpiry": "انتهاء الفحص"
   },
   "modal": {
     "title": "إضافة سيارة",
@@ -60,5 +80,49 @@
       "plate": "رقم اللوحة مطلوب.",
       "investor": "اختر المستثمر."
     }
+  },
+  "compliance": {
+    "title": "تنبيه مهم: سيارات بدون تأمين أو فحص صالح",
+    "explain": "يجب عدم تأجير هذه السيارات حتى تُصحَّح بياناتها.",
+    "bannerTitle": "سيارات بدون تأمين أو فحص صالح",
+    "groups": {
+      "expired": "منتهي",
+      "missing": "التاريخ غير مسجل"
+    },
+    "issue": {
+      "insuranceExpired": "التأمين منتهي {{since}}",
+      "inspectionExpired": "الفحص منتهي {{since}}",
+      "insuranceMissing": "تاريخ التأمين غير مسجل",
+      "inspectionMissing": "تاريخ الفحص غير مسجل"
+    },
+    "since_zero": "منذ اليوم",
+    "since_one": "منذ يوم واحد",
+    "since_two": "منذ يومين",
+    "since_few": "منذ {{count}} أيام",
+    "since_many": "منذ {{count}} يوماً",
+    "since_other": "منذ {{count}} يوم",
+    "addDate": "إضافة التاريخ",
+    "understood": "فهمت",
+    "view": "عرض",
+    "countExpired": "{{count}} منتهية",
+    "countMissing": "{{count}} بدون تاريخ",
+    "checkFailed": "تعذّر فحص تأمين السيارات وفحصها الدوري. لا تعتبرها سليمة حتى يكتمل الفحص.",
+    "cardTitle": "بيانات ناقصة أو منتهية",
+    "filter": "بيانات ناقصة",
+    "cell": {
+      "expired": "منتهي",
+      "missing": "غير مسجل"
+    },
+    "badge": "التأمين/الفحص غير صالح",
+    "confirmTitle": "هذه السيارة غير صالحة للتأجير",
+    "confirmBody": "{{plate}}: {{issues}}. يجب عدم تأجيرها حتى تُصحَّح بياناتها.",
+    "confirmAccept": "أفهم وأتحمل المسؤولية",
+    "confirmCancel": "اختيار سيارة أخرى",
+    "datesTitle": "تواريخ التأمين والفحص",
+    "fields": {
+      "insurance": "انتهاء التأمين",
+      "inspection": "انتهاء الفحص الدوري"
+    },
+    "saveFailed": "تعذّر حفظ التاريخ. تحقق من الاتصال وحاول مجدداً."
   }
 }
