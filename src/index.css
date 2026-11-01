@@ -1249,12 +1249,17 @@ html[dir="rtl"] { --depth-from: 85% 0%; }
 
 .hc-bs-primary { flex: 1; margin-inline-start: auto; }
 
+.hc-bs-total { flex: none; min-width: 0; margin-inline-end: 4px; line-height: 1.25; }
+.hc-bs-total span { display: block; color: #6b7280; font-size: 11.5px; }
+.hc-bs-total strong { display: block; color: #0f1117; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 @media (max-width: 639.98px) {
   .hc-bs-cancel { display: none; }
 }
 
 @media (min-width: 640px) {
   .hc-bs-primary { flex: none; min-width: 148px; }
+  .hc-bs-total { margin-inline-end: auto; }
 }
 
 @media (min-width: 768px) {
@@ -1463,52 +1468,157 @@ textarea.hc-input { padding-block: 10px; resize: vertical; }
 .hc-date-parts select.hc-input { padding-inline-end: 26px; background-position: right 8px center; }
 html[dir="rtl"] .hc-date-parts select.hc-input { background-position: left 8px center; }
 
-/* Cards to pick from */
-.hc-choice-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-@media (min-width: 400px) {
-  .hc-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-.hc-choice {
+/* Cards to pick from: picture, words, and the control on the far side. */
+.hc-option-list {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 10px;
-  width: 100%;
-  min-height: 60px;
-  padding: 11px 12px;
-  border: 1px solid #d9dde3;
-  border-radius: 12px;
-  background: #fff;
-  font-family: inherit;
-  text-align: start;
-  cursor: pointer;
-  transition: border-color 140ms ease, background-color 140ms ease;
 }
 
-.hc-choice:hover { border-color: #b8c4d4; }
-.hc-choice[aria-pressed="true"] { border-color: #6ea4e7; background: var(--accent-soft); }
+.hc-option-list > .hc-input { margin-top: -2px; }
 
-.hc-choice-mark {
+.hc-option {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  width: 100%;
+  min-height: 88px;
+  padding: 10px 12px;
+  border: 1px solid #e3e6ea;
+  border-radius: 14px;
+  background: #fff;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+label.hc-option { cursor: pointer; }
+label.hc-option:not(.is-selected):hover { border-color: #c5d3e4; }
+
+/* A second pixel from the shadow, so choosing a card never moves what's inside it. */
+.hc-option.is-selected {
+  border-color: #6ea4e7;
+  background: rgba(110, 164, 231, 0.08);
+  box-shadow: 0 0 0 1px #6ea4e7;
+}
+
+.hc-option-art,
+.hc-option-glyph {
   flex: none;
+  width: 64px;
+  height: 64px;
+}
+
+.hc-option-art { object-fit: contain; }
+
+.hc-option-glyph {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  border: 1.5px solid #c8ced6;
   border-radius: 999px;
-  color: #fff;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
-.hc-choice[aria-pressed="true"] .hc-choice-mark {
+.hc-option > .min-w-0 { flex-basis: 0; }
+.hc-option-control { flex: none; margin-inline-start: auto; }
+
+/* Below this the stepper would squeeze the words, so it takes a row of its own. */
+@media (max-width: 379.98px) {
+  .hc-option.has-stepper > .min-w-0 { flex-basis: calc(100% - 76px); }
+}
+
+.hc-radio {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: 2px solid #c8ced6;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.hc-radio:checked {
   border-color: var(--btn-primary-bg);
   background: var(--btn-primary-bg);
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.hc-radio:focus-visible,
+.hc-switch:focus-visible,
+.hc-stepper-input button:focus-visible {
+  outline: 2px solid #6ea4e7;
+  outline-offset: 2px;
+}
+
+.hc-stepper-input {
+  display: flex;
+  align-items: center;
+}
+
+.hc-stepper-input button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d9dde3;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent-strong);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.hc-stepper-input button:hover:not(:disabled) { background: var(--accent-soft); }
+.hc-stepper-input button:disabled { color: #c8ced6; cursor: default; }
+
+.hc-stepper-input output {
+  width: 28px;
+  color: #0f1117;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.hc-switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 28px;
+  border-radius: 999px;
+  background: #d9dde3;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+.hc-switch span {
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.3);
+  transition: inset-inline-start 160ms ease;
+}
+
+.hc-switch[aria-checked="true"] { background: var(--btn-primary-bg); }
+.hc-switch[aria-checked="true"] span { inset-inline-start: 21px; }
+
+/* The sheet's own touch rule: the visible circle stays, the target grows. */
+@media (max-width: 1023.98px) {
+  .hc-stepper-input button { width: 44px; height: 44px; }
+  .hc-switch::after { content: ''; position: absolute; inset: -8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-option, .hc-radio, .hc-switch, .hc-switch span { transition: none; }
 }
 
 /* Segmented control */

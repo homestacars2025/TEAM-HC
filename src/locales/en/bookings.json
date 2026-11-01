@@ -266,7 +266,7 @@
     "keepEditing": "Keep editing",
     "changed": "Changed",
     "summary": "Summary",
-    "next": "Next",
+    "next": "Continue",
     "back": "Back",
     "create": "Create booking",
     "generatingNumber": "Generating…",
@@ -328,7 +328,7 @@
   },
   "presets": {
     "other": "Other",
-    "otherInsurance": "Type the insurance name",
+    "otherInsurance": "Write the cover in your own words.",
     "location": {
       "sisli": "Şişli branch",
       "kayasehir": "Kayaşehir branch",
@@ -337,26 +337,26 @@
     },
     "insurance": {
       "none": {
-        "name": "No cover",
-        "desc": "No extra cover"
+        "name": "No protection",
+        "desc": "The customer is responsible for any damage."
       },
       "partial": {
-        "name": "Partial cover",
-        "desc": "Limited cover"
+        "name": "Partial protection",
+        "desc": "Covers part of the damage."
       },
       "medium": {
-        "name": "Medium cover",
-        "desc": "Mid-level cover"
+        "name": "Medium protection",
+        "desc": "Covers most of the damage."
       },
       "full": {
-        "name": "Full cover",
-        "desc": "The highest level of cover"
+        "name": "Full protection",
+        "desc": "The highest level of cover."
       }
     },
     "services": {
       "childSeat": "Child seat",
       "extraDriver": "Additional driver",
-      "extraKm": "Extra kilometers"
+      "extraKm": "Extra kilometres"
     }
   },
   "stepsShort": {
@@ -365,5 +365,13 @@
     "insurance": "Insurance",
     "delivery": "Delivery",
     "review": "Payment"
+  },
+  "options": {
+    "childSeat": "A safety seat for a child",
+    "extraDriver": "Another person allowed to drive",
+    "extraKm": "More distance than the rental includes",
+    "other": "Anything else this booking needs",
+    "fewer": "One fewer: {{name}}",
+    "more": "One more: {{name}}"
   }
 }

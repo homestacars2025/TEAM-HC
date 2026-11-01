@@ -14,6 +14,7 @@ import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { addDay, rentalDays } from '../lib/bookingDates';
+import { formatExtras, hasExtras, parseExtras, type BookingExtras } from '../lib/bookingExtras';
 import type { ExpenseCar } from '../lib/custodyExpense';
 import {
   firstBusyDay, getBlocks, isCarBusyError, recentCarIds, rememberCar, type CalendarBlock,
@@ -25,9 +26,10 @@ import BookingSheet from '../components/booking/BookingSheet';
 import CarPicker from '../components/booking/CarPicker';
 import DateParts from '../components/booking/DateParts';
 import DateRangePicker from '../components/booking/DateRangePicker';
-import { ChoiceCard, Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar } from '../components/booking/FormParts';
+import { Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar } from '../components/booking/FormParts';
 import FuelSlider from '../components/booking/FuelSlider';
 import MoneyField, { CurrencySwitch, formatMoney, formatRate, type FormCurrency } from '../components/booking/MoneyField';
+import { ExtraOption, preloadOptionArt, OptionSwitch, QuantityStepper, RadioOption, type OptionArtName } from '../components/booking/OptionCards';
 import PlateChip from '../components/booking/PlateChip';
 import { useCarAvailability } from '../components/booking/useCarAvailability';
 import BanAlert from '../components/customers/BanAlert';
@@ -908,8 +910,6 @@ const INSURANCE_PRESETS = [
 const isInsurancePreset = (val: string): boolean =>
   (INSURANCE_PRESETS as readonly string[]).includes(val);
 
-const ADDITIONAL_SERVICE_OPTS = ['Çocuk Koltuğu', 'Yedek Sürücü', 'Ek Kilometre'] as const;
-
 /** What a stored value is called on screen. The stored values themselves never change. */
 const LOCATION_KEY: Record<string, string> = {
   'Şişli Branch': 'presets.location.sisli',
@@ -925,10 +925,11 @@ const INSURANCE_KEY: Record<string, string> = {
   'Tam Koruma': 'full',
 };
 
-const SERVICE_KEY: Record<string, string> = {
-  'Çocuk Koltuğu': 'presets.services.childSeat',
-  'Yedek Sürücü': 'presets.services.extraDriver',
-  'Ek Kilometre': 'presets.services.extraKm',
+const INSURANCE_ART: Record<string, OptionArtName> = {
+  'Korumasız': 'shield-none',
+  'Kısmi Koruma': 'shield-partial',
+  'Orta Koruma': 'shield-medium',
+  'Tam Koruma': 'shield-full',
 };
 
 const STEP_KEYS = ['customer', 'trip', 'insurance', 'delivery', 'review'] as const;
@@ -954,6 +955,7 @@ const ICONS = {
   gauge: icon(<><path d="M4 18a9 9 0 1116 0" /><path d="M12 14l4-4" /></>),
   money: icon(<><circle cx="12" cy="12" r="9" /><path d="M15 9.5A2.5 2.5 0 0012.5 8h-1a2 2 0 000 4h1a2 2 0 010 4h-1A2.5 2.5 0 019 14.5M12 6v2M12 16v2" /></>),
   check: icon(<><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.5 2.5 4.5-5" /></>),
+  plus: icon(<><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></>),
   swap: icon(<path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12" />),
   note: icon(<><path d="M4 4h16v12H8l-4 4V4z" /><path d="M8 9h8M8 12h5" /></>),
 };
@@ -1097,25 +1099,9 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     !!initial.insurance_type && !isInsurancePreset(initial.insurance_type)
   );
 
-  // Additional services checkboxes
-  const [additionalChecked, setAdditionalChecked] = useState<string[]>(() => {
-    if (!initial.additional_services) return [];
-    const parts = initial.additional_services.split(',').map(s => s.trim()).filter(Boolean);
-    const checked: string[] = [];
-    for (const p of parts) {
-      if ((ADDITIONAL_SERVICE_OPTS as readonly string[]).includes(p as typeof ADDITIONAL_SERVICE_OPTS[number])) {
-        checked.push(p);
-      } else {
-        checked.push('Diğer');
-      }
-    }
-    return [...new Set(checked)];
-  });
-  const [additionalOtherText, setAdditionalOtherText] = useState<string>(() => {
-    if (!initial.additional_services) return '';
-    const parts = initial.additional_services.split(',').map(s => s.trim()).filter(Boolean);
-    return parts.find(p => !(ADDITIONAL_SERVICE_OPTS as readonly string[]).includes(p as typeof ADDITIONAL_SERVICE_OPTS[number])) ?? '';
-  });
+  // Additional services, read from whichever format the booking holds them in
+  const [extras, setExtras] = useState<BookingExtras>(() => parseExtras(initial.additional_services));
+  const setExtra = (change: Partial<BookingExtras>) => setExtras(current => ({ ...current, ...change }));
 
   // Document uploads
   const [docIdPhoto,           setDocIdPhoto]           = useState<File | null>(null);
@@ -1194,6 +1180,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       });
     return () => { active = false; };
   }, [initial.car_id, carsAttempt]);
+
+  useEffect(preloadOptionArt, []);
 
   // Auto-generate booking number (add mode only)
   useEffect(() => {
@@ -1445,12 +1433,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const set = <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) =>
     setForm(f => ({ ...f, [key]: value }));
 
-  const buildAdditionalServices = (): string | null => {
-    const parts = additionalChecked
-      .filter(s => s !== 'Diğer')
-      .concat(additionalChecked.includes('Diğer') && additionalOtherText.trim() ? [additionalOtherText.trim()] : []);
-    return parts.length > 0 ? parts.join(',') : null;
-  };
+  const buildAdditionalServices = (): string | null => formatExtras(extras, initial.additional_services);
 
   const selectedCarId = form.car_id ? Number(form.car_id) : null;
   const selectedCar = cars?.find(car => car.id === selectedCarId) ?? null;
@@ -1484,11 +1467,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     ([docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp] as const)
       .forEach((file, index) => { if (file) changed.add(`document_${index}`); });
     return changed;
-  }, [form, baseline, customerSwapped, usdRate, additionalChecked, additionalOtherText, docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [form, baseline, customerSwapped, usdRate, extras, docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dirty = mode === 'edit'
     ? changedFields.size > 0
-    : customerStep !== 'search' || additionalChecked.length > 0
+    : customerStep !== 'search' || hasExtras(extras)
       || (Object.keys(initial) as (keyof BookingFormData)[]).some(key => key !== 'booking_number' && form[key] !== initial[key]);
 
   /** Everything the first step asks for. */
@@ -1846,9 +1829,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const insuranceName = isInsurancePreset(form.insurance_type)
     ? t(`presets.insurance.${INSURANCE_KEY[form.insurance_type]}.name`)
     : form.insurance_type;
-  const extrasName = additionalChecked
-    .map(option => (option === 'Diğer' ? additionalOtherText.trim() || t('presets.other') : t(SERVICE_KEY[option])))
-    .join(listSeparator);
+  const counted = (key: string, count: number) => (count > 1 ? `${t(key)} ×${count}` : t(key));
+  const extrasName = [
+    ...(extras.childSeats > 0 ? [counted('presets.services.childSeat', extras.childSeats)] : []),
+    ...(extras.drivers > 0 ? [counted('presets.services.extraDriver', extras.drivers)] : []),
+    ...(extras.extraKm ? [t('presets.services.extraKm')] : []),
+    ...(extras.other ? [extras.otherText.trim() || t('presets.other')] : []),
+  ].join(listSeparator);
   const locationName = (value: string) => (isLocationPreset(value) ? t(LOCATION_KEY[value]) : value);
 
   const rental = parseFloat(form.fin_rental_amount) || 0;
@@ -2109,50 +2096,60 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     </div>
   );
 
-  const insuranceCard = (
-    <FormCard icon={ICONS.shield} title={t('form.insuranceServices')}>
-      <Field label={t('form.insuranceType')} wide changed={dot('insurance_type')}>
-        <div className="hc-choice-grid">
-          {INSURANCE_PRESETS.map(preset => (
-            <ChoiceCard
-              key={preset}
-              selected={!insuranceOther && form.insurance_type === preset}
-              title={t(`presets.insurance.${INSURANCE_KEY[preset]}.name`)}
-              description={t(`presets.insurance.${INSURANCE_KEY[preset]}.desc`)}
-              onClick={() => { setInsuranceOther(false); set('insurance_type', form.insurance_type === preset ? '' : preset); }}
-            />
-          ))}
-          <ChoiceCard
-            selected={insuranceOther}
-            title={t('presets.other')}
-            description={t('presets.otherInsurance')}
-            onClick={() => { setInsuranceOther(other => !other); set('insurance_type', ''); }}
-          />
-        </div>
-        {insuranceOther && (
-          <input className="hc-input mt-2" autoFocus={mode === 'add'} value={form.insurance_type} onChange={e => set('insurance_type', e.target.value)} placeholder={t('form.specifyInsurance')} aria-label={t('form.specifyInsurance')} />
-        )}
-      </Field>
+  const changedDot = (key: string) => (dot(key)
+    ? <span role="img" aria-label={t('sheet.changed')} title={t('sheet.changed')} className="hc-field-dot" />
+    : undefined);
 
-      <Field label={t('form.additionalServices')} wide changed={dot('additional_services')}>
-        <div className="hc-choice-grid">
-          {[...ADDITIONAL_SERVICE_OPTS, 'Diğer'].map(option => (
-            <ChoiceCard
-              key={option}
-              selected={additionalChecked.includes(option)}
-              title={option === 'Diğer' ? t('presets.other') : t(SERVICE_KEY[option])}
-              onClick={() => {
-                const chosen = additionalChecked.includes(option);
-                setAdditionalChecked(prev => (chosen ? prev.filter(x => x !== option) : [...prev, option]));
-                if (chosen && option === 'Diğer') setAdditionalOtherText('');
-              }}
-            />
-          ))}
-        </div>
-        {additionalChecked.includes('Diğer') && (
-          <input className="hc-input mt-2" autoFocus={mode === 'add'} value={additionalOtherText} onChange={e => setAdditionalOtherText(e.target.value)} placeholder={t('form.specifyService')} aria-label={t('form.specifyService')} />
+  const insuranceCard = (
+    <FormCard icon={ICONS.shield} title={t('form.insuranceType')} action={changedDot('insurance_type')}>
+      <div role="radiogroup" aria-label={t('form.insuranceType')} className="hc-option-list hc-field-wide">
+        {INSURANCE_PRESETS.map(preset => (
+          <RadioOption
+            key={preset}
+            name="booking-insurance"
+            art={INSURANCE_ART[preset]}
+            selected={!insuranceOther && form.insurance_type === preset}
+            title={t(`presets.insurance.${INSURANCE_KEY[preset]}.name`)}
+            description={t(`presets.insurance.${INSURANCE_KEY[preset]}.desc`)}
+            onSelect={() => { setInsuranceOther(false); set('insurance_type', preset); }}
+            onClear={() => set('insurance_type', '')}
+          />
+        ))}
+        <RadioOption
+          name="booking-insurance"
+          glyph="pen"
+          selected={insuranceOther}
+          title={t('presets.other')}
+          description={t('presets.otherInsurance')}
+          onSelect={() => { setInsuranceOther(true); set('insurance_type', ''); }}
+          onClear={() => { setInsuranceOther(false); set('insurance_type', ''); }}
+        />
+        {insuranceOther && (
+          <input className="hc-input" autoFocus={mode === 'add'} value={form.insurance_type} onChange={e => set('insurance_type', e.target.value)} placeholder={t('form.specifyInsurance')} aria-label={t('form.specifyInsurance')} />
         )}
-      </Field>
+      </div>
+    </FormCard>
+  );
+
+  const extrasCard = (
+    <FormCard icon={ICONS.plus} title={t('form.additionalServices')} action={changedDot('additional_services')}>
+      <div className="hc-option-list hc-field-wide">
+        <ExtraOption wide art="child-seat" selected={extras.childSeats > 0} title={t('presets.services.childSeat')} description={t('options.childSeat')}>
+          <QuantityStepper label={t('presets.services.childSeat')} value={extras.childSeats} onChange={childSeats => setExtra({ childSeats })} />
+        </ExtraOption>
+        <ExtraOption wide art="extra-driver" selected={extras.drivers > 0} title={t('presets.services.extraDriver')} description={t('options.extraDriver')}>
+          <QuantityStepper label={t('presets.services.extraDriver')} value={extras.drivers} onChange={drivers => setExtra({ drivers })} />
+        </ExtraOption>
+        <ExtraOption art="extra-km" selected={extras.extraKm} title={t('presets.services.extraKm')} description={t('options.extraKm')}>
+          <OptionSwitch label={t('presets.services.extraKm')} checked={extras.extraKm} onChange={extraKm => setExtra({ extraKm })} />
+        </ExtraOption>
+        <ExtraOption glyph="plus" selected={extras.other} title={t('presets.other')} description={t('options.other')}>
+          <OptionSwitch label={t('presets.other')} checked={extras.other} onChange={other => setExtra({ other, otherText: other ? extras.otherText : '' })} />
+        </ExtraOption>
+        {extras.other && (
+          <input className="hc-input" autoFocus={mode === 'add'} value={extras.otherText} onChange={e => setExtra({ otherText: e.target.value })} placeholder={t('form.specifyService')} aria-label={t('form.specifyService')} />
+        )}
+      </div>
     </FormCard>
   );
 
@@ -2228,7 +2225,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const stepBodies = [
     <>{customerCard}{documentsCard}</>,
     tripCard,
-    insuranceCard,
+    <>{insuranceCard}{extrasCard}</>,
     deliveryCard,
     <>{reviewCard}{detailsCard}{paymentCard}</>,
   ];
@@ -2254,7 +2251,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         />
       ) : undefined}
       scrollKey={step}
-      summary={form.car_id || form.start_date ? <SummaryBar rows={summaryRows} headline={summaryRows[7]} /> : undefined}
+      summary={form.car_id || form.start_date ? <SummaryBar rows={summaryRows} headline={mode === 'add' ? summaryRows[1] : summaryRows[7]} /> : undefined}
       alerts={banAlert || formError ? <>{banAlert && <BanAlert ban={banAlert} />}<FormError>{formError}</FormError></> : undefined}
       dirty={dirty}
       busy={busyLoading}
@@ -2263,6 +2260,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       closeRef={closeRef}
       footer={(
         <>
+          {mode === 'add' && (
+            <div className="hc-bs-total">
+              <span>{t('summary.total')}</span>
+              <strong dir="ltr">{formatMoney(rental, form.fin_currency)}</strong>
+            </div>
+          )}
           {mode === 'add' && step > 0 && (
             <Button variant="secondary" disabled={busyLoading} onClick={() => setStep(current => current - 1)}>{t('sheet.back')}</Button>
           )}
@@ -2282,6 +2285,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           {documentsCard}
           {tripCard}
           {insuranceCard}
+          {extrasCard}
           {deliveryCard}
           {detailsCard}
           {paymentCard}

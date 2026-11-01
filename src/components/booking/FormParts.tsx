@@ -48,30 +48,6 @@ export const FormNote: React.FC<{ children: React.ReactNode }> = ({ children }) 
 export const FormError: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   children ? <div role="alert" className="hc-form-error">{children}</div> : null;
 
-interface ChoiceCardProps {
-  selected: boolean;
-  onClick: () => void;
-  title: string;
-  description?: string;
-}
-
-/** A tick-box the size of a card. Pressing a chosen one lets go of it. */
-export const ChoiceCard: React.FC<ChoiceCardProps> = ({ selected, onClick, title, description }) => (
-  <button type="button" aria-pressed={selected} onClick={onClick} className="hc-choice">
-    <span aria-hidden="true" className="hc-choice-mark">
-      {selected && (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-          <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
-    </span>
-    <span className="min-w-0">
-      <span className="block text-[13.5px] font-semibold text-[#0f1117]">{title}</span>
-      {description && <span className="mt-0.5 block text-xs text-gray-500">{description}</span>}
-    </span>
-  </button>
-);
-
 export interface Step {
   key: string;
   label: string;
