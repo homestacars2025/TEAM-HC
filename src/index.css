@@ -4137,6 +4137,7 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-pay-missing { padding: 8px 10px; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
 .hc-pay-account { display: flex; flex-direction: column; gap: 4px; }
 
+.hc-zero { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: #fffbeb; color: #92400e; font-size: 13px; font-weight: 600; cursor: pointer; }
 .hc-pay-skip { align-self: flex-start; min-height: 44px; color: var(--accent-strong); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .hc-pay-retry { min-height: 44px; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 

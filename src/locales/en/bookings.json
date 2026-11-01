@@ -84,7 +84,8 @@
     "selectInsurance": "Select insurance type…",
     "insuranceServices": "Insurance and extras",
     "dateRange": "Booking dates",
-    "review": "Review"
+    "review": "Review",
+    "zeroConfirm": "Amount is 0 — are you sure?"
   },
   "errors": {
     "idRequired": "ID number is required",
@@ -98,7 +99,10 @@
     "carRequired": "Choose a car",
     "datesRequired": "Pick the booking dates",
     "carBusy": "This car is taken for these dates. Choose another car or change the dates.",
-    "saveFailed": "Couldn't save. Check your connection and try again."
+    "saveFailed": "Couldn't save. Check your connection and try again.",
+    "rental_required": "Enter the rental amount (0 is allowed)",
+    "rental_negative": "The rental amount can't be negative.",
+    "rentalNotSaved": "The booking was saved, but its rental amount wasn't. Add it from the customer's wallet."
   },
   "toast": {
     "added": "Booking added successfully",
@@ -199,7 +203,6 @@
     "errors": {
       "endRequired": "A new end date is required.",
       "endNotAfter": "New end date must be after {{current}}",
-      "rentalPositive": "Rental amount must be greater than 0.",
       "paidNegative": "Paid amount cannot be negative.",
       "failed": "Couldn't extend the booking"
     },

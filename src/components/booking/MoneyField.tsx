@@ -30,10 +30,11 @@ interface MoneyFieldProps {
   /** A switch of its own. Without it, a shared one sits elsewhere in the section. */
   onCurrency?: (next: FormCurrency) => void;
   ariaLabel: string;
+  placeholder?: string;
 }
 
 /** The conversion line is only ever a preview: what gets stored is worked out on save. */
-const MoneyField: React.FC<MoneyFieldProps> = ({ id, value, onChange, currency, rate, onCurrency, ariaLabel }) => {
+const MoneyField: React.FC<MoneyFieldProps> = ({ id, value, onChange, currency, rate, onCurrency, ariaLabel, placeholder = '0' }) => {
   const { t } = useTranslation('bookings');
   const amount = Number(value);
   const converted = currency === 'USD' && rate !== null && value.trim() !== '' && Number.isFinite(amount) ? amount * rate : null;
@@ -42,7 +43,7 @@ const MoneyField: React.FC<MoneyFieldProps> = ({ id, value, onChange, currency, 
     <div className="min-w-0">
       <div dir="ltr" className="hc-money">
         <span aria-hidden="true" className="hc-money-symbol">{currency === 'USD' ? '$' : '₺'}</span>
-        <input id={id} type="number" inputMode="decimal" min="0" step="0.01" placeholder="0" aria-label={ariaLabel} value={value} onChange={e => onChange(e.target.value)} className="hc-money-input" />
+        <input id={id} type="number" inputMode="decimal" min="0" step="0.01" placeholder={placeholder} aria-label={ariaLabel} value={value} onChange={e => onChange(e.target.value)} className="hc-money-input" />
         {onCurrency && <CurrencySwitch value={currency} onChange={onCurrency} disabled={rate === null} label={ariaLabel} />}
       </div>
       {converted !== null && rate !== null && (

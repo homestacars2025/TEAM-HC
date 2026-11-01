@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import i18n from '../i18n';
+import { rentalProblem } from '../lib/rentalAmount';
 
 const SRC = fs.readFileSync(path.join(__dirname, 'BookingsPage.tsx'), 'utf8');
 
@@ -56,11 +57,11 @@ describe('extend booking', () => {
 
 /** Mirrors the modal's own guards. */
 const extendGate = (currentEnd: string, newEnd: string, rental: string, paid: string) => {
-  const rentalNum = Number(rental);
   const paidNum = paid.trim() === '' ? 0 : Number(paid);
   if (!newEnd) return 'endRequired';
   if (newEnd <= currentEnd) return 'endNotAfter';
-  if (!Number.isFinite(rentalNum) || rentalNum <= 0) return 'rentalPositive';
+  const rentalIssue = rentalProblem(rental);
+  if (rentalIssue) return rentalIssue;
   if (!Number.isFinite(paidNum) || paidNum < 0) return 'paidNegative';
   return null;
 };
@@ -70,8 +71,8 @@ describe('extend validation', () => {
     ['',           '500', '0',  'endRequired'],
     ['2026-03-10', '500', '0',  'endNotAfter'],   // same day as the current end
     ['2026-03-09', '500', '0',  'endNotAfter'],   // before it
-    ['2026-03-11', '0',   '0',  'rentalPositive'],
-    ['2026-03-11', '-5',  '0',  'rentalPositive'],
+    ['2026-03-11', '',    '0',  'required'],
+    ['2026-03-11', '-5',  '0',  'negative'],
     ['2026-03-11', '500', '-1', 'paidNegative'],
   ])('end=%s rental=%s paid=%s → %s', (end, rental, paid, expected) => {
     expect(extendGate('2026-03-10', end, rental, paid)).toBe(expected);
@@ -80,6 +81,7 @@ describe('extend validation', () => {
   test('a valid extension passes, and an empty paid amount means zero', () => {
     expect(extendGate('2026-03-10', '2026-03-17', '500', '')).toBeNull();
     expect(extendGate('2026-03-10', '2026-03-17', '500', '0')).toBeNull();
+    expect(extendGate('2026-03-10', '2026-03-17', '0', '')).toBeNull();
   });
 });
 
@@ -159,7 +161,7 @@ test('both features are worded in both languages', async () => {
   const KEYS = [
     'bookings:extend.title', 'bookings:extend.newPeriodStarts', 'bookings:extend.newEndDate',
     'bookings:extend.rentalAmount', 'bookings:extend.paidAmount', 'bookings:extend.insuranceNote',
-    'bookings:extend.errors.endNotAfter', 'bookings:extend.errors.rentalPositive',
+    'bookings:extend.errors.endNotAfter', 'bookings:errors.rental_required', 'bookings:errors.rental_negative', 'bookings:form.zeroConfirm',
     'bookings:replacement.editTitle', 'bookings:replacement.edit',
     'bookings:replacement.errors.calendarOutOfSync', 'bookings:replacement.errors.noCalendarBlock',
   ];

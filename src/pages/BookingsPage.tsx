@@ -14,6 +14,7 @@ import PaymentReceipts from '../components/payments/PaymentReceipts';
 import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
 import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, toLira, type PaymentDraft, type PaymentReceipt } from '../lib/payments';
 import { recordPayment } from '../lib/queries/payments';
+import { isExtensionLine, isZeroRental, rentalProblem } from '../lib/rentalAmount';
 import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
@@ -33,7 +34,7 @@ import BookingSheet from '../components/booking/BookingSheet';
 import CarPicker from '../components/booking/CarPicker';
 import DateParts from '../components/booking/DateParts';
 import DateRangePicker from '../components/booking/DateRangePicker';
-import { Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar } from '../components/booking/FormParts';
+import { Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar, ZeroAmountConfirm } from '../components/booking/FormParts';
 import MoneyField, { CurrencySwitch, formatMoney, formatRate, type FormCurrency } from '../components/booking/MoneyField';
 import { ExtraOption, preloadOptionArt, OptionSwitch, QuantityStepper, RadioOption, type OptionArtName } from '../components/booking/OptionCards';
 import PlateChip from '../components/booking/PlateChip';
@@ -1066,10 +1067,11 @@ interface FormModalProps {
   onSaved: () => void;
   /** After the booking is saved: the envelopes to number, and whether a payment failed. */
   onPaid: (receipts: PaymentReceipt[], failure: string | null) => void;
+  onRentalFailed: () => void;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
-  mode, initial, editId, editCustomerId, onClose, onSaved, onPaid,
+  mode, initial, editId, editCustomerId, onClose, onSaved, onPaid, onRentalFailed,
 }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
@@ -1077,6 +1079,9 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const paymentAccounts = usePaymentAccounts();
   const [deposit, setDeposit] = useState<PaymentDraft>(emptyPayment);
   const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
+  const rentalInputId = useId();
+  const [rentalTried, setRentalTried] = useState(false);
+  const [zeroConfirmed, setZeroConfirmed] = useState(false);
   // What is already on file, in lira. Changing it would orphan its envelope, so it is shown, not edited.
   const [paidBefore, setPaidBefore] = useState({ deposit: 0, payment: 0 });
   const fuelRange = useFuelRange();
@@ -1278,7 +1283,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     let active = true;
     supabase
       .from('customer_accounting_ledger')
-      .select('id, type, amount, direction')
+      .select('id, type, amount, direction, description')
       .eq('booking_id', editId)
       .in('type', ['rental', 'deposit', 'payment'])
       .then(({ data }) => {
@@ -1288,10 +1293,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         const ids: typeof existingLedgerIds = {};
         const paid = { deposit: 0, payment: 0 };
         let rental = '';
-        for (const row of data as { id: number; type: string; amount: number; direction: string }[]) {
+        for (const row of data as { id: number; type: string; amount: number; direction: string; description: string | null }[]) {
           if (row.type === 'rental') {
+            if (isExtensionLine(row.description)) continue;
             ids.rental = row.id;
-            rental = row.amount > 0 ? String(row.amount) : '';
+            rental = String(row.amount);
           } else if (row.type === 'deposit' || row.type === 'payment') {
             paid[row.type] += row.direction === 'IN' ? Number(row.amount) : -Number(row.amount);
           }
@@ -1470,7 +1476,9 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     for (const key of MONEY_FIELDS) {
       const now = parseFloat(form[key]) || 0;
       const was = parseFloat(before[key]) || 0;
-      if (form.fin_currency === 'USD' ? Math.abs(now * rate - was) >= rate * 0.01 : now !== was) changed.add(key);
+      // Empty and 0 are different answers, even if they are the same number.
+      if (!form[key].trim() !== !before[key].trim()) changed.add(key);
+      else if (form.fin_currency === 'USD' ? Math.abs(now * rate - was) >= rate * 0.01 : now !== was) changed.add(key);
     }
     // A different customer is one change, however many of their details differ.
     if (customerSwapped) changed.add('customer');
@@ -1698,18 +1706,16 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const carIdNum  = Number(form.car_id);
       const usdRate   = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
       const toTRY     = (v: number) => form.fin_currency === 'USD' ? v * usdRate : v;
-      type LedgerRow = { booking_id: number; customer_id: number; car_id: number; type: string; amount: number; direction: string; description: string; exchange_rate_at_entry?: number };
       // Stamp the rate that applies right now, exactly as the Customer Wallets page does.
       // Read once per save; if it cannot be read the field is omitted rather than blocking the booking.
       const entryRate = await fetchCurrentUsdRate();
       const rateStamp = entryRate != null ? { exchange_rate_at_entry: entryRate } : {};
-      const ledgerRows: LedgerRow[] = [];
-      const rentalAmt    = parseFloat(form.fin_rental_amount);
-      if (rentalAmt > 0)    ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'rental',    amount: toTRY(rentalAmt),    direction: 'OUT', description: 'Rental fee', ...rateStamp });
-      if (ledgerRows.length > 0) {
-        const { error: ledgerError } = await supabase.from('customer_accounting_ledger').insert(ledgerRows);
-        if (ledgerError) console.error('[Booking] ledger insert error:', ledgerError.message);
-      }
+      const rentalAmt = parseFloat(form.fin_rental_amount);
+      const { error: rentalError } = await supabase.from('customer_accounting_ledger').insert([{
+        booking_id: bookingId, customer_id: customerId, car_id: carIdNum,
+        type: 'rental', amount: toTRY(rentalAmt), direction: 'OUT', description: 'Rental fee', ...rateStamp,
+      }]);
+      if (rentalError) onRentalFailed();
 
       await recordPayments(bookingId);
       setSaving(false);
@@ -1795,34 +1801,25 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         }
       }
 
-      // Edit: upsert / delete ledger rows
+      // Edit: the rental line stays even at 0, because the monthly close reads it.
       const carIdNum   = Number(form.car_id);
       const usdRate    = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
       const toTRY      = (v: number) => form.fin_currency === 'USD' ? v * usdRate : v;
-      const ledgerDefs: Array<{ key: 'rental'; amtField: string; direction: 'IN' | 'OUT'; description: string }> = [
-        { key: 'rental',    amtField: form.fin_rental_amount, direction: 'OUT', description: 'Rental fee'       },
-      ];
-      // Stamp the rate that applies right now, exactly as the Customer Wallets page does.
-      // Read once per save; if it cannot be read the field is omitted rather than blocking the booking.
-      const entryRate = await fetchCurrentUsdRate();
-      const rateStamp = entryRate != null ? { exchange_rate_at_entry: entryRate } : {};
-      await Promise.all(ledgerDefs.map(async ({ key, amtField, direction, description }) => {
-        const amt        = parseFloat(amtField);
-        const existingId = existingLedgerIds[key];
-        if (existingId) {
-          if (amt > 0) {
-            // The amount is being rewritten, so the stored rate is re-stamped to match it.
-            await supabase.from('customer_accounting_ledger').update({ amount: toTRY(amt), ...rateStamp }).eq('id', existingId);
-          } else {
-            await supabase.from('customer_accounting_ledger').delete().eq('id', existingId);
-          }
-        } else if (amt > 0) {
-          await supabase.from('customer_accounting_ledger').insert({
+      if (form.fin_rental_amount.trim()) {
+        const rentalAmt = parseFloat(form.fin_rental_amount);
+        // Stamp the rate that applies right now, exactly as the Customer Wallets page does.
+        // Read once per save; if it cannot be read the field is omitted rather than blocking the booking.
+        const entryRate = await fetchCurrentUsdRate();
+        const rateStamp = entryRate != null ? { exchange_rate_at_entry: entryRate } : {};
+        // The amount is being rewritten, so the stored rate is re-stamped to match it.
+        const { error: rentalError } = existingLedgerIds.rental
+          ? await supabase.from('customer_accounting_ledger').update({ amount: toTRY(rentalAmt), ...rateStamp }).eq('id', existingLedgerIds.rental)
+          : await supabase.from('customer_accounting_ledger').insert({
             booking_id: editId!, customer_id: bookingCustomerId!, car_id: carIdNum,
-            type: key, amount: toTRY(amt), direction, description, ...rateStamp,
+            type: 'rental', amount: toTRY(rentalAmt), direction: 'OUT', description: 'Rental fee', ...rateStamp,
           });
-        }
-      }));
+        if (rentalError) onRentalFailed();
+      }
 
       await recordPayments(editId!);
       setSaving(false);
@@ -1832,6 +1829,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     onSaved();
     onClose();
   };
+
+  // An old booking may have no rental line at all, and editing it shouldn't be held up by that.
+  const rentalIssue = mode === 'add' || existingLedgerIds.rental || form.fin_rental_amount.trim() ? rentalProblem(form.fin_rental_amount) : null;
+  const zeroToConfirm = isZeroRental(form.fin_rental_amount) && (mode === 'add' || changedFields.has('fin_rental_amount'));
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1845,6 +1846,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     if (!validateCustomer()) { setStep(0); return; }
     if (!validateTrip()) { setStep(1); return; }
     if (!validateFuel()) { setStep(3); return; }
+    if (rentalIssue) { setRentalTried(true); document.getElementById(rentalInputId)?.focus(); return; }
+    if (zeroToConfirm && !zeroConfirmed) return;
     const paymentIssue = paymentProblem(deposit) ?? paymentProblem(payment);
     if (paymentIssue) { setFormError(tf(`payment.errors.${paymentIssue}`)); return; }
 
@@ -2243,8 +2246,10 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       title={t('form.financialInfo')}
       action={<CurrencySwitch value={form.fin_currency} onChange={handleFinCurrencyChange} disabled={usdRate === null} label={tc('fields.currency')} />}
     >
-      <Field label={t('form.rentalAmount')} changed={dot('fin_rental_amount')}>
-        <MoneyField ariaLabel={t('form.rentalAmount')} currency={form.fin_currency} rate={usdRate} value={form.fin_rental_amount} onChange={value => set('fin_rental_amount', value)} />
+      <Field label={t('form.rentalAmount')} required={mode === 'add' || !!existingLedgerIds.rental} changed={dot('fin_rental_amount')}>
+        <MoneyField id={rentalInputId} placeholder="" ariaLabel={t('form.rentalAmount')} currency={form.fin_currency} rate={usdRate} value={form.fin_rental_amount} onChange={value => { set('fin_rental_amount', value); setZeroConfirmed(false); }} />
+        <FieldError>{rentalTried && rentalIssue ? t(`errors.rental_${rentalIssue}`) : null}</FieldError>
+        {zeroToConfirm && <ZeroAmountConfirm confirmed={zeroConfirmed} onChange={setZeroConfirmed} />}
       </Field>
       {mode === 'edit' && (paidBefore.deposit !== 0 || paidBefore.payment !== 0) && (
         <dl className="hc-review hc-field-wide">
@@ -2330,7 +2335,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           <Button variant="secondary" className={mode === 'add' && step > 0 ? 'hc-bs-cancel' : undefined} disabled={busyLoading} onClick={() => closeRef.current?.()}>
             {tc('actions.cancel')}
           </Button>
-          <Button type="submit" className="hc-bs-primary" disabled={busyLoading || (mode === 'edit' && changedFields.size === 0) || (onLastStep && !!(paymentProblem(deposit) ?? paymentProblem(payment)))}>
+          <Button type="submit" className="hc-bs-primary" disabled={busyLoading || (mode === 'edit' && changedFields.size === 0) || (onLastStep && ((zeroToConfirm && !zeroConfirmed) || !!(paymentProblem(deposit) ?? paymentProblem(payment))))}>
             {saving ? tc('actions.saving') : submitLabel}
           </Button>
         </>
@@ -2404,6 +2409,9 @@ const ExtendBookingModal: React.FC<{
 
   const [newEndDate, setNewEndDate] = useState('');
   const [rentalAmount, setRentalAmount] = useState('');
+  const rentalInputId = useId();
+  const [rentalTried, setRentalTried] = useState(false);
+  const [zeroConfirmed, setZeroConfirmed] = useState(false);
   const [rentalCurrency, setRentalCurrency] = useState<FormCurrency>('TRY');
   const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
   const paymentAccounts = usePaymentAccounts();
@@ -2442,6 +2450,8 @@ const ExtendBookingModal: React.FC<{
     : undefined;
 
   const rentalNum = Number(rentalAmount);
+  const rentalIssue = rentalProblem(rentalAmount);
+  const zeroRental = isZeroRental(rentalAmount);
   const inLira = (amount: number, currency: FormCurrency) => (currency === 'USD' && usdRate !== null ? amount * usdRate : amount);
   const rentalTry = inLira(rentalNum, rentalCurrency);
   const paidTry   = toLira(payment, rates);
@@ -2461,8 +2471,9 @@ const ExtendBookingModal: React.FC<{
       setFormError(t('extend.errors.endNotAfter', { current: booking.end_date }));
       return;
     }
-    if (!Number.isFinite(rentalNum) || rentalNum <= 0) {
-      setFormError(t('extend.errors.rentalPositive'));
+    if (rentalIssue) {
+      setRentalTried(true);
+      document.getElementById(rentalInputId)?.focus();
       return;
     }
     const paymentIssue = paymentProblem(payment);
@@ -2518,7 +2529,7 @@ const ExtendBookingModal: React.FC<{
     }
 
     const notes = await Promise.all([
-      rentalCurrency === 'USD' && usdRate !== null
+      rentalCurrency === 'USD' && usdRate !== null && rentalNum > 0
         ? appendLedgerNote(booking.id, 'Rental extension', ` ($${rentalNum} × ${formatRate(usdRate)})`) : true,
     ]);
     setSaving(false);
@@ -2543,7 +2554,7 @@ const ExtendBookingModal: React.FC<{
     }
   };
 
-  const canSave = !saving && !!newEndDate && rentalAmount.trim() !== '' && !paymentProblem(payment);
+  const canSave = !saving && !!newEndDate && !(zeroRental && !zeroConfirmed) && !paymentProblem(payment);
   const summaryRows = [
     { label: t('extend.oldBalance'), value: balanceValue(oldBalance) },
     { label: t('extend.charge'), value: <bdi dir="ltr">{formatMoney(-(rentalTry || 0), 'TRY')}</bdi> },
@@ -2624,7 +2635,9 @@ const ExtendBookingModal: React.FC<{
 
       <FormCard icon={ICONS.money} title={t('extend.amount')}>
         <Field label={t('extend.labelRental')} required wide>
-          <MoneyField ariaLabel={t('extend.labelRental')} currency={rentalCurrency} rate={usdRate} onCurrency={setRentalCurrency} value={rentalAmount} onChange={setRentalAmount} />
+          <MoneyField id={rentalInputId} placeholder="" ariaLabel={t('extend.labelRental')} currency={rentalCurrency} rate={usdRate} onCurrency={setRentalCurrency} value={rentalAmount} onChange={value => { setRentalAmount(value); setZeroConfirmed(false); }} />
+          <FieldError>{rentalTried && rentalIssue ? t(`errors.rental_${rentalIssue}`) : null}</FieldError>
+          {zeroRental && <ZeroAmountConfirm confirmed={zeroConfirmed} onChange={setZeroConfirmed} />}
         </Field>
         <PaymentFields label={t('extend.labelPaid')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
         <p className="hc-field-wide text-xs leading-relaxed text-gray-500">{t('extend.insuranceNote')}</p>
@@ -3334,6 +3347,10 @@ const BookingsPage: React.FC = () => {
     }
   }, [showToast, tf]);
 
+  const afterRentalFailure = useCallback(() => {
+    window.setTimeout(() => showToast(t('errors.rentalNotSaved'), 'error'), 0);
+  }, [showToast, t]);
+
   // ── Fetch stats (separate lightweight query) ────────────────────────────────
   const fetchStats = useCallback(async (month: Date) => {
     setStatsLoading(true);
@@ -3947,6 +3964,7 @@ const BookingsPage: React.FC = () => {
           initial={EMPTY_FORM}
           onClose={() => setModal(null)}
           onPaid={afterPayment}
+          onRentalFailed={afterRentalFailure}
           onSaved={() => {
             showToast(t('toast.added'), 'success');
             fetchStats(selectedMonth);
@@ -3962,6 +3980,7 @@ const BookingsPage: React.FC = () => {
           editCustomerId={modal.booking.customer_id}
           onClose={() => setModal(null)}
           onPaid={afterPayment}
+          onRentalFailed={afterRentalFailure}
           onSaved={() => {
             showToast(t('toast.updated'), 'success');
             fetchStats(selectedMonth);

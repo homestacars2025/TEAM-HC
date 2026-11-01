@@ -41,6 +41,17 @@ export const Field: React.FC<FieldProps> = ({ label, required, changed, wide, ch
 export const FieldError: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   children ? <p role="alert" className="hc-field-error">{children}</p> : null;
 
+/** A 0 is allowed, so the only check left is that someone meant it. */
+export const ZeroAmountConfirm: React.FC<{ confirmed: boolean; onChange: (confirmed: boolean) => void }> = ({ confirmed, onChange }) => {
+  const { t } = useTranslation('bookings');
+  return (
+    <label className="hc-zero">
+      <input type="checkbox" className="hc-appr-check" checked={confirmed} onChange={e => onChange(e.target.checked)} />
+      {t('form.zeroConfirm')}
+    </label>
+  );
+};
+
 export const FormNote: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div role="status" className="hc-form-note">{children}</div>
 );
