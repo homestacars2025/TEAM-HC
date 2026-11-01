@@ -25,7 +25,7 @@ export async function getEnvelopes(): Promise<Envelope[]> {
 export async function getMovements(): Promise<Movement[]> {
   const { data, error } = await supabase
     .from('money_movements')
-    .select('id, ref, kind, status, from_account_id, to_account_id, amount, currency, amount_try, expected_at, note, reverses_id, created_by, created_at')
+    .select('id, ref, kind, status, from_account_id, to_account_id, amount, currency, amount_try, expected_at, note, reverses_id, envelope_id, created_by, created_at')
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(1000);

@@ -12,7 +12,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import PaymentFields from '../components/payments/PaymentFields';
 import PaymentReceipts from '../components/payments/PaymentReceipts';
 import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
-import { emptyPayment, hasPayment, paymentProblem, toLira, type PaymentDraft, type PaymentReceipt } from '../lib/payments';
+import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, toLira, type PaymentDraft, type PaymentReceipt } from '../lib/payments';
 import { recordPayment } from '../lib/queries/payments';
 import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
@@ -21,7 +21,7 @@ import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { addDay, rentalDays } from '../lib/bookingDates';
 import { fuelRangeProblem } from '../lib/fuelRange';
 import { formatExtras, hasExtras, parseExtras, type BookingExtras } from '../lib/bookingExtras';
-import { parseAmount, type ExpenseCar } from '../lib/custodyExpense';
+import type { ExpenseCar } from '../lib/custodyExpense';
 import {
   firstBusyDay, getBlocks, isCarBusyError, recentCarIds, rememberCar, type CalendarBlock,
 } from '../lib/queries/availability';
@@ -1065,7 +1065,7 @@ interface FormModalProps {
   onClose: () => void;
   onSaved: () => void;
   /** After the booking is saved: the envelopes to number, and whether a payment failed. */
-  onPaid: (receipts: PaymentReceipt[], failed: boolean) => void;
+  onPaid: (receipts: PaymentReceipt[], failure: string | null) => void;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
@@ -1576,20 +1576,18 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
   /** After the booking exists. A failure here can't undo it, so it is reported instead. */
   const recordPayments = async (bookingId: number) => {
-    const plate = cars?.find(car => String(car.id) === form.car_id)?.plate_number ?? null;
-    const customer = [form.cust_first_name, form.cust_last_name].filter(Boolean).join(' ') || null;
     const receipts: PaymentReceipt[] = [];
-    let failed = false;
+    let failure: string | null = null;
     for (const [type, draft] of [['deposit', deposit], ['payment', payment]] as const) {
       if (!hasPayment(draft)) continue;
       try {
         const done = await recordPayment(bookingId, type, draft, null);
-        if (done.envelope_ref) receipts.push({ ref: done.envelope_ref, amount: parseAmount(draft.amount) ?? 0, currency: draft.currency, plate, customer });
-      } catch {
-        failed = true;
+        if (done.envelope) receipts.push(done.envelope);
+      } catch (failed) {
+        failure = paymentErrorKey((failed as { message?: string })?.message);
       }
     }
-    onPaid(receipts, failed);
+    onPaid(receipts, failure);
   };
 
   /** Writes the chosen or new customer and their documents. `null` means stop: the reason is on screen. */
@@ -2332,7 +2330,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           <Button variant="secondary" className={mode === 'add' && step > 0 ? 'hc-bs-cancel' : undefined} disabled={busyLoading} onClick={() => closeRef.current?.()}>
             {tc('actions.cancel')}
           </Button>
-          <Button type="submit" className="hc-bs-primary" disabled={busyLoading || (mode === 'edit' && changedFields.size === 0)}>
+          <Button type="submit" className="hc-bs-primary" disabled={busyLoading || (mode === 'edit' && changedFields.size === 0) || (onLastStep && !!(paymentProblem(deposit) ?? paymentProblem(payment)))}>
             {saving ? tc('actions.saving') : submitLabel}
           </Button>
         </>
@@ -2390,7 +2388,7 @@ const FAR_FUTURE = '2100-01-01';
 const ExtendBookingModal: React.FC<{
   booking: Booking;
   onClose: () => void;
-  onExtended: (newEndDate: string, newBalance: number | null, noteSaved: boolean, receipts: PaymentReceipt[], paymentFailed: boolean) => void;
+  onExtended: (newEndDate: string, newBalance: number | null, noteSaved: boolean, receipts: PaymentReceipt[], paymentFailure: string | null) => void;
 }> = ({ booking, onClose, onExtended }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
@@ -2507,15 +2505,15 @@ const ExtendBookingModal: React.FC<{
     }
 
     const receipts: PaymentReceipt[] = [];
-    let paymentFailed = false;
+    let paymentFailure: string | null = null;
     let paidNow = 0;
     if (hasPayment(payment)) {
       try {
         const done = await recordPayment(booking.id, 'payment', payment, 'Extension payment');
         paidNow = Number(done.amount_try);
-        if (done.envelope_ref) receipts.push({ ref: done.envelope_ref, amount: parseAmount(payment.amount) ?? 0, currency: payment.currency, plate: booking.plate_number, customer: booking.customer_name });
-      } catch {
-        paymentFailed = true;
+        if (done.envelope) receipts.push(done.envelope);
+      } catch (failed) {
+        paymentFailure = paymentErrorKey((failed as { message?: string })?.message);
       }
     }
 
@@ -2528,7 +2526,7 @@ const ExtendBookingModal: React.FC<{
     // The function returns a TABLE, which PostgREST hands back as an array.
     const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
     const balance = result?.new_balance == null ? null : Number(result.new_balance);
-    onExtended(newEndDate, Number.isFinite(balance as number) ? (balance as number) + paidNow : null, notes.every(Boolean), receipts, paymentFailed);
+    onExtended(newEndDate, Number.isFinite(balance as number) ? (balance as number) + paidNow : null, notes.every(Boolean), receipts, paymentFailure);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -2545,7 +2543,7 @@ const ExtendBookingModal: React.FC<{
     }
   };
 
-  const canSave = !saving && !!newEndDate && rentalAmount.trim() !== '';
+  const canSave = !saving && !!newEndDate && rentalAmount.trim() !== '' && !paymentProblem(payment);
   const summaryRows = [
     { label: t('extend.oldBalance'), value: balanceValue(oldBalance) },
     { label: t('extend.charge'), value: <bdi dir="ltr">{formatMoney(-(rentalTry || 0), 'TRY')}</bdi> },
@@ -2628,7 +2626,7 @@ const ExtendBookingModal: React.FC<{
         <Field label={t('extend.labelRental')} required wide>
           <MoneyField ariaLabel={t('extend.labelRental')} currency={rentalCurrency} rate={usdRate} onCurrency={setRentalCurrency} value={rentalAmount} onChange={setRentalAmount} />
         </Field>
-        <PaymentFields label={t('extend.labelPaid')} hint={t('extend.paidHint')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
+        <PaymentFields label={t('extend.labelPaid')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
         <p className="hc-field-wide text-xs leading-relaxed text-gray-500">{t('extend.insuranceNote')}</p>
       </FormCard>
     </BookingSheet>
@@ -3328,9 +3326,12 @@ const BookingsPage: React.FC = () => {
 
   const [paymentReceipts, setPaymentReceipts] = useState<PaymentReceipt[]>([]);
   // The toast outlives the one the save shows, so this one is what stays on screen.
-  const afterPayment = useCallback((receipts: PaymentReceipt[], failed: boolean) => {
+  const afterPayment = useCallback((receipts: PaymentReceipt[], failure: string | null) => {
     if (receipts.length > 0) setPaymentReceipts(receipts);
-    if (failed) window.setTimeout(() => showToast(tf('payment.errors.notRecorded'), 'error'), 0);
+    if (failure) {
+      const message = failure === 'generic' ? tf('payment.errors.notRecorded') : `${tf('payment.errors.notRecorded')} ${tf(`payment.errors.${failure}`)}`;
+      window.setTimeout(() => showToast(message, 'error'), 0);
+    }
   }, [showToast, tf]);
 
   // ── Fetch stats (separate lightweight query) ────────────────────────────────
@@ -3896,9 +3897,9 @@ const BookingsPage: React.FC = () => {
         <ExtendBookingModal
           booking={extendTarget}
           onClose={() => setExtendTarget(null)}
-          onExtended={(newEndDate, newBalance, noteSaved, receipts, paymentFailed) => {
+          onExtended={(newEndDate, newBalance, noteSaved, receipts, paymentFailure) => {
             setExtendTarget(null);
-            afterPayment(receipts, paymentFailed);
+            afterPayment(receipts, paymentFailure);
             const done = newBalance == null
               ? t('extend.toast.done', { date: newEndDate })
               : t('extend.toast.doneWithBalance', {

@@ -19,26 +19,38 @@ describe('a payment before it is sent', () => {
     expect(hasPayment(emptyPayment())).toBe(false);
   });
 
-  it('asks for the method, then the account, except for cash', () => {
+  it('skips a zero amount, in any digits', () => {
+    for (const amount of ['0', '0,00', '٠', ' 0.00 ']) {
+      expect(paymentProblem(draft({ amount }))).toBeNull();
+      expect(hasPayment(draft({ amount }))).toBe(false);
+    }
+  });
+
+  it('asks for the method, then the account, for every method', () => {
     expect(paymentProblem(draft({ amount: 'abc' }))).toBe('amount');
     expect(paymentProblem(draft({ amount: '100' }))).toBe('method');
     expect(paymentProblem(draft({ amount: '100', method: 'card' }))).toBe('account');
     expect(paymentProblem(draft({ amount: '100', method: 'card', accountId: 6 }))).toBeNull();
-    expect(paymentProblem(draft({ amount: '100', method: 'cash' }))).toBeNull();
+    expect(paymentProblem(draft({ amount: '100', method: 'cash' }))).toBe('account');
+    expect(paymentProblem(draft({ amount: '100', method: 'cash', accountId: 2 }))).toBeNull();
   });
 
   it('only offers accounts the money could really be in', () => {
-    const accounts = [{ id: 1, name: 'POS', kind: 'pos' }, { id: 2, name: 'Bank', kind: 'bank' }, { id: 3, name: 'Gate', kind: 'gateway' }];
+    const accounts = [{ id: 1, name: 'POS', kind: 'pos' }, { id: 2, name: 'Bank', kind: 'bank' }, { id: 3, name: 'Gate', kind: 'gateway' }, { id: 4, name: 'Safe', kind: 'safe' }, { id: 5, name: 'Admin', kind: 'custody' }];
     expect(accountsForMethod(accounts, 'card').map(a => a.id)).toEqual([1]);
-    expect(accountsForMethod(accounts, 'bank_transfer').map(a => a.id)).toEqual([2]);
-    expect(accountsForMethod(accounts, 'online').map(a => a.id)).toEqual([3]);
-    expect(accountsForMethod(accounts, 'cash')).toEqual([]);
+    expect(accountsForMethod(accounts, 'bank_transfer').map(a => a.id)).toEqual([2, 3]);
+    expect(accountsForMethod(accounts, 'online').map(a => a.id)).toEqual([2, 3]);
+    expect(accountsForMethod(accounts, 'cash').map(a => a.id)).toEqual([4]);
+    expect(accountsForMethod(accounts, null)).toEqual([]);
   });
 
   it.each([
     ['forbidden', 'forbidden'],
-    ['Card payments go to a POS account', 'account'],
-    ['Choose the account the money went to', 'account'],
+    ['Choose where the money went', 'account'],
+    ['Account not found', 'account'],
+    ['Cash must go into a safe', 'safe'],
+    ['Card payments go to a POS account', 'pos'],
+    ['Choose a bank or payment gateway account', 'bank'],
     ['No exchange rate for EUR', 'rate'],
     ['Choose how the money was received', 'method'],
     ['boom', 'generic'],
@@ -48,7 +60,7 @@ describe('a payment before it is sent', () => {
 describe('every payment goes through the server', () => {
   const read = (file: string) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
-  it.each(['pages/BookingsPage.tsx', 'pages/CustomerWalletsPage.tsx'])('%s calls record_customer_payment through recordPayment', file => {
+  it.each(['pages/BookingsPage.tsx', 'pages/CustomerWalletsPage.tsx', 'pages/OperationsPage.tsx'])('%s calls record_customer_payment through recordPayment', file => {
     expect(read(file)).toContain('recordPayment(');
   });
 
@@ -77,7 +89,7 @@ const envelope = (o: Partial<Envelope> = {}): Envelope => ({
 });
 const movement = (o: Partial<Movement> = {}): Movement => ({
   id: 1, ref: 'MOV-1', kind: 'transfer', status: 'done', from_account_id: 1, to_account_id: 2, amount: 100, currency: 'TRY', amount_try: 100,
-  expected_at: null, note: null, reverses_id: null, created_by: null, created_at: ago(1), ...o,
+  expected_at: null, note: null, reverses_id: null, envelope_id: null, created_by: null, created_at: ago(1), ...o,
 });
 
 describe('envelopes', () => {
@@ -152,6 +164,8 @@ describe('cash tab', () => {
     expect(canReverse(movement({ kind: 'reversal' }), new Set())).toBe(false);
     expect(canReverse(movement({ status: 'pending' }), new Set())).toBe(false);
     expect(canReverse(movement({ from_account_id: null, to_account_id: null }), new Set())).toBe(false);
+    expect(canReverse(movement({ kind: 'customer_payment', from_account_id: null, envelope_id: 3 }), new Set())).toBe(false);
+    expect(canReverse(movement({ kind: 'admin_receipt', envelope_id: 3 }), new Set())).toBe(true);
   });
 
   it.each([

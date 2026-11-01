@@ -74,6 +74,7 @@ export interface Movement {
   expected_at: string | null;
   note: string | null;
   reverses_id: number | null;
+  envelope_id: number | null;
   created_by: string | null;
   created_at: string;
 }
@@ -100,7 +101,9 @@ export interface AccountBalance {
  */
 export const canReverse = (movement: Movement, reversed: Set<number>): boolean =>
   movement.status === 'done' && movement.kind !== 'reversal' && !reversed.has(movement.id)
-  && (movement.from_account_id !== null || movement.to_account_id !== null);
+  && (movement.from_account_id !== null || movement.to_account_id !== null)
+  // A reversal only moves the balance: the envelope would stay in the safe and the customer would keep the credit.
+  && !(movement.kind === 'customer_payment' && movement.envelope_id !== null);
 
 export function pendingSettlement(movements: Movement[]) {
   const pending = movements.filter(movement => movement.status === 'pending' && movement.kind === 'pos_settlement');

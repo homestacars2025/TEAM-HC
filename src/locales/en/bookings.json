@@ -193,7 +193,6 @@
     "newEndDate": "New End Date",
     "rentalAmount": "Rental Amount (TRY)",
     "paidAmount": "Paid Amount (TRY)",
-    "paidHint": "Leave empty for 0.",
     "insuranceNote": "Insurance carries over from the original booking — nothing new is charged for it.",
     "submit": "Extend Booking",
     "currentEnd": "Current end date",

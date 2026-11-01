@@ -10,6 +10,11 @@ import Button from '../components/Button';
 import FuelRangeInput, { useFuelRange } from '../components/FuelRangeInput';
 import { fuelRangeProblem } from '../lib/fuelRange';
 import FilterBar from '../components/FilterBar';
+import PaymentFields from '../components/payments/PaymentFields';
+import PaymentReceipts from '../components/payments/PaymentReceipts';
+import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
+import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, type PaymentDraft, type PaymentReceipt } from '../lib/payments';
+import { recordPayment } from '../lib/queries/payments';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -744,14 +749,25 @@ const EMPTY_FORM = (): AddOpForm => ({
   checklist_customer_card:   '',
 });
 
+/** Collected when the car comes back, after the charges are on the wallet. Never throws: the pickup is already saved. */
+async function collectAtPickup(bookingId: number, draft: PaymentDraft): Promise<{ receipt: PaymentReceipt | null; failure: string | null }> {
+  try {
+    const done = await recordPayment(bookingId, 'payment', draft, 'Pickup settlement');
+    return { receipt: done.envelope, failure: null };
+  } catch (failed) {
+    return { receipt: null, failure: paymentErrorKey((failed as { message?: string })?.message) };
+  }
+}
+
 const AddOperationModal: React.FC<{
   onClose: () => void;
-  onSaved: (notice?: SaveNotice) => void;
+  onSaved: (notice?: SaveNotice, receipt?: PaymentReceipt | null) => void;
   editOp?: Operation;
 }> = ({ onClose, onSaved, editOp }) => {
   const { t } = useTranslation('operations');
   const fuelRange = useFuelRange();
   const { t: tc } = useTranslation('common');
+  const { t: tf } = useTranslation('finance');
   const dateLocale = useDateLocale();
   const isEdit = !!editOp;
   const [form, setForm]               = useState<AddOpForm>(isEdit ? opToForm(editOp!) : EMPTY_FORM);
@@ -803,7 +819,10 @@ const AddOperationModal: React.FC<{
   const photosComplete = missingCount === 0;
 
   /** Every reason the form cannot be submitted, in one place. */
-  const saveBlocked = saving || customerMissing || (isStructured && !photosComplete);
+  const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
+  const paymentAccounts = usePaymentAccounts();
+  const takesPayment = !isEdit && form.type === 'PICKUP' && !!form.booking_id.trim();
+  const saveBlocked = saving || customerMissing || (isStructured && !photosComplete) || (takesPayment && paymentProblem(payment) !== null);
 
   // Refs to skip resets on initial mount when editing
   const skipCarResetRef     = useRef(isEdit);
@@ -1029,6 +1048,16 @@ const AddOperationModal: React.FC<{
     return { ...slotUrls, extra_scratches: scratchUrls, base_path: basePath };
   };
 
+  const settle = async () => (takesPayment && hasPayment(payment)
+    ? collectAtPickup(Number(form.booking_id), payment)
+    : { receipt: null, failure: null });
+
+  const withPaymentFailure = (notice: SaveNotice | undefined, failure: string | null): SaveNotice | undefined => {
+    if (!failure) return notice;
+    const reason = failure === 'generic' ? tf('payment.errors.notRecorded') : `${tf('payment.errors.notRecorded')} ${tf(`payment.errors.${failure}`)}`;
+    return { message: notice ? `${notice.message} ${reason}` : reason, kind: 'error' };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.car_id)     { setFormError(t('errors.selectCar')); return; }
@@ -1136,8 +1165,9 @@ const AddOperationModal: React.FC<{
         ? await applyPickupCharges(structuredRow.id, uid)
         : undefined;
 
+      const settled = await settle();
       setSaving(false);
-      onSaved(structuredNotice);
+      onSaved(withPaymentFailure(structuredNotice, settled.failure), settled.receipt);
       return;
     }
 
@@ -1185,15 +1215,16 @@ const AddOperationModal: React.FC<{
       ? await applyPickupCharges(insertedRow.id, uid)
       : undefined;
 
+    const settled = await settle();
     setSaving(false);
     if (failCount > 0) {
       const photoWarning = `${failCount} photo(s) failed to upload. Operation was saved.`;
-      onSaved({
+      onSaved(withPaymentFailure({
         message: chargeNotice ? `${photoWarning} ${chargeNotice.message}` : photoWarning,
         kind: 'error',
-      });
+      }, settled.failure), settled.receipt);
     } else {
-      onSaved(chargeNotice);
+      onSaved(withPaymentFailure(chargeNotice, settled.failure), settled.receipt);
     }
   };
 
@@ -1594,6 +1625,12 @@ const AddOperationModal: React.FC<{
               </div>
             )}
           </div>}
+
+          {takesPayment && (
+            <div style={{ marginTop: 20 }}>
+              <PaymentFields label={tf('payment.pickup')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
+            </div>
+          )}
 
           {formError && (
             <div style={{ marginTop: 16, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 9, fontSize: 13, color: '#ef4444' }}>
@@ -2429,6 +2466,7 @@ const OperationsPage: React.FC = () => {
   const [photosOp, setPhotosOp]     = useState<Operation | null>(null);
   const [reportOp, setReportOp]     = useState<Operation | null>(null);
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
+  const [paymentReceipts, setPaymentReceipts] = useState<PaymentReceipt[]>([]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (message: string, kind: ToastKind, durationMs = 3500) => {
@@ -2857,13 +2895,16 @@ const OperationsPage: React.FC = () => {
         />
       )}
 
+      {paymentReceipts.length > 0 && <PaymentReceipts receipts={paymentReceipts} onClose={() => setPaymentReceipts([])} />}
+
       {/* ── Add Modal ── */}
       {showAddModal && (
         <AddOperationModal
           onClose={() => setShowAddModal(false)}
-          onSaved={(notice) => {
+          onSaved={(notice, receipt) => {
             setShowAddModal(false);
             fetchOperations(selectedMonth);
+            if (receipt) setPaymentReceipts([receipt]);
             // Charge summaries carry money figures — hold them long enough to read.
             if (notice) showToast(notice.message, notice.kind, 8000);
             else        showToast(t('toast.saved'), 'success');

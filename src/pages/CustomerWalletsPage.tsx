@@ -7,7 +7,6 @@ import PaymentReceipts from '../components/payments/PaymentReceipts';
 import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
 import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, type PaymentDraft, type PaymentReceipt, type PaymentType } from '../lib/payments';
 import { recordPayment } from '../lib/queries/payments';
-import { parseAmount } from '../lib/custodyExpense';
 import { convertEntry, getLedgerRows, type Direction, type LedgerCustomer, type LedgerRow } from '../lib/customerLedger';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { printCustomerInvoice } from '../lib/printCustomerInvoice';
@@ -274,7 +273,7 @@ const ConfirmDialog: React.FC<{
 
 // ─── Transaction form fields shared by Add and Edit ───────────────────────────
 
-const TypeSelect: React.FC<{ value: string; extraType?: string; onChange: (v: string) => void }> = ({ value, extraType, onChange }) => {
+const TypeSelect: React.FC<{ value: string; extraType?: string; chargeOnly?: boolean; onChange: (v: string) => void }> = ({ value, extraType, chargeOnly = false, onChange }) => {
   const { t } = useTranslation('wallets');
   return (
   <div>
@@ -284,9 +283,12 @@ const TypeSelect: React.FC<{ value: string; extraType?: string; onChange: (v: st
       {extraType && !ALL_TYPES.includes(extraType) && (
         <option value={extraType}>{typeLabel(extraType)} {t('form.legacy')}</option>
       )}
-      <optgroup label={t('direction.moneyIn')}>
-        {IN_TYPES.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
-      </optgroup>
+      {/* Money in only reaches the ledger through `record_customer_payment`, so a charge can't be relabelled into it. */}
+      {!chargeOnly && (
+        <optgroup label={t('direction.moneyIn')}>
+          {IN_TYPES.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
+        </optgroup>
+      )}
       <optgroup label={t('direction.moneyOut')}>
         {OUT_TYPES.map(ty => <option key={ty} value={ty}>{t(`types.${ty}`)}</option>)}
       </optgroup>
@@ -438,8 +440,7 @@ const AddTransactionModal: React.FC<{
       try {
         const done = await recordPayment(selectedBooking.id, type as PaymentType, payment, description.trim() || null);
         setSaving(false);
-        const customerName = presetName ?? customers.find(c => c.id === customerId)?.name ?? null;
-        onSaved(done.envelope_ref ? { ref: done.envelope_ref, amount: parseAmount(payment.amount) ?? 0, currency: payment.currency, plate: selectedBooking.plate_number, customer: customerName } : null);
+        onSaved(done.envelope);
       } catch (failure) {
         setSaving(false);
         onError(tf(`payment.errors.${paymentErrorKey((failure as { message?: string })?.message)}`));
@@ -513,7 +514,7 @@ const AddTransactionModal: React.FC<{
         {isPayment ? (
           <>
             <TypeSelect value={type} onChange={handleTypeChange} />
-            <PaymentFields label={tf('cash.table.amount')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
+            <PaymentFields label={tf('cash.table.amount')} required value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
           </>
         ) : (
           <>
@@ -595,7 +596,7 @@ const EditTransactionModal: React.FC<{
     <Modal title={t('form.editTitle')} onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <TypeSelect value={type} extraType={row.type} onChange={handleTypeChange} />
+          <TypeSelect value={type} extraType={row.type} chargeOnly={row.type !== 'payment' && row.type !== 'deposit'} onChange={handleTypeChange} />
           <AmountField value={amount} onChange={setAmount} />
         </div>
 
