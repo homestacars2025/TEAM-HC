@@ -12,6 +12,14 @@
     "saved": "Photo updated",
     "removed": "Photo removed"
   },
+  "background": {
+    "title": "Background color",
+    "sky": "Sky",
+    "mint": "Mint",
+    "peach": "Peach",
+    "lavender": "Lavender",
+    "failed": "Could not save the color. Try again."
+  },
   "details": "Details",
   "fields": {
     "fullName": "Full name",

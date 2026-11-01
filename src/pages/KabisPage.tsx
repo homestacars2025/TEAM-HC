@@ -48,7 +48,7 @@ const KABIS_SELECT = `
   id, created_at, operation_id, booking_id, car_id,
   customer_name, customer_id_number, booking_number, plate_number, km, operation_date,
   action_type, status, entered_by, entered_at, note,
-  entered_by_profile:profiles!kabis_entries_entered_by_fkey(full_name, avatar_url, gender)
+  entered_by_profile:profiles!kabis_entries_entered_by_fkey(full_name, avatar_url, gender, avatar_bg)
 `;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────

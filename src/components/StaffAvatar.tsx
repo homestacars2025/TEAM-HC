@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getDefaultStaffAvatar, getStaffAvatar, type StaffAvatarProfile } from '../lib/staffAvatar';
+import { getAvatarGradient, getDefaultStaffAvatar, getStaffAvatar, type StaffAvatarProfile } from '../lib/staffAvatar';
 
 interface StaffAvatarProps {
   profile?: StaffAvatarProfile | null;
@@ -10,7 +10,8 @@ interface StaffAvatarProps {
 /**
  * Every staff picture in the dashboard. The name always sits beside it, so the
  * image itself is decorative. A default character is a bust rising out of the
- * circle; someone's own photo is centred and fills it.
+ * person's chosen color; their own photo is centred, and that color is a ring
+ * around it.
  */
 const StaffAvatar: React.FC<StaffAvatarProps> = ({ profile, size }) => {
   const src = getStaffAvatar(profile);
@@ -20,7 +21,10 @@ const StaffAvatar: React.FC<StaffAvatarProps> = ({ profile, size }) => {
   const shown = failedSrc === src ? fallback : src;
 
   return (
-    <span className={`hc-avatar ${shown === fallback ? 'hc-avatar-bust' : ''}`} style={{ width: size, height: size }}>
+    <span
+      className={`hc-avatar ${shown === fallback ? 'hc-avatar-bust' : 'hc-avatar-photo'}`}
+      style={{ width: size, height: size, background: getAvatarGradient(profile) }}
+    >
       <img src={shown} alt="" loading="lazy" decoding="async" onError={() => setFailedSrc(src)} />
     </span>
   );

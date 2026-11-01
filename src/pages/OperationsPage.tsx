@@ -2482,7 +2482,7 @@ const OperationsPage: React.FC = () => {
         current_km, fuel_level, cleanliness_status, location_text, note, booking_id, folder_url, photos,
         checklist_license_present, checklist_tutanak_present, checklist_air_freshener, checklist_customer_card,
         cars!operations_car_id_fkey(plate_number),
-        handler:profiles!operations_performed_by_fkey(id, full_name, avatar_url, gender),
+        handler:profiles!operations_performed_by_fkey(id, full_name, avatar_url, gender, avatar_bg),
         customers(first_name, last_name)
       `)
       .gte('operation_date', toDateStr(getMonthStart(month)))

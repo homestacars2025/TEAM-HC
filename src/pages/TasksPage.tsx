@@ -112,7 +112,7 @@ const EmptyState: React.FC<{ tab: Tab; profile: StaffAvatarProfile | null }> = (
   const { t } = useTranslation('tasks');
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
-      <StaffAvatar profile={{ gender: profile?.gender }} size={132} />
+      <StaffAvatar profile={{ gender: profile?.gender, avatar_bg: profile?.avatar_bg }} size={132} />
       <div className="mt-5 text-[17px] font-semibold text-[#0f1117]">{t(`empty.${tab}Title`)}</div>
       <div className="mt-1.5 max-w-xs text-sm leading-relaxed text-gray-500">{t(`empty.${tab}Body`)}</div>
     </div>

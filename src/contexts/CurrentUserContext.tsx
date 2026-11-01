@@ -25,7 +25,7 @@ interface CurrentUserValue {
   /** `null` until the session has been read. */
   settings: UserSettings | null;
   updateSettings: (patch: Partial<UserSettings>) => void;
-  /** Mirrors a write that has already succeeded. */
+  /** Mirrors a write that has succeeded, or one sent optimistically by the caller, who undoes it on failure. */
   patchProfile: (patch: Partial<CurrentProfile>) => void;
 }
 
@@ -80,7 +80,7 @@ export const CurrentUserProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url, gender, phone')
+        .select('full_name, avatar_url, gender, avatar_bg, phone')
         .eq('id', user.id)
         .single();
       if (cancelled) return;

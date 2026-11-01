@@ -1,6 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { getAvatarBackground, type AvatarBackground } from '../lib/staffAvatar';
+import AvatarBackgroundPicker from '../components/AvatarBackgroundPicker';
 import StaffAvatar from '../components/StaffAvatar';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
@@ -40,6 +43,11 @@ const ReadOnly: React.FC<{ label: string; value: string; latin?: boolean }> = ({
       {value}
     </div>
   </div>
+);
+
+const ErrorToast: React.FC<{ message: string }> = ({ message }) => ReactDOM.createPortal(
+  <div role="status" className="hc-page-toast is-error">{message}</div>,
+  document.body,
 );
 
 const PasswordCard: React.FC = () => {
@@ -96,7 +104,19 @@ const ProfilePage: React.FC = () => {
   const [notice, setNotice] = useState<Notice>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoNotice, setPhotoNotice] = useState<Notice>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const nextBackground = useRef<AvatarBackground | null>(null);
+  const savingBackground = useRef(false);
+
+  const showToast = useCallback((message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   // The form starts from the loaded profile once, and is the user's after that.
   const seeded = useRef(false);
@@ -163,6 +183,32 @@ const ProfilePage: React.FC = () => {
     setPhotoBusy(false);
   };
 
+  // The avatar changes everywhere on the click. Saves run one at a time and only
+  // the latest choice goes next, so a quick second click can't lose to the first
+  // one landing late. `.select()` turns a write that matched no row into an error.
+  const chooseBackground = async (background: AvatarBackground) => {
+    if (!userId) return;
+    let saved = getAvatarBackground(profile);
+    if (background === saved) return;
+    patchProfile({ avatar_bg: background });
+    nextBackground.current = background;
+    if (savingBackground.current) return;
+
+    savingBackground.current = true;
+    while (nextBackground.current) {
+      const value: AvatarBackground = nextBackground.current;
+      nextBackground.current = null;
+      const { error } = await supabase.from('profiles').update({ avatar_bg: value }).eq('id', userId).select('id').single();
+      if (!error) {
+        saved = value;
+      } else if (!nextBackground.current) {
+        patchProfile({ avatar_bg: saved });
+        showToast(t('background.failed'));
+      }
+    }
+    savingBackground.current = false;
+  };
+
   const hasPhoto = !!profile?.avatar_url;
   const genderLabel = profile?.gender === 'male' || profile?.gender === 'female' ? t(`gender.${profile.gender}`) : t('gender.unset');
 
@@ -206,6 +252,7 @@ const ProfilePage: React.FC = () => {
           </div>
           <p className="mt-2 text-xs text-gray-400">{t('photo.hint')}</p>
           <div className="mt-1"><NoticeLine notice={photoNotice} /></div>
+          {profile && <AvatarBackgroundPicker profile={profile} onChoose={chooseBackground} />}
         </div>
       </section>
 
@@ -234,6 +281,7 @@ const ProfilePage: React.FC = () => {
       </form>
 
       <PasswordCard />
+      {toast && <ErrorToast message={toast} />}
     </div>
   );
 };

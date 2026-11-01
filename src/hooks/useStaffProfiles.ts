@@ -24,7 +24,7 @@ export function useStaffProfiles(): StaffProfiles | null {
     let cancelled = false;
     supabase
       .from('profiles')
-      .select('id, full_name, avatar_url, gender')
+      .select('id, full_name, avatar_url, gender, avatar_bg')
       .in('role', ['admin', 'staff'])
       .then(({ data }) => {
         if (cancelled) return;

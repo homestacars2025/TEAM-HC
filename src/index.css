@@ -516,14 +516,73 @@ html[dir="rtl"] .hc-flip-path {
 /* Headroom at the top and 15% too tall, so the circle cuts the shoulders and there
    is never a gap under them. Anchored at the top: any crop has to fall on the
    shoulders, because the character's head sits at the very edge of the file. */
-.hc-avatar-bust { background: rgb(110 164 231 / 0.12); }
-
 .hc-avatar-bust img {
   position: absolute;
   top: 7%;
   left: 0;
   height: 115%;
   object-position: center top;
+}
+
+/* A photo keeps its own background. Inside the box, not a shadow around it, so
+   the ring is never clipped and an avatar is the same size either way. */
+.hc-avatar-photo { padding: 2px; }
+
+.hc-avatar-photo img { border-radius: 50%; }
+
+.hc-avatar-bg { margin-top: 16px; }
+
+.hc-avatar-bg-label {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.hc-avatar-bg-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hc-avatar-bg-swatch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  transition: box-shadow 160ms ease;
+}
+
+.hc-avatar-bg-swatch:hover { box-shadow: inset 0 0 0 2px var(--border-subtle); }
+
+.hc-avatar-bg-swatch.is-active { box-shadow: inset 0 0 0 2px var(--accent-strong); }
+
+.hc-avatar-bg-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hc-avatar-bg-check {
+  position: absolute;
+  top: -2px;
+  inset-inline-end: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  box-shadow: 0 0 0 2px var(--surface);
+  color: #fff;
+}
+
+@media (min-width: 640px) {
+  .hc-avatar-bg-swatches { justify-content: flex-start; }
 }
 
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */

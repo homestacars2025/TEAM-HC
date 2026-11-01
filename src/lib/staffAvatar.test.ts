@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getDefaultStaffAvatar, getStaffAvatar } from './staffAvatar';
+import { AVATAR_BACKGROUND_KEYS, getAvatarBackground, getAvatarGradient, getDefaultStaffAvatar, getStaffAvatar } from './staffAvatar';
 
 const src = path.join(__dirname, '..');
 const read = (file: string) => fs.readFileSync(path.join(src, file), 'utf8');
@@ -32,6 +32,45 @@ describe('getStaffAvatar', () => {
 
   it('ignores the photo when asked for the default, which is what a dead URL falls back to', () => {
     expect(getDefaultStaffAvatar({ avatar_url: 'https://x.test/a.jpg', gender: 'female' })).toBe(FEMALE);
+  });
+});
+
+describe('avatar background', () => {
+  it('offers exactly the colors the database allows', () => {
+    expect(AVATAR_BACKGROUND_KEYS).toEqual(['sky', 'mint', 'peach', 'lavender']);
+  });
+
+  it.each([
+    ['sky', '#EAF3FD', '#CFE2F7'],
+    ['mint', '#E9F8EF', '#C9EBD8'],
+    ['peach', '#FDF0E7', '#F6D5BF'],
+    ['lavender', '#F1ECFD', '#DCD2F6'],
+  ])('%s runs from its center to its edge at the rim', (avatar_bg, center, edge) => {
+    expect(getAvatarGradient({ avatar_bg })).toBe(`radial-gradient(circle closest-side, ${center}, ${edge})`);
+  });
+
+  it('is sky when there is no color or an unknown one', () => {
+    expect(getAvatarBackground(null)).toBe('sky');
+    expect(getAvatarBackground({ avatar_bg: null })).toBe('sky');
+    expect(getAvatarBackground({ avatar_bg: 'toString' })).toBe('sky');
+  });
+
+  it.each([
+    'contexts/CurrentUserContext.tsx',
+    'hooks/useStaffProfiles.ts',
+    'pages/KabisPage.tsx',
+    'pages/OperationsPage.tsx',
+  ])('%s loads the color wherever it loads the photo', file => {
+    const selects = read(file).split('\n').filter(line => line.includes('avatar_url,'));
+    expect(selects.length).toBeGreaterThan(0);
+    for (const line of selects) expect(line).toContain('avatar_bg');
+  });
+
+  it('colors every avatar through the shared component', () => {
+    const css = read('index.css');
+    expect(read('components/StaffAvatar.tsx')).toContain('getAvatarGradient(profile)');
+    expect(css).not.toMatch(/\.hc-avatar-bust \{ background/);
+    expect(css).toMatch(/\.hc-avatar-photo \{ padding: 2px; \}/);
   });
 });
 
