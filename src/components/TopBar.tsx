@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AccountMenu from './AccountMenu';
 import CommandPalette from './CommandPalette';
+import CurrencySwitcher from './CurrencySwitcher';
 import TasksBell from './TasksBell';
 
 const IS_MAC = /mac|iphone|ipad/i.test(typeof navigator === 'undefined' ? '' : navigator.platform);
@@ -86,6 +87,7 @@ const TopBar: React.FC<TopBarProps> = ({ sidebarCollapsed, onToggleSidebar, onOp
         </kbd>
       </button>
 
+      <CurrencySwitcher />
       <TasksBell />
       <AccountMenu />
 
