@@ -1078,7 +1078,7 @@ html[dir="rtl"] { --depth-from: 85% 0%; }
   font-weight: 700;
 }
 
-.hc-cust-row.is-banned .hc-cust-avatar { background: #fee2e2; color: #991b1b; }
+.hc-cust-row.is-banned .hc-customer-avatar { background: #fee2e2; }
 
 .hc-cust-exact {
   padding: 0 7px;

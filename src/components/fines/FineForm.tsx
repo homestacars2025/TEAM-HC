@@ -233,7 +233,10 @@ const FineForm: React.FC<FineFormProps> = ({ fine, cars, carsFailed, onRetryCars
         <Field label={tc('fields.customer')} wide>
           {form.customer_id && !searching ? (
             <div className="hc-cust-chosen">
-              <span dir="auto">{customerName || t('form.customerLinked')}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <CustomerAvatar size={24} />
+                <span dir="auto" className="truncate">{customerName || t('form.customerLinked')}</span>
+              </span>
               <button type="button" onClick={() => setSearching(true)}>{t('form.changeCustomer')}</button>
             </div>
           ) : (

@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../../lib/CurrencyContext';
 import { findCustomers, type CustomerMatch } from '../../lib/queries/customers';
+import CustomerAvatar from '../CustomerAvatar';
 import BannedBadge from './BannedBadge';
 
 const DEBOUNCE_MS = 250;
@@ -130,7 +131,7 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
                 onClick={() => { if (allowBanned || !row.is_banned) onSelect(row); }}
                 className={`hc-cust-row ${row.is_banned ? 'is-banned' : ''} ${index === active ? 'is-active' : ''}`}
               >
-                <span aria-hidden="true" className="hc-cust-avatar">{initialsOf(row.full_name) || '?'}</span>
+                <CustomerAvatar size={40} />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className="truncate text-sm font-semibold text-[#0f1117]">{row.full_name || '—'}</span>

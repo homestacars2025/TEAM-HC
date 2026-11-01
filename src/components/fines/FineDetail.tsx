@@ -5,6 +5,7 @@ import { useCurrency } from '../../lib/CurrencyContext';
 import { fineDocuments, type Fine } from '../../lib/fines';
 import type { FineCar } from '../../lib/queries/fines';
 import Button from '../Button';
+import CustomerAvatar from '../CustomerAvatar';
 import BookingSheet from '../booking/BookingSheet';
 import { FormCard } from '../booking/FormParts';
 import PlateChip from '../booking/PlateChip';
@@ -40,7 +41,9 @@ const FineDetail: React.FC<FineDetailProps> = ({ fine, car, onClose, onPay, onEd
     [t('form.violationNumber'), <bdi dir="ltr">{fine.violation_number ?? '—'}</bdi>],
     [t('form.violationCode'), <bdi dir="ltr">{fine.violation_code ?? '—'}</bdi>],
     [tc('fields.car'), <span className="inline-flex flex-wrap items-center justify-end gap-2"><PlateChip plate={fine.plate_number} />{car?.model}</span>],
-    [tc('fields.customer'), fine.customer_name || <span className="hc-issue is-missing">{t('row.noCustomer')}</span>],
+    [tc('fields.customer'), fine.customer_name
+      ? <span className="inline-flex items-center justify-end gap-2"><CustomerAvatar size={24} /><span dir="auto">{fine.customer_name}</span></span>
+      : <span className="hc-issue is-missing">{t('row.noCustomer')}</span>],
     [t('table.amount'), <bdi dir="ltr">{fmt(Number(fine.amount) || 0)}</bdi>],
     [t('form.violationDate'), `${formatDay(fine.violation_date, locale)}${fine.violation_time ? ` · ${fine.violation_time}` : ''}`],
     [t('table.location'), fine.location ?? '—'],
