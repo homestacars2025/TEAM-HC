@@ -2,18 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../components/Button';
+import CustomerAvatar from '../components/CustomerAvatar';
 import { StatTile } from '../components/WalletParts';
 import PlateChip from '../components/booking/PlateChip';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
-import { initialsOf } from '../components/customers/CustomerSearch';
 import FineDetail from '../components/fines/FineDetail';
 import FineForm from '../components/fines/FineForm';
 import PayFineSheet from '../components/fines/PayFineSheet';
 import { FINE_ICONS } from '../components/fines/parts';
 import Lightbox from '../components/forms/Lightbox';
 import { formatDay, useDateLocale } from '../hooks/useDateLocale';
+import { useTileFilter } from '../hooks/useTileFilter';
 import { useCurrency } from '../lib/CurrencyContext';
-import { FINE_SEGMENTS, fineDocuments, fineStats, inSegment, matchesFine, type Fine, type FineSegment } from '../lib/fines';
+import { FINE_FILTERS, fineDocuments, fineStats, inSegment, matchesFine, type Fine } from '../lib/fines';
 import { istanbulDate } from '../lib/istanbulTime';
 import { deleteFine, getFineCars, getFines, type FineCar } from '../lib/queries/fines';
 
@@ -45,7 +46,7 @@ const FinesPage: React.FC = () => {
   const [carsFailed, setCarsFailed] = useState(false);
   const [carsAttempt, setCarsAttempt] = useState(0);
   const [search, setSearch] = useState('');
-  const [segment, setSegment] = useState<FineSegment>('all');
+  const [filter, setFilter] = useTileFilter(FINE_FILTERS);
   const [panel, setPanel] = useState<Panel>(null);
   const [viewing, setViewing] = useState<{ fine: Fine; index: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -84,8 +85,8 @@ const FinesPage: React.FC = () => {
   const carFor = (fine: Fine) => (fine.car_id ? carById.get(fine.car_id) : undefined) ?? cars?.find(car => car.plate_number === fine.plate_number);
 
   const shown = useMemo(
-    () => (fines ?? []).filter(fine => inSegment(fine, segment, today) && matchesFine(fine, search)),
-    [fines, segment, search, today],
+    () => (fines ?? []).filter(fine => inSegment(fine, filter, today) && matchesFine(fine, search)),
+    [fines, filter, search, today],
   );
 
   const loading = fines === null && !failed;
@@ -136,27 +137,15 @@ const FinesPage: React.FC = () => {
         </div>
       )}
 
-      <div className="hc-tiles hc-tiles-four">
-        <StatTile tone="negative" label={t('tiles.unpaid')} value={amount(stats.unpaid.total)} sub={t('tiles.count', { count: stats.unpaid.count })} />
-        <StatTile tone="received" label={t('tiles.paid')} value={amount(stats.paid.total)} sub={t('tiles.count', { count: stats.paid.count })} />
-        <StatTile tone="balance" label={t('tiles.month')} value={amount(stats.month.total)} sub={t('tiles.count', { count: stats.month.count })} />
-        <StatTile
-          tone={stats.unassigned > 0 ? 'warn' : 'received'}
-          label={t('tiles.linked')}
-          value={loading ? null : `${stats.linked}/${(fines ?? []).length}`}
-          sub={stats.unassigned > 0 ? t('tiles.unassigned', { count: stats.unassigned }) : t('tiles.allLinked')}
-        />
+      <div className="hc-tiles hc-tiles-filter">
+        <StatTile tone="total" label={t('tiles.all')} value={amount(stats.all.total)} sub={t('tiles.count', { count: stats.all.count })} pressed={filter === 'all'} onPress={() => setFilter('all')} />
+        <StatTile tone="negative" label={t('tiles.unpaid')} value={amount(stats.unpaid.total)} sub={t('tiles.count', { count: stats.unpaid.count })} pressed={filter === 'unpaid'} onPress={() => setFilter('unpaid')} />
+        <StatTile tone="received" label={t('tiles.paid')} value={amount(stats.paid.total)} sub={t('tiles.count', { count: stats.paid.count })} pressed={filter === 'paid'} onPress={() => setFilter('paid')} />
+        <StatTile tone="balance" label={t('tiles.month')} value={amount(stats.month.total)} sub={t('tiles.count', { count: stats.month.count })} pressed={filter === 'month'} onPress={() => setFilter('month')} />
+        <StatTile tone={stats.unassigned.count > 0 ? 'warn' : 'paid'} label={t('tiles.unassigned')} value={amount(stats.unassigned.total)} sub={t('tiles.count', { count: stats.unassigned.count })} pressed={filter === 'unassigned'} onPress={() => setFilter('unassigned')} />
       </div>
 
       <div className="hc-records-tools">
-        <div role="group" aria-label={tc('fields.status')} className="hc-chip-row">
-          {FINE_SEGMENTS.map(option => (
-            <button key={option} type="button" className="hc-chip" aria-pressed={segment === option} onClick={() => setSegment(option)}>
-              {t(`segments.${option}`)}
-              <span>{(fines ?? []).filter(fine => inSegment(fine, option, today)).length}</span>
-            </button>
-          ))}
-        </div>
         <input className="hc-input hc-records-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('table.search')} aria-label={t('table.search')} />
       </div>
 
@@ -165,7 +154,7 @@ const FinesPage: React.FC = () => {
           {[0, 1, 2, 3, 4].map(row => <div key={row} className="hc-fine-skeleton" />)}
         </div>
       ) : shown.length === 0 ? (
-        <p className="hc-records-empty">{search || segment !== 'all' ? t('table.empty') : t('table.emptyNone')}</p>
+        <p className="hc-records-empty">{search || filter !== 'all' ? t('table.empty') : t('table.emptyNone')}</p>
       ) : (
         <div className="hc-fine-list">
           {shown.map(fine => {
@@ -181,7 +170,7 @@ const FinesPage: React.FC = () => {
                 <div className="hc-fine-customer">
                   {fine.customer_name ? (
                     <>
-                      <span aria-hidden="true" className="hc-cust-avatar">{initialsOf(fine.customer_name) || '?'}</span>
+                      <CustomerAvatar />
                       <span dir="auto" className="truncate">{fine.customer_name}</span>
                     </>
                   ) : <span className="hc-issue is-missing">{t('row.noCustomer')}</span>}

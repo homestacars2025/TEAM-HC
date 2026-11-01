@@ -10,12 +10,12 @@ import { addIssue, updateIssue, uploadIssuePhotos } from '../../lib/queries/carI
 import type { FineCar } from '../../lib/queries/fines';
 import { supabase } from '../../lib/supabase';
 import Button from '../Button';
+import CustomerAvatar from '../CustomerAvatar';
 import BookingSheet from '../booking/BookingSheet';
 import CarPicker from '../booking/CarPicker';
 import DateParts from '../booking/DateParts';
 import { Field, FieldError, FormCard, FormError } from '../booking/FormParts';
 import PlateChip from '../booking/PlateChip';
-import { initialsOf } from '../customers/CustomerSearch';
 import { FINE_ICONS } from '../fines/parts';
 import PhotoGrid from '../forms/PhotoGrid';
 import StaffAvatar from '../StaffAvatar';
@@ -76,7 +76,7 @@ const IssueForm: React.FC<IssueFormProps> = ({ issue, cars, carsFailed, onRetryC
 
   const bookingRow = (booking: CarBooking, action: React.ReactNode, onClick?: () => void) => (
     <div key={booking.id} className={`hc-suggest ${onClick ? 'is-pick' : ''}`} onClick={onClick}>
-      <span aria-hidden="true" className="hc-cust-avatar">{initialsOf(booking.customer_name ?? '') || '?'}</span>
+      <CustomerAvatar size={34} />
       <span className="min-w-0 flex-1">
         <span dir="auto" className="block truncate text-sm font-semibold text-[#0f1117]">{booking.customer_name ?? t('add.unknownCustomer')}</span>
         <span className="block text-xs text-gray-500"><span className="hc-num">{booking.booking_number ?? `#${booking.id}`}</span> · {tb('range.span', { start: formatDay(booking.start_date, locale), end: formatDay(booking.end_date, locale) })}</span>

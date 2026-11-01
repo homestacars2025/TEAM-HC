@@ -61,12 +61,27 @@ export function issueStats(issues: readonly IssueRow[], today: string) {
   const resolved = issues.filter(issue => asIssueStatus(issue.status) === 'resolved');
   const timed = resolved.map(issue => issue.days_to_resolve).filter((days): days is number => days !== null && days >= 0);
   return {
+    total: issues.length,
     open: issues.length - resolved.length,
     resolvedThisMonth: resolved.filter(issue => (issue.resolved_at ?? '').startsWith(month)).length,
     resolved: resolved.length,
     accidents: issues.filter(issue => asIssueType(issue.type) === 'accident').length,
     averageDays: timed.length > 0 ? Math.round((timed.reduce((sum, days) => sum + days, 0) / timed.length) * 10) / 10 : null,
   };
+}
+
+/** The ones a tile can filter by. `all` is simply no filter. */
+export const ISSUE_FILTERS = ['open', 'resolved', 'accidents'] as const;
+export type IssueFilter = 'all' | typeof ISSUE_FILTERS[number];
+
+/** `resolved` means resolved this month, which is what its tile counts. */
+export function inIssueFilter(issue: IssueRow, filter: IssueFilter, today: string): boolean {
+  switch (filter) {
+    case 'open': return asIssueStatus(issue.status) === 'open';
+    case 'resolved': return asIssueStatus(issue.status) === 'resolved' && (issue.resolved_at ?? '').startsWith(today.slice(0, 7));
+    case 'accidents': return asIssueType(issue.type) === 'accident';
+    default: return true;
+  }
 }
 
 export function matchesIssue(issue: IssueRow, query: string): boolean {

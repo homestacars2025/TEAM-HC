@@ -87,18 +87,10 @@
     "unpaid": "Unpaid",
     "paid": "Paid",
     "month": "This month",
-    "linked": "Linked to a customer",
     "count_one": "{{count}} fine",
     "count_other": "{{count}} fines",
-    "unassigned": "{{count}} unassigned",
-    "allLinked": "All linked"
-  },
-  "segments": {
-    "all": "All",
-    "unpaid": "Unpaid",
-    "paid": "Paid",
     "unassigned": "Unassigned",
-    "month": "This month"
+    "all": "All fines"
   },
   "row": {
     "noCustomer": "Not linked to a customer"

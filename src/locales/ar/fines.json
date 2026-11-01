@@ -87,22 +87,14 @@
     "unpaid": "غير مدفوعة",
     "paid": "مدفوعة",
     "month": "هذا الشهر",
-    "linked": "مربوطة بعميل",
     "count_zero": "لا مخالفات",
     "count_one": "مخالفة واحدة",
     "count_two": "مخالفتان",
     "count_few": "{{count}} مخالفات",
     "count_many": "{{count}} مخالفة",
     "count_other": "{{count}} مخالفة",
-    "unassigned": "{{count}} بدون عميل",
-    "allLinked": "كلها مربوطة"
-  },
-  "segments": {
-    "all": "الكل",
-    "unpaid": "غير مدفوعة",
-    "paid": "مدفوعة",
     "unassigned": "بدون عميل",
-    "month": "هذا الشهر"
+    "all": "كل المخالفات"
   },
   "row": {
     "noCustomer": "غير مربوط بعميل"

@@ -103,13 +103,15 @@
   },
   "tiles": {
     "open": "Open",
-    "openSub": "Waiting to be fixed",
+    "openSub": "To be fixed",
     "resolvedMonth": "Resolved this month",
-    "resolvedTotal": "{{count}} resolved in total",
+    "resolvedTotal": "{{count}} in total",
     "accidents": "Accidents",
-    "accidentsSub": "All recorded accidents",
+    "accidentsSub": "All time",
     "average": "Avg days to resolve",
-    "averageSub": "Days per issue"
+    "averageSub": "Days per issue",
+    "all": "All issues",
+    "allSub": "All time"
   },
   "layout": {
     "label": "Layout",

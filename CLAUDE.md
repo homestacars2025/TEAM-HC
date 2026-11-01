@@ -16,6 +16,12 @@ HomestaCars is a premium car rental company based in Istanbul, Turkey (founded 2
 - Language: English
 - No generic AI patterns — distinctive, memorable UI
 
+## Design Rules
+- Stat tiles double as filters; no separate filter chip rows. Pressing a tile filters the list, pressing the active tile clears it, and an "All" tile always shows everything.
+- Filter tiles use `StatTile` with `onPress` and `pressed`, plus `useTileFilter` to keep the choice in the URL (`?filter=unpaid`). They are buttons with `aria-pressed`. The active tile gets a 2px border in its own color, a stronger tint and a check badge.
+- A tile with nothing to filter stays a plain `StatTile`. Filters with too many values for tiles go in a dropdown beside the search, which sits below the tiles.
+- Tile sizing: compact on desktop (about 140px high, at most 220px wide, row at most 900px), 2 per row on mobile with short tiles (about 1.2/1), never tall empty tiles. Show count and amount where both apply.
+
 ## Architecture
 - /src/components — reusable UI components
 - /src/pages — dashboard pages

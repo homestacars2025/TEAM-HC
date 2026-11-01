@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { ageTone, asIssueStatus, asIssueType, daysOpen, issueStats, matchesIssue, photoUrls, type IssueRow } from './carIssues';
-import { fineDocuments, fineStats, inSegment, matchesFine, type Fine } from './fines';
+import { ageTone, asIssueStatus, asIssueType, daysOpen, inIssueFilter, issueStats, matchesIssue, photoUrls, type IssueRow } from './carIssues';
+import { fineDay, fineDocuments, fineStats, inSegment, matchesFine, type Fine } from './fines';
 import { bookingsOnDay, type CarBooking } from './queries/carBookings';
 
 const TODAY = '2026-11-01';
@@ -30,11 +30,11 @@ describe('fines', () => {
 
   test('counts and totals, with no amount counted as zero', () => {
     expect(fineStats(fines, TODAY)).toEqual({
+      all: { count: 4, total: 1750 },
       unpaid: { count: 2, total: 1250 },
       paid: { count: 2, total: 500 },
       month: { count: 2, total: 1000 },
-      unassigned: 1,
-      linked: 3,
+      unassigned: { count: 1, total: 250 },
     });
   });
 
@@ -45,6 +45,13 @@ describe('fines', () => {
     expect(ids('paid')).toBe('bd');
     expect(ids('unassigned')).toBe('c');
     expect(ids('month')).toBe('ad');
+  });
+
+  test('this month goes by the violation date, then the notification date, never when it was entered', () => {
+    expect(fineDay(fine({ violation_date: '2026-08-14', notification_date: '2026-11-01' }))).toBe('2026-08-14');
+    expect(fineDay(fine({ violation_date: null, notification_date: '2026-11-01' }))).toBe('2026-11-01');
+    expect(inSegment(fine({ violation_date: null, notification_date: '2026-11-01' }), 'month', TODAY)).toBe(true);
+    expect(inSegment(fine({ violation_date: null, notification_date: null, created_at: '2026-11-01' }), 'month', TODAY)).toBe(false);
   });
 
   test('search covers plate, number, customer and place, and copes with blanks', () => {
@@ -95,7 +102,20 @@ describe('car issues', () => {
       issue({ id: 3, status: 'resolved', resolved_at: '2026-11-01', days_to_resolve: 4 }),
       issue({ id: 4, status: 'resolved', resolved_at: '2026-09-01', days_to_resolve: 3 }),
       issue({ id: 5, status: 'resolved', type: 'accident', resolved_at: '2026-11-01', days_to_resolve: null }),
-    ], TODAY)).toEqual({ open: 2, resolvedThisMonth: 2, resolved: 3, accidents: 2, averageDays: 3.5 });
+    ], TODAY)).toEqual({ total: 5, open: 2, resolvedThisMonth: 2, resolved: 3, accidents: 2, averageDays: 3.5 });
+  });
+
+  test('each tile filters to what it counts', () => {
+    const list = [
+      issue({ id: 1 }),
+      issue({ id: 2, type: 'accident', status: 'resolved', resolved_at: '2026-09-01' }),
+      issue({ id: 3, status: 'resolved', resolved_at: '2026-11-01' }),
+    ];
+    const ids = (filter: Parameters<typeof inIssueFilter>[1]) => list.filter(i => inIssueFilter(i, filter, TODAY)).map(i => i.id).join('');
+    expect(ids('all')).toBe('123');
+    expect(ids('open')).toBe('1');
+    expect(ids('resolved')).toBe('3');
+    expect(ids('accidents')).toBe('2');
   });
 
   test('no resolved issues: no average, not zero', () => {
@@ -127,5 +147,14 @@ describe('car issues', () => {
     expect(matchesIssue(issue({ customer_name: 'Ali' }), 'ali')).toBe(true);
     expect(matchesIssue(issue({}), '34abc')).toBe(true);
     expect(matchesIssue(issue({}), 'zzz')).toBe(false);
+  });
+});
+
+describe('stat tiles double as filters', () => {
+  const page = (name: string) => fs.readFileSync(path.join(__dirname, '../pages', name), 'utf8');
+
+  test.each(['FinesPage.tsx', 'CarIssuesPage.tsx'])('%s has no separate chip row', file => {
+    expect(page(file)).not.toMatch(/hc-chip/);
+    expect(page(file)).toContain('useTileFilter');
   });
 });

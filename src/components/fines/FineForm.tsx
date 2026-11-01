@@ -6,13 +6,14 @@ import { bookingsOnDay, getCarBookings, type CarBooking } from '../../lib/querie
 import { recentCarIds, rememberCar } from '../../lib/queries/availability';
 import { addFine, nextFineSequence, updateFine, uploadFineFile, type FineCar, type FineChange } from '../../lib/queries/fines';
 import Button from '../Button';
+import CustomerAvatar from '../CustomerAvatar';
 import BookingSheet from '../booking/BookingSheet';
 import CarPicker from '../booking/CarPicker';
 import DateParts from '../booking/DateParts';
 import { Field, FieldError, FormCard, FormError } from '../booking/FormParts';
 import MoneyField from '../booking/MoneyField';
 import BannedBadge from '../customers/BannedBadge';
-import CustomerSearch, { initialsOf } from '../customers/CustomerSearch';
+import CustomerSearch from '../customers/CustomerSearch';
 import FileDrop from '../forms/FileDrop';
 import TimeParts from '../forms/TimeParts';
 import { FINE_ICONS } from './parts';
@@ -242,7 +243,7 @@ const FineForm: React.FC<FineFormProps> = ({ fine, cars, carsFailed, onRetryCars
                   <p>{t('form.suggestTitle')}</p>
                   {suggestions.map(booking => (
                     <div key={booking.id} className="hc-suggest">
-                      <span aria-hidden="true" className="hc-cust-avatar">{initialsOf(booking.customer_name ?? '') || '?'}</span>
+                      <CustomerAvatar size={34} />
                       <span className="min-w-0 flex-1">
                         <span dir="auto" className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#0f1117]">
                           {booking.customer_name}

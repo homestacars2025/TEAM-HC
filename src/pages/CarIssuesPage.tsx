@@ -6,11 +6,12 @@ import { StatTile } from '../components/WalletParts';
 import IssueDetail from '../components/issues/IssueDetail';
 import IssueForm from '../components/issues/IssueForm';
 import ResolveSheet from '../components/issues/ResolveSheet';
-import { IssueCard, IssueIcon } from '../components/issues/parts';
+import { IssueCard } from '../components/issues/parts';
 import { useDateLocale } from '../hooks/useDateLocale';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useStaffProfiles } from '../hooks/useStaffProfiles';
-import { asIssueStatus, asIssueType, ISSUE_TYPES, issueStats, matchesIssue, type IssueRow, type IssueStatus, type IssueType } from '../lib/carIssues';
+import { useTileFilter } from '../hooks/useTileFilter';
+import { asIssueStatus, asIssueType, inIssueFilter, ISSUE_FILTERS, ISSUE_TYPES, issueStats, matchesIssue, type IssueRow, type IssueStatus, type IssueType } from '../lib/carIssues';
 import { istanbulDate } from '../lib/istanbulTime';
 import { getIssues, setIssueStatus } from '../lib/queries/carIssues';
 import { getFineCars, type FineCar } from '../lib/queries/fines';
@@ -45,7 +46,7 @@ const CarIssuesPage: React.FC = () => {
   const [cars, setCars] = useState<FineCar[] | null>(null);
   const [carsFailed, setCarsFailed] = useState(false);
   const [carsAttempt, setCarsAttempt] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<'all' | IssueStatus>('all');
+  const [filter, setFilter] = useTileFilter(ISSUE_FILTERS);
   const [typeFilter, setTypeFilter] = useState<'all' | IssueType>('all');
   const [search, setSearch] = useState('');
   const [layout, setLayout] = useState<Layout>(readLayout);
@@ -94,10 +95,10 @@ const CarIssuesPage: React.FC = () => {
   const detail = issues?.find(issue => issue.id === detailId) ?? null;
 
   const shown = useMemo(() => (issues ?? []).filter(issue => (
-    (statusFilter === 'all' || asIssueStatus(issue.status) === statusFilter)
+    inIssueFilter(issue, filter, today)
     && (typeFilter === 'all' || asIssueType(issue.type) === typeFilter)
     && matchesIssue(issue, search)
-  )), [issues, statusFilter, typeFilter, search]);
+  )), [issues, filter, typeFilter, search, today]);
 
   const changed = useCallback((message: string) => {
     showToast(message);
@@ -153,7 +154,7 @@ const CarIssuesPage: React.FC = () => {
     );
   };
 
-  const columns: IssueStatus[] = statusFilter === 'all' ? ['open', 'resolved'] : [statusFilter];
+  const columns: IssueStatus[] = filter === 'open' ? ['open'] : filter === 'resolved' ? ['resolved'] : ['open', 'resolved'];
 
   return (
     <div className="hc-records-page">
@@ -176,31 +177,21 @@ const CarIssuesPage: React.FC = () => {
         </div>
       )}
 
-      <div className="hc-tiles hc-tiles-four">
-        <StatTile tone="negative" label={t('tiles.open')} value={loading ? null : String(stats.open)} sub={t('tiles.openSub')} />
-        <StatTile tone="received" label={t('tiles.resolvedMonth')} value={loading ? null : String(stats.resolvedThisMonth)} sub={t('tiles.resolvedTotal', { count: stats.resolved })} />
-        <StatTile tone="warn" label={t('tiles.accidents')} value={loading ? null : String(stats.accidents)} sub={t('tiles.accidentsSub')} />
+      <div className="hc-tiles hc-tiles-filter">
+        <StatTile tone="total" label={t('tiles.all')} value={loading ? null : String(stats.total)} sub={t('tiles.allSub')} pressed={filter === 'all'} onPress={() => setFilter('all')} />
+        <StatTile tone="negative" label={t('tiles.open')} value={loading ? null : String(stats.open)} sub={t('tiles.openSub')} pressed={filter === 'open'} onPress={() => setFilter('open')} />
+        <StatTile tone="received" label={t('tiles.resolvedMonth')} value={loading ? null : String(stats.resolvedThisMonth)} sub={t('tiles.resolvedTotal', { count: stats.resolved })} pressed={filter === 'resolved'} onPress={() => setFilter('resolved')} />
+        <StatTile tone="warn" label={t('tiles.accidents')} value={loading ? null : String(stats.accidents)} sub={t('tiles.accidentsSub')} pressed={filter === 'accidents'} onPress={() => setFilter('accidents')} />
         <StatTile tone="balance" label={t('tiles.average')} value={loading ? null : stats.averageDays === null ? '—' : String(stats.averageDays)} sub={t('tiles.averageSub')} />
       </div>
 
       <div className="hc-records-tools">
-        <div role="group" aria-label={tc('fields.type')} className="hc-chip-row">
-          <button type="button" className="hc-chip" aria-pressed={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>{t('filters.allTypes')}</button>
-          {ISSUE_TYPES.map(type => (
-            <button key={type} type="button" className={`hc-chip hc-type-filter is-${type}`} aria-pressed={typeFilter === type} onClick={() => setTypeFilter(type)}>
-              <IssueIcon type={type} size={13} />{t(`types.${type}`)}
-            </button>
-          ))}
-        </div>
         <div className="hc-records-row">
-          <div role="group" aria-label={tc('fields.status')} className="hc-seg">
-            {(['all', 'open', 'resolved'] as const).map(status => (
-              <button key={status} type="button" aria-pressed={statusFilter === status} onClick={() => setStatusFilter(status)}>
-                {status === 'all' ? t('filters.allStatuses') : t(`status.${status}`)}
-              </button>
-            ))}
-          </div>
           <input className="hc-input hc-records-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('filters.search')} aria-label={t('filters.search')} />
+          <select className="hc-input hc-records-type" aria-label={tc('fields.type')} value={typeFilter} onChange={e => setTypeFilter(e.target.value as 'all' | IssueType)}>
+            <option value="all">{t('filters.allTypes')}</option>
+            {ISSUE_TYPES.map(type => <option key={type} value={type}>{t(`types.${type}`)}</option>)}
+          </select>
           <div role="group" aria-label={t('layout.label')} className="hc-seg">
             {(['board', 'list'] as const).map(option => (
               <button key={option} type="button" aria-pressed={layout === option} onClick={() => chooseLayout(option)}>{t(`layout.${option}`)}</button>

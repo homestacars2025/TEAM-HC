@@ -113,11 +113,13 @@
     "open": "مفتوحة",
     "openSub": "بانتظار الحل",
     "resolvedMonth": "حُلّت هذا الشهر",
-    "resolvedTotal": "{{count}} محلولة بالإجمال",
+    "resolvedTotal": "{{count}} بالإجمال",
     "accidents": "حوادث",
-    "accidentsSub": "كل الحوادث المسجّلة",
+    "accidentsSub": "منذ البداية",
     "average": "متوسط أيام الحل",
-    "averageSub": "يوم لكل مشكلة"
+    "averageSub": "يوم لكل مشكلة",
+    "all": "كل المشاكل",
+    "allSub": "منذ البداية"
   },
   "layout": {
     "label": "طريقة العرض",

@@ -22,9 +22,14 @@ export interface Fine {
   violation_code: string | null;
 }
 
-export type FineSegment = 'all' | 'unpaid' | 'paid' | 'unassigned' | 'month';
+export type FineSegment = 'all' | 'unpaid' | 'paid' | 'month' | 'unassigned';
 
-export const FINE_SEGMENTS: FineSegment[] = ['all', 'unpaid', 'paid', 'unassigned', 'month'];
+/** The ones a tile can filter by. `all` is simply no filter. */
+export const FINE_FILTERS = ['unpaid', 'paid', 'month', 'unassigned'] as const;
+
+/** The day a fine belongs to: when it happened, or failing that when it was notified. */
+export const fineDay = (fine: Pick<Fine, 'violation_date' | 'notification_date'>): string =>
+  fine.violation_date ?? fine.notification_date ?? '';
 
 const sum = (fines: readonly Fine[]) => fines.reduce((total, fine) => total + (Number(fine.amount) || 0), 0);
 
@@ -33,7 +38,7 @@ export function inSegment(fine: Fine, segment: FineSegment, today: string): bool
     case 'unpaid': return fine.status !== 'paid';
     case 'paid': return fine.status === 'paid';
     case 'unassigned': return !fine.customer_id;
-    case 'month': return (fine.violation_date ?? '').startsWith(today.slice(0, 7));
+    case 'month': return fineDay(fine).startsWith(today.slice(0, 7));
     default: return true;
   }
 }
@@ -44,11 +49,11 @@ export function fineStats(fines: readonly Fine[], today: string) {
     return { count: found.length, total: sum(found) };
   };
   return {
+    all: group('all'),
     unpaid: group('unpaid'),
     paid: group('paid'),
     month: group('month'),
-    unassigned: group('unassigned').count,
-    linked: fines.length - group('unassigned').count,
+    unassigned: group('unassigned'),
   };
 }
 
