@@ -8,9 +8,10 @@ import { StatTile } from '../components/WalletParts';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { useTileFilter } from '../hooks/useTileFilter';
 import { getSupplierBalances, getSuppliers } from '../lib/queries/suppliers';
-import { formatMoney, inSupplierFilter, matchesSupplier, owedByCurrency, SUPPLIER_CATEGORIES, SUPPLIER_FILTERS, type Supplier, type SupplierBalance } from '../lib/suppliers';
+import { formatMoney, inSupplierFilter, matchesSupplier, owedByCurrency, SUPPLIER_CATEGORIES, supplierPath, SUPPLIER_FILTERS, type Supplier, type SupplierBalance } from '../lib/suppliers';
 
-const SuppliersPage: React.FC = () => {
+/** Lives inside the Suppliers tab of Accounting, which has the page's title and padding. */
+const SuppliersPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation('finance');
   const { t: tc } = useTranslation('common');
   const { userId } = useCurrentUser();
@@ -58,13 +59,15 @@ const SuppliersPage: React.FC = () => {
   const value = (n: number) => (loading ? null : String(n));
 
   return (
-    <div className="hc-records-page">
+    <div className={embedded ? undefined : 'hc-records-page'}>
       <header className="hc-records-head">
-        <div className="min-w-0">
-          <p className="hc-eyebrow">{t('suppliers.eyebrow')}</p>
-          <h1>{t('suppliers.title')}</h1>
-          <p>{t('suppliers.subtitle')}</p>
-        </div>
+        {!embedded && (
+          <div className="min-w-0">
+            <p className="hc-eyebrow">{t('suppliers.eyebrow')}</p>
+            <h1>{t('suppliers.title')}</h1>
+            <p>{t('suppliers.subtitle')}</p>
+          </div>
+        )}
         <Button onClick={() => setAdding(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
           {t('suppliers.add')}
@@ -107,7 +110,7 @@ const SuppliersPage: React.FC = () => {
             const money = of(supplier).filter(row => row.balance !== 0);
             return (
               <article key={supplier.id} className={`hc-sup-card surface-depth ${supplier.is_active ? '' : 'is-off'}`}>
-                <Link to={`/dashboard/suppliers/${supplier.id}`} className="hc-sup-card-open" aria-label={t('suppliers.open', { name: supplier.name })} />
+                <Link to={supplierPath(supplier.id)} className="hc-sup-card-open" aria-label={t('suppliers.open', { name: supplier.name })} />
                 <div className="hc-sup-card-head">
                   <h2 dir="auto">{supplier.name}</h2>
                   <CategoryChip category={supplier.category} />
@@ -130,7 +133,7 @@ const SuppliersPage: React.FC = () => {
       )}
 
       {adding && (
-        <SupplierForm supplier={null} userId={userId} onClose={() => setAdding(false)} onSaved={saved => navigate(`/dashboard/suppliers/${saved.id}`)} />
+        <SupplierForm supplier={null} userId={userId} onClose={() => setAdding(false)} onSaved={saved => navigate(supplierPath(saved.id))} />
       )}
     </div>
   );

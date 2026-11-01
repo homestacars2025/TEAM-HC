@@ -3,7 +3,8 @@
     "status": {
       "pending": "Awaiting confirmation",
       "approved": "Confirmed",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "legacy": "Confirmed (old)"
     },
     "loading": "Loading",
     "loadFailed": "Could not load the expenses.",
@@ -14,23 +15,15 @@
     "emptyPending": "Nothing is waiting for confirmation.",
     "tiles": {
       "all": "All expenses",
-      "pending": "Pending",
-      "approved": "Approved this month",
+      "pending": "Awaiting matching",
+      "approved": "Confirmed this month",
       "rejected": "Rejected",
       "noReceipt": "Without receipt",
       "expenses_one": "{{count}} expense",
-      "expenses_other": "{{count}} expenses"
+      "expenses_other": "{{count}} expenses",
+      "unsigned": "Not signed by me"
     },
-    "waiting_one": "{{count}} waiting · {{total}}",
-    "waiting_other": "{{count}} waiting · {{total}}",
-    "post": {
-      "car": "Car sheet {{plate}}",
-      "company": "Company expenses"
-    },
-    "approve": "Confirm",
     "reject": "Reject",
-    "approveSelected": "Confirm selected",
-    "posted": "Posted",
     "select": "Select the expense of {{amount}}",
     "selectAll": "Select everything waiting from {{name}}",
     "bulkLabel": "Selected expenses",
@@ -52,7 +45,15 @@
       "noCarSheet": "This car has no sheet to post to.",
       "alreadyDone": "Someone already answered this expense. The list has been refreshed.",
       "reason": "Write a reason.",
-      "generic": "Could not save. Try again."
+      "generic": "Could not save. Try again.",
+      "car": "Choose a car."
+    },
+    "match": "Match",
+    "matchSelected": "Match selected",
+    "settled": {
+      "car": "Posted to: sheet {{plate}}",
+      "company": "Company expenses",
+      "other": "Confirmed, not posted"
     }
   },
   "picker": {
@@ -184,5 +185,75 @@
     "voidFailed": "Could not void this entry. Try again.",
     "empty": "Nothing on this sheet yet.",
     "noMatch": "No entries match."
+  },
+  "match": {
+    "title": "Match expense",
+    "target": "Destination",
+    "car": "Car sheet",
+    "company": "Company expenses",
+    "other": "Other",
+    "category": "Category",
+    "note": "Note",
+    "confirm": "Confirm"
+  },
+  "sign": {
+    "signed": "{{name}} signed, {{time}}",
+    "unsigned": "{{name}} has not signed"
+  },
+  "custody": {
+    "add": "Add movement",
+    "added": "Movement added",
+    "updated": "Movement updated",
+    "deleted": "Movement deleted",
+    "deleteTitle": "Delete this movement?",
+    "deleteBody": "{{amount}} is removed from this employee's custody.",
+    "balance": "Balance",
+    "received": "Received this month",
+    "spent": "Spent this month",
+    "select": "Select",
+    "date": "Date",
+    "on": "On",
+    "category": "Category",
+    "supplier": "Supplier",
+    "description": "Description",
+    "amount": "Amount",
+    "receipt": "Receipt",
+    "status": "Status",
+    "actions": "Actions",
+    "in": "Received",
+    "pending_one": "{{count}} waiting",
+    "pending_other": "{{count}} waiting"
+  },
+  "home": {
+    "latest": "Latest pending expenses",
+    "debtors": "Top debtors",
+    "noDebtors": "No customer owes us.",
+    "tiles": {
+      "pending": "Waiting for approval",
+      "unsigned": "Unsigned by me",
+      "held": "Custody held",
+      "heldSub": "All employees",
+      "owed": "Customers owe us",
+      "credit": "Customers in credit",
+      "fines": "Unpaid fines",
+      "suppliers": "Suppliers we owe",
+      "sheets": "Car sheet expenses",
+      "company": "Company expenses",
+      "thisMonth": "This month"
+    },
+    "actions": {
+      "title": "Quick actions",
+      "review": "Review pending expenses",
+      "custody": "Add a custody movement",
+      "company": "Add a company expense",
+      "sheets": "Open car sheets",
+      "suppliers": "Open suppliers"
+    },
+    "customers_one": "{{count}} customer",
+    "customers_other": "{{count}} customers",
+    "fines_one": "{{count}} fine",
+    "fines_other": "{{count}} fines",
+    "suppliers_one": "{{count}} supplier",
+    "suppliers_other": "{{count}} suppliers"
   }
 }

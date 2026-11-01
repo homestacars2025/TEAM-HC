@@ -5,9 +5,9 @@ import type { ReviewStatus } from '../../lib/expenseReview';
 const TONE: Record<ReviewStatus, string> = { pending: 'is-amber', approved: 'is-green', rejected: 'is-red' };
 
 /** Where finance has got to with an expense. A refusal keeps its reason on hover. */
-const ReviewPill: React.FC<{ status: ReviewStatus; note?: string | null }> = ({ status, note }) => {
+const ReviewPill: React.FC<{ status: ReviewStatus; note?: string | null; legacy?: boolean }> = ({ status, note, legacy = false }) => {
   const { t } = useTranslation('finance');
-  return <span className={`hc-pill ${TONE[status]}`} title={status === 'rejected' ? note ?? undefined : undefined}>{t(`review.status.${status}`)}</span>;
+  return <span className={`hc-pill ${legacy ? 'is-old' : TONE[status]}`} title={status === 'rejected' ? note ?? undefined : undefined}>{t(legacy ? 'review.status.legacy' : `review.status.${status}`)}</span>;
 };
 
 export default ReviewPill;

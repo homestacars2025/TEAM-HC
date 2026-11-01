@@ -67,6 +67,9 @@ export interface SupplierTxWithRunning extends SupplierTx {
   running: number | null;
 }
 
+export const SUPPLIERS_PATH = '/dashboard/accounting?tab=suppliers';
+export const supplierPath = (id: number) => `${SUPPLIERS_PATH}&supplier=${id}`;
+
 /** Always the row's own currency, never converted: this is what was billed or paid. */
 export function formatMoney(amount: number, currency: SupplierCurrency): string {
   const digits = Math.abs(amount).toLocaleString(currency === 'TRY' ? 'tr-TR' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

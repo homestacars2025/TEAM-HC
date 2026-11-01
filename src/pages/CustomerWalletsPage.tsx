@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useUrlSearch } from '../hooks/useUrlSearch';
+import { convertEntry, getLedgerRows, type Direction, type LedgerCustomer, type LedgerRow } from '../lib/customerLedger';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { printCustomerInvoice } from '../lib/printCustomerInvoice';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +13,6 @@ import BannedBadge from '../components/customers/BannedBadge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Direction = 'IN' | 'OUT';
-
 /** Which car cards the top tabs show. */
 type RentalTab = 'all' | 'current' | 'ended';
 
@@ -21,28 +20,6 @@ type RentalTab = 'all' | 'current' | 'ended';
 interface RateRow { currency: string; rate_to_try: number; }
 
 type ToastState = { message: string; type: 'success' | 'error' } | null;
-
-interface LedgerCustomer {
-  first_name: string | null;
-  last_name: string | null;
-  is_banned: boolean | null;
-  ban_reason: string | null;
-}
-
-interface LedgerRow {
-  id: string;
-  booking_id: number | null;
-  customer_id: string;
-  car_id: number | null;
-  type: string;
-  description: string | null;
-  amount: number;
-  direction: Direction;
-  exchange_rate_at_entry: number | null;
-  created_at: string | null;
-  customers: LedgerCustomer | LedgerCustomer[] | null;
-  cars: { plate_number: string | null } | { plate_number: string | null }[] | null;
-}
 
 /** Level 2 — one customer's ledger on ONE car. Balances are scoped to that car only. */
 interface CustomerOnCar {
@@ -74,7 +51,6 @@ interface CarGroup {
   hasLive: boolean;
   /** Display + ordering only, resolved from `model_group`. Never affects money. */
   modelName: string | null;
-  imageUrl: string | null;
 }
 
 const UNLINKED_KEY = '__unlinked__';
@@ -82,7 +58,6 @@ const UNLINKED_KEY = '__unlinked__';
 /** Read-only presentation data for a car, keyed by car id. */
 interface CarMeta {
   modelName: string | null;
-  imageUrl: string | null;
 }
 
 interface CustomerOption { id: string; name: string; banned: boolean; }
@@ -187,26 +162,6 @@ function formatDateDisplay(s: string | null): string {
  * had when recorded; a missing rate falls back to today's and is flagged approximate.
  * EUR/LYD have no per-entry rate stored, so they convert at today's rate — always approximate.
  */
-function convertEntry(
-  row: LedgerRow,
-  currency: Currency,
-  rates: RateRow[],
-  fallbackUsdRate: number | null,
-): { value: number; approx: boolean } {
-  if (currency === 'TRY') return { value: row.amount, approx: false };
-
-  if (currency === 'USD') {
-    const stored = row.exchange_rate_at_entry;
-    if (stored != null && stored > 0) return { value: row.amount / stored, approx: false };
-    if (fallbackUsdRate != null && fallbackUsdRate > 0) return { value: row.amount / fallbackUsdRate, approx: true };
-    return { value: 0, approx: true };
-  }
-
-  const rate = rates.find(r => r.currency === currency)?.rate_to_try;
-  if (rate != null && rate > 0) return { value: row.amount / rate, approx: true };
-  return { value: row.amount, approx: true };
-}
-
 const firstCustomer = (row: LedgerRow): LedgerCustomer | null =>
   (Array.isArray(row.customers) ? row.customers[0] : row.customers) ?? null;
 
@@ -663,6 +618,7 @@ const CW_STYLES = `
   --cw-shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 14px 34px rgba(16,24,40,.09);
 }
 .cw-page { background:var(--cw-bg); min-height:100%; padding:30px 32px 56px; color:var(--cw-ink); }
+.cw-page.is-embedded { min-height:0; padding:0; }
 .cw-page *:focus-visible, .cw-overlay *:focus-visible { outline:2px solid var(--cw-accent); outline-offset:2px; border-radius:6px; }
 .cw-num { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
 
@@ -715,12 +671,6 @@ const CW_STYLES = `
   font-size:23px; font-weight:800; letter-spacing:-.7px; line-height:1.15; color:var(--cw-ink);
   font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; min-width:0; word-break:break-word;
 }
-.cw-thumb {
-  width:56px; height:56px; border-radius:12px; overflow:hidden; flex-shrink:0;
-  background:var(--cw-neu-bg); color:#B4BCC8;
-  display:flex; align-items:center; justify-content:center;
-}
-.cw-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
 .cw-tile-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .cw-rule { display:block; height:1px; background:var(--cw-border); }
 /* Balance is the second hero — it visually rivals the plate. */
@@ -759,11 +709,6 @@ const CW_STYLES = `
   animation:cwRise 200ms cubic-bezier(.22,1,.36,1); color:var(--cw-ink);
 }
 .cw-modal-head { display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--cw-border); flex-shrink:0; }
-.cw-modal-thumb {
-  width:76px; height:52px; border-radius:13px; overflow:hidden; flex-shrink:0;
-  background:var(--cw-neu-bg); display:flex; align-items:center; justify-content:center; color:#B4BCC8;
-}
-.cw-modal-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
 .cw-modal-close {
   appearance:none; width:36px; height:36px; border-radius:10px; border:1px solid var(--cw-border);
   background:var(--cw-card); color:var(--cw-muted); cursor:pointer; flex-shrink:0;
@@ -846,6 +791,7 @@ const CW_STYLES = `
 /* ── Mobile ── */
 @media (max-width:760px) {
   .cw-page { padding:22px 16px 44px; }
+  .cw-page.is-embedded { padding:0; }
   .cw-h1 { font-size:24px; }
   .cw-stats { grid-template-columns:1fr; gap:12px; }
   .cw-stat { padding:16px 18px; }
@@ -856,8 +802,7 @@ const CW_STYLES = `
   .cw-overlay { padding:0; align-items:flex-end; }
   .cw-modal { max-width:none; max-height:100vh; height:100vh; border-radius:0; }
   .cw-modal-head { padding:16px; }
-  .cw-modal-thumb { width:58px; height:42px; }
-  .cw-modal-body { padding:14px 14px 20px; }
+    .cw-modal-body { padding:14px 14px 20px; }
   .cw-crow-head { flex-direction:column; align-items:stretch; gap:12px; }
   .cw-row-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .cw-btn-soft, .cw-btn-ghost { justify-content:center; min-height:44px; }
@@ -897,23 +842,6 @@ const Approx: React.FC = () => {
   return (
   <span className="cw-approx" title={t('balance.approx')}>≈</span>
   );
-};
-
-const CarGlyph: React.FC<{ size?: number }> = ({ size = 26 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    <rect x="9" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.7" />
-    <circle cx="12" cy="16" r="1.1" fill="currentColor" />
-    <circle cx="20" cy="16" r="1.1" fill="currentColor" />
-  </svg>
-);
-
-/** Model photo that degrades to a tinted glyph — a broken URL never shows a broken image. */
-const CarImage: React.FC<{ url: string | null; alt: string; glyphSize?: number }> = ({ url, alt, glyphSize }) => {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [url]);
-  if (!url || failed) return <CarGlyph size={glyphSize} />;
-  return <img src={url} alt={alt} loading="lazy" onError={() => setFailed(true)} />;
 };
 
 // ─── Level 3 — one customer's transaction sheet for one car ───────────────────
@@ -1116,9 +1044,6 @@ const CarTile: React.FC<{
   >
     <span className="cw-tile-top">
       <span className="cw-tile-plate">{car.plate}</span>
-      <span className="cw-thumb">
-        <CarImage url={car.imageUrl} alt={car.modelName ?? car.plate} glyphSize={22} />
-      </span>
     </span>
 
     <span className="cw-tile-meta">
@@ -1127,7 +1052,7 @@ const CarTile: React.FC<{
         ? <span className="cw-pill cw-pill--live"><i />{t('onRent')}</span>
         : <span className="cw-pill cw-pill--idle"><i />{t('available')}</span>}
       <span className="cw-caption" style={{ marginTop: 0 }}>
-        · {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
+        · {t('customerCount', { count: car.customers.length })}
       </span>
     </span>
 
@@ -1204,9 +1129,6 @@ const CarModal: React.FC<{
     <div className="cw-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="cw-modal" ref={boxRef} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="cw-modal-head">
-          <span className="cw-modal-thumb">
-            <CarImage url={car.imageUrl} alt={car.modelName ?? car.plate} glyphSize={22} />
-          </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="cw-plate-line">
               <span className="cw-plate" id={titleId}>{car.plate}</span>
@@ -1215,7 +1137,7 @@ const CarModal: React.FC<{
                 : <span className="cw-pill cw-pill--idle"><i />{t('available')}</span>}
             </div>
             <div className="cw-caption">
-              {car.modelName ?? t('noModelGroup')} · {car.customers.length} {car.customers.length === 1 ? 'customer' : 'customers'}
+              {car.modelName ?? t('noModelGroup')} · {t('customerCount', { count: car.customers.length })}
             </div>
           </div>
           <div className="cw-bal-block" style={{ marginRight: 4 }}>
@@ -1259,7 +1181,8 @@ const CarModal: React.FC<{
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const CustomerWalletsPage: React.FC = () => {
+/** `embedded` sits inside a tab of Accounting, which has its own title and padding. */
+const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation('wallets');
   const { t: tc } = useTranslation('common');
   const { currency, rates } = useCurrency();
@@ -1271,7 +1194,7 @@ const CustomerWalletsPage: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   /** `${car_id}:${customer_id}` for every currently-active booking. */
   const [liveKeys, setLiveKeys] = useState<Set<string>>(new Set());
-  /** car id → model group name + image, for display and ordering only. */
+  /** car id → model group name, for display and ordering only. */
   const [carMeta, setCarMeta] = useState<Map<number, CarMeta>>(new Map());
 
   const [tab, setTab] = useState<RentalTab>('all');
@@ -1294,14 +1217,13 @@ const CustomerWalletsPage: React.FC = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('customer_accounting_ledger')
-      .select('id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, customers(first_name, last_name, is_banned, ban_reason), cars(plate_number)')
-      .order('created_at', { ascending: false });
+    try {
+      setRows(await getLedgerRows());
+      setLoadError(null);
+    } catch (failure) {
+      setLoadError((failure as { message?: string })?.message ?? '');
+    }
     setLoading(false);
-    if (error) { setLoadError(error.message); return; }
-    setLoadError(null);
-    setRows((data ?? []) as unknown as LedgerRow[]);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -1326,18 +1248,18 @@ const CustomerWalletsPage: React.FC = () => {
     (async () => {
       const [carsRes, groupsRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id'),
-        supabase.from('model_group').select('id, name, brand, model, image_url'),
+        supabase.from('model_group').select('id, name, brand, model'),
       ]);
       if (!active) return;
-      const groups = new Map<number, { name: string | null; brand: string | null; model: string | null; image_url: string | null }>();
-      for (const g of (groupsRes.data ?? []) as { id: number; name: string | null; brand: string | null; model: string | null; image_url: string | null }[]) {
+      const groups = new Map<number, { name: string | null; brand: string | null; model: string | null }>();
+      for (const g of (groupsRes.data ?? []) as { id: number; name: string | null; brand: string | null; model: string | null }[]) {
         groups.set(g.id, g);
       }
       const meta = new Map<number, CarMeta>();
       for (const c of (carsRes.data ?? []) as { id: number; model_group_id: number | null }[]) {
         const g = c.model_group_id != null ? groups.get(c.model_group_id) : undefined;
         const label = g ? (g.name ?? ([g.brand, g.model].filter(Boolean).join(' ') || null)) : null;
-        meta.set(c.id, { modelName: label, imageUrl: g?.image_url ?? null });
+        meta.set(c.id, { modelName: label });
       }
       setCarMeta(meta);
     })();
@@ -1384,7 +1306,6 @@ const CustomerWalletsPage: React.FC = () => {
           plate: linked ? plate! : t('unlinked'),
           customers: [], totalIn: 0, totalOut: 0, balance: 0, approx: false, hasLive: false,
           modelName: meta?.modelName ?? null,
-          imageUrl: meta?.imageUrl ?? null,
         };
         byCar.set(key, car);
       }
@@ -1492,13 +1413,15 @@ const CustomerWalletsPage: React.FC = () => {
     : t('empty.noMatch');
 
   return (
-    <div className="cw-page">
+    <div className={`cw-page${embedded ? ' is-embedded' : ''}`}>
       <style>{CW_STYLES}</style>
 
-      <header className="cw-head">
-        <h1 className="cw-h1">{t('title')}</h1>
-        <p className="cw-sub">{t('subtitle')}</p>
-      </header>
+      {!embedded && (
+        <header className="cw-head">
+          <h1 className="cw-h1">{t('title')}</h1>
+          <p className="cw-sub">{t('subtitle')}</p>
+        </header>
+      )}
 
       {/* Summary */}
       <div className="cw-stats">

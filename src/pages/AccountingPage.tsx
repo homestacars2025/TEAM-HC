@@ -1,18 +1,21 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Link, useSearchParams } from 'react-router-dom';
-import ExpenseApprovals from '../components/accounting/ExpenseApprovals';
+import { useSearchParams } from 'react-router-dom';
+import CustodyTab from '../components/accounting/CustodyTab';
+import FinanceHome from '../components/accounting/FinanceHome';
+import PlateChip from '../components/booking/PlateChip';
 import { getPendingReviewCount } from '../lib/queries/expenseReview';
+import CustomerWalletsPage from './CustomerWalletsPage';
+import SupplierDetailPage from './SupplierDetailPage';
+import SuppliersPage from './SuppliersPage';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
 import { useCurrency } from '../lib/CurrencyContext';
-import StaffAvatar from '../components/StaffAvatar';
-import { useStaffProfiles } from '../hooks/useStaffProfiles';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import Button, { buttonClass } from '../components/Button';
+import Button from '../components/Button';
 
 /* ────────────────────────────────────────────────────────────────────────────
    AccountingPage — restricted view for staff accountants.
@@ -27,7 +30,7 @@ import Button, { buttonClass } from '../components/Button';
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Direction = 'IN' | 'OUT';
-type Tab = 'custody' | 'cars' | 'expenses' | 'customers';
+type Tab = 'home' | 'car_sheets' | 'company' | 'custody' | 'customers' | 'suppliers';
 
 interface CarOption {
   id: number;
@@ -62,17 +65,7 @@ interface CompanyExpense {
   created_at: string | null;
 }
 
-interface WalletBalance {
-  employee_id: string;
-  full_name: string | null;
-  total_in: number;
-  total_out: number;
-  balance: number;
-}
-
 interface WalletTxn {
-  posted_car_tx_id: number | null;
-  posted_company_expense_id: number | null;
   id: number;
   transaction_date: string;
   direction: Direction;
@@ -91,12 +84,12 @@ type ToastState = { message: string; type: 'success' | 'error' } | null;
 
 // ─── Category options ─────────────────────────────────────────────────────────
 
-const CAR_CATEGORIES: Record<Direction, string[]> = {
+export const CAR_CATEGORIES: Record<Direction, string[]> = {
   IN: ['Rent Collection', 'Other'],
   OUT: ['Wash', 'Oil', 'Petrol', 'HGS', 'Maintenance', 'Other'],
 };
 
-const COMPANY_CATEGORIES: Record<Direction, string[]> = {
+export const COMPANY_CATEGORIES: Record<Direction, string[]> = {
   IN: ['Deposit from Manager', 'Refund', 'Other'],
   OUT: ['Marketing', 'Operations', 'Branch', 'Maintenance', 'Food', 'Other'],
 };
@@ -428,20 +421,19 @@ const CarSheetsTab: React.FC<{
       c.plate_number.toLowerCase().includes(q) || c.model_name.toLowerCase().includes(q));
   }, [cars, search]);
 
-  const selectedCar = useMemo(
-    () => cars.find(c => c.id === selectedCarId) ?? null, [cars, selectedCarId]);
-
   const carTxns = useMemo(
     () => txns.filter(t => t.car_id === selectedCarId), [txns, selectedCarId]);
 
-  const carTotal = useMemo(
-    () => carTxns.reduce((s, t) => s + (t.direction === 'IN' ? t.amount : -t.amount), 0), [carTxns]);
-
-  // per-car net for the badge on the list
-  const netByCar = useMemo(() => {
-    const m: Record<number, number> = {};
-    for (const t of txns) m[t.car_id] = (m[t.car_id] ?? 0) + (t.direction === 'IN' ? t.amount : -t.amount);
-    return m;
+  const totalsByCar = useMemo(() => {
+    const totals: Record<number, { in: number; out: number; net: number }> = {};
+    for (const txn of txns) {
+      const car = totals[txn.car_id] ?? { in: 0, out: 0, net: 0 };
+      if (txn.direction === 'IN') car.in += txn.amount;
+      else car.out += txn.amount;
+      car.net = car.in - car.out;
+      totals[txn.car_id] = car;
+    }
+    return totals;
   }, [txns]);
 
   const handleDelete = async () => {
@@ -457,93 +449,40 @@ const CarSheetsTab: React.FC<{
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: 20, alignItems: 'start' }}>
-      {/* Car list */}
-      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{ padding: 14, borderBottom: '1px solid #f0f0f0' }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={t('cars.search')}
-            style={{ ...inputStyle, height: 38 }}
-          />
-        </div>
-        <div style={{ maxHeight: 560, overflowY: 'auto' }}>
-          {cars.length === 0 && <EmptyState label={t('cars.noCars')} />}
-          {filteredCars.map(car => {
-            const active = car.id === selectedCarId;
-            const net = netByCar[car.id] ?? 0;
-            return (
-              <button
-                key={car.id}
-                onClick={() => setSelectedCarId(car.id)}
-                style={{
-                  width: '100%', textAlign: 'start', border: 'none', cursor: 'pointer',
-                  padding: '11px 14px', borderBottom: '1px solid #f3f4f6', fontFamily: 'inherit',
-                  background: active ? 'rgba(75,166,234,0.08)' : '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                }}
-              >
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: active ? '#3A74C2' : '#0f1117' }}>
-                    <span className="hc-num">{car.plate_number}</span>
-                  </span>
-                  <span style={{ display: 'block', fontSize: 12, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {car.model_name || '—'}
-                  </span>
-                </span>
-                {net !== 0 && (
-                  <span style={{ fontSize: 12, fontWeight: 700, color: net >= 0 ? COLOR_IN : COLOR_OUT, flexShrink: 0 }}>
-                    <bdi dir="ltr">{net >= 0 ? '+' : '−'}{fmt(net)}</bdi>
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+    <div>
+      <div className="hc-acc-sheet-tools">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('cars.search')} aria-label={t('cars.search')} className="hc-input" />
+        <Button onClick={() => setShowAdd(true)}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+          {t('cars.addTransaction')}
+        </Button>
       </div>
 
-      {/* Detail */}
-      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{
-          padding: '16px 18px', borderBottom: '1px solid #f0f0f0',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-        }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f1117' }}>
-              {selectedCar ? selectedCar.plate_number : t('cars.selectCar')}
-            </div>
-            <div style={{ fontSize: 12.5, color: '#9ca3af' }}>
-              {selectedCar ? (selectedCar.model_name || '—') : t('cars.pickCar')}
-            </div>
-          </div>
-          <Button onClick={() => setShowAdd(true)}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-            {t('cars.addTransaction')}
-          </Button>
-        </div>
-
-        {selectedCar && (
-          <div style={{
-            padding: '14px 18px', borderBottom: '1px solid #f0f0f0',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280' }}>{t('cars.runningTotal', { month: formatMonthLabel(monthDate, dateLocale) })}</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: carTotal >= 0 ? COLOR_IN : COLOR_OUT }}>
-              <bdi dir="ltr">{carTotal >= 0 ? '+' : '−'}{fmt(carTotal)}</bdi>
-            </span>
-          </div>
-        )}
-
-        <div style={{ overflowX: 'auto' }}>
-          {loading ? <Spinner /> : !selectedCar ? (
-            <EmptyState label={t('cars.noCarSelected')} />
-          ) : carTxns.length === 0 ? (
-            <EmptyState label={t('cars.noTransactions')} />
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
+      {loading ? <Spinner /> : cars.length === 0 ? <EmptyState label={t('cars.noCars')} /> : (
+        <ul className="hc-acc-sheets">
+          {filteredCars.map(car => {
+            const open = car.id === selectedCarId;
+            const own = totalsByCar[car.id];
+            return (
+              <li key={car.id} className="surface-depth">
+                <button type="button" className="hc-acc-sheet-head" aria-expanded={open} onClick={() => setSelectedCarId(open ? null : car.id)}>
+                  <span className="hc-acc-sheet-car">
+                    <PlateChip plate={car.plate_number} />
+                    <small dir="auto">{car.model_name || '—'}</small>
+                  </span>
+                  <span className="hc-acc-sheet-figures">
+                    <span><small>{t('summary.totalIn')}</small><b className="is-in"><bdi dir="ltr">{fmt(own?.in ?? 0)}</bdi></b></span>
+                    <span><small>{t('summary.totalOut')}</small><b className="is-out"><bdi dir="ltr">{fmt(own?.out ?? 0)}</bdi></b></span>
+                    <span><small>{t('summary.balance')}</small><b className={(own?.net ?? 0) < 0 ? 'is-out' : 'is-in'}><bdi dir="ltr">{(own?.net ?? 0) < 0 ? '−' : '+'}{fmt(own?.net ?? 0)}</bdi></b></span>
+                  </span>
+                  <svg className="hc-appr-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+                {open && (
+                  <div className="hc-acc-sheet-body">
+                    {carTxns.length === 0 ? <EmptyState label={t('cars.noTransactions')} /> : (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
               <thead>
                 <tr>
                   <Th>{tc('fields.date')}</Th><Th>{t('table.direction')}</Th><Th>{t('table.category')}</Th><Th>{t('table.note')}</Th><Th>{t('table.receipt')}</Th><Th align="end">{t('table.amount')}</Th><Th align="end">{t('table.actions')}</Th>
@@ -581,10 +520,15 @@ const CarSheetsTab: React.FC<{
                   </tr>
                 ))}
               </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {showAdd && (
         <AddCarTxnModal
@@ -888,37 +832,6 @@ const EditCarTxnModal: React.FC<{
 //  TAB 2 — Company & Employee Expenses
 // ════════════════════════════════════════════════════════════════════════════
 
-const ExpensesTab: React.FC<{
-  monthDate: Date;
-  userId: string | null;
-  notify: (t: ToastState) => void;
-  focusEntry: number | null;
-}> = ({ monthDate, userId, notify, focusEntry }) => {
-  const { t } = useTranslation('accounting');
-  const [sub, setSub] = useState<'company' | 'wallets'>('company');
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {([['company', t('expenses.company')], ['wallets', t('expenses.wallets')]] as const).map(([k, label]) => {
-          const on = sub === k;
-          return (
-            <button key={k} onClick={() => setSub(k)} style={{
-              height: 36, padding: '0 16px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13.5, fontWeight: 600,
-              border: on ? '1px solid #4ba6ea' : '1px solid #e5e7eb',
-              background: on ? 'rgba(75,166,234,0.08)' : '#fff',
-              color: on ? '#3A74C2' : '#6b7280',
-            }}>{label}</button>
-          );
-        })}
-      </div>
-      {sub === 'company'
-        ? <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} />
-        : <EmployeeWalletsSection userId={userId} notify={notify} />}
-    </div>
-  );
-};
-
 const CompanyExpensesSection: React.FC<{
   monthDate: Date;
   userId: string | null;
@@ -1204,209 +1117,7 @@ const AddCompanyExpenseModal: React.FC<{
   );
 };
 
-const EmployeeWalletsSection: React.FC<{
-  userId: string | null;
-  notify: (t: ToastState) => void;
-}> = ({ userId, notify }) => {
-  const { t } = useTranslation('accounting');
-  const { fmt } = useCurrency();
-  const [balances, setBalances] = useState<WalletBalance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openEmployee, setOpenEmployee] = useState<WalletBalance | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
-  const staffProfiles = useStaffProfiles();
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('employee_wallet_balances')
-      .select('employee_id, full_name, total_in, total_out, balance')
-      .order('full_name');
-    setBalances((data ?? []) as WalletBalance[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <Button onClick={() => setShowAdd(true)}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-          {t('wallets.addEntry')}
-        </Button>
-      </div>
-
-      {loading || !staffProfiles ? <Spinner /> : balances.length === 0 ? (
-        <div className="surface-depth" style={{ ...cardStyle }}><EmptyState label={t('wallets.empty')} /></div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-          {balances.map(b => (
-            <button key={b.employee_id} onClick={() => setOpenEmployee(b)} style={{
-              ...cardStyle, padding: 18, textAlign: 'start', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', flexDirection: 'column', gap: 12,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <StaffAvatar profile={staffProfiles.get(b.employee_id)} size={38} />
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f1117' }}>{b.full_name || t('wallets.unknown')}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('summary.balance')}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: b.balance >= 0 ? COLOR_IN : COLOR_OUT }}>
-                  <bdi dir="ltr">{b.balance >= 0 ? '+' : '−'}{fmt(b.balance)}</bdi>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#6b7280' }}>
-                <span>{t('summary.in')} <b style={{ color: COLOR_IN }}>{fmt(b.total_in)}</b></span>
-                <span>{t('summary.out')} <b style={{ color: COLOR_OUT }}>{fmt(b.total_out)}</b></span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {openEmployee && (
-        <WalletHistoryModal
-          employee={openEmployee}
-          notify={notify}
-          onChanged={load}
-          onClose={() => setOpenEmployee(null)}
-        />
-      )}
-      {showAdd && (
-        <AddWalletEntryModal
-          userId={userId}
-          onClose={() => setShowAdd(false)}
-          onSaved={async () => { setShowAdd(false); notify({ message: t('toast.walletAdded'), type: 'success' }); await load(); }}
-          onError={() => notify({ message: t('toast.walletSaveError'), type: 'error' })}
-        />
-      )}
-    </div>
-  );
-};
-
-const WalletHistoryModal: React.FC<{
-  employee: WalletBalance;
-  notify: (t: ToastState) => void;
-  onChanged: () => void | Promise<void>;
-  onClose: () => void;
-}> = ({ employee, notify, onChanged, onClose }) => {
-  const { t } = useTranslation('accounting');
-  const { t: tc } = useTranslation('common');
-  const dateLocale = useDateLocale();
-  const { fmt } = useCurrency();
-  const [rows, setRows] = useState<WalletTxn[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editRow, setEditRow] = useState<WalletTxn | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<WalletTxn | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('employee_wallets')
-      .select('id, transaction_date, direction, category, amount, description, receipt_url, posted_car_tx_id, posted_company_expense_id')
-      .eq('employee_id', employee.employee_id)
-      .order('transaction_date', { ascending: false });
-    setRows((data ?? []) as WalletTxn[]);
-    setLoading(false);
-  }, [employee.employee_id]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleDelete = async () => {
-    if (!deleteTarget || deleting) return;
-    setDeleting(true);
-    const { error } = await supabase.from('employee_wallets').delete().eq('id', deleteTarget.id);
-    setDeleting(false);
-    setDeleteTarget(null);
-    if (error) { notify({ message: t('toast.walletDeleteError'), type: 'error' }); return; }
-    notify({ message: t('toast.walletDeleted'), type: 'success' });
-    await load();
-    await onChanged();
-  };
-
-  // Live totals so the header reflects edits/deletes without closing the modal.
-  const totals = useMemo(() => {
-    let tin = 0, tout = 0;
-    for (const r of rows) (r.direction === 'IN' ? (tin += r.amount) : (tout += r.amount));
-    return { tin, tout, balance: tin - tout };
-  }, [rows]);
-
-  return (
-    <Modal title={t('wallets.history', { name: employee.full_name || t('wallets.employee') })} onClose={onClose} maxWidth={680}>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <SummaryPill label={t('summary.balance')} value={`${totals.balance >= 0 ? '+' : '−'}${fmt(totals.balance)}`} color={totals.balance >= 0 ? COLOR_IN : COLOR_OUT} />
-        <SummaryPill label={t('summary.totalIn')} value={fmt(totals.tin)} color={COLOR_IN} />
-        <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
-      </div>
-      <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label={t('wallets.noTransactions')} /> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-              <thead>
-                <tr><Th>{tc('fields.date')}</Th><Th>{t('table.direction')}</Th><Th>{t('table.category')}</Th><Th>{tc('fields.description')}</Th><Th align="end">{t('table.amount')}</Th><Th align="end">{t('table.actions')}</Th></tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.id}>
-                    <td style={tdStyle}>{formatDateDisplay(r.transaction_date, dateLocale)}</td>
-                    <td style={tdStyle}><DirectionBadge direction={r.direction} /></td>
-                    <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
-                    <td style={{ ...tdStyle, whiteSpace: 'normal', color: '#6b7280', maxWidth: 220 }}>
-                      {r.description || '—'}
-                      {r.receipt_url && <> · <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#3A74C2', textDecoration: 'none' }}>{t('wallets.receipt')}</a></>}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'end' }}>
-                      {/* Once it is on a sheet, changing it here would leave that row behind. */}
-                      {(r.posted_car_tx_id ?? r.posted_company_expense_id) == null && <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setEditRow(r)} title={tc('actions.edit')} style={rowActionBtn}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                        <button onClick={() => setDeleteTarget(r)} title={tc('actions.delete')} style={{ ...rowActionBtn, color: COLOR_OUT }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </div>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {editRow && (
-        <EditWalletTxnModal
-          row={editRow}
-          onClose={() => setEditRow(null)}
-          onSaved={async () => { setEditRow(null); notify({ message: t('toast.walletUpdated'), type: 'success' }); await load(); await onChanged(); }}
-          onError={() => notify({ message: t('toast.walletUpdateError'), type: 'error' })}
-        />
-      )}
-      {deleteTarget && (
-        <ConfirmDialog
-          title={t('wallets.deleteTitle')}
-          message={t('wallets.deleteMessage')}
-          confirmLabel={tc('actions.delete')}
-          busy={deleting}
-          onConfirm={handleDelete}
-          onClose={() => setDeleteTarget(null)}
-        />
-      )}
-    </Modal>
-  );
-};
-
-const EditWalletTxnModal: React.FC<{
+export const EditWalletTxnModal: React.FC<{
   row: WalletTxn;
   onClose: () => void;
   onSaved: () => void;
@@ -1477,7 +1188,7 @@ const EditWalletTxnModal: React.FC<{
   );
 };
 
-const AddWalletEntryModal: React.FC<{
+export const AddWalletEntryModal: React.FC<{
   userId: string | null;
   onClose: () => void;
   onSaved: () => void;
@@ -1506,7 +1217,8 @@ const AddWalletEntryModal: React.FC<{
   }, []);
 
   const chooseDirection = (d: Direction) => { setDirection(d); setCategory(WALLET_CATEGORIES[d][0]); };
-  const canSave = !!employeeId && Number(amount) > 0 && !!date && !!category;
+  // Posting an expense builds the sheet's note from its description.
+  const canSave = !!employeeId && Number(amount) > 0 && !!date && !!category && (direction === 'IN' || !!description.trim());
 
   const handleSave = async () => {
     if (!canSave || saving) return;
@@ -1571,51 +1283,6 @@ const AddWalletEntryModal: React.FC<{
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-//  TAB 3 — Customers (moved)
-//
-//  Customer ledger entry now lives on the Customer Wallets page, which is the
-//  single manual writer of `customer_accounting_ledger` and stamps
-//  `exchange_rate_at_entry` on every insert. This tab only points there — it
-//  deliberately holds no add/edit/delete code of its own.
-// ════════════════════════════════════════════════════════════════════════════
-
-const CustomersMovedPanel: React.FC = () => {
-  const { t } = useTranslation('accounting');
-  return (
-  <div className="surface-depth" style={{ ...cardStyle, padding: '48px 28px', textAlign: 'center' }}>
-    <div style={{
-      width: 52, height: 52, borderRadius: 14, background: 'rgba(75,166,234,0.1)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-      color: '#3A74C2',
-    }}>
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M3 7a2 2 0 012-2h12a2 2 0 012 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M16 12h5v4h-5a2 2 0 010-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      </svg>
-    </div>
-    <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 500, color: '#0f1117' }}>
-      {t('customers.movedTitle')}
-    </h3>
-    <p style={{ margin: '0 auto 22px', fontSize: 14, color: '#6b7280', lineHeight: 1.6, maxWidth: 460 }}>
-      {t('customers.movedBody')}
-    </p>
-    <Link to="/dashboard/customer-wallets" className={buttonClass()}>
-      {t('customers.open')}
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-        <path className="hc-flip-path" d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </Link>
-  </div>
-  );
-};
-
-const rowActionBtn: React.CSSProperties = {
-  width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff',
-  cursor: 'pointer', color: '#6b7280', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-};
-
 const ConfirmDialog: React.FC<{
   title: string;
   message: string;
@@ -1638,6 +1305,11 @@ const ConfirmDialog: React.FC<{
 };
 
 // ─── Small shared form widgets ────────────────────────────────────────────────
+
+const rowActionBtn: React.CSSProperties = {
+  width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff',
+  cursor: 'pointer', color: '#6b7280', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+};
 
 const SummaryPill: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
   <div className="surface-depth" style={{ ...cardStyle, padding: '10px 16px', minWidth: 130 }}>
@@ -1892,14 +1564,17 @@ const ReceiptField: React.FC<{
 //  Page shell
 // ════════════════════════════════════════════════════════════════════════════
 
-const TABS: Tab[] = ['custody', 'cars', 'expenses', 'customers'];
+const TABS: Tab[] = ['home', 'car_sheets', 'company', 'custody', 'customers', 'suppliers'];
+
+/** The names older links and notifications still use. */
+const TAB_ALIASES: Record<string, Tab> = { cars: 'car_sheets', expenses: 'company' };
 
 const AccountingPage: React.FC = () => {
   const { t } = useTranslation('accounting');
   const dateLocale = useDateLocale();
   const [params, setParams] = useSearchParams();
-  const requested = params.get('tab') as Tab | null;
-  const tab: Tab = requested && TABS.includes(requested) ? requested : 'custody';
+  const requested = params.get('tab') ?? '';
+  const tab: Tab = TAB_ALIASES[requested] ?? (TABS.includes(requested as Tab) ? requested as Tab : 'home');
   const focusEntry = Number(params.get('entry')) || null;
   const focusCar = Number(params.get('car')) || null;
   const [monthDate, setMonthDate] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
@@ -1933,11 +1608,18 @@ const AccountingPage: React.FC = () => {
     setMonthDate(new Date(year, month - 1, 1));
   }, [linkedMonth]);
 
-  const openTab = (next: Tab) => setParams(() => new URLSearchParams(next === 'custody' ? '' : `tab=${next}`), { replace: true });
+  // On a phone the strip scrolls, and a link can open a tab that is off the end of it.
+  const tabStrip = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tabStrip.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [tab]);
+
+  const openTab = (next: Tab) => setParams(() => new URLSearchParams(next === 'home' ? '' : `tab=${next}`), { replace: true });
 
   // Access is enforced by <RequirePage page="accounting"> on the route.
 
-  const monthNavDisabled = tab === 'customers' || tab === 'custody'; // neither is month-scoped
+  const monthNav = tab === 'car_sheets' || tab === 'company';
+  const supplierId = Number(params.get('supplier')) || null;
 
   return (
     <div style={{ padding: '24px clamp(16px, 4vw, 32px)', background: 'var(--surface)', minHeight: '100%' }}>
@@ -1948,7 +1630,7 @@ const AccountingPage: React.FC = () => {
           <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#9ca3af' }}>{t('subtitle')}</p>
         </div>
 
-        {!monthNavDisabled && (
+        {monthNav && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button onClick={() => setMonthDate(d => addMonths(d, -1))} style={monthNavBtn} aria-label={t('month.previous')}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path className="hc-flip-path" d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -1962,27 +1644,21 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-        {TABS.map(key => {
-          const on = tab === key;
-          return (
-            <button key={key} onClick={() => openTab(key)} style={{
-              padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 14, fontWeight: on ? 700 : 500, color: on ? '#3A74C2' : '#6b7280',
-              borderBottom: on ? '2px solid #4ba6ea' : '2px solid transparent', marginBottom: -1,
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}>
-              {t(`tabs.${key}`)}
-              {key === 'custody' && !!pendingCount && <span className="hc-appr-badge">{pendingCount}</span>}
-            </button>
-          );
-        })}
+      <div ref={tabStrip} role="tablist" aria-label={t('title')} className="hc-acc-tabs">
+        {TABS.map(key => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => openTab(key)}>
+            {t(`tabs.${key}`)}
+            {key === 'custody' && !!pendingCount && <span className="hc-appr-badge">{pendingCount}</span>}
+          </button>
+        ))}
       </div>
 
-      {tab === 'custody' && <ExpenseApprovals onOpenReceipt={setReceipt} onPendingChange={setPendingCount} notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}
-      {tab === 'cars' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} />}
-      {tab === 'expenses' && <ExpensesTab monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} />}
-      {tab === 'customers' && <CustomersMovedPanel />}
+      {tab === 'home' && <FinanceHome userId={userId} />}
+      {tab === 'car_sheets' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} />}
+      {tab === 'company' && <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} />}
+      {tab === 'custody' && <CustodyTab userId={userId} onOpenReceipt={setReceipt} onPendingChange={setPendingCount} notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}
+      {tab === 'customers' && <CustomerWalletsPage embedded />}
+      {tab === 'suppliers' && (supplierId ? <SupplierDetailPage key={supplierId} supplierId={supplierId} /> : <SuppliersPage embedded />)}
 
       {receipt && <ReceiptLightbox url={receipt} onClose={() => setReceipt(null)} />}
       <Toast toast={toast} />

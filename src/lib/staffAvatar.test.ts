@@ -83,7 +83,7 @@ describe('staff avatars across the dashboard', () => {
 
   it.each([
     'components/AccountMenu.tsx',
-    'pages/AccountingPage.tsx',
+    'components/accounting/CustodyTab.tsx',
     'pages/OperationsPage.tsx',
     'pages/KabisPage.tsx',
   ])('%s renders the shared avatar and no initials', file => {

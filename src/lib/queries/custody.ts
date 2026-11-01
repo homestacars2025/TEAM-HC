@@ -27,6 +27,7 @@ export interface CustodyMovement {
   posted_car_tx_id: number | null;
   posted_company_expense_id: number | null;
   review_status: ReviewStatus;
+  reviewed_at: string | null;
   review_note: string | null;
   /** Kept for the row even once the car has left the fleet. */
   car: { plate_number: string } | null;
@@ -47,7 +48,7 @@ export interface CustodyTotals {
 export async function getMyCustodyMovements(userId: string): Promise<CustodyMovement[]> {
   const { data, error } = await supabase
     .from('employee_wallets')
-    .select('id, transaction_date, direction, category, amount, description, receipt_url, created_at, created_by, expense_scope, car_id, posted_car_tx_id, posted_company_expense_id, review_status, review_note, car:car_id(plate_number), supplier:supplier_id(name)')
+    .select('id, transaction_date, direction, category, amount, description, receipt_url, created_at, created_by, expense_scope, car_id, posted_car_tx_id, posted_company_expense_id, review_status, reviewed_at, review_note, car:car_id(plate_number), supplier:supplier_id(name)')
     .eq('employee_id', userId)
     .order('transaction_date')
     .order('created_at')

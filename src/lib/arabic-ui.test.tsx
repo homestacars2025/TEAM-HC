@@ -205,7 +205,7 @@ describe('every key the Accounting page asks for exists in both languages', () =
   // Read off AccountingPage: every `t('...')`, plus the three template forms it builds.
   const KEYS = [
     'title', 'subtitle', 'loading',
-    'tabs.cars', 'tabs.expenses', 'tabs.customers', 'month.previous', 'month.next',
+    'tabs.home', 'tabs.car_sheets', 'tabs.company', 'tabs.custody', 'tabs.customers', 'tabs.suppliers', 'month.previous', 'month.next',
     'direction.IN', 'direction.OUT',
     'table.direction', 'table.category', 'table.note', 'table.receipt', 'table.amount', 'table.actions',
     'summary.totalIn', 'summary.totalOut', 'summary.net', 'summary.balance', 'summary.in', 'summary.out',

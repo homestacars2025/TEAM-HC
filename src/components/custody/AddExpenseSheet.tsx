@@ -207,6 +207,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
         posted_car_tx_id: null,
         posted_company_expense_id: null,
         review_status: 'pending',
+        reviewed_at: null,
         review_note: null,
         car: car ? { plate_number: car.plate_number } : null,
         supplier: supplier ? { name: supplier.name } : null,

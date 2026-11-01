@@ -2,47 +2,71 @@ import fs from 'fs';
 import path from 'path';
 import { canDeleteExpense } from './custodyExpense';
 import { toCsv } from './csv';
-import { groupByEmployee, inReviewFilter, postingTarget, reviewErrorKey, reviewStats, sheetLink, type ReviewExpense } from './expenseReview';
+import { convertEntry, customerBalances, ledgerTotals as customerTotals, type LedgerRow } from './customerLedger';
+import { carSheetCategory, employeeCustody, inReviewFilter, isLegacyApproval, matchDefaults, reviewErrorKey, reviewStats, settlement, sheetLink, type ReviewExpense } from './expenseReview';
 import { accountsFor, formatMoney, inSupplierFilter, ledgerTotals, matchesSupplier, owedByCurrency, whatsappLink, withRunning, type Supplier, type SupplierBalance, type SupplierTx } from './suppliers';
 
 const expense = (o: Partial<ReviewExpense> = {}): ReviewExpense => ({
-  id: 1, employee_id: 'a', transaction_date: '2026-11-01', category: 'Wash', amount: 100, description: 'x', receipt_url: 'r', created_at: null,
+  id: 1, employee_id: 'a', transaction_date: '2026-11-01', direction: 'OUT', category: 'Wash', amount: 100, description: 'x', receipt_url: 'r', created_at: null,
   expense_scope: 'company', car_id: null, review_status: 'pending', reviewed_at: null, review_note: null, posted_car_tx_id: null, posted_company_expense_id: null,
   car: null, supplier: null, ...o,
 });
 
-describe('where an expense posts', () => {
-  const car = { plate_number: '34ABC123', model_group: null };
+const posted = new Map([[9, { id: 9, car_id: 7, plate_number: '06XYZ789' }]]);
+const context = { month: '2026-11', signed: new Set<number>() };
 
-  it('goes to the car sheet only for a car expense with a car', () => {
-    expect(postingTarget(expense({ expense_scope: 'car', car_id: 3, car }))).toEqual({ kind: 'car', plate: '34ABC123' });
+describe('what the popover opens on', () => {
+  it('follows the expense: a car expense goes to that car', () => {
+    expect(matchDefaults(expense({ expense_scope: 'car', car_id: 3, category: 'Petrol' }))).toEqual({ target: 'car', carId: 3, category: 'Petrol' });
   });
 
-  it('goes to company expenses otherwise, like the server', () => {
-    expect(postingTarget(expense())).toEqual({ kind: 'company' });
-    expect(postingTarget(expense({ expense_scope: null, car_id: 3, car }))).toEqual({ kind: 'company' });
+  it('sends anything else to company expenses', () => {
+    expect(matchDefaults(expense({ category: 'Branch' }))).toEqual({ target: 'company', carId: null, category: 'Branch' });
+  });
+
+  it('uses the same category mapping as the server', () => {
+    expect(carSheetCategory('Fuel')).toBe('Petrol');
+    expect(carSheetCategory('wash')).toBe('Wash');
+    expect(carSheetCategory('Parking')).toBe('Other');
+    expect(carSheetCategory(null)).toBe('Other');
   });
 
   it('never carries an investor to the Team dashboard', () => {
-    const queries = fs.readFileSync(path.join(__dirname, 'queries', 'expenseReview.ts'), 'utf8');
-    const screen = fs.readFileSync(path.join(__dirname, '..', 'components', 'accounting', 'ExpenseApprovals.tsx'), 'utf8');
-    expect(queries.split('\n').filter(line => !line.includes('who owns')).join('\n')).not.toMatch(/investor|commission/i);
-    expect(screen).not.toMatch(/investor|commission/i);
-    expect(JSON.stringify(postingTarget(expense({ expense_scope: 'car', car_id: 3, car })))).not.toMatch(/investor/i);
+    const read = (file: string) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+    const code = (text: string) => text.split('\n').filter(line => !/who owns|no investor|^\s*\*/.test(line)).join('\n');
+    expect(code(read('lib/queries/expenseReview.ts'))).not.toMatch(/investor|commission/i);
+    expect(code(read('lib/queries/financeHome.ts'))).not.toMatch(/investor_id|financial_transactions/i);
+    for (const file of ['components/accounting/CustodyTab.tsx', 'components/accounting/MatchPopover.tsx', 'components/accounting/FinanceHome.tsx']) {
+      expect(read(file)).not.toMatch(/investor|commission/i);
+    }
   });
 });
 
-describe('link to the posted row', () => {
-  it('opens the car sheet on the expense month', () => {
-    expect(sheetLink(expense({ car_id: 3, transaction_date: '2026-10-30', posted_car_tx_id: 9 }))).toBe('/dashboard/accounting?tab=cars&month=2026-10&car=3&entry=9');
+describe('where an approved expense went', () => {
+  const approved = { review_status: 'approved' as const, reviewed_at: '2026-11-01T10:00:00Z' };
+
+  it('names the car it was really posted to, not the one on the expense', () => {
+    const row = expense({ ...approved, car_id: 3, car: { plate_number: '34ABC123' }, posted_car_tx_id: 9 });
+    expect(settlement(row, posted)).toEqual({ kind: 'car', plate: '06XYZ789' });
+    expect(sheetLink(row, posted)).toBe('/dashboard/accounting?tab=car_sheets&month=2026-11&car=7&entry=9');
   });
 
-  it('opens company expenses', () => {
-    expect(sheetLink(expense({ posted_company_expense_id: 7 }))).toBe('/dashboard/accounting?tab=expenses&month=2026-11&entry=7');
+  it('links a company expense', () => {
+    const row = expense({ ...approved, posted_company_expense_id: 7 });
+    expect(settlement(row, posted)).toEqual({ kind: 'company' });
+    expect(sheetLink(row, posted)).toBe('/dashboard/accounting?tab=company&month=2026-11&entry=7');
   });
 
-  it('has nothing for a row confirmed before posting existed', () => {
-    expect(sheetLink(expense({ review_status: 'approved' }))).toBeNull();
+  it('tells "confirmed, not posted" from an old row: only the new one has a review date', () => {
+    expect(settlement(expense(approved), posted)).toEqual({ kind: 'other' });
+    expect(settlement(expense({ review_status: 'approved' }), posted)).toEqual({ kind: 'legacy' });
+    expect(isLegacyApproval(expense({ review_status: 'approved' }))).toBe(true);
+    expect(isLegacyApproval(expense(approved))).toBe(false);
+  });
+
+  it('has no link when nothing was posted, and no result until approved', () => {
+    expect(sheetLink(expense({ review_status: 'approved' }), posted)).toBeNull();
+    expect(settlement(expense(), posted)).toBeNull();
   });
 });
 
@@ -54,36 +78,58 @@ describe('review tiles', () => {
     expense({ id: 4, amount: 10, review_status: 'approved' }),
     expense({ id: 5, amount: 5, review_status: 'rejected', review_note: 'no' }),
     expense({ id: 6, amount: 1, receipt_url: null }),
+    expense({ id: 7, amount: 9000, direction: 'IN', receipt_url: null }),
   ];
-  const stats = reviewStats(rows, '2026-11');
+  const stats = reviewStats(rows, { month: '2026-11', signed: new Set([1]) });
 
-  it('counts and sums each group', () => {
+  it('counts and sums each group, and money in is never an expense', () => {
     expect(stats.pending).toEqual({ count: 2, total: 101 });
     expect(stats.rejected).toEqual({ count: 1, total: 5 });
     expect(stats.noReceipt).toEqual({ count: 1, total: 1 });
     expect(stats.all.count).toBe(6);
   });
 
-  it('counts approved this month by when it was confirmed', () => {
+  it('counts confirmed this month by when it was confirmed', () => {
     expect(stats.approved).toEqual({ count: 1, total: 50 });
   });
 
+  it('asks for my signature on everything but what I signed and what was rejected', () => {
+    expect(stats.unsigned).toEqual({ count: 4, total: 86 });
+  });
+
   it('takes the month in Istanbul', () => {
-    expect(inReviewFilter(expense({ review_status: 'approved', reviewed_at: '2026-10-31T22:00:00Z' }), 'approved', '2026-11')).toBe(true);
+    expect(inReviewFilter(expense({ review_status: 'approved', reviewed_at: '2026-10-31T22:00:00Z' }), 'approved', context)).toBe(true);
+  });
+
+  it('shows money in only under All', () => {
+    expect(inReviewFilter(expense({ direction: 'IN' }), 'all', context)).toBe(true);
+    expect(inReviewFilter(expense({ direction: 'IN', review_status: 'pending' }), 'pending', context)).toBe(false);
   });
 });
 
-describe('grouping', () => {
+describe('per employee', () => {
+  const rows = [
+    expense({ id: 1, employee_id: 'done', review_status: 'approved' }),
+    expense({ id: 2, employee_id: 'small', amount: 10 }),
+    expense({ id: 3, employee_id: 'big', amount: 900, transaction_date: '2026-10-01' }),
+    expense({ id: 4, employee_id: 'big', amount: 5 }),
+    expense({ id: 5, employee_id: 'big', review_status: 'approved', amount: 20 }),
+    expense({ id: 6, employee_id: 'big', direction: 'IN', amount: 1000, review_status: 'approved' }),
+  ];
+  const groups = employeeCustody(rows, new Map([['big', 75]]), '2026-11');
+
   it('puts whoever waits most first, and pending rows first inside', () => {
-    const groups = groupByEmployee([
-      expense({ id: 1, employee_id: 'done', review_status: 'approved' }),
-      expense({ id: 2, employee_id: 'small', amount: 10 }),
-      expense({ id: 3, employee_id: 'big', amount: 900, transaction_date: '2026-10-01' }),
-      expense({ id: 4, employee_id: 'big', review_status: 'approved', transaction_date: '2026-11-01' }),
-    ]);
     expect(groups.map(g => g.employeeId)).toEqual(['big', 'small', 'done']);
-    expect(groups[0].rows.map(r => r.id)).toEqual([3, 4]);
-    expect(groups[0].pendingTotal).toBe(900);
+    expect(groups[0].rows[0].review_status).toBe('pending');
+    expect(groups[0].rows.slice(-1)[0].review_status).toBe('approved');
+  });
+
+  it('takes the balance from the view and works out the month', () => {
+    expect(groups[0]).toMatchObject({ balance: 75, received: 1000, spent: 25, pending: 2 });
+  });
+
+  it('falls back to its own rows for the balance', () => {
+    expect(groups.find(g => g.employeeId === 'small')?.balance).toBe(-10);
   });
 });
 
@@ -93,8 +139,37 @@ describe('refusals', () => {
     ['Car has no investor — cannot post to a car sheet', 'noCarSheet'],
     ['Already approved', 'alreadyDone'],
     ['Only pending expenses can be rejected', 'alreadyDone'],
+    ['Choose a car', 'car'],
     ['something else', 'generic'],
   ])('%s', (message, key) => expect(reviewErrorKey(message)).toBe(key));
+});
+
+const ledgerRow = (o: Partial<LedgerRow> = {}): LedgerRow => ({
+  id: 'x', booking_id: null, customer_id: 'c1', car_id: 1, type: 'rental', description: null, amount: 100, direction: 'OUT', exchange_rate_at_entry: null, created_at: null,
+  customers: { first_name: 'Ali', last_name: 'Kaya', is_banned: false, ban_reason: null }, cars: { plate_number: '34ABC123' }, ...o,
+});
+
+describe('customer balances', () => {
+  it('counts a customer once per car, like the wallets screen', () => {
+    const balances = customerBalances([ledgerRow({ amount: 100 }), ledgerRow({ amount: 30, direction: 'IN' }), ledgerRow({ car_id: 2, cars: { plate_number: '06X' }, amount: 50, direction: 'IN' })], 'TRY', [], null);
+    expect(balances).toHaveLength(2);
+    expect(balances[0]).toMatchObject({ name: 'Ali Kaya', plate: '34ABC123', balance: -70 });
+  });
+
+  it('adds up who owes and who is in credit, biggest debt first', () => {
+    const totals = customerTotals([
+      { customerId: 'a', name: 'a', plate: null, balance: -10 },
+      { customerId: 'b', name: 'b', plate: null, balance: -300 },
+      { customerId: 'c', name: 'c', plate: null, balance: 40 },
+      { customerId: 'd', name: 'd', plate: null, balance: 0.001 },
+    ]);
+    expect(totals.debtors.map(d => d.name)).toEqual(['b', 'a']);
+    expect(totals).toMatchObject({ owed: 310, credit: 40, inCredit: 1 });
+  });
+
+  it('converts at the rate stored on the entry', () => {
+    expect(convertEntry({ amount: 340, exchange_rate_at_entry: 34 }, 'USD', [], 40)).toEqual({ value: 10, approx: false });
+  });
 });
 
 describe('deleting from custody', () => {

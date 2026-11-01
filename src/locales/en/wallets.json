@@ -113,5 +113,7 @@
   "balanceCount_one": "{{count}} balance",
   "balanceCount_other": "{{count}} balances",
   "carCount_one": "{{count}} car",
-  "carCount_other": "{{count}} cars"
+  "carCount_other": "{{count}} cars",
+  "customerCount_one": "{{count}} customer",
+  "customerCount_other": "{{count}} customers"
 }

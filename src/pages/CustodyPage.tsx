@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
+import { isLegacyApproval } from '../lib/expenseReview';
 import { istanbulDate } from '../lib/istanbulTime';
 import { canDeleteExpense, expenseErrorKey, formatPlate } from '../lib/custodyExpense';
 import {
@@ -356,7 +357,7 @@ const CustodyPage: React.FC = () => {
                         {row.supplier && <div className="mt-0.5 text-xs text-gray-400" dir="auto">{row.supplier.name}</div>}
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-end"><Amount movement={row} /></td>
-                      <td className="whitespace-nowrap px-3 py-3">{row.direction === 'OUT' && <ReviewPill status={row.review_status} note={row.review_note} />}</td>
+                      <td className="whitespace-nowrap px-3 py-3">{row.direction === 'OUT' && <ReviewPill status={row.review_status} note={row.review_note} legacy={isLegacyApproval(row)} />}</td>
                       <td className="px-3 py-2"><div className="flex justify-center"><ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} /></div></td>
                       <td className="whitespace-nowrap px-3 py-3 text-end"><Running value={row.running} /></td>
                       <td className="px-3 py-1">{canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}</td>
@@ -375,7 +376,7 @@ const CustodyPage: React.FC = () => {
                     {row.description && <div className="mt-1 text-[13px] text-gray-500">{row.description}</div>}
                     {row.supplier && <div className="mt-1 text-xs text-gray-500" dir="auto">{row.supplier.name}</div>}
                     <div className="mt-1 text-xs text-gray-400">{formatDateDisplay(row.transaction_date, dateLocale)}</div>
-                    {row.direction === 'OUT' && <div className="mt-1.5"><ReviewPill status={row.review_status} note={row.review_note} /></div>}
+                    {row.direction === 'OUT' && <div className="mt-1.5"><ReviewPill status={row.review_status} note={row.review_note} legacy={isLegacyApproval(row)} /></div>}
                     {row.direction === 'OUT' && row.review_status === 'rejected' && row.review_note && <div className="mt-1 text-xs text-red-600" dir="auto">{row.review_note}</div>}
                   </div>
                   <div className="shrink-0 text-end text-sm">

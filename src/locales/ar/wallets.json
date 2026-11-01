@@ -121,5 +121,11 @@
   "carCount_two": "سيارتان",
   "carCount_few": "{{count}} سيارات",
   "carCount_many": "{{count}} سيارة",
-  "carCount_other": "{{count}} سيارة"
+  "carCount_other": "{{count}} سيارة",
+  "customerCount_zero": "{{count}} عميل",
+  "customerCount_one": "عميل واحد",
+  "customerCount_two": "عميلان",
+  "customerCount_few": "{{count}} عملاء",
+  "customerCount_many": "{{count}} عميلاً",
+  "customerCount_other": "{{count}} عميل"
 }

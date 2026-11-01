@@ -114,7 +114,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
   }, [closedGroups]);
 
   const groups = useMemo(() => {
-    const visible = pages.filter(p => canAccessPage(p.key) && !HIDDEN_GROUPS.includes(p.group_key));
+    // Whoever has Accounting finds Customer Wallets as one of its tabs.
+    const inAccounting = canAccessPage('accounting');
+    const visible = pages.filter(p => canAccessPage(p.key) && !HIDDEN_GROUPS.includes(p.group_key) && !(inAccounting && p.key === 'customer_wallets'));
     const extraKeys = Array.from(new Set(visible.map(p => p.group_key))).filter(g => !GROUP_ORDER.includes(g));
     return [...GROUP_ORDER, ...extraKeys]
       .map(key => ({ key, items: visible.filter(p => p.group_key === key) }))

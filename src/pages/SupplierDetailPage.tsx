@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Button from '../components/Button';
 import PlateChip from '../components/booking/PlateChip';
 import ReasonDialog from '../components/custody/ReasonDialog';
@@ -13,16 +13,14 @@ import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { formatDay, useDateLocale } from '../hooks/useDateLocale';
 import { downloadCsv } from '../lib/csv';
 import { getSupplier, getSupplierLedger, voidSupplierTx } from '../lib/queries/suppliers';
-import { formatMoney, ledgerTotals, withRunning, type Supplier, type SupplierTx, type SupplierTxWithRunning } from '../lib/suppliers';
+import { formatMoney, ledgerTotals, SUPPLIERS_PATH, withRunning, type Supplier, type SupplierTx, type SupplierTxWithRunning } from '../lib/suppliers';
 import { ReceiptLightbox } from './AccountingPage';
 
-const SupplierDetailPage: React.FC = () => {
+const SupplierDetailPage: React.FC<{ supplierId: number }> = ({ supplierId }) => {
   const { t } = useTranslation('finance');
   const { t: tc } = useTranslation('common');
   const locale = useDateLocale();
   const { userId } = useCurrentUser();
-  const { id } = useParams();
-  const supplierId = Number(id);
 
   const [supplier, setSupplier] = useState<Supplier | null | undefined>(undefined);
   const [ledger, setLedger] = useState<SupplierTx[]>([]);
@@ -124,7 +122,7 @@ const SupplierDetailPage: React.FC = () => {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-gray-600">{t('ledger.notFound')}</p>
-        <Link to="/dashboard/suppliers" className="font-semibold text-[var(--accent-strong)]">{t('ledger.back')}</Link>
+        <Link to={SUPPLIERS_PATH} className="font-semibold text-[var(--accent-strong)]">{t('ledger.back')}</Link>
       </div>
     );
   }
@@ -133,8 +131,8 @@ const SupplierDetailPage: React.FC = () => {
   const money = (row: SupplierTxWithRunning) => <bdi dir="ltr">{row.kind === 'bill' ? '+' : '−'}{formatMoney(row.amount, row.currency)}</bdi>;
 
   return (
-    <div className="hc-records-page">
-      <Link to="/dashboard/suppliers" className="hc-sup-back">
+    <div>
+      <Link to={SUPPLIERS_PATH} className="hc-sup-back">
         <svg className="hc-trk-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         {t('ledger.back')}
       </Link>

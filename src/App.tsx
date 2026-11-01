@@ -11,13 +11,12 @@ import BookingsPage from './pages/BookingsPage';
 import CalendarPage from './pages/CalendarPage';
 import FinesPage from './pages/FinesPage';
 import CarTrackingPage from './pages/CarTrackingPage';
-import SuppliersPage from './pages/SuppliersPage';
-import SupplierDetailPage from './pages/SupplierDetailPage';
 import CarIssuesPage from './pages/CarIssuesPage';
 import KabisPage from './pages/KabisPage';
 import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
-import CustomerWalletsPage from './pages/CustomerWalletsPage';
+import { CustomerWalletsRoute, SupplierRedirect } from './components/accounting/FinanceRoutes';
+import { SUPPLIERS_PATH } from './lib/suppliers';
 import TasksPage from './pages/TasksPage';
 import HomePage from './pages/HomePage';
 import WalletPage from './pages/WalletPage';
@@ -81,11 +80,11 @@ const App: React.FC = () => {
           <Route path="calendar" element={<RequirePage page="calendar"><CalendarPage /></RequirePage>} />
           <Route path="fines" element={<RequirePage page="fines"><FinesPage /></RequirePage>} />
           <Route path="operations" element={<RequirePage page="operations"><OperationsPage /></RequirePage>} />
-          <Route path="customer-wallets" element={<RequirePage page="customer_wallets"><CustomerWalletsPage /></RequirePage>} />
+          <Route path="customer-wallets" element={<RequirePage page="customer_wallets"><CustomerWalletsRoute /></RequirePage>} />
           <Route path="tasks" element={<RequirePage page="tasks"><TasksPage /></RequirePage>} />
           <Route path="accounting" element={<RequirePage page="accounting"><AccountingPage /></RequirePage>} />
-          <Route path="suppliers" element={<RequirePage page="suppliers"><SuppliersPage /></RequirePage>} />
-          <Route path="suppliers/:id" element={<RequirePage page="suppliers"><SupplierDetailPage /></RequirePage>} />
+          <Route path="suppliers" element={<RequirePage page="accounting"><Navigate to={SUPPLIERS_PATH} replace /></RequirePage>} />
+          <Route path="suppliers/:id" element={<RequirePage page="accounting"><SupplierRedirect /></RequirePage>} />
           <Route path="kabis" element={<RequirePage page="kabis"><KabisPage /></RequirePage>} />
           {/* Each Media page has its own key, so the guard sits on the children. */}
           <Route
