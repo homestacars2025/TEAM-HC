@@ -10,11 +10,6 @@
   "showing_few": "عرض {{shown}} من أصل {{count}}",
   "showing_many": "عرض {{shown}} من أصل {{count}}",
   "showing_other": "عرض {{shown}} من أصل {{count}}",
-  "stats": {
-    "total": "إجمالي المشاكل",
-    "open": "مفتوحة",
-    "resolved": "محلولة"
-  },
   "types": {
     "damage": "ضرر",
     "accident": "حادث",
@@ -36,10 +31,17 @@
     "noneTitle": "لا توجد مشاكل مسجّلة بعد",
     "noneBody": "استخدم «تسجيل مشكلة» لتسجيل أول ضرر أو عطل.",
     "filteredTitle": "لا توجد مشاكل مطابقة لهذه الفلاتر",
-    "filteredBody": "جرّب مسح البحث أو تغيير فلاتر الحالة والنوع."
+    "filteredBody": "جرّب مسح البحث أو تغيير فلاتر الحالة والنوع.",
+    "column": "لا شيء هنا."
   },
   "card": {
-    "resolvedIn": "حُلّت خلال {{days}} يوم"
+    "resolvedIn": "حُلّت خلال {{days}} يوم",
+    "daysOpen_zero": "اليوم",
+    "daysOpen_one": "مفتوحة منذ يوم",
+    "daysOpen_two": "مفتوحة منذ يومين",
+    "daysOpen_few": "مفتوحة منذ {{count}} أيام",
+    "daysOpen_many": "مفتوحة منذ {{count}} يوماً",
+    "daysOpen_other": "مفتوحة منذ {{count}} يوم"
   },
   "add": {
     "title": "تسجيل مشكلة",
@@ -56,7 +58,13 @@
     "loadingCars": "جارٍ تحميل السيارات…",
     "selectCar": "اختر السيارة…",
     "selectCarFirst": "اختر السيارة أولاً…",
-    "loadingBookings": "جارٍ تحميل الحجوزات…"
+    "loadingBookings": "جارٍ تحميل الحجوزات…",
+    "typeSection": "نوع المشكلة",
+    "whenSection": "التاريخ والمكتشف",
+    "linkBooking": "ربط بهذا الحجز",
+    "unlink": "إلغاء الربط",
+    "otherBooking": "حجز آخر",
+    "descriptionHelp": "ماذا حدث، وأين في السيارة؟ مثلاً: خدش على الباب الخلفي الأيمن، طوله نحو 10 سم."
   },
   "detail": {
     "title": "تفاصيل المشكلة",
@@ -77,14 +85,21 @@
     "yesDelete": "نعم، احذف",
     "damagePhotosCount": "صور الضرر ({{count}})",
     "repairPhotosCount": "صور الإصلاح ({{count}})",
-    "photosPartial": "أُضيفت {{added}} صورة، وفشلت {{failed}}"
+    "photosPartial": "أُضيفت {{added}} صورة، وفشلت {{failed}}",
+    "before": "قبل",
+    "after": "بعد",
+    "beforeAfter": "قبل وبعد",
+    "timeline": "المسار"
   },
   "errors": {
     "selectCar": "اختر السيارة التي تخصّها هذه المشكلة.",
     "description": "أضف وصفاً مختصراً للمشكلة.",
     "discovered": "تاريخ الاكتشاف مطلوب.",
     "emptyDescription": "الوصف لا يمكن أن يكون فارغاً.",
-    "photoUpload": "فشل رفع الصور. تحقّق من اتصالك وحاول مجدداً."
+    "photoUpload": "فشل رفع الصور. تحقّق من اتصالك وحاول مجدداً.",
+    "saveFailed": "تعذّر الحفظ. تحقق من الاتصال وحاول مجدداً.",
+    "loadFailed": "تعذّر تحميل المشاكل.",
+    "resolved": "تاريخ الحل مطلوب."
   },
   "toast": {
     "logged": "تم تسجيل المشكلة",
@@ -93,5 +108,23 @@
     "updated": "تم تحديث المشكلة",
     "photosAdded": "أُضيفت صور الإصلاح",
     "deleted": "تم حذف المشكلة"
+  },
+  "tiles": {
+    "open": "مفتوحة",
+    "openSub": "بانتظار الحل",
+    "resolvedMonth": "حُلّت هذا الشهر",
+    "resolvedTotal": "{{count}} محلولة بالإجمال",
+    "accidents": "حوادث",
+    "accidentsSub": "كل الحوادث المسجّلة",
+    "average": "متوسط أيام الحل",
+    "averageSub": "يوم لكل مشكلة"
+  },
+  "layout": {
+    "label": "طريقة العرض",
+    "board": "لوحة",
+    "list": "قائمة"
+  },
+  "edit": {
+    "title": "تعديل المشكلة"
   }
 }

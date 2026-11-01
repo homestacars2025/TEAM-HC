@@ -17,6 +17,8 @@ interface BookingSheetProps {
   alerts?: React.ReactNode;
   /** A change here starts the body from the top again, as moving between steps should. */
   scrollKey?: string | number;
+  /** 600px instead of 640px, for the forms with no calendar pair to fit. */
+  narrow?: boolean;
   footer: React.ReactNode;
   dirty: boolean;
   busy: boolean;
@@ -28,7 +30,7 @@ interface BookingSheetProps {
 }
 
 /** The shell of all four booking flows: a side sheet on a computer, full screen on a phone. */
-const BookingSheet: React.FC<BookingSheetProps> = ({ title, subtitle, chip, stepper, summary, alerts, scrollKey, footer, dirty, busy, onClose, onSubmit, closeRef, children }) => {
+const BookingSheet: React.FC<BookingSheetProps> = ({ title, subtitle, chip, stepper, summary, alerts, scrollKey, narrow = false, footer, dirty, busy, onClose, onSubmit, closeRef, children }) => {
   const { t } = useTranslation('common');
   const { t: tb } = useTranslation('bookings');
   const formRef = useRef<HTMLFormElement>(null);
@@ -66,7 +68,7 @@ const BookingSheet: React.FC<BookingSheetProps> = ({ title, subtitle, chip, step
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       // Any confirmation over the sheet has the keyboard to itself.
-      if (confirming || document.querySelector('[role="alertdialog"]')) return;
+      if (confirming || document.querySelector('[role="alertdialog"], .hc-lightbox')) return;
       if (e.key === 'Escape' && !e.defaultPrevented) {
         e.preventDefault();
         requestClose();
@@ -94,7 +96,7 @@ const BookingSheet: React.FC<BookingSheetProps> = ({ title, subtitle, chip, step
 
   return ReactDOM.createPortal(
     <div className="hc-bs-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) requestClose(); }}>
-      <form ref={formRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} noValidate onSubmit={onSubmit} className="hc-bs surface-depth surface-float">
+      <form ref={formRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} noValidate onSubmit={onSubmit} className={`hc-bs surface-depth surface-float ${narrow ? 'is-narrow' : ''}`}>
         <header className="hc-bs-head">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

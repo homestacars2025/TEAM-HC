@@ -110,5 +110,27 @@
     "unit": "km",
     "required": "Fuel range is required.",
     "max": "Maximum fuel range is 2000 km"
+  },
+  "time": {
+    "hour": "Hour",
+    "minute": "Minute"
+  },
+  "upload": {
+    "drop": "Drop a file here or choose one",
+    "dropPhotos": "Drop photos here or choose them",
+    "camera": "Camera",
+    "preparing": "Preparing…",
+    "replace": "Replace",
+    "onFile": "On file",
+    "wrongType": "This file type isn't supported.",
+    "tooLarge": "This file is too large.",
+    "unreadable": "Couldn't read this file.",
+    "someSkipped": "Some files were skipped because they aren't valid images.",
+    "uploading": "Uploading {{percent}}%",
+    "openNewTab": "Open in a new tab",
+    "previous": "Previous",
+    "next": "Next",
+    "moveEarlier": "Move earlier",
+    "moveLater": "Move later"
   }
 }

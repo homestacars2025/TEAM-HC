@@ -31,7 +31,7 @@ describe('surfaces', () => {
 
   test('tables keep a hairline between rows now the zebra stripes are gone', () => {
     expect(read('pages/BookingsPage.tsx')).toContain('.bk-row td { border-bottom: 1px solid var(--border-subtle); }');
-    expect(read('pages/FinesPage.tsx')).toContain('.fine-row td { border-bottom: 1px solid var(--border-subtle); }');
+    expect(read('index.css')).toMatch(/\.hc-fine-row \{[^}]*border: 1px solid var\(--border-subtle\)/);
   });
 
   test('depth is defined once, with the light on the reading side', () => {

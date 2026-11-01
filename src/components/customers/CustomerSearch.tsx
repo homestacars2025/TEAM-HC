@@ -9,16 +9,19 @@ const MIN_CHARS = 2;
 
 interface CustomerSearchProps {
   onSelect: (customer: CustomerMatch) => void;
-  onNew: (typed: string) => void;
+  /** Leave off where a new customer can't be created from here. */
+  onNew?: (typed: string) => void;
   flagFor: (nationality: string | null) => string;
   formatDate: (date: string) => string;
   /** Set when saving was tried with no customer chosen. */
   required: boolean;
+  /** A banned customer can't be booked, but can still owe for what they did. */
+  allowBanned?: boolean;
 }
 
 export const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toLocaleUpperCase('tr');
 
-const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFor, formatDate, required }) => {
+const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFor, formatDate, required, allowBanned = false }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
   const baseId = useId();
@@ -58,7 +61,7 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
     if (results && results.length > 0) listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [results]);
 
-  const selectable = (results ?? []).map((row, index) => ({ row, index })).filter(({ row }) => !row.is_banned);
+  const selectable = (results ?? []).map((row, index) => ({ row, index })).filter(({ row }) => allowBanned || !row.is_banned);
   const optionId = (index: number) => `${baseId}-option-${index}`;
 
   const move = (step: number) => {
@@ -76,7 +79,7 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
       // Never the form's submit: Enter here means "this one".
       e.preventDefault();
       const chosen = results?.[active];
-      if (chosen && !chosen.is_banned) onSelect(chosen);
+      if (chosen && (allowBanned || !chosen.is_banned)) onSelect(chosen);
     }
   };
 
@@ -121,10 +124,10 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
                 data-index={index}
                 role="option"
                 aria-selected={index === active}
-                aria-disabled={row.is_banned}
+                aria-disabled={row.is_banned && !allowBanned}
                 title={row.is_banned ? row.ban_reason ?? undefined : undefined}
                 onMouseDown={e => e.preventDefault()}
-                onClick={() => { if (!row.is_banned) onSelect(row); }}
+                onClick={() => { if (allowBanned || !row.is_banned) onSelect(row); }}
                 className={`hc-cust-row ${row.is_banned ? 'is-banned' : ''} ${index === active ? 'is-active' : ''}`}
               >
                 <span aria-hidden="true" className="hc-cust-avatar">{initialsOf(row.full_name) || '?'}</span>
@@ -156,12 +159,12 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
         </div>
       )}
 
-      <button type="button" onClick={() => onNew(query)} className="hc-cust-new">
+      {onNew && <button type="button" onClick={() => onNew(query)} className="hc-cust-new">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
         </svg>
         {t('customerStep.newCustomer')}
-      </button>
+      </button>}
     </div>
   );
 };

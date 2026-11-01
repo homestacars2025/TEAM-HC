@@ -147,7 +147,8 @@ describe('every key the Cars page asks for exists in both languages', () => {
 describe('every key the Car Issues page asks for exists in both languages', () => {
   const KEYS = [
     'eyebrow', 'title', 'subtitle', 'logIssue', 'loading', 'card.resolvedIn',
-    'stats.total', 'stats.open', 'stats.resolved',
+    'tiles.open', 'tiles.resolvedMonth', 'tiles.accidents', 'tiles.average',
+    'layout.board', 'layout.list', 'add.typeSection', 'add.descriptionHelp', 'detail.before', 'detail.after',
     'types.damage', 'types.accident', 'types.sound',
     'types.mechanical', 'types.maintenance', 'types.other',
     'status.open', 'status.resolved',

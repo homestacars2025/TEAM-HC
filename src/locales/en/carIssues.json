@@ -6,11 +6,6 @@
   "loading": "Loading issues…",
   "showing_one": "Showing {{shown}} of {{count}} issue",
   "showing_other": "Showing {{shown}} of {{count}} issues",
-  "stats": {
-    "total": "Total Issues",
-    "open": "Open",
-    "resolved": "Resolved"
-  },
   "types": {
     "damage": "Damage",
     "accident": "Accident",
@@ -32,10 +27,13 @@
     "noneTitle": "No issues logged yet",
     "noneBody": "Use “Log Issue” to record the first damage or fault.",
     "filteredTitle": "No issues match these filters",
-    "filteredBody": "Try clearing the search or changing the status and type filters."
+    "filteredBody": "Try clearing the search or changing the status and type filters.",
+    "column": "Nothing here."
   },
   "card": {
-    "resolvedIn": "Resolved in {{days}}d"
+    "resolvedIn": "Resolved in {{days}}d",
+    "daysOpen_one": "Open {{count}} day",
+    "daysOpen_other": "Open {{count}} days"
   },
   "add": {
     "title": "Log Issue",
@@ -52,7 +50,13 @@
     "loadingCars": "Loading cars…",
     "selectCar": "Select car…",
     "selectCarFirst": "Select a car first…",
-    "loadingBookings": "Loading bookings…"
+    "loadingBookings": "Loading bookings…",
+    "typeSection": "Issue type",
+    "whenSection": "Date and discoverer",
+    "linkBooking": "Link to this booking",
+    "unlink": "Unlink",
+    "otherBooking": "Another booking",
+    "descriptionHelp": "What happened, and where on the car? For example: a 10 cm scratch on the rear right door."
   },
   "detail": {
     "title": "Issue detail",
@@ -73,14 +77,21 @@
     "yesDelete": "Yes, delete",
     "damagePhotosCount": "Damage photos ({{count}})",
     "repairPhotosCount": "Repair photos ({{count}})",
-    "photosPartial": "{{added}} photo(s) added, {{failed}} failed"
+    "photosPartial": "{{added}} photo(s) added, {{failed}} failed",
+    "before": "Before",
+    "after": "After",
+    "beforeAfter": "Before and after",
+    "timeline": "Timeline"
   },
   "errors": {
     "selectCar": "Select the car this issue belongs to.",
     "description": "Add a short description of the issue.",
     "discovered": "Discovered date is required.",
     "emptyDescription": "Description cannot be empty.",
-    "photoUpload": "Photo upload failed. Check your connection and try again."
+    "photoUpload": "Photo upload failed. Check your connection and try again.",
+    "saveFailed": "Couldn't save. Check your connection and try again.",
+    "loadFailed": "Couldn't load the issues.",
+    "resolved": "The resolved date is required."
   },
   "toast": {
     "logged": "Issue logged successfully",
@@ -89,5 +100,23 @@
     "updated": "Issue updated",
     "photosAdded": "Repair photos added",
     "deleted": "Issue deleted"
+  },
+  "tiles": {
+    "open": "Open",
+    "openSub": "Waiting to be fixed",
+    "resolvedMonth": "Resolved this month",
+    "resolvedTotal": "{{count}} resolved in total",
+    "accidents": "Accidents",
+    "accidentsSub": "All recorded accidents",
+    "average": "Avg days to resolve",
+    "averageSub": "Days per issue"
+  },
+  "layout": {
+    "label": "Layout",
+    "board": "Board",
+    "list": "List"
+  },
+  "edit": {
+    "title": "Edit issue"
   }
 }

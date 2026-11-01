@@ -2,9 +2,6 @@
   "eyebrow": "Operations",
   "title": "Traffic Fines",
   "subtitle": "Manage and track all vehicle traffic fines",
-  "totalFines": "Total Fines",
-  "totalUnpaid": "Total Unpaid",
-  "chooseFile": "Choose file…",
   "showing": "Showing {{shown}} of {{count}} fines",
   "status": {
     "unpaid": "Unpaid",
@@ -32,11 +29,8 @@
     "addTitle": "Add Fine",
     "addSubtitle": "Enter the violation details below",
     "editTitle": "Edit Fine",
-    "selectPlate": "Select plate…",
     "violationNoPlaceholder": "e.g. MB-94271641",
-    "selectCarFirst": "Select a car first",
     "loading": "Loading…",
-    "noCustomers": "No customers found for this car",
     "amountLabel": "Amount (TRY)",
     "violationDate": "Violation Date",
     "violationTime": "Violation Time",
@@ -49,7 +43,20 @@
     "saving": "Saving…",
     "saveChanges": "Save Changes",
     "saveError": "Failed to save fine.",
-    "violationNumber": "Violation Number"
+    "violationNumber": "Violation Number",
+    "sectionViolation": "Violation",
+    "sectionCar": "Car and customer",
+    "sectionAmount": "Amount and status",
+    "sectionDocs": "Documents",
+    "violationCode": "Violation code",
+    "notificationDate": "Notification date",
+    "suggestTitle": "Renting this car that day:",
+    "useCustomer": "Use this customer",
+    "noBookingThatDay": "No booking for this car on that day.",
+    "changeCustomer": "Change customer",
+    "customerLinked": "Linked customer",
+    "statusHint": "Becomes paid through “Mark as paid” in the fine's details.",
+    "statusPaidHint": "Paid and recorded on the customer's account. It can't be undone here."
   },
   "view": {
     "plateNumber": "Plate Number",
@@ -66,12 +73,52 @@
   "delete": {
     "title": "Delete Fine",
     "deleting": "Deleting…",
-    "confirm": "Are you sure you want to delete fine <1>{{number}}</1> for plate <2>{{plate}}</2>?"
+    "body": "Delete fine {{number}} for {{plate}}?",
+    "failed": "Couldn't delete the fine."
   },
   "toast": {
     "added": "Fine added successfully.",
     "updated": "Fine updated successfully.",
     "paid": "Payment confirmed successfully.",
     "deleted": "Fine deleted."
+  },
+  "loadFailed": "Couldn't load the fines.",
+  "tiles": {
+    "unpaid": "Unpaid",
+    "paid": "Paid",
+    "month": "This month",
+    "linked": "Linked to a customer",
+    "count_one": "{{count}} fine",
+    "count_other": "{{count}} fines",
+    "unassigned": "{{count}} unassigned",
+    "allLinked": "All linked"
+  },
+  "segments": {
+    "all": "All",
+    "unpaid": "Unpaid",
+    "paid": "Paid",
+    "unassigned": "Unassigned",
+    "month": "This month"
+  },
+  "row": {
+    "noCustomer": "Not linked to a customer"
+  },
+  "detail": {
+    "title": "Fine details",
+    "timeline": "Timeline",
+    "step": {
+      "violation": "Violation",
+      "notified": "Notified",
+      "paid": "Paid"
+    },
+    "notRecorded": "Not recorded",
+    "linkCustomer": "Link customer",
+    "noDocuments": "No documents attached."
+  },
+  "errors": {
+    "number": "Violation number is required.",
+    "car": "Choose the car.",
+    "amount": "Amount is required.",
+    "date": "Violation date is required."
   }
 }
