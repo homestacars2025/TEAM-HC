@@ -14,6 +14,7 @@ import { readBootCollapsed, readUserSettings, writeUserSettings, type UserSettin
 export interface CurrentProfile extends StaffAvatarProfile {
   full_name: string | null;
   phone: string | null;
+  role?: string;
 }
 
 interface CurrentUserValue {
@@ -80,7 +81,7 @@ export const CurrentUserProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url, gender, avatar_bg, phone')
+        .select('full_name, avatar_url, gender, avatar_bg, phone, role')
         .eq('id', user.id)
         .single();
       if (cancelled) return;

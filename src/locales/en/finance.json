@@ -269,5 +269,160 @@
     "confirmTitle_one": "Add {{count}} expense to this sheet?",
     "confirmTitle_other": "Add {{count}} expenses to this sheet?",
     "confirmBody": "{{total}} will be posted and signed with your name."
+  },
+  "payment": {
+    "payment": "Paid amount",
+    "deposit": "Deposit",
+    "addPayment": "Add a payment",
+    "addDeposit": "Add a deposit",
+    "currency": "Currency",
+    "method": "How it was received",
+    "methods": {
+      "cash": "Cash",
+      "bank_transfer": "Bank transfer",
+      "card": "Card",
+      "online": "Online"
+    },
+    "cashNote": "An envelope will be created in your name.",
+    "account": "Account",
+    "chooseAccount": "Choose an account",
+    "noAccount": "No account is set up for this method yet. Add one in the Admin app.",
+    "envelopeTitle": "Write this number on the envelope",
+    "writeIt": "Write this number on the envelope and hand it to finance.",
+    "copy": "Copy number",
+    "copied": "Copied",
+    "done": "Done",
+    "errors": {
+      "amount": "Enter a valid amount.",
+      "method": "Choose how the money was received.",
+      "account": "Choose the account the money went to.",
+      "forbidden": "You don't have permission to record this.",
+      "rate": "No exchange rate for this currency.",
+      "generic": "Could not record the payment. Try again.",
+      "notRecorded": "Saved, but the payment was not recorded. Add it from the customer's wallet."
+    }
+  },
+  "envelopes": {
+    "title": "My envelopes",
+    "hint": "Hand them to finance today.",
+    "overdue": "Held for more than 24 hours. Hand them over.",
+    "empty": "You are not holding any envelopes.",
+    "failed": "Could not load your envelopes.",
+    "count_one": "{{count}} envelope",
+    "count_other": "{{count}} envelopes"
+  },
+  "cash": {
+    "loadFailed": "Could not load cash and envelopes.",
+    "envelopes": "Envelopes",
+    "movements": "Movements",
+    "noEnvelopes": "No envelopes here.",
+    "noMovements": "No movements here.",
+    "justNow": "Just now",
+    "status": {
+      "with_employee": "With staff",
+      "in_safe": "In the safe",
+      "with_admin": "With admin",
+      "cancelled": "Cancelled"
+    },
+    "kinds": {
+      "safe": "Safe",
+      "pos": "POS",
+      "bank": "Bank",
+      "gateway": "Gateway",
+      "custody": "Custody",
+      "other": "Account",
+      "final": "Final account"
+    },
+    "tiles": {
+      "all": "All accounts",
+      "accounts": "Accounts",
+      "staff": "Envelopes with staff",
+      "staffNone": "None held",
+      "pos": "POS pending settlement",
+      "posNone": "Nothing pending",
+      "next": "Next {{date}}"
+    },
+    "receive": {
+      "title": "Receive envelope",
+      "ref": "Envelope number",
+      "notFound": "No envelope has this number.",
+      "already": "This envelope is already: {{status}}.",
+      "counted": "Counted amount",
+      "destination": "Destination",
+      "choose": "Choose",
+      "difference": "Difference: {{amount}}",
+      "note": "Note",
+      "noteRequired": "Note (required)",
+      "confirm": "Receive",
+      "done": "{{ref}} received"
+    },
+    "transfer": {
+      "title": "Transfer",
+      "from": "From",
+      "to": "To",
+      "amount": "Amount",
+      "confirm": "Transfer",
+      "done": "Transferred, {{ref}}"
+    },
+    "table": {
+      "ref": "Number",
+      "staff": "Staff",
+      "customer": "Customer",
+      "plate": "Plate",
+      "amount": "Amount",
+      "age": "Age",
+      "status": "Status",
+      "date": "Date",
+      "kind": "Type",
+      "route": "From → to",
+      "by": "By",
+      "note": "Note"
+    },
+    "filters": {
+      "account": "Account",
+      "allAccounts": "All accounts",
+      "kind": "Type",
+      "allKinds": "All types",
+      "from": "From date",
+      "to": "To date"
+    },
+    "movementKinds": {
+      "customer_payment": "Customer payment",
+      "envelope_handover": "Envelope handed over",
+      "transfer": "Transfer",
+      "bank_deposit": "Bank deposit",
+      "pos_settlement": "POS settlement",
+      "admin_receipt": "Admin received",
+      "custody_out": "Custody out",
+      "refund": "Refund",
+      "adjustment": "Adjustment",
+      "reversal": "Reversal"
+    },
+    "counted": "Counted {{amount}}",
+    "expected": "Expected {{date}}",
+    "arrived": "Reached the bank",
+    "arrivedDone": "Marked as arrived",
+    "reverse": "Reverse",
+    "reversed": "Reversed, {{ref}}",
+    "reverseTitle": "Reverse {{ref}}?",
+    "reverseBody": "A new movement undoes this one. The original stays on the record.",
+    "adminReceive": "Received by admin",
+    "adminReceived_one": "{{count}} envelope received",
+    "adminReceived_other": "{{count}} envelopes received",
+    "adminConfirmTitle_one": "Receive {{count}} envelope?",
+    "adminConfirmTitle_other": "Receive {{count}} envelopes?",
+    "adminConfirmBody": "They move from the safe to the admin account.",
+    "chosen_one": "{{count}} selected",
+    "chosen_other": "{{count}} selected",
+    "errors": {
+      "forbidden": "You don't have permission to do this.",
+      "adminOnly": "Only the admin can receive into the admin account.",
+      "notFound": "Not found.",
+      "alreadyDone": "This was already done. The list has been refreshed.",
+      "note": "Write a note about the difference.",
+      "sameAccount": "Choose two different accounts.",
+      "destination": "Choose a safe or the admin account.",
+      "generic": "Could not save. Try again."
+    }
   }
 }

@@ -2,6 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useUrlSearch } from '../hooks/useUrlSearch';
+import PaymentFields from '../components/payments/PaymentFields';
+import PaymentReceipts from '../components/payments/PaymentReceipts';
+import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
+import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, type PaymentDraft, type PaymentReceipt, type PaymentType } from '../lib/payments';
+import { recordPayment } from '../lib/queries/payments';
+import { parseAmount } from '../lib/custodyExpense';
 import { convertEntry, getLedgerRows, type Direction, type LedgerCustomer, type LedgerRow } from '../lib/customerLedger';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { printCustomerInvoice } from '../lib/printCustomerInvoice';
@@ -347,11 +353,13 @@ const AddTransactionModal: React.FC<{
   presetCarId: number | null;
   fallbackUsdRate: number | null;
   onClose: () => void;
-  onSaved: () => void;
+  /** With the envelope to number, when the money was cash. */
+  onSaved: (receipt: PaymentReceipt | null) => void;
   onError: (message: string) => void;
 }> = ({ userId, presetCustomerId, presetName, presetCarId, fallbackUsdRate, onClose, onSaved, onError }) => {
   const { t } = useTranslation('wallets');
   const { t: tc } = useTranslation('common');
+  const { t: tf } = useTranslation('finance');
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = useState<string>(presetCustomerId ?? '');
   const [bookings, setBookings] = useState<BookingOption[]>([]);
@@ -362,6 +370,9 @@ const AddTransactionModal: React.FC<{
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
+  const paymentAccounts = usePaymentAccounts();
+  const isPayment = type === 'payment' || type === 'deposit';
 
   // Customer picker is only needed for the global "Add transaction".
   useEffect(() => {
@@ -409,7 +420,8 @@ const AddTransactionModal: React.FC<{
   }, [customerId, presetCarId]);
 
   const selectedBooking = useMemo(() => bookings.find(b => b.id === bookingId) ?? null, [bookings, bookingId]);
-  const canSave = !!customerId && !!selectedBooking && Number(amount) > 0 && !!type;
+  const canSave = !!customerId && !!selectedBooking && !!type
+    && (isPayment ? hasPayment(payment) && !paymentProblem(payment) : Number(amount) > 0);
 
   const handleTypeChange = (t: string) => {
     setType(t);
@@ -420,6 +432,20 @@ const AddTransactionModal: React.FC<{
   const handleSave = async () => {
     if (!canSave || saving || !selectedBooking) return;
     setSaving(true);
+
+    // Money received goes through the server, which also makes its envelope and movement.
+    if (isPayment) {
+      try {
+        const done = await recordPayment(selectedBooking.id, type as PaymentType, payment, description.trim() || null);
+        setSaving(false);
+        const customerName = presetName ?? customers.find(c => c.id === customerId)?.name ?? null;
+        onSaved(done.envelope_ref ? { ref: done.envelope_ref, amount: parseAmount(payment.amount) ?? 0, currency: payment.currency, plate: selectedBooking.plate_number, customer: customerName } : null);
+      } catch (failure) {
+        setSaving(false);
+        onError(tf(`payment.errors.${paymentErrorKey((failure as { message?: string })?.message)}`));
+      }
+      return;
+    }
 
     // Stamp the rate that was current at entry time; fall back to the rate already loaded by the page.
     const rate = (await fetchCurrentUsdRate()) ?? fallbackUsdRate;
@@ -443,12 +469,12 @@ const AddTransactionModal: React.FC<{
     });
     setSaving(false);
     if (error) { onError(t('errors.save')); return; }
-    onSaved();
+    onSaved(null);
   };
 
   return (
     <Modal title={t('form.addTitle')} onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="hc-wallet-add" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={labelStyle}>{t('form.customer')}</label>
           {presetCustomerId ? (
@@ -484,12 +510,21 @@ const AddTransactionModal: React.FC<{
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <TypeSelect value={type} onChange={handleTypeChange} />
-          <AmountField value={amount} onChange={setAmount} />
-        </div>
+        {isPayment ? (
+          <>
+            <TypeSelect value={type} onChange={handleTypeChange} />
+            <PaymentFields label={tf('cash.table.amount')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <TypeSelect value={type} onChange={handleTypeChange} />
+              <AmountField value={amount} onChange={setAmount} />
+            </div>
 
-        <DirectionPicker direction={direction} hasPreset={TYPE_DIRECTION[type] !== undefined} onChange={setDirection} />
+            <DirectionPicker direction={direction} hasPreset={TYPE_DIRECTION[type] !== undefined} onChange={setDirection} />
+          </>
+        )}
 
         <div>
           <label style={labelStyle}>{t('form.descriptionOptional')}</label>
@@ -619,6 +654,7 @@ const CW_STYLES = `
 }
 .cw-page { background:var(--cw-bg); min-height:100%; padding:30px 32px 56px; color:var(--cw-ink); }
 .cw-page.is-embedded { min-height:0; padding:0; }
+.cw-locked { color:#9ca3af; font-size:11.5px; font-weight:600; white-space:nowrap; }
 .cw-page *:focus-visible, .cw-overlay *:focus-visible { outline:2px solid var(--cw-accent); outline-offset:2px; border-radius:6px; }
 .cw-num { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
 
@@ -904,6 +940,9 @@ const TransactionSheet: React.FC<{
                 <td className="r cw-num cw-neu">{formatSigned(running, currency)}</td>
                 <td className="r">
                   <span className="cw-tx-actions">
+                    {/* Tied to an envelope and a movement, so it can't change on its own. */}
+                    {row.pay_method ? <span className="cw-locked" title={t('table.locked')}>{t('table.locked')}</span> : (
+                      <>
                     <button type="button" className="cw-icon-btn" onClick={() => onEdit(row)} title={t('table.edit')} aria-label={t('table.edit')}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                         <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -914,6 +953,8 @@ const TransactionSheet: React.FC<{
                         <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
+                      </>
+                    )}
                   </span>
                 </td>
               </tr>
@@ -1209,6 +1250,7 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
   const [deleteTarget, setDeleteTarget] = useState<LedgerRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
+  const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
 
   const notify = useCallback((t: ToastState) => {
     setToast(t);
@@ -1524,6 +1566,8 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
         />
       )}
 
+      {receipts.length > 0 && <PaymentReceipts receipts={receipts} onClose={() => setReceipts([])} />}
+
       {addFor && (
         <AddTransactionModal
           userId={userId}
@@ -1532,7 +1576,7 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
           presetCarId={addFor.carId}
           fallbackUsdRate={usdRate}
           onClose={() => setAddFor(null)}
-          onSaved={async () => { setAddFor(null); notify({ message: t('toast.added'), type: 'success' }); await load(); }}
+          onSaved={async receipt => { setAddFor(null); notify({ message: t('toast.added'), type: 'success' }); if (receipt) setReceipts([receipt]); await load(); }}
           onError={message => notify({ message, type: 'error' })}
         />
       )}

@@ -21,13 +21,15 @@ export interface LedgerRow {
   direction: Direction;
   exchange_rate_at_entry: number | null;
   created_at: string | null;
+  /** Set by `record_customer_payment`. Such a row is tied to an envelope and a movement. */
+  pay_method?: string | null;
   customers: LedgerCustomer | LedgerCustomer[] | null;
   cars: { plate_number: string | null } | { plate_number: string | null }[] | null;
 }
 
 interface RateRow { currency: string; rate_to_try: number; }
 
-const LEDGER_COLUMNS = 'id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, customers(first_name, last_name, is_banned, ban_reason), cars(plate_number)';
+const LEDGER_COLUMNS = 'id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, pay_method, customers(first_name, last_name, is_banned, ban_reason), cars(plate_number)';
 const PAGE_ROWS = 1000;
 
 /**

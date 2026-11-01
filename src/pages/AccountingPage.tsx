@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import CustodyTab from '../components/accounting/CustodyTab';
 import FinanceHome from '../components/accounting/FinanceHome';
+import CashTab from '../components/cash/CashTab';
 import { SuggestionBanner, SuggestionDialogs, SuggestionList, useSuggestions } from '../components/accounting/Suggestions';
 import PlateChip from '../components/booking/PlateChip';
 import { getPendingReviewCount } from '../lib/queries/expenseReview';
@@ -31,7 +32,7 @@ import Button from '../components/Button';
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Direction = 'IN' | 'OUT';
-type Tab = 'home' | 'car_sheets' | 'company' | 'custody' | 'customers' | 'suppliers';
+type Tab = 'home' | 'car_sheets' | 'company' | 'custody' | 'cash' | 'customers' | 'suppliers';
 
 interface CarOption {
   id: number;
@@ -1614,7 +1615,7 @@ const ReceiptField: React.FC<{
 //  Page shell
 // ════════════════════════════════════════════════════════════════════════════
 
-const TABS: Tab[] = ['home', 'car_sheets', 'company', 'custody', 'customers', 'suppliers'];
+const TABS: Tab[] = ['home', 'car_sheets', 'company', 'custody', 'cash', 'customers', 'suppliers'];
 
 /** The names older links and notifications still use. */
 const TAB_ALIASES: Record<string, Tab> = { cars: 'car_sheets', expenses: 'company' };
@@ -1708,6 +1709,7 @@ const AccountingPage: React.FC = () => {
       {tab === 'car_sheets' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} userId={userId} onAnswered={answered} />}
       {tab === 'company' && <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} onAnswered={answered} onOpenReceipt={setReceipt} />}
       {tab === 'custody' && <CustodyTab userId={userId} onOpenReceipt={setReceipt} onPendingChange={setPendingCount} notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}
+      {tab === 'cash' && <CashTab notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}
       {tab === 'customers' && <CustomerWalletsPage embedded />}
       {tab === 'suppliers' && (supplierId ? <SupplierDetailPage key={supplierId} supplierId={supplierId} /> : <SuppliersPage embedded />)}
 

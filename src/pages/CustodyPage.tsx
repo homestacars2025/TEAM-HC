@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
 import { isLegacyApproval } from '../lib/expenseReview';
@@ -16,6 +16,8 @@ import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { ReceiptLightbox, formatDateDisplay, useDateLocale } from './AccountingPage';
 import Button from '../components/Button';
 import AddExpenseSheet from '../components/custody/AddExpenseSheet';
+import MyEnvelopes from '../components/cash/MyEnvelopes';
+import { useMyEnvelopes } from '../hooks/useMyEnvelopes';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
 import PlateChip from '../components/booking/PlateChip';
 import ReviewPill from '../components/custody/ReviewPill';
@@ -106,6 +108,14 @@ const CustodyPage: React.FC = () => {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [toast, setToast] = useState<{ text: string; failed: boolean } | null>(null);
   const toastTimer = useRef(0);
+  const { envelopes, failed: envelopesFailed } = useMyEnvelopes(userId);
+  const [opened] = useState(() => Date.now());
+
+  // The account menu and Home link straight to the list, which sits under the movements.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash === '#envelopes' && envelopes) document.getElementById('envelopes')?.scrollIntoView({ block: 'start' });
+  }, [hash, envelopes]);
 
   useEffect(() => {
     if (!userId) return;
@@ -391,6 +401,8 @@ const CustodyPage: React.FC = () => {
           </>
         )}
       </section>
+
+      <MyEnvelopes envelopes={envelopes} failed={envelopesFailed} now={opened} />
 
       {!loading && (
         <Button onClick={() => setAdding(true)} aria-label={t('expense.add')} className="hc-fab sm:!hidden">

@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { formatTRY } from '../lib/CurrencyContext';
+import { holdingSummary } from '../lib/envelopes';
+import { useMyEnvelopes } from '../hooks/useMyEnvelopes';
 import { getMyCustodyBalance } from '../lib/queries/custody';
 import { getMyWalletBalance } from '../lib/queries/staffWallet';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
@@ -24,6 +26,7 @@ const Balance: React.FC<{ value: number | null }> = ({ value }) => (
 const AccountMenu: React.FC = () => {
   const { t } = useTranslation('shell');
   const { t: ts } = useTranslation('sidebar');
+  const { t: tf } = useTranslation('finance');
   const navigate = useNavigate();
   const { userId, email, profile } = useCurrentUser();
   const { canAccessPage, department, isDepartmentHead } = usePageAccess();
@@ -63,6 +66,9 @@ const AccountMenu: React.FC = () => {
     read(canOpenCustody, getMyCustodyBalance, setCustodyBalance);
     return () => { cancelled = true; };
   }, [open, userId, canOpenWallet, canOpenCustody]);
+
+  const { envelopes } = useMyEnvelopes(userId, open);
+  const holding = useMemo(() => holdingSummary(envelopes ?? [], Date.now()), [envelopes]);
 
   const close = () => setOpen(false);
 
@@ -127,6 +133,13 @@ const AccountMenu: React.FC = () => {
                 <span className="text-gray-400">{pageIcons.custody}</span>
                 <span className="min-w-0 flex-1 truncate">{t('menu.custody')}</span>
                 <Balance value={custodyBalance} />
+              </Link>
+            )}
+            {canOpenCustody && envelopes && holding.count > 0 && (
+              <Link to="/dashboard/custody#envelopes" role="menuitem" onClick={close} className={itemClass}>
+                <span className="text-gray-400">{pageIcons.custody}</span>
+                <span className="min-w-0 flex-1 truncate">{tf('envelopes.title')}</span>
+                <span className={`hc-num rounded-full px-2 text-[12px] font-semibold leading-5 ${holding.overdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>{holding.count}</span>
               </Link>
             )}
             <Link to="/dashboard/settings" role="menuitem" onClick={close} className={itemClass}>

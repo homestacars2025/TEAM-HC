@@ -9,6 +9,11 @@ import { sortCarsByModel } from '../lib/car-picker';
 import { localisedCountryName } from '../lib/countries';
 import type { Booking, BookingStatus } from '../types';
 import { useCurrency } from '../lib/CurrencyContext';
+import PaymentFields from '../components/payments/PaymentFields';
+import PaymentReceipts from '../components/payments/PaymentReceipts';
+import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
+import { emptyPayment, hasPayment, paymentProblem, toLira, type PaymentDraft, type PaymentReceipt } from '../lib/payments';
+import { recordPayment } from '../lib/queries/payments';
 import { printBookingContract } from '../lib/printContract';
 import { printReplacementSheet } from '../lib/printReplacementSheet';
 import type { ReplacementSheet } from '../lib/printReplacementSheet';
@@ -16,7 +21,7 @@ import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { addDay, rentalDays } from '../lib/bookingDates';
 import { fuelRangeProblem } from '../lib/fuelRange';
 import { formatExtras, hasExtras, parseExtras, type BookingExtras } from '../lib/bookingExtras';
-import type { ExpenseCar } from '../lib/custodyExpense';
+import { parseAmount, type ExpenseCar } from '../lib/custodyExpense';
 import {
   firstBusyDay, getBlocks, isCarBusyError, recentCarIds, rememberCar, type CalendarBlock,
 } from '../lib/queries/availability';
@@ -863,8 +868,6 @@ type BookingFormData = {
   // Financial fields (add mode only)
   fin_currency: 'TRY' | 'USD';
   fin_rental_amount: string;
-  fin_deposit: string;
-  fin_paid_amount: string;
 };
 
 /** Mirrors the customers_language_check constraint: only these three values are accepted. */
@@ -892,7 +895,7 @@ const EMPTY_FORM: BookingFormData = {
   cust_nationality: '',
   cust_driving_license_number: '', cust_license_issue_date: '',
   cust_address: '', cust_birth_date: '', cust_notes: '',
-  fin_currency: 'TRY', fin_rental_amount: '', fin_deposit: '', fin_paid_amount: '',
+  fin_currency: 'TRY', fin_rental_amount: '',
 };
 
 const LOCATION_PRESETS = [
@@ -944,7 +947,7 @@ const CUSTOMER_FIELDS = [
   'cust_id_type', 'cust_language', 'cust_id_number', 'cust_first_name', 'cust_last_name', 'cust_nationality',
   'cust_driving_license_number', 'cust_license_issue_date', 'cust_address', 'cust_birth_date', 'cust_notes',
 ] as const;
-const MONEY_FIELDS = ['fin_rental_amount', 'fin_deposit', 'fin_paid_amount'] as const;
+const MONEY_FIELDS = ['fin_rental_amount'] as const;
 
 const icon = (children: React.ReactNode) => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
@@ -1061,13 +1064,21 @@ interface FormModalProps {
   editCustomerId?: number;
   onClose: () => void;
   onSaved: () => void;
+  /** After the booking is saved: the envelopes to number, and whether a payment failed. */
+  onPaid: (receipts: PaymentReceipt[], failed: boolean) => void;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
-  mode, initial, editId, editCustomerId, onClose, onSaved,
+  mode, initial, editId, editCustomerId, onClose, onSaved, onPaid,
 }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const { t: tf } = useTranslation('finance');
+  const paymentAccounts = usePaymentAccounts();
+  const [deposit, setDeposit] = useState<PaymentDraft>(emptyPayment);
+  const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
+  // What is already on file, in lira. Changing it would orphan its envelope, so it is shown, not edited.
+  const [paidBefore, setPaidBefore] = useState({ deposit: 0, payment: 0 });
   const fuelRange = useFuelRange();
   const dateLocale = useDateLocale();
   const countryName = useCountryName();
@@ -1260,14 +1271,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   }, [mode, editCustomerId, applyCustomer, t]);
 
   // Fetch existing ledger rows in edit mode
-  const [existingLedgerIds, setExistingLedgerIds] = useState<{ rental?: number; deposit?: number; payment?: number }>({});
+  const [existingLedgerIds, setExistingLedgerIds] = useState<{ rental?: number }>({});
 
   useEffect(() => {
     if (mode !== 'edit' || !editId) return;
     let active = true;
     supabase
       .from('customer_accounting_ledger')
-      .select('id, type, amount')
+      .select('id, type, amount, direction')
       .eq('booking_id', editId)
       .in('type', ['rental', 'deposit', 'payment'])
       .then(({ data }) => {
@@ -1275,21 +1286,19 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         setLedgerLoaded(true);
         if (!data) return;
         const ids: typeof existingLedgerIds = {};
-        const amts: Record<string, string> = {};
-        for (const row of data as { id: number; type: string; amount: number }[]) {
-          if (row.type === 'rental' || row.type === 'deposit' || row.type === 'payment') {
-            ids[row.type as 'rental' | 'deposit' | 'payment'] = row.id;
-            amts[row.type] = row.amount > 0 ? String(row.amount) : '';
+        const paid = { deposit: 0, payment: 0 };
+        let rental = '';
+        for (const row of data as { id: number; type: string; amount: number; direction: string }[]) {
+          if (row.type === 'rental') {
+            ids.rental = row.id;
+            rental = row.amount > 0 ? String(row.amount) : '';
+          } else if (row.type === 'deposit' || row.type === 'payment') {
+            paid[row.type] += row.direction === 'IN' ? Number(row.amount) : -Number(row.amount);
           }
         }
         setExistingLedgerIds(ids);
-        setForm(f => ({
-          ...f,
-          fin_currency:      'TRY',
-          fin_rental_amount: amts['rental']    ?? '',
-          fin_deposit:     amts['deposit'] ?? '',
-          fin_paid_amount:   amts['payment']   ?? '',
-        }));
+        setPaidBefore(paid);
+        setForm(f => ({ ...f, fin_currency: 'TRY', fin_rental_amount: rental }));
       });
     return () => { active = false; };
   }, [mode, editId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1300,7 +1309,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     const oldCurrency = form.fin_currency;
     if (oldCurrency === newCurrency) return;
     const previous = currencySwitch.current;
-    const amounts = { fin_rental_amount: form.fin_rental_amount, fin_deposit: form.fin_deposit, fin_paid_amount: form.fin_paid_amount };
+    const amounts = { fin_rental_amount: form.fin_rental_amount };
     if (previous && MONEY_FIELDS.every(key => amounts[key] === previous.converted[key])) {
       currencySwitch.current = null;
       setForm(f => ({ ...f, fin_currency: newCurrency, ...previous.original }));
@@ -1315,8 +1324,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     };
     const converted = {
       fin_rental_amount: convert(amounts.fin_rental_amount),
-      fin_deposit:       convert(amounts.fin_deposit),
-      fin_paid_amount:   convert(amounts.fin_paid_amount),
     };
     currencySwitch.current = { original: amounts, converted };
     setForm(f => ({ ...f, fin_currency: newCurrency, ...converted }));
@@ -1473,12 +1480,15 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     }
     ([docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp] as const)
       .forEach((file, index) => { if (file) changed.add(`document_${index}`); });
+    // New money is a change of its own: it may be the only reason to save.
+    if (hasPayment(deposit)) changed.add('deposit');
+    if (hasPayment(payment)) changed.add('payment');
     return changed;
-  }, [form, baseline, customerSwapped, usdRate, extras, docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [form, baseline, customerSwapped, usdRate, extras, deposit, payment, docIdPhoto, docIdPhotoBack, docDrivingLicense, docDrivingLicenseBack, docEntryStamp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dirty = mode === 'edit'
     ? changedFields.size > 0
-    : customerStep !== 'search' || hasExtras(extras)
+    : customerStep !== 'search' || hasExtras(extras) || !!deposit.amount || !!payment.amount
       || (Object.keys(initial) as (keyof BookingFormData)[]).some(key => key !== 'booking_number' && form[key] !== initial[key]);
 
   /** Everything the first step asks for. */
@@ -1562,6 +1572,24 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     if (step === 3 && !validateFuel()) return;
     setStep(step + 1);
     setReached(furthest => Math.max(furthest, step + 1));
+  };
+
+  /** After the booking exists. A failure here can't undo it, so it is reported instead. */
+  const recordPayments = async (bookingId: number) => {
+    const plate = cars?.find(car => String(car.id) === form.car_id)?.plate_number ?? null;
+    const customer = [form.cust_first_name, form.cust_last_name].filter(Boolean).join(' ') || null;
+    const receipts: PaymentReceipt[] = [];
+    let failed = false;
+    for (const [type, draft] of [['deposit', deposit], ['payment', payment]] as const) {
+      if (!hasPayment(draft)) continue;
+      try {
+        const done = await recordPayment(bookingId, type, draft, null);
+        if (done.envelope_ref) receipts.push({ ref: done.envelope_ref, amount: parseAmount(draft.amount) ?? 0, currency: draft.currency, plate, customer });
+      } catch {
+        failed = true;
+      }
+    }
+    onPaid(receipts, failed);
   };
 
   /** Writes the chosen or new customer and their documents. `null` means stop: the reason is on screen. */
@@ -1679,16 +1707,13 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const rateStamp = entryRate != null ? { exchange_rate_at_entry: entryRate } : {};
       const ledgerRows: LedgerRow[] = [];
       const rentalAmt    = parseFloat(form.fin_rental_amount);
-      const depositAmt = parseFloat(form.fin_deposit);
-      const paidAmt      = parseFloat(form.fin_paid_amount);
       if (rentalAmt > 0)    ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'rental',    amount: toTRY(rentalAmt),    direction: 'OUT', description: 'Rental fee', ...rateStamp });
-      if (depositAmt > 0) ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'deposit', amount: toTRY(depositAmt), direction: 'IN',  description: 'Deposit fee', ...rateStamp });
-      if (paidAmt > 0)      ledgerRows.push({ booking_id: bookingId, customer_id: customerId, car_id: carIdNum, type: 'payment',   amount: toTRY(paidAmt),      direction: 'IN',  description: 'Customer payment', ...rateStamp });
       if (ledgerRows.length > 0) {
         const { error: ledgerError } = await supabase.from('customer_accounting_ledger').insert(ledgerRows);
         if (ledgerError) console.error('[Booking] ledger insert error:', ledgerError.message);
       }
 
+      await recordPayments(bookingId);
       setSaving(false);
     } else {
       // Edit: the customer first, so a refused ID leaves the booking as it was
@@ -1776,10 +1801,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const carIdNum   = Number(form.car_id);
       const usdRate    = rates.find(r => r.currency === 'USD')?.rate_to_try ?? 1;
       const toTRY      = (v: number) => form.fin_currency === 'USD' ? v * usdRate : v;
-      const ledgerDefs: Array<{ key: 'rental' | 'deposit' | 'payment'; amtField: string; direction: 'IN' | 'OUT'; description: string }> = [
+      const ledgerDefs: Array<{ key: 'rental'; amtField: string; direction: 'IN' | 'OUT'; description: string }> = [
         { key: 'rental',    amtField: form.fin_rental_amount, direction: 'OUT', description: 'Rental fee'       },
-        { key: 'deposit',   amtField: form.fin_deposit,     direction: 'IN',  description: 'Deposit fee'      },
-        { key: 'payment',   amtField: form.fin_paid_amount,   direction: 'IN',  description: 'Customer payment' },
       ];
       // Stamp the rate that applies right now, exactly as the Customer Wallets page does.
       // Read once per save; if it cannot be read the field is omitted rather than blocking the booking.
@@ -1803,6 +1826,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
         }
       }));
 
+      await recordPayments(editId!);
       setSaving(false);
     }
 
@@ -1823,6 +1847,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     if (!validateCustomer()) { setStep(0); return; }
     if (!validateTrip()) { setStep(1); return; }
     if (!validateFuel()) { setStep(3); return; }
+    const paymentIssue = paymentProblem(deposit) ?? paymentProblem(payment);
+    if (paymentIssue) { setFormError(tf(`payment.errors.${paymentIssue}`)); return; }
 
     submitting.current = true;
     try {
@@ -1856,7 +1882,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const locationName = (value: string) => (isLocationPreset(value) ? t(LOCATION_KEY[value]) : value);
 
   const rental = parseFloat(form.fin_rental_amount) || 0;
-  const paid = parseFloat(form.fin_paid_amount) || 0;
+  const paidLira = paidBefore.payment + toLira(payment, rates);
+  const paid = form.fin_currency === 'USD' && usdRate ? paidLira / usdRate : paidLira;
   const summaryRows = [
     { label: t('summary.car'), value: selectedCar ? <PlateChip plate={selectedCar.plate_number} /> : '—' },
     { label: t('summary.dates'), value: dateSpan },
@@ -2221,12 +2248,14 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       <Field label={t('form.rentalAmount')} changed={dot('fin_rental_amount')}>
         <MoneyField ariaLabel={t('form.rentalAmount')} currency={form.fin_currency} rate={usdRate} value={form.fin_rental_amount} onChange={value => set('fin_rental_amount', value)} />
       </Field>
-      <Field label={t('form.deposit')} changed={dot('fin_deposit')}>
-        <MoneyField ariaLabel={t('form.deposit')} currency={form.fin_currency} rate={usdRate} value={form.fin_deposit} onChange={value => set('fin_deposit', value)} />
-      </Field>
-      <Field label={t('form.paidAmount')} changed={dot('fin_paid_amount')}>
-        <MoneyField ariaLabel={t('form.paidAmount')} currency={form.fin_currency} rate={usdRate} value={form.fin_paid_amount} onChange={value => set('fin_paid_amount', value)} />
-      </Field>
+      {mode === 'edit' && (paidBefore.deposit !== 0 || paidBefore.payment !== 0) && (
+        <dl className="hc-review hc-field-wide">
+          <div><dt>{t('form.deposit')}</dt><dd><bdi dir="ltr">{formatMoney(paidBefore.deposit, 'TRY')}</bdi></dd></div>
+          <div><dt>{t('form.paidAmount')}</dt><dd><bdi dir="ltr">{formatMoney(paidBefore.payment, 'TRY')}</bdi></dd></div>
+        </dl>
+      )}
+      <PaymentFields label={tf(mode === 'edit' ? 'payment.addDeposit' : 'payment.deposit')} value={deposit} onChange={setDeposit} accounts={paymentAccounts} />
+      <PaymentFields label={tf(mode === 'edit' ? 'payment.addPayment' : 'payment.payment')} value={payment} onChange={setPayment} accounts={paymentAccounts} />
     </FormCard>
   );
 
@@ -2361,10 +2390,11 @@ const FAR_FUTURE = '2100-01-01';
 const ExtendBookingModal: React.FC<{
   booking: Booking;
   onClose: () => void;
-  onExtended: (newEndDate: string, newBalance: number | null, noteSaved: boolean) => void;
+  onExtended: (newEndDate: string, newBalance: number | null, noteSaved: boolean, receipts: PaymentReceipt[], paymentFailed: boolean) => void;
 }> = ({ booking, onClose, onExtended }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
+  const { t: tf } = useTranslation('finance');
   const dateLocale = useDateLocale();
   const usdRate = useUsdRate();
   const closeRef = useRef<(() => void) | null>(null);
@@ -2377,8 +2407,9 @@ const ExtendBookingModal: React.FC<{
   const [newEndDate, setNewEndDate] = useState('');
   const [rentalAmount, setRentalAmount] = useState('');
   const [rentalCurrency, setRentalCurrency] = useState<FormCurrency>('TRY');
-  const [paidAmount, setPaidAmount] = useState('');
-  const [paidCurrency, setPaidCurrency] = useState<FormCurrency>('TRY');
+  const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
+  const paymentAccounts = usePaymentAccounts();
+  const { rates } = useCurrency();
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [banAlert, setBanAlert] = useState<BanMatch | null>(
@@ -2413,10 +2444,9 @@ const ExtendBookingModal: React.FC<{
     : undefined;
 
   const rentalNum = Number(rentalAmount);
-  const paidNum   = paidAmount.trim() === '' ? 0 : Number(paidAmount);
   const inLira = (amount: number, currency: FormCurrency) => (currency === 'USD' && usdRate !== null ? amount * usdRate : amount);
   const rentalTry = inLira(rentalNum, rentalCurrency);
-  const paidTry   = inLira(paidNum, paidCurrency);
+  const paidTry   = toLira(payment, rates);
   const extraDays = newEndDate ? rentalDays(booking.end_date, newEndDate) : 0;
   const nextBalance = oldBalance === null ? null : oldBalance - (rentalTry || 0) + (paidTry || 0);
 
@@ -2437,8 +2467,9 @@ const ExtendBookingModal: React.FC<{
       setFormError(t('extend.errors.rentalPositive'));
       return;
     }
-    if (!Number.isFinite(paidNum) || paidNum < 0) {
-      setFormError(t('extend.errors.paidNegative'));
+    const paymentIssue = paymentProblem(payment);
+    if (paymentIssue) {
+      setFormError(tf(`payment.errors.${paymentIssue}`));
       return;
     }
 
@@ -2461,7 +2492,8 @@ const ExtendBookingModal: React.FC<{
       p_booking_id:    booking.id,
       p_new_end_date:  newEndDate,
       p_rental_amount: rentalTry,
-      p_paid_amount:   paidTry,
+      // The payment is recorded below, the one way money reaches the ledger.
+      p_paid_amount:   0,
       p_created_by:    user?.id ?? null,
     });
 
@@ -2474,18 +2506,29 @@ const ExtendBookingModal: React.FC<{
       return;
     }
 
+    const receipts: PaymentReceipt[] = [];
+    let paymentFailed = false;
+    let paidNow = 0;
+    if (hasPayment(payment)) {
+      try {
+        const done = await recordPayment(booking.id, 'payment', payment, 'Extension payment');
+        paidNow = Number(done.amount_try);
+        if (done.envelope_ref) receipts.push({ ref: done.envelope_ref, amount: parseAmount(payment.amount) ?? 0, currency: payment.currency, plate: booking.plate_number, customer: booking.customer_name });
+      } catch {
+        paymentFailed = true;
+      }
+    }
+
     const notes = await Promise.all([
       rentalCurrency === 'USD' && usdRate !== null
         ? appendLedgerNote(booking.id, 'Rental extension', ` ($${rentalNum} × ${formatRate(usdRate)})`) : true,
-      paidCurrency === 'USD' && paidNum > 0 && usdRate !== null
-        ? appendLedgerNote(booking.id, 'Extension payment', ` ($${paidNum} × ${formatRate(usdRate)})`) : true,
     ]);
     setSaving(false);
 
     // The function returns a TABLE, which PostgREST hands back as an array.
     const result = (Array.isArray(data) ? data[0] : data) as ExtendResult | undefined;
     const balance = result?.new_balance == null ? null : Number(result.new_balance);
-    onExtended(newEndDate, Number.isFinite(balance as number) ? balance : null, notes.every(Boolean));
+    onExtended(newEndDate, Number.isFinite(balance as number) ? (balance as number) + paidNow : null, notes.every(Boolean), receipts, paymentFailed);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -2516,7 +2559,7 @@ const ExtendBookingModal: React.FC<{
       subtitle={t('extend.subtitle', { number: booking.booking_number, customer: booking.customer_name || '—' })}
       summary={<SummaryBar rows={summaryRows} headline={summaryRows[3]} />}
       alerts={banAlert || formError ? <>{banAlert && <BanAlert ban={banAlert} />}<FormError>{formError}</FormError></> : undefined}
-      dirty={!!newEndDate || rentalAmount !== '' || paidAmount !== ''}
+      dirty={!!newEndDate || rentalAmount !== '' || payment.amount !== ''}
       busy={saving}
       onClose={onClose}
       onSubmit={handleSubmit}
@@ -2585,10 +2628,7 @@ const ExtendBookingModal: React.FC<{
         <Field label={t('extend.labelRental')} required wide>
           <MoneyField ariaLabel={t('extend.labelRental')} currency={rentalCurrency} rate={usdRate} onCurrency={setRentalCurrency} value={rentalAmount} onChange={setRentalAmount} />
         </Field>
-        <Field label={t('extend.labelPaid')} wide>
-          <MoneyField ariaLabel={t('extend.labelPaid')} currency={paidCurrency} rate={usdRate} onCurrency={setPaidCurrency} value={paidAmount} onChange={setPaidAmount} />
-          <p className="mt-1 text-xs text-gray-500">{t('extend.paidHint')}</p>
-        </Field>
+        <PaymentFields label={t('extend.labelPaid')} hint={t('extend.paidHint')} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
         <p className="hc-field-wide text-xs leading-relaxed text-gray-500">{t('extend.insuranceNote')}</p>
       </FormCard>
     </BookingSheet>
@@ -3249,6 +3289,7 @@ const ReplacementFormModal: React.FC<{
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const BookingsPage: React.FC = () => {
+  const { t: tf } = useTranslation('finance');
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
@@ -3284,6 +3325,13 @@ const BookingsPage: React.FC = () => {
     setToast({ message, type });
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
+
+  const [paymentReceipts, setPaymentReceipts] = useState<PaymentReceipt[]>([]);
+  // The toast outlives the one the save shows, so this one is what stays on screen.
+  const afterPayment = useCallback((receipts: PaymentReceipt[], failed: boolean) => {
+    if (receipts.length > 0) setPaymentReceipts(receipts);
+    if (failed) window.setTimeout(() => showToast(tf('payment.errors.notRecorded'), 'error'), 0);
+  }, [showToast, tf]);
 
   // ── Fetch stats (separate lightweight query) ────────────────────────────────
   const fetchStats = useCallback(async (month: Date) => {
@@ -3460,7 +3508,7 @@ const BookingsPage: React.FC = () => {
     cust_nationality: '',
     cust_driving_license_number: '', cust_license_issue_date: '',
     cust_address: '', cust_birth_date: '', cust_notes: '',
-    fin_currency: 'TRY', fin_rental_amount: '', fin_deposit: '', fin_paid_amount: '',
+    fin_currency: 'TRY', fin_rental_amount: '',
   });
 
   return (
@@ -3848,8 +3896,9 @@ const BookingsPage: React.FC = () => {
         <ExtendBookingModal
           booking={extendTarget}
           onClose={() => setExtendTarget(null)}
-          onExtended={(newEndDate, newBalance, noteSaved) => {
+          onExtended={(newEndDate, newBalance, noteSaved, receipts, paymentFailed) => {
             setExtendTarget(null);
+            afterPayment(receipts, paymentFailed);
             const done = newBalance == null
               ? t('extend.toast.done', { date: newEndDate })
               : t('extend.toast.doneWithBalance', {
@@ -3896,6 +3945,7 @@ const BookingsPage: React.FC = () => {
           mode="add"
           initial={EMPTY_FORM}
           onClose={() => setModal(null)}
+          onPaid={afterPayment}
           onSaved={() => {
             showToast(t('toast.added'), 'success');
             fetchStats(selectedMonth);
@@ -3910,6 +3960,7 @@ const BookingsPage: React.FC = () => {
           editId={modal.booking.id}
           editCustomerId={modal.booking.customer_id}
           onClose={() => setModal(null)}
+          onPaid={afterPayment}
           onSaved={() => {
             showToast(t('toast.updated'), 'success');
             fetchStats(selectedMonth);
@@ -3918,6 +3969,7 @@ const BookingsPage: React.FC = () => {
         />
       )}
       {toast && <Toast {...toast} />}
+      {paymentReceipts.length > 0 && <PaymentReceipts receipts={paymentReceipts} onClose={() => setPaymentReceipts([])} />}
 
       <style>{`
         .bk-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }

@@ -55,7 +55,8 @@
     "balance": "Balance",
     "actions": "Actions",
     "edit": "Edit transaction",
-    "delete": "Delete transaction"
+    "delete": "Delete transaction",
+    "locked": "Recorded"
   },
   "form": {
     "addTitle": "Add Transaction",
