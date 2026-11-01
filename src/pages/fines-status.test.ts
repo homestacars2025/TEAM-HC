@@ -1,11 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-const SRC = fs.readFileSync(path.join(__dirname, 'FinesPage.tsx'), 'utf8');
+const modal = fs.readFileSync(path.join(__dirname, '../components/fines/FineDetail.tsx'), 'utf8');
 
 describe('the fine detail badge', () => {
-  const modal = SRC.slice(SRC.indexOf('const ViewFineModal'), SRC.indexOf('interface ConfirmPaymentModalProps'));
-
   test("reads the fine's own status", () => {
     expect(modal).toContain('t(`status.${fine.status}`)');
   });
