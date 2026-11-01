@@ -83,6 +83,17 @@ export function matchDefaults(row: Pick<ReviewExpense, 'expense_scope' | 'car_id
   return { target, carId: row.car_id, category: target === 'car' ? carSheetCategory(row.category) : row.category || 'Other' };
 }
 
+/** What pressing Add posts: the expense's own car or company, with a category the sheet knows. */
+export function suggestedMatch(row: Pick<ReviewExpense, 'car_id' | 'category'>, scope: 'car' | 'company'): { target: MatchTarget; carId: number | null; category: string; note: null } {
+  return scope === 'car'
+    ? { target: 'car', carId: row.car_id, category: carSheetCategory(row.category), note: null }
+    : { target: 'company', carId: null, category: row.category || 'Other', note: null };
+}
+
+/** The month of the expense is the month its row lands on, so that is the sheet it shows on. */
+export const suggestionsFor = (rows: ReviewExpense[], month: string): ReviewExpense[] =>
+  rows.filter(row => row.transaction_date.startsWith(month));
+
 export interface ReviewContext {
   month: string;
   /** Expense ids the signed-in person has signed. */

@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import CustodyTab from '../components/accounting/CustodyTab';
 import FinanceHome from '../components/accounting/FinanceHome';
+import { SuggestionBanner, SuggestionDialogs, SuggestionList, useSuggestions } from '../components/accounting/Suggestions';
 import PlateChip from '../components/booking/PlateChip';
 import { getPendingReviewCount } from '../lib/queries/expenseReview';
 import CustomerWalletsPage from './CustomerWalletsPage';
@@ -341,9 +342,12 @@ const CarSheetsTab: React.FC<{
   /** From a link to one posted row. */
   focusCar: number | null;
   focusEntry: number | null;
-}> = ({ monthDate, notify, focusCar, focusEntry }) => {
+  userId: string | null;
+  onAnswered: (count: number) => void;
+}> = ({ monthDate, notify, focusCar, focusEntry, userId, onAnswered }) => {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
+  const { t: tf } = useTranslation('finance');
   const dateLocale = useDateLocale();
   const { fmt } = useCurrency();
   const monthKey = monthKeyOf(monthDate);
@@ -365,8 +369,9 @@ const CarSheetsTab: React.FC<{
     else setViewReceipt(url);
   };
 
-  const loadTxns = useCallback(async () => {
-    setLoading(true);
+  // Quietly after a suggestion lands, or the spinner would take away the row it animates.
+  const loadTxns = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     const { data } = await supabase
       .from('team_car_transactions')
       .select('id, car_id, plate_number, model_name, category, amount, direction, date, month_key, note, created_at')
@@ -436,6 +441,26 @@ const CarSheetsTab: React.FC<{
     return totals;
   }, [txns]);
 
+  const [freshTxn, setFreshTxn] = useState<number | null>(null);
+  const pickerCars = useMemo(() => cars.map(car => ({ id: car.id, plate_number: car.plate_number, model: car.model_name || null })), [cars]);
+  const suggestions = useSuggestions({
+    scope: 'car',
+    month: monthKey,
+    cars: pickerCars,
+    userId,
+    onPosted: result => {
+      setFreshTxn(result.car_tx_id);
+      void loadTxns(true);
+    },
+    onAnswered,
+    notify: (message, failed) => notify({ message, type: failed ? 'error' : 'success' }),
+  });
+  const suggestedByCar = useMemo(() => {
+    const byCar = new Map<number, typeof suggestions.shown>();
+    suggestions.shown.forEach(row => { if (row.car_id !== null) byCar.set(row.car_id, [...(byCar.get(row.car_id) ?? []), row]); });
+    return byCar;
+  }, [suggestions.shown]);
+
   const handleDelete = async () => {
     if (!deleteTxn || deleting) return;
     setDeleting(true);
@@ -450,6 +475,7 @@ const CarSheetsTab: React.FC<{
 
   return (
     <div>
+      <SuggestionBanner suggestions={suggestions} />
       <div className="hc-acc-sheet-tools">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('cars.search')} aria-label={t('cars.search')} className="hc-input" />
         <Button onClick={() => setShowAdd(true)}>
@@ -465,12 +491,14 @@ const CarSheetsTab: React.FC<{
           {filteredCars.map(car => {
             const open = car.id === selectedCarId;
             const own = totalsByCar[car.id];
+            const suggested = suggestedByCar.get(car.id) ?? [];
             return (
               <li key={car.id} className="surface-depth">
                 <button type="button" className="hc-acc-sheet-head" aria-expanded={open} onClick={() => setSelectedCarId(open ? null : car.id)}>
                   <span className="hc-acc-sheet-car">
                     <PlateChip plate={car.plate_number} />
                     <small dir="auto">{car.model_name || '—'}</small>
+                    {suggested.length > 0 && <span className="hc-sug-chip">{tf('suggested.chip', { count: suggested.length })}</span>}
                   </span>
                   <span className="hc-acc-sheet-figures">
                     <span><small>{t('summary.totalIn')}</small><b className="is-in"><bdi dir="ltr">{fmt(own?.in ?? 0)}</bdi></b></span>
@@ -481,7 +509,7 @@ const CarSheetsTab: React.FC<{
                 </button>
                 {open && (
                   <div className="hc-acc-sheet-body">
-                    {carTxns.length === 0 ? <EmptyState label={t('cars.noTransactions')} /> : (
+                    {carTxns.length === 0 ? (suggested.length === 0 && <EmptyState label={t('cars.noTransactions')} />) : (
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
               <thead>
                 <tr>
@@ -490,7 +518,7 @@ const CarSheetsTab: React.FC<{
               </thead>
               <tbody>
                 {carTxns.map(txn => (
-                  <tr key={txn.id} style={txn.id === focusEntry ? FOCUSED_ROW : undefined}>
+                  <tr key={txn.id} className={txn.id === freshTxn ? 'hc-row-new' : undefined} style={txn.id === focusEntry ? FOCUSED_ROW : undefined}>
                     <td style={tdStyle}>{formatDateDisplay(txn.date, dateLocale)}</td>
                     <td style={tdStyle}><DirectionBadge direction={txn.direction} /></td>
                     <td style={tdStyle}>{categoryLabel(t, txn.category)}</td>
@@ -522,6 +550,7 @@ const CarSheetsTab: React.FC<{
               </tbody>
                       </table>
                     )}
+                    <SuggestionList suggestions={suggestions} rows={suggested} onOpenReceipt={openReceipt} />
                   </div>
                 )}
               </li>
@@ -560,6 +589,7 @@ const CarSheetsTab: React.FC<{
           onError={() => notify({ message: t('toast.txnUpdateError'), type: 'error' })}
         />
       )}
+      <SuggestionDialogs suggestions={suggestions} />
       {viewReceipt && <ReceiptLightbox url={viewReceipt} onClose={() => setViewReceipt(null)} />}
       {deleteTxn && (
         <ConfirmDialog
@@ -837,7 +867,9 @@ const CompanyExpensesSection: React.FC<{
   userId: string | null;
   notify: (t: ToastState) => void;
   focusEntry: number | null;
-}> = ({ monthDate, userId, notify, focusEntry }) => {
+  onAnswered: (count: number) => void;
+  onOpenReceipt: (url: string) => void;
+}> = ({ monthDate, userId, notify, focusEntry, onAnswered, onOpenReceipt }) => {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
@@ -852,8 +884,11 @@ const CompanyExpensesSection: React.FC<{
   const monthStart = toDateStr(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
   const monthEnd = toDateStr(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const [freshRow, setFreshRow] = useState<number | null>(null);
+
+  // Quietly after a suggestion lands, or the spinner would take away the row it animates.
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     const { data } = await supabase
       .from('company_expenses')
       .select('id, expense_date, direction, category, amount, description, receipt_url, created_at')
@@ -865,6 +900,18 @@ const CompanyExpensesSection: React.FC<{
   }, [monthStart, monthEnd]);
 
   useEffect(() => { load(); }, [load]);
+
+  const suggestions = useSuggestions({
+    scope: 'company',
+    month: monthStart.slice(0, 7),
+    userId,
+    onPosted: result => {
+      setFreshRow(result.company_expense_id);
+      void load(true);
+    },
+    onAnswered,
+    notify: (message, failed) => notify({ message, type: failed ? 'error' : 'success' }),
+  });
 
   const totals = useMemo(() => {
     let tin = 0, tout = 0;
@@ -885,6 +932,7 @@ const CompanyExpensesSection: React.FC<{
 
   return (
     <div>
+      <SuggestionBanner suggestions={suggestions} />
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <SummaryPill label={t('summary.totalIn')} value={fmt(totals.tin)} color={COLOR_IN} />
         <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
@@ -899,8 +947,9 @@ const CompanyExpensesSection: React.FC<{
       </div>
 
       <div className="surface-depth" style={{ ...cardStyle, overflow: 'hidden' }}>
+        <SuggestionList suggestions={suggestions} rows={suggestions.shown} onOpenReceipt={onOpenReceipt} />
         <div style={{ overflowX: 'auto' }}>
-          {loading ? <Spinner /> : rows.length === 0 ? <EmptyState label={t('expenses.empty')} /> : (
+          {loading ? <Spinner /> : rows.length === 0 ? (suggestions.shown.length === 0 && <EmptyState label={t('expenses.empty')} />) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
               <thead>
                 <tr>
@@ -909,7 +958,7 @@ const CompanyExpensesSection: React.FC<{
               </thead>
               <tbody>
                 {rows.map(r => (
-                  <tr key={r.id} style={r.id === focusEntry ? FOCUSED_ROW : undefined}>
+                  <tr key={r.id} className={r.id === freshRow ? 'hc-row-new' : undefined} style={r.id === focusEntry ? FOCUSED_ROW : undefined}>
                     <td style={tdStyle}>{formatDateDisplay(r.expense_date, dateLocale)}</td>
                     <td style={tdStyle}><DirectionBadge direction={r.direction} /></td>
                     <td style={tdStyle}>{categoryLabel(t, r.category)}</td>
@@ -942,6 +991,7 @@ const CompanyExpensesSection: React.FC<{
         </div>
       </div>
 
+      <SuggestionDialogs suggestions={suggestions} />
       {showAdd && (
         <AddCompanyExpenseModal
           userId={userId}
@@ -1580,6 +1630,7 @@ const AccountingPage: React.FC = () => {
   const [monthDate, setMonthDate] = useState<Date>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
+  const answered = useCallback((count: number) => setPendingCount(current => (current === null ? current : Math.max(0, current - count))), []);
   const [toast, setToast] = useState<ToastState>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -1654,8 +1705,8 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {tab === 'home' && <FinanceHome userId={userId} />}
-      {tab === 'car_sheets' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} />}
-      {tab === 'company' && <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} />}
+      {tab === 'car_sheets' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} userId={userId} onAnswered={answered} />}
+      {tab === 'company' && <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} onAnswered={answered} onOpenReceipt={setReceipt} />}
       {tab === 'custody' && <CustodyTab userId={userId} onOpenReceipt={setReceipt} onPendingChange={setPendingCount} notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}
       {tab === 'customers' && <CustomerWalletsPage embedded />}
       {tab === 'suppliers' && (supplierId ? <SupplierDetailPage key={supplierId} supplierId={supplierId} /> : <SuppliersPage embedded />)}

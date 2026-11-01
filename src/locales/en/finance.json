@@ -255,5 +255,19 @@
     "fines_other": "{{count}} fines",
     "suppliers_one": "{{count}} supplier",
     "suppliers_other": "{{count}} suppliers"
+  },
+  "suggested": {
+    "banner_one": "You have {{count}} suggested expense from custody worth {{total}}",
+    "banner_other": "You have {{count}} suggested expenses from custody worth {{total}}",
+    "addAll": "Add all",
+    "add": "Add",
+    "edit": "Edit",
+    "from": "From {{employee}}’s custody",
+    "label": "Suggested from custody",
+    "chip_one": "{{count}} suggested",
+    "chip_other": "{{count}} suggested",
+    "confirmTitle_one": "Add {{count}} expense to this sheet?",
+    "confirmTitle_other": "Add {{count}} expenses to this sheet?",
+    "confirmBody": "{{total}} will be posted and signed with your name."
   }
 }

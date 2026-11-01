@@ -19,6 +19,20 @@ export async function getCustodyMovements(): Promise<ReviewExpense[]> {
   return ((data ?? []) as unknown as ReviewExpense[]).map(row => ({ ...row, amount: Number(row.amount) }));
 }
 
+/** The expenses waiting to go on one kind of sheet, oldest first. */
+export async function getPendingExpenses(scope: 'car' | 'company'): Promise<ReviewExpense[]> {
+  const { data, error } = await supabase
+    .from('employee_wallets')
+    .select(MOVEMENT_COLUMNS)
+    .eq('direction', 'OUT')
+    .eq('review_status', 'pending')
+    .eq('expense_scope', scope)
+    .order('transaction_date')
+    .order('id');
+  if (error) throw error;
+  return ((data ?? []) as unknown as ReviewExpense[]).map(row => ({ ...row, amount: Number(row.amount) }));
+}
+
 /** Through the staff view, which has no investor or commission in it. */
 export async function getPostedCars(ids: number[]): Promise<Map<number, PostedCar>> {
   if (ids.length === 0) return new Map();

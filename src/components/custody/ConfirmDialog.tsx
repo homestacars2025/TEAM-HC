@@ -8,12 +8,14 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   busy?: boolean;
+  /** Red unless the action is a safe one. */
+  tone?: 'destructive' | 'primary';
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 /** Starts on the safe answer, so a stray Enter never destroys anything. */
-const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ title, body, confirmLabel, cancelLabel, busy = false, onConfirm, onCancel }) => {
+const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ title, body, confirmLabel, cancelLabel, busy = false, tone = 'destructive', onConfirm, onCancel }) => {
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ title, body, confirmLabel
         <p id="hc-confirm-body" className="mt-1.5 text-sm leading-relaxed text-gray-500">{body}</p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button ref={cancelRef} variant="secondary" onClick={onCancel} disabled={busy}>{cancelLabel}</Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={busy}>{confirmLabel}</Button>
+          <Button variant={tone} onClick={onConfirm} disabled={busy}>{confirmLabel}</Button>
         </div>
       </div>
     </div>,

@@ -3,7 +3,7 @@ import path from 'path';
 import { canDeleteExpense } from './custodyExpense';
 import { toCsv } from './csv';
 import { convertEntry, customerBalances, ledgerTotals as customerTotals, type LedgerRow } from './customerLedger';
-import { carSheetCategory, employeeCustody, inReviewFilter, isLegacyApproval, matchDefaults, reviewErrorKey, reviewStats, settlement, sheetLink, type ReviewExpense } from './expenseReview';
+import { carSheetCategory, employeeCustody, inReviewFilter, isLegacyApproval, matchDefaults, reviewErrorKey, reviewStats, settlement, sheetLink, suggestedMatch, suggestionsFor, type ReviewExpense } from './expenseReview';
 import { accountsFor, formatMoney, inSupplierFilter, ledgerTotals, matchesSupplier, owedByCurrency, whatsappLink, withRunning, type Supplier, type SupplierBalance, type SupplierTx } from './suppliers';
 
 const expense = (o: Partial<ReviewExpense> = {}): ReviewExpense => ({
@@ -36,7 +36,7 @@ describe('what the popover opens on', () => {
     const code = (text: string) => text.split('\n').filter(line => !/who owns|no investor|^\s*\*/.test(line)).join('\n');
     expect(code(read('lib/queries/expenseReview.ts'))).not.toMatch(/investor|commission/i);
     expect(code(read('lib/queries/financeHome.ts'))).not.toMatch(/investor_id|financial_transactions/i);
-    for (const file of ['components/accounting/CustodyTab.tsx', 'components/accounting/MatchPopover.tsx', 'components/accounting/FinanceHome.tsx']) {
+    for (const file of ['components/accounting/CustodyTab.tsx', 'components/accounting/MatchPopover.tsx', 'components/accounting/FinanceHome.tsx', 'components/accounting/Suggestions.tsx']) {
       expect(read(file)).not.toMatch(/investor|commission/i);
     }
   });
@@ -130,6 +130,23 @@ describe('per employee', () => {
 
   it('falls back to its own rows for the balance', () => {
     expect(groups.find(g => g.employeeId === 'small')?.balance).toBe(-10);
+  });
+});
+
+describe('suggested rows', () => {
+  it('posts a car expense to its car, in a category the sheet knows', () => {
+    expect(suggestedMatch(expense({ car_id: 3, category: 'Parking' }), 'car')).toEqual({ target: 'car', carId: 3, category: 'Other', note: null });
+    expect(suggestedMatch(expense({ car_id: 3, category: 'Fuel' }), 'car').category).toBe('Petrol');
+  });
+
+  it('posts a company expense with its own category', () => {
+    expect(suggestedMatch(expense({ category: 'Food' }), 'company')).toEqual({ target: 'company', carId: null, category: 'Food', note: null });
+    expect(suggestedMatch(expense({ category: null }), 'company').category).toBe('Other');
+  });
+
+  it('shows on the sheet of the month it will land on', () => {
+    const rows = [expense({ id: 1, transaction_date: '2026-10-31' }), expense({ id: 2, transaction_date: '2026-11-01' })];
+    expect(suggestionsFor(rows, '2026-11').map(row => row.id)).toEqual([2]);
   });
 });
 

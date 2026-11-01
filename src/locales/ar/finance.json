@@ -283,5 +283,31 @@
     "suppliers_few": "{{count}} موردين",
     "suppliers_many": "{{count}} مورداً",
     "suppliers_other": "{{count}} مورد"
+  },
+  "suggested": {
+    "banner_zero": "عندك {{count}} مصروف مقترح من الوديعات بقيمة {{total}}",
+    "banner_one": "عندك مصروف واحد مقترح من الوديعات بقيمة {{total}}",
+    "banner_two": "عندك مصروفان مقترحان من الوديعات بقيمة {{total}}",
+    "banner_few": "عندك {{count}} مصاريف مقترحة من الوديعات بقيمة {{total}}",
+    "banner_many": "عندك {{count}} مصروفاً مقترحاً من الوديعات بقيمة {{total}}",
+    "banner_other": "عندك {{count}} مصروف مقترح من الوديعات بقيمة {{total}}",
+    "addAll": "إضافة الكل",
+    "add": "إضافة",
+    "edit": "تعديل",
+    "from": "من وديعة {{employee}}",
+    "label": "مقترحة من الوديعات",
+    "chip_zero": "{{count}} مقترح",
+    "chip_one": "مقترح واحد",
+    "chip_two": "مقترحان",
+    "chip_few": "{{count}} مقترحة",
+    "chip_many": "{{count}} مقترحاً",
+    "chip_other": "{{count}} مقترح",
+    "confirmTitle_zero": "إضافة {{count}} مصروف إلى هذا الشيت؟",
+    "confirmTitle_one": "إضافة مصروف واحد إلى هذا الشيت؟",
+    "confirmTitle_two": "إضافة مصروفين إلى هذا الشيت؟",
+    "confirmTitle_few": "إضافة {{count}} مصاريف إلى هذا الشيت؟",
+    "confirmTitle_many": "إضافة {{count}} مصروفاً إلى هذا الشيت؟",
+    "confirmTitle_other": "إضافة {{count}} مصروف إلى هذا الشيت؟",
+    "confirmBody": "سيتم ترحيل {{total}} وتوقيعها باسمك."
   }
 }

@@ -4009,3 +4009,88 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 @media (max-width: 639.98px) {
   .hc-match { inset: auto 0 0 !important; width: 100%; max-width: none; max-height: 85dvh; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 }
+
+/* ─── Suggested rows: custody expenses waiting to go on a sheet ─────────────── */
+
+.hc-sug-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid #bcd6f5;
+  border-radius: 14px;
+  background-color: var(--accent-soft);
+}
+
+.hc-sug-banner p { min-width: 0; color: #0f1117; font-size: 14px; font-weight: 600; }
+
+.hc-sug-chip {
+  flex: none;
+  padding: 1px 8px;
+  border: 1px dashed var(--accent);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.hc-sug-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; container-type: inline-size; }
+
+.hc-sug-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "body amount" "receipt sign" "actions actions";
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1.5px dashed #c4d4e8;
+  border-radius: 12px;
+  background: rgb(110 164 231 / 0.05);
+}
+
+.hc-sug-row > * { opacity: 0.8; }
+.hc-sug-row > .hc-sug-actions, .hc-sug-row > .hc-sig { opacity: 1; }
+.hc-sug-row > .hc-sig { grid-area: sign; justify-self: end; }
+.hc-sug-row > a, .hc-sug-row > button:not(.hc-sig), .hc-sug-row > span:not(.hc-sig):not(.hc-sug-amount) { grid-area: receipt; justify-self: start; }
+.hc-sug-body { grid-area: body; min-width: 0; }
+.hc-sug-body p { color: #374151; font-size: 13.5px; overflow-wrap: anywhere; }
+.hc-sug-body small { color: var(--accent-strong); font-size: 12px; font-weight: 600; }
+.hc-sug-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; color: #6b7280; font-size: 12.5px; }
+.hc-sug-amount { grid-area: amount; color: #ef4444; font-size: 14.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hc-sug-actions { grid-area: actions; display: flex; justify-content: flex-end; gap: 6px; }
+
+.hc-sug-actions button {
+  flex: 1 1 0;
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #fff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* No column header here to say whose cell it is, so it keeps its face. */
+.hc-sug-row .hc-sig.is-empty .hc-avatar { opacity: 0.35; filter: grayscale(1); box-shadow: 0 0 0 1px var(--border-subtle); }
+.hc-sug-row .hc-sig.is-empty .hc-avatar img { visibility: visible; }
+
+.hc-sug-actions .is-add { border-color: transparent; background: #16a34a; color: #fff; }
+.hc-sug-actions .is-add:hover { background: #15803d; }
+.hc-sug-actions .is-reject { border-color: #fecaca; color: #dc2626; }
+.hc-sug-actions button:disabled { opacity: 0.5; cursor: wait; }
+
+@container (min-width: 720px) {
+  .hc-sug-row {
+    grid-template-columns: minmax(0, 1fr) 100px 44px 44px auto;
+    grid-template-areas: "body amount receipt sign actions";
+  }
+
+  .hc-sug-amount { text-align: end; }
+  .hc-sug-actions button { flex: none; min-height: 36px; padding-inline: 10px; }
+}
