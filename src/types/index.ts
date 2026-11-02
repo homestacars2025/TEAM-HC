@@ -75,8 +75,6 @@ export interface Booking {
   booking_number: string;
   additional_driver: boolean | null;
   customer_id: number;
-  kabis_reported: boolean;
-  invoice_issued: boolean;
   status: BookingStatus;
   additional_services: string | null;
   // Resolved from joins

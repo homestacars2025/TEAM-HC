@@ -130,8 +130,6 @@ interface BookingRow {
   customer_id: number;
   start_date: string;
   end_date: string;
-  kabis_reported: boolean;
-  invoice_issued: boolean;
   pickup_location: string | null;
   dropoff_location: string | null;
   km_at_delivery: number | null;
@@ -233,8 +231,6 @@ function resolveBooking(row: BookingRow): Booking {
     booking_number: row.booking_number,
     additional_driver: null,
     customer_id: row.customer_id,
-    kabis_reported: row.kabis_reported,
-    invoice_issued: row.invoice_issued,
     status: row.status,
     additional_services: row.additional_services ?? null,
     plate_number: carJoin?.plate_number ?? '—',
@@ -336,22 +332,14 @@ interface RowProps {
   isSelected: boolean;
   today: string;
   onSelect: () => void;
-  onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
   onPrint: () => void;
   /** Absent when the signed-in user may not extend — the button is not rendered. */
   onExtend?: () => void;
 }
 
-/** Pressing it flips the flag, as the old switch did. */
-const FlagChip: React.FC<{ on: boolean; label: string; onPress: () => void }> = ({ on, label, onPress }) => (
-  <button type="button" aria-pressed={on} title={label} className={`hc-bk-flag ${on ? 'is-on' : ''}`} onClick={onPress}>
-    <span aria-hidden="true">{on ? '✓' : '✗'}</span>{label}
-  </button>
-);
-
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, today, onSelect, onToggle, onEdit, onPrint, onExtend,
+  booking, isSelected, today, onSelect, onEdit, onPrint, onExtend,
 }) => {
   const { t } = useTranslation('bookings');
   const dateLocale = useDateLocale();
@@ -384,8 +372,6 @@ const BookingTableRow: React.FC<RowProps> = ({
       <small>{t('range.days', { count: rentalDays(start, end) })}</small>
       {active && <span role="img" aria-label={t('table.progress')} className="hc-bk-progress"><i style={{ width: `${Math.round(tripProgress(booking, today) * 100)}%` }} /></span>}
     </td>
-    <td className="hc-bk-c-flag"><FlagChip on={booking.kabis_reported} label={t('table.kabis')} onPress={() => onToggle(booking.id, 'kabis_reported', booking.kabis_reported)} /></td>
-    <td className="hc-bk-c-flag"><FlagChip on={booking.invoice_issued} label={t('table.invoice')} onPress={() => onToggle(booking.id, 'invoice_issued', booking.invoice_issued)} /></td>
     <td className="hc-bk-c-actions">
       {/* A cancelled booking has nothing left to extend. */}
       {onExtend && booking.status !== 'cancelled' && (
@@ -1603,8 +1589,6 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           customer_id:     customerId,
           start_date:      form.start_date,
           end_date:        form.end_date,
-          kabis_reported:  false,
-          invoice_issued:  false,
           pickup_location:  form.pickup_location  || null,
           dropoff_location: form.dropoff_location || null,
           km_at_delivery:   form.km_at_delivery  !== '' ? Number(form.km_at_delivery)  : null,
@@ -3219,7 +3203,7 @@ const ReplacementFormModal: React.FC<{
 
 const BOOKING_SELECT = `
   id, booking_number, status, car_id, customer_id,
-  start_date, end_date, kabis_reported, invoice_issued,
+  start_date, end_date,
   pickup_location, dropoff_location, km_at_delivery, fuel_at_delivery,
   insurance_type, notes, additional_services,
   cars(plate_number, model_group(name)),
@@ -3449,23 +3433,6 @@ const BookingsPage: React.FC = () => {
       return next;
     });
 
-  // ── Toggle kabis / invoice ──────────────────────────────────────────────────
-  const handleToggle = useCallback(async (
-    bookingId: number,
-    field: 'kabis_reported' | 'invoice_issued',
-    currentValue: boolean,
-  ) => {
-    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, [field]: !currentValue } : b));
-    const { error: updateError } = await supabase
-      .from('bookings')
-      .update({ [field]: !currentValue })
-      .eq('id', bookingId);
-    if (updateError) {
-      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, [field]: currentValue } : b));
-      showToast(t('toast.updateFailed'), 'error');
-    }
-  }, [showToast]);
-
   // ── Export CSV ──────────────────────────────────────────────────────────────
   const handleExport = () => {
     const month = formatMonthLabel(selectedMonth, 'en-GB').replace(' ', '-').toLowerCase();
@@ -3474,12 +3441,10 @@ const BookingsPage: React.FC = () => {
     // English on purpose — a CSV is opened in a spreadsheet, and its columns
     // are what any saved filter or formula keys on.
     downloadCsv(`bookings-${month}`, [
-      ['Booking #', 'Status', 'Car', 'Plate', 'Customer', 'Start Date', 'End Date', 'Kabis', 'Invoice'],
+      ['Booking #', 'Status', 'Car', 'Plate', 'Customer', 'Start Date', 'End Date'],
       ...sorted.map(b => [
         b.booking_number, b.status, b.car_model, b.plate_number, b.customer_name,
         b.start_date, b.end_date,
-        b.kabis_reported ? 'Yes' : 'No',
-        b.invoice_issued ? 'Yes' : 'No',
       ]),
     ]);
   };
@@ -3605,8 +3570,6 @@ const BookingsPage: React.FC = () => {
                   <th>{tc('fields.car')}</th>
                   <th>{tc('fields.customer')}</th>
                   <th><span className="hc-bk-sorts">{sortHeader('start_date', t('table.start'))}{sortHeader('end_date', t('table.end'))}</span></th>
-                  <th>{t('table.kabis')}</th>
-                  <th>{t('table.invoice')}</th>
                   <th aria-label={t('table.actions')} />
                 </tr>
               </thead>
@@ -3619,7 +3582,6 @@ const BookingsPage: React.FC = () => {
                     today={today}
                     isSelected={selectedIds.has(booking.id)}
                     onSelect={() => toggleSelectRow(booking.id)}
-                    onToggle={handleToggle}
                     onEdit={() => setModal({ mode: 'edit', booking })}
                     onPrint={() => printBookingContract(booking)}
                     onExtend={() => setExtendTarget(booking)}
