@@ -11,15 +11,11 @@
     "cancelled": "ملغى",
     "completed": "مكتمل"
   },
-  "stats": {
-    "total": "إجمالي الحجوزات",
-    "confirmed": "مؤكّدة",
-    "pending": "قيد الانتظار",
-    "completed": "مكتملة"
-  },
   "filters": {
     "search": "ابحث برقم الحجز أو العميل أو اللوحة…",
-    "allStatuses": "كل الحالات"
+    "allStatuses": "كل الحالات",
+    "searchExtensions": "ابحث بالحجز أو العميل أو اللوحة…",
+    "searchSheets": "ابحث بالورقة أو العميل أو اللوحة…"
   },
   "table": {
     "car": "السيارة",
@@ -32,7 +28,12 @@
     "edit": "تعديل",
     "bookingNumberShort": "رقم الحجز",
     "start": "البداية",
-    "end": "النهاية"
+    "end": "النهاية",
+    "select": "تحديد {{number}}",
+    "selectAll": "تحديد الكل",
+    "progress": "تقدّم الرحلة",
+    "showing": "عرض {{shown}} من {{total}}",
+    "selected": "{{n}} محدد"
   },
   "form": {
     "newTitle": "حجز جديد",
@@ -376,5 +377,61 @@
     "other": "أي شيء آخر يحتاجه هذا الحجز",
     "fewer": "إنقاص واحد: {{name}}",
     "more": "إضافة واحد: {{name}}"
+  },
+  "tabs": {
+    "label": "عروض الحجوزات",
+    "bookings": "الحجوزات",
+    "extensions": "التمديدات",
+    "replacements": "أوراق السيارة البديلة"
+  },
+  "months": {
+    "prev": "الشهر السابق",
+    "next": "الشهر التالي"
+  },
+  "tiles": {
+    "total": "الإجمالي",
+    "totalSub": "تبدأ هذا الشهر",
+    "confirmed": "مؤكدة",
+    "confirmedSub": "{{n}} نشطة الآن",
+    "completed": "مكتملة",
+    "completedSub": "حجوزات منتهية",
+    "kabis": "KABIS ناقص",
+    "kabisSub": "بدأت ولم يُبلَّغ عنها",
+    "invoice": "فاتورة معلقة",
+    "invoiceSub": "مُبلَّغ عنها بلا فاتورة",
+    "extCount": "التمديدات",
+    "extCountSub": "تبدأ هذا الشهر",
+    "extValue": "قيمة التمديدات",
+    "extValueSub": "الإيجار المضاف",
+    "extAvg": "متوسط الأيام",
+    "extAvgSub": "لكل تمديد",
+    "extZero": "مبلغ صفر",
+    "extZeroSub": "بدون إيجار مُدخل",
+    "sheetTotal": "الإجمالي",
+    "sheetTotalSub": "كل الأوراق",
+    "sheetOpen": "مفتوحة",
+    "sheetOpenSub": "لم ينتهِ تاريخها",
+    "sheetMonth": "هذا الشهر",
+    "extAvgUndated": "{{n}} بلا تواريخ غير محسوبة"
+  },
+  "extensions": {
+    "extension": "التمديد",
+    "car": "السيارة",
+    "customer": "العميل",
+    "period": "الفترة",
+    "amount": "المبلغ",
+    "enteredBy": "سجّله",
+    "badge": "تمديد #{{no}}",
+    "legacy": "قديم",
+    "emptyMonth": "لا توجد تمديدات تبدأ هذا الشهر",
+    "noMatch": "لا توجد تمديدات مطابقة.",
+    "loading": "جارٍ تحميل التمديدات…",
+    "loadFailed": "تعذّر تحميل هذه القائمة.",
+    "retry": "حاول مرة أخرى",
+    "openFailed": "تعذّر فتح هذا الحجز."
+  },
+  "sheetStatus": {
+    "open": "مفتوحة",
+    "closed": "مغلقة"
   }
 }

@@ -13,6 +13,7 @@ import PaymentFields from '../components/payments/PaymentFields';
 import PaymentReceipts from '../components/payments/PaymentReceipts';
 import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
 import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, toLira, type PaymentDraft, type PaymentReceipt } from '../lib/payments';
+import { getBookingExtensions } from '../lib/queries/extensions';
 import { recordPayment } from '../lib/queries/payments';
 import { isExtensionLine, isZeroRental, rentalProblem } from '../lib/rentalAmount';
 import { printBookingContract } from '../lib/printContract';
@@ -28,7 +29,6 @@ import {
 } from '../lib/queries/availability';
 import { appendLedgerNote, customerBalance } from '../lib/queries/ledger';
 import Button from '../components/Button';
-import FilterBar from '../components/FilterBar';
 import FuelRangeInput, { useFuelRange } from '../components/FuelRangeInput';
 import BookingSheet from '../components/booking/BookingSheet';
 import CarPicker from '../components/booking/CarPicker';
@@ -40,7 +40,24 @@ import { ExtraOption, preloadOptionArt, OptionSwitch, QuantityStepper, RadioOpti
 import PlateChip from '../components/booking/PlateChip';
 import { useCarAvailability } from '../components/booking/useCarAvailability';
 import BanAlert from '../components/customers/BanAlert';
+import BookingTabsBar from '../components/bookings/BookingTabsBar';
+import ExtensionsList from '../components/bookings/ExtensionsList';
+import ReplacementsList from '../components/bookings/ReplacementsList';
+import { ComplianceTriangle } from '../components/cars/Compliance';
+import StatusArt from '../components/cars/StatusArt';
+import CustomerAvatar from '../components/CustomerAvatar';
 import BannedBadge from '../components/customers/BannedBadge';
+import HomeArt from '../components/HomeArt';
+import MonthSwitcher from '../components/MonthSwitcher';
+import { StatTile } from '../components/WalletParts';
+import { useTileFilter } from '../hooks/useTileFilter';
+import {
+  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, isActiveNow, isOpenSheet, readTab, sheetCsvRows, sheetInMonth, sheetMatches, TAB_FILTERS, tripProgress, type BookingExtension, type BookingFilter, type BookingTab,
+} from '../lib/bookingTabs';
+import { downloadCsv } from '../lib/csv';
+import { istanbulDate } from '../lib/istanbulTime';
+import { readMonth, shiftMonth } from '../lib/pendingInvoices';
+import { formatMoney as formatLira } from '../lib/suppliers';
 import CustomerSearch, { initialsOf } from '../components/customers/CustomerSearch';
 import { useIssueText } from '../components/cars/Compliance';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
@@ -236,54 +253,6 @@ const STATUS_CONFIG: Record<BookingStatus, { color: string; bg: string }> = {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-// Stat card
-const StatCard: React.FC<{ label: string; value: number; bg: string; loading: boolean }> = ({
-  label, value, bg, loading,
-}) => (
-  <div className="surface-depth" style={{
-    background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
-    display: 'flex', flexDirection: 'column', gap: 6,
-  }}>
-    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.80 }}>
-      {label}
-    </div>
-    <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>
-      {loading ? '—' : value}
-    </div>
-  </div>
-);
-
-// Toggle switch
-const ToggleSwitch: React.FC<{
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-}> = ({ checked, onChange, disabled = false }) => (
-  <button
-    role="switch"
-    aria-checked={checked}
-    disabled={disabled}
-    onClick={e => { e.stopPropagation(); onChange(); }}
-    style={{
-      width: 36, height: 20, borderRadius: 10, border: 'none',
-      background: checked ? '#4ba6ea' : '#d1d5db',
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      position: 'relative', padding: 0, flexShrink: 0,
-      transition: 'background 200ms ease',
-      opacity: disabled ? 0.6 : 1,
-    }}
-  >
-    <span style={{
-      position: 'absolute', top: 2, left: checked ? 18 : 2,
-      width: 16, height: 16, borderRadius: 8, background: '#fff',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.20)',
-      transition: 'left 200ms ease',
-      display: 'block',
-    }} />
-  </button>
-);
-
-// Status badge
 const StatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
   const { t } = useTranslation('bookings');
   const cfg = STATUS_CONFIG[status];
@@ -302,11 +271,10 @@ const StatusBadge: React.FC<{ status: BookingStatus }> = ({ status }) => {
 
 // Skeleton row
 const SkeletonRow: React.FC = () => (
-  <tr>
-    {[44, 100, 90, 120, 80, 130, 80, 80, 44, 44, 60].map((w, i) => (
-      <td key={i} style={{ padding: '9px 12px' }}>
-        <div style={{ height: 13, width: w, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite' }} />
-      </td>
+  <tr aria-hidden="true">
+    {[20, 110, 150, 130, 150, 64, 64, 90].map((width, index) => (
+      // eslint-disable-next-line react/no-array-index-key
+      <td key={index}><div className="hc-bk-bone" style={{ width }} /></td>
     ))}
   </tr>
 );
@@ -334,52 +302,6 @@ const Toast: React.FC<ToastState> = ({ message, type }) =>
   );
 
 // Month arrow nav button
-const MonthArrow: React.FC<{ direction: 'left' | 'right'; onClick: () => void }> = ({ direction, onClick }) => {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 36, height: 36, borderRadius: 10,
-        border: `1.5px solid ${hovered ? '#4ba6ea' : '#e5e7eb'}`,
-        background: hovered ? 'rgba(75,166,234,0.06)' : '#fff',
-        color: hovered ? '#3A74C2' : '#6b7280',
-        cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 140ms ease', flexShrink: 0,
-      }}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="hc-flip">
-        {direction === 'left'
-          ? <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          : <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        }
-      </svg>
-    </button>
-  );
-};
-
-// Table header cell
-const Th: React.FC<React.ThHTMLAttributes<HTMLTableCellElement>> = ({ children, style, ...rest }) => (
-  <th
-    style={{
-      padding: '9px 12px', fontSize: 11, fontWeight: 700,
-      color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px',
-      textAlign: 'start', background: '#fff',
-      borderBottom: '1.5px solid #f0f0f0',
-      position: 'sticky', top: 0, zIndex: 1,
-      whiteSpace: 'nowrap', userSelect: 'none',
-      ...style,
-    }}
-    {...rest}
-  >
-    {children}
-  </th>
-);
-
-// Action icon button
 const ActionBtn: React.FC<{
   onClick: () => void;
   title: string;
@@ -411,6 +333,7 @@ const ActionBtn: React.FC<{
 interface RowProps {
   booking: Booking;
   isSelected: boolean;
+  today: string;
   onSelect: () => void;
   onToggle: (id: number, field: 'kabis_reported' | 'invoice_issued', current: boolean) => void;
   onEdit: () => void;
@@ -419,91 +342,73 @@ interface RowProps {
   onExtend?: () => void;
 }
 
+/** Pressing it flips the flag, as the old switch did. */
+const FlagChip: React.FC<{ on: boolean; label: string; onPress: () => void }> = ({ on, label, onPress }) => (
+  <button type="button" aria-pressed={on} title={label} className={`hc-bk-flag ${on ? 'is-on' : ''}`} onClick={onPress}>
+    <span aria-hidden="true">{on ? '✓' : '✗'}</span>{label}
+  </button>
+);
+
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, onSelect, onToggle, onEdit, onPrint, onExtend,
+  booking, isSelected, today, onSelect, onToggle, onEdit, onPrint, onExtend,
 }) => {
   const { t } = useTranslation('bookings');
   const dateLocale = useDateLocale();
+  const start = booking.start_date.slice(0, 10);
+  const end = booking.end_date.slice(0, 10);
+  const active = isActiveNow(booking, today);
   return (
-  <tr
-    className="bk-row"
-    style={{ background: isSelected ? 'rgba(75,166,234,0.05)' : 'var(--surface)' }}
-  >
-    <td style={{ padding: '9px 8px 9px 16px' }}>
-      <input type="checkbox" checked={isSelected} onChange={onSelect}
-        style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#4ba6ea' }} />
+  <tr className={isSelected ? 'is-selected' : undefined}>
+    <td className="hc-bk-c-select">
+      <label><input type="checkbox" className="hc-appr-check" aria-label={t('table.select', { number: booking.booking_number })} checked={isSelected} onChange={onSelect} /></label>
     </td>
-    <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1117', letterSpacing: '0.1px' }}>
-        <span className="hc-num">{booking.booking_number}</span>
-      </span>
-    </td>
-    <td style={{ padding: '9px 12px' }}>
+    <td className="hc-bk-c-ref">
+      <strong className="hc-num">{booking.booking_number}</strong>
       <StatusBadge status={booking.status} />
     </td>
-    <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{booking.car_model}</span>
+    <td className="hc-bk-c-car">
+      <StatusArt name={active ? 'working' : 'total'} className="hc-bk-car-art" />
+      <PlateChip plate={booking.plate_number} />
+      <span><bdi dir="auto">{booking.car_model}</bdi></span>
     </td>
-    <td style={{ padding: '9px 12px' }}>
-      <span style={{
-        display: 'inline-block', background: '#f3f4f6', borderRadius: 6,
-        padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#0f1117', letterSpacing: '0.2px',
-      }}>
-        <span className="hc-num">{booking.plate_number}</span>
+    <td className="hc-bk-c-who">
+      <CustomerAvatar size={28} />
+      <span>
+        <bdi dir="auto">{booking.customer_name}</bdi>
+        {booking.customer_banned && <BannedBadge reason={booking.customer_ban_reason} showReason />}
       </span>
     </td>
-    <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, color: '#374151' }}>{booking.customer_name}</span>
-      {booking.customer_banned && <div style={{ marginTop: 3 }}><BannedBadge reason={booking.customer_ban_reason} showReason /></div>}
+    <td className="hc-bk-c-period">
+      <span>{formatDateDisplay(booking.start_date, dateLocale)} → {formatDateDisplay(booking.end_date, dateLocale)}</span>
+      <small>{t('range.days', { count: rentalDays(start, end) })}</small>
+      {active && <span role="img" aria-label={t('table.progress')} className="hc-bk-progress"><i style={{ width: `${Math.round(tripProgress(booking, today) * 100)}%` }} /></span>}
     </td>
-    <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
-        {formatDateDisplay(booking.start_date, dateLocale)}
-      </span>
-    </td>
-    <td style={{ padding: '9px 12px' }}>
-      <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
-        {formatDateDisplay(booking.end_date, dateLocale)}
-      </span>
-    </td>
-    <td style={{ padding: '9px 12px', textAlign: 'center' }}>
-      <ToggleSwitch
-        checked={booking.kabis_reported}
-        onChange={() => onToggle(booking.id, 'kabis_reported', booking.kabis_reported)}
-      />
-    </td>
-    <td style={{ padding: '9px 12px', textAlign: 'center' }}>
-      <ToggleSwitch
-        checked={booking.invoice_issued}
-        onChange={() => onToggle(booking.id, 'invoice_issued', booking.invoice_issued)}
-      />
-    </td>
-    <td style={{ padding: '9px 16px 9px 8px', textAlign: 'end' }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-        {/* A cancelled booking has nothing left to extend. */}
-        {onExtend && booking.status !== 'cancelled' && (
-          <ActionBtn onClick={onExtend} title={t('extend.action')} hoverColor="#16a34a">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/>
-              <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-              <path d="M12 13v5M9.5 15.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </ActionBtn>
-        )}
-        <ActionBtn onClick={onPrint} title={t('table.printContract')} hoverColor="#8b5cf6">
+    <td className="hc-bk-c-flag"><FlagChip on={booking.kabis_reported} label={t('table.kabis')} onPress={() => onToggle(booking.id, 'kabis_reported', booking.kabis_reported)} /></td>
+    <td className="hc-bk-c-flag"><FlagChip on={booking.invoice_issued} label={t('table.invoice')} onPress={() => onToggle(booking.id, 'invoice_issued', booking.invoice_issued)} /></td>
+    <td className="hc-bk-c-actions">
+      {/* A cancelled booking has nothing left to extend. */}
+      {onExtend && booking.status !== 'cancelled' && (
+        <ActionBtn onClick={onExtend} title={t('extend.action')} hoverColor="#16a34a">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+            <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            <path d="M12 13v5M9.5 15.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
         </ActionBtn>
-        <ActionBtn onClick={onEdit} title={t('table.edit')} hoverColor="#4ba6ea">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </ActionBtn>
-      </div>
+      )}
+      <ActionBtn onClick={onPrint} title={t('table.printContract')} hoverColor="#8b5cf6">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect x="6" y="14" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </ActionBtn>
+      <ActionBtn onClick={onEdit} title={t('table.edit')} hoverColor="#4ba6ea">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </ActionBtn>
     </td>
   </tr>
   );
@@ -1068,10 +973,12 @@ interface FormModalProps {
   /** After the booking is saved: the envelopes to number, and whether a payment failed. */
   onPaid: (receipts: PaymentReceipt[], failure: string | null) => void;
   onRentalFailed: () => void;
+  /** Opens scrolled to the money, for someone who came here from an amount. */
+  openAtFinance?: boolean;
 }
 
 const BookingFormModal: React.FC<FormModalProps> = ({
-  mode, initial, editId, editCustomerId, onClose, onSaved, onPaid, onRentalFailed,
+  mode, initial, editId, editCustomerId, onClose, onSaved, onPaid, onRentalFailed, openAtFinance = false,
 }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
@@ -1079,6 +986,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const paymentAccounts = usePaymentAccounts();
   const [deposit, setDeposit] = useState<PaymentDraft>(emptyPayment);
   const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
+  const financeCard = useRef<HTMLDivElement>(null);
+  const scrolledToFinance = useRef(false);
   const rentalInputId = useId();
   const [rentalTried, setRentalTried] = useState(false);
   const [zeroConfirmed, setZeroConfirmed] = useState(false);
@@ -1308,6 +1217,12 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       });
     return () => { active = false; };
   }, [mode, editId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!openAtFinance || !ledgerLoaded || scrolledToFinance.current || !financeCard.current) return;
+    scrolledToFinance.current = true;
+    financeCard.current.scrollIntoView({ block: 'start' });
+  });
 
   // Convert field amounts when currency toggle is switched. Rounding means there and back
   // doesn't land on the same number, so going back restores what was there if untouched.
@@ -2241,6 +2156,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   );
 
   const paymentCard = (
+    <div ref={financeCard}>
     <FormCard
       icon={ICONS.money}
       title={t('form.financialInfo')}
@@ -2260,6 +2176,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       <PaymentFields label={tf(mode === 'edit' ? 'payment.addDeposit' : 'payment.deposit')} value={deposit} onChange={setDeposit} accounts={paymentAccounts} />
       <PaymentFields label={tf(mode === 'edit' ? 'payment.addPayment' : 'payment.payment')} value={payment} onChange={setPayment} accounts={paymentAccounts} />
     </FormCard>
+    </div>
   );
 
   const reviewCard = (
@@ -3299,35 +3216,49 @@ const ReplacementFormModal: React.FC<{
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+const BOOKING_SELECT = `
+  id, booking_number, status, car_id, customer_id,
+  start_date, end_date, kabis_reported, invoice_issued,
+  pickup_location, dropoff_location, km_at_delivery, fuel_at_delivery,
+  insurance_type, notes, additional_services,
+  cars(plate_number, model_group(name)),
+  customers(first_name, last_name, is_banned, ban_reason)
+`;
+
 const BookingsPage: React.FC = () => {
   const { t: tf } = useTranslation('finance');
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
-  const [selectedMonth, setSelectedMonth] = useState<Date>(() => getMonthStart(new Date()));
   const [urlParams, setUrlParams] = useSearchParams();
-  const urlMonth = urlParams.get('month');
-  useEffect(() => {
-    const match = /^(\d{4})-(\d{2})$/.exec(urlMonth ?? '');
-    if (match) setSelectedMonth(new Date(Number(match[1]), Number(match[2]) - 1, 1));
-  }, [urlMonth]);
+  const today = istanbulDate();
+  const monthKey = readMonth(urlParams.get('month'));
+  const selectedMonth = useMemo(() => {
+    const [year, month] = monthKey.split('-').map(Number);
+    return new Date(year, month - 1, 1);
+  }, [monthKey]);
+  const tab = readTab(urlParams.get('tab'));
+  const [tileFilter, setTileFilter] = useTileFilter<string>(TAB_FILTERS[tab]);
   const [bookings, setBookings]           = useState<Booking[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
-  const [stats, setStats]                 = useState({ total: 0, confirmed: 0, pending: 0, completed: 0 });
-  const [statsLoading, setStatsLoading]   = useState(true);
   const [search, setSearch]               = useState('');
   useUrlSearch(setSearch);
   const [statusFilter, setStatusFilter]   = useState<BookingStatus | ''>('');
+  const [extensions, setExtensions]       = useState<BookingExtension[]>([]);
+  const [extLoading, setExtLoading]       = useState(true);
+  const [extFailed, setExtFailed]         = useState(false);
+  const latestExtensions                  = useRef(0);
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
-  const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking }>(null);
+  const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking; atFinance?: boolean }>(null);
   const [extendTarget, setExtendTarget]    = useState<Booking | null>(null);
   const [editingSheet, setEditingSheet]    = useState<ReplacementSheetRecord | null>(null);
 
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [sheets, setSheets]               = useState<ReplacementSheetRecord[]>([]);
   const [sheetsLoading, setSheetsLoading] = useState(true);
+  const [sheetsFailed, setSheetsFailed]   = useState(false);
   const [toast, setToast]                 = useState<ToastState | null>(null);
   const toastTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -3351,25 +3282,6 @@ const BookingsPage: React.FC = () => {
     window.setTimeout(() => showToast(t('errors.rentalNotSaved'), 'error'), 0);
   }, [showToast, t]);
 
-  // ── Fetch stats (separate lightweight query) ────────────────────────────────
-  const fetchStats = useCallback(async (month: Date) => {
-    setStatsLoading(true);
-    const { data, error: statsError } = await supabase
-      .from('bookings')
-      .select('status', { count: 'exact' })
-      .gte('start_date', toDateStr(getMonthStart(month)))
-      .lte('start_date', toDateStr(getMonthEnd(month)));
-    setStatsLoading(false);
-    if (statsError || !data) return;
-    const rows = data as Array<{ status: string }>;
-    setStats({
-      total:     rows.length,
-      confirmed: rows.filter(r => r.status === 'confirmed').length,
-      pending:   rows.filter(r => r.status === 'pending').length,
-      completed: rows.filter(r => r.status === 'completed').length,
-    });
-  }, []);
-
   // ── Fetch bookings ──────────────────────────────────────────────────────────
   const fetchBookings = useCallback(async (month: Date) => {
     setLoading(true);
@@ -3378,14 +3290,7 @@ const BookingsPage: React.FC = () => {
 
     const { data, error: fetchError } = await supabase
       .from('bookings')
-      .select(`
-        id, booking_number, status, car_id, customer_id,
-        start_date, end_date, kabis_reported, invoice_issued,
-        pickup_location, dropoff_location, km_at_delivery, fuel_at_delivery,
-        insurance_type, notes, additional_services,
-        cars(plate_number, model_group(name)),
-        customers(first_name, last_name, is_banned, ban_reason)
-      `)
+      .select(BOOKING_SELECT)
       .gte('start_date', toDateStr(getMonthStart(month)))
       .lte('start_date', toDateStr(getMonthEnd(month)))
       .order('created_at', { ascending: false });
@@ -3395,54 +3300,112 @@ const BookingsPage: React.FC = () => {
     setBookings(((data ?? []) as unknown as BookingRow[]).map(resolveBooking));
   }, []);
 
+  const fetchExtensions = useCallback(async (month: string) => {
+    const request = ++latestExtensions.current;
+    setExtLoading(true);
+    setExtFailed(false);
+    try {
+      const rows = await getBookingExtensions(month);
+      if (request === latestExtensions.current) setExtensions(rows);
+    } catch {
+      if (request === latestExtensions.current) setExtFailed(true);
+    } finally {
+      if (request === latestExtensions.current) setExtLoading(false);
+    }
+  }, []);
+
+  // The booking may start in another month from the one on screen.
+  const openBooking = useCallback(async (id: number, atFinance = false) => {
+    const known = bookings.find(item => item.id === id);
+    if (known) { setModal({ mode: 'edit', booking: known, atFinance }); return; }
+    const { data, error: readError } = await supabase.from('bookings').select(BOOKING_SELECT).eq('id', id).maybeSingle();
+    if (readError || !data) { showToast(t('extensions.openFailed'), 'error'); return; }
+    setModal({ mode: 'edit', booking: resolveBooking(data as unknown as BookingRow), atFinance });
+  }, [bookings, showToast, t]);
+
   // Sent here to fix a detail on a booking, as from Pending Invoices.
   const urlEdit = urlParams.get('edit');
   useEffect(() => {
-    if (!urlEdit) return;
-    const booking = bookings.find(item => String(item.id) === urlEdit);
-    if (!booking) return;
-    setModal({ mode: 'edit', booking });
+    if (!urlEdit || !/^\d+$/.test(urlEdit) || loading) return;
+    void openBooking(Number(urlEdit));
     setUrlParams(current => {
       const next = new URLSearchParams(current);
       next.delete('edit');
       return next;
     }, { replace: true });
-  }, [urlEdit, bookings, setUrlParams]);
+  }, [urlEdit, loading, openBooking, setUrlParams]);
 
   useEffect(() => {
-    fetchStats(selectedMonth);
     fetchBookings(selectedMonth);
-  }, [selectedMonth, fetchStats, fetchBookings]);
+    fetchExtensions(monthKey);
+  }, [selectedMonth, monthKey, fetchBookings, fetchExtensions]);
+
+  const refreshAfterChange = useCallback(() => {
+    fetchBookings(selectedMonth);
+    fetchExtensions(monthKey);
+  }, [fetchBookings, fetchExtensions, selectedMonth, monthKey]);
 
   // ── Fetch replacement sheets (not month-scoped — this is a running log) ──────
   const fetchSheets = useCallback(async () => {
     setSheetsLoading(true);
+    setSheetsFailed(false);
     const { data, error: sheetsError } = await supabase
       .from('replacement_sheets')
       .select(SHEET_SELECT)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
     setSheetsLoading(false);
-    if (sheetsError) return;
+    if (sheetsError) { setSheetsFailed(true); return; }
     setSheets(((data ?? []) as unknown as SheetRowRaw[]).map(mapSheetRow));
   }, []);
 
   useEffect(() => { fetchSheets(); }, [fetchSheets]);
 
   // ── Filter + sort ───────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    let result = bookings;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      result = result.filter(b =>
-        b.booking_number.toLowerCase().includes(q) ||
-        b.customer_name.toLowerCase().includes(q) ||
-        b.plate_number.toLowerCase().includes(q)
-      );
-    }
-    if (statusFilter) result = result.filter(b => b.status === statusFilter);
-    return result;
-  }, [bookings, search, statusFilter]);
+  // The tiles count what the search and status leave, so a tile's number is what pressing it shows.
+  const scopedBookings = useMemo(() => bookings.filter(item => bookingMatches(item, search) && (!statusFilter || item.status === statusFilter)), [bookings, search, statusFilter]);
+  const tiles = useMemo(() => bookingTiles(scopedBookings, today), [scopedBookings, today]);
+  const filtered = useMemo(
+    () => scopedBookings.filter(item => bookingInFilter(item, tab === 'bookings' ? tileFilter as BookingFilter | 'all' : 'all', today)),
+    [scopedBookings, tab, tileFilter, today],
+  );
+
+  const scopedExtensions = useMemo(() => extensions.filter(item => extensionMatches(item, search) && (!statusFilter || item.booking_status === statusFilter)), [extensions, search, statusFilter]);
+  const extTiles = useMemo(() => extensionTiles(scopedExtensions), [scopedExtensions]);
+  const shownExtensions = useMemo(
+    () => (tab === 'extensions' && tileFilter === 'zero' ? scopedExtensions.filter(item => item.rental_amount === 0) : scopedExtensions),
+    [scopedExtensions, tab, tileFilter],
+  );
+
+  const scopedSheets = useMemo(() => sheets.filter(item => sheetMatches(item, search)), [sheets, search]);
+  const sheetTiles = useMemo(() => ({
+    open: scopedSheets.filter(item => isOpenSheet(item, today)).length,
+    month: scopedSheets.filter(item => sheetInMonth(item, monthKey)).length,
+  }), [scopedSheets, today, monthKey]);
+  const shownSheets = useMemo(() => {
+    if (tab !== 'replacements' || tileFilter === 'all') return scopedSheets;
+    return scopedSheets.filter(item => (tileFilter === 'open' ? isOpenSheet(item, today) : sheetInMonth(item, monthKey)));
+  }, [scopedSheets, tab, tileFilter, today, monthKey]);
+
+  const goToMonth = (by: number) => setUrlParams(current => {
+    const next = new URLSearchParams(current);
+    next.set('month', shiftMonth(monthKey, by));
+    return next;
+  }, { replace: true });
+
+  // A tile from one tab means nothing on another, so only the month carries over.
+  const goToTab = (next: BookingTab) => {
+    setSearch('');
+    setStatusFilter('');
+    setSelectedIds(new Set());
+    setUrlParams(current => {
+      const params = new URLSearchParams(current);
+      params.set('tab', next);
+      params.set('month', monthKey);
+      params.delete('filter');
+      return params;
+    }, { replace: true });
+  };
 
   const sorted = useMemo(() => {
     if (!sort.col) return filtered;
@@ -3462,10 +3425,12 @@ const BookingsPage: React.FC = () => {
     });
   };
 
-  const sortIcon = (col: Exclude<SortCol, null>) =>
-    sort.col !== col
-      ? <span style={{ color: '#d1d5db', fontSize: 11 }}>↕</span>
-      : <span style={{ color: '#3A74C2', fontSize: 11 }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>;
+  const sortHeader = (col: Exclude<SortCol, null>, label: string) => (
+    <button type="button" className="hc-bk-sort" onClick={() => handleSort(col)}>
+      {label}
+      <span aria-hidden="true" className={sort.col === col ? 'is-on' : undefined}>{sort.col !== col ? '↕' : sort.dir === 'asc' ? '↑' : '↓'}</span>
+    </button>
+  );
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const allSelected  = sorted.length > 0 && sorted.every(b => selectedIds.has(b.id));
@@ -3500,23 +3465,20 @@ const BookingsPage: React.FC = () => {
 
   // ── Export CSV ──────────────────────────────────────────────────────────────
   const handleExport = () => {
+    const month = formatMonthLabel(selectedMonth, 'en-GB').replace(' ', '-').toLowerCase();
+    if (tab === 'extensions') { downloadCsv(`extensions-${month}`, extensionCsvRows(shownExtensions)); return; }
+    if (tab === 'replacements') { downloadCsv('replacement-sheets', sheetCsvRows(shownSheets, today)); return; }
     // English on purpose — a CSV is opened in a spreadsheet, and its columns
     // are what any saved filter or formula keys on.
-    const headers = ['Booking #', 'Status', 'Car', 'Plate', 'Customer', 'Start Date', 'End Date', 'Kabis', 'Invoice'];
-    const rows = sorted.map(b => [
-      b.booking_number, b.status, b.car_model, b.plate_number, b.customer_name,
-      b.start_date, b.end_date,
-      b.kabis_reported ? 'Yes' : 'No',
-      b.invoice_issued ? 'Yes' : 'No',
+    downloadCsv(`bookings-${month}`, [
+      ['Booking #', 'Status', 'Car', 'Plate', 'Customer', 'Start Date', 'End Date', 'Kabis', 'Invoice'],
+      ...sorted.map(b => [
+        b.booking_number, b.status, b.car_model, b.plate_number, b.customer_name,
+        b.start_date, b.end_date,
+        b.kabis_reported ? 'Yes' : 'No',
+        b.invoice_issued ? 'Yes' : 'No',
+      ]),
     ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `bookings-${formatMonthLabel(selectedMonth, 'en-GB').replace(' ', '-').toLowerCase()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   // ── Edit form initial data ──────────────────────────────────────────────────
@@ -3543,215 +3505,116 @@ const BookingsPage: React.FC = () => {
     fin_currency: 'TRY', fin_rental_amount: '',
   });
 
+  const num = (loaded: boolean, text: string | number) => (loaded ? null : String(text));
+  const emptyFiltered = search || statusFilter || tileFilter !== 'all';
+
   return (
-    <div style={{ minHeight: '100%', background: 'var(--surface)', padding: '44px 40px' }}>
-      <div>
-
-        {/* ── Page header ── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 16, flexWrap: 'wrap', marginBottom: 36,
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                {t('eyebrow')}
-              </span>
-            </div>
-            <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', lineHeight: 1.1, marginBottom: 6 }}>
-              {t('title')}
-            </h1>
-            <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5 }}>{t('subtitle')}</p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setReplacementOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                height: 44, padding: '0 16px',
-                background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb',
-                borderRadius: 10, fontSize: 14, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                transition: 'border-color 150ms ease, color 150ms ease',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
-                (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
-                (e.currentTarget as HTMLButtonElement).style.color = '#374151';
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              {t('replacementCarButton')}
-            </button>
-
-            <Button
-              onClick={() => setModal('add')}
-              style={{ flexShrink: 0 }}
->
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-              </svg>
-              {t('addNewBooking')}
-            </Button>
-          </div>
+    <div className="hc-bk">
+      <header className="hc-bk-head">
+        <div>
+          <h1>{t('title')}</h1>
+          <p>{t('subtitle')}</p>
         </div>
-
-        {/* ── Month navigation ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 28 }}>
-          <MonthArrow direction="left"  onClick={() => setSelectedMonth(m => addMonths(m, -1))} />
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.4px', minWidth: 160, textAlign: 'center' }}>
-            {formatMonthLabel(selectedMonth, dateLocale)}
-          </span>
-          <MonthArrow direction="right" onClick={() => setSelectedMonth(m => addMonths(m, 1))} />
-        </div>
-
-        {/* ── Stat cards ── */}
-        <div className="bk-stats">
-          <StatCard label={t('stats.total')}     value={stats.total}     bg="#4ba6ea" loading={statsLoading} />
-          <StatCard label={t('stats.confirmed')} value={stats.confirmed} bg="#22c55e" loading={statsLoading} />
-          <StatCard label={t('stats.pending')}   value={stats.pending}   bg="#f97316" loading={statsLoading} />
-          <StatCard label={t('stats.completed')} value={stats.completed} bg="#6b7280" loading={statsLoading} />
-        </div>
-
-        {/* ── Search + filter bar ── */}
-        <div className="surface-depth" style={{
-          background: '#fff', borderRadius: 14,
-          border: '1px solid var(--border-subtle)', padding: '12px 14px',
-          marginBottom: 16,
-          display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-        }}>
-          <div style={{ flex: '1 1 220px', position: 'relative', minWidth: 0 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              style={{ position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
-              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
-              <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <div className="hc-bk-head-actions">
+          <Button variant="secondary" onClick={() => setReplacementOpen(true)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={t('filters.search')}
-              style={{
-                width: '100%', height: 40, paddingInlineStart: 34, paddingInlineEnd: 12,
-                fontSize: 13, color: '#0f1117',
-                background: '#f9fafb', border: '1.5px solid #f0f0f0',
-                borderRadius: 9, outline: 'none', fontFamily: 'inherit',
-                transition: 'all 150ms ease',
-              }}
-              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#4ba6ea'; (e.target as HTMLInputElement).style.background = '#fff'; }}
-              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#f0f0f0'; (e.target as HTMLInputElement).style.background = '#f9fafb'; }}
-            />
-          </div>
-
-          <FilterBar
-            fields={[{
-              key: 'status',
-              label: tc('filterBar.status'),
-              activeLabel: statusFilter ? t(`status.${statusFilter}`) : null,
-              onClear: () => setStatusFilter(''),
-              control: (
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value as BookingStatus | '')}
-                  style={{ height: 40, padding: '0 12px', fontSize: 13, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, outline: 'none', fontFamily: 'inherit', cursor: 'pointer', minWidth: 136 }}
-                  onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = '#4ba6ea'; }}
-                  onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = '#f0f0f0'; }}
-                >
-                  <option value="">{t('filters.allStatuses')}</option>
-                  <option value="confirmed">{t('status.confirmed')}</option>
-                  <option value="pending">{t('status.pending')}</option>
-                  <option value="cancelled">{t('status.cancelled')}</option>
-                  <option value="completed">{t('status.completed')}</option>
-                </select>
-              ),
-            }]}
-          />
-
-          <button
-            onClick={handleExport}
-            style={{ height: 40, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#374151', background: '#f9fafb', border: '1.5px solid #f0f0f0', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 140ms ease', flexShrink: 0 }}
-            onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#4ba6ea'; b.style.color = '#3A74C2'; }}
-            onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = '#f0f0f0'; b.style.color = '#374151'; }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            {t('replacementCarButton')}
+          </Button>
+          <Button onClick={() => setModal('add')}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
             </svg>
-            {t('export')}
-          </button>
+            {t('addNewBooking')}
+          </Button>
         </div>
+      </header>
 
-        {/* ── Error ── */}
-        {error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid rgba(239,68,68,0.2)', borderInlineStart: '4px solid #ef4444', borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/></svg>
-            <span style={{ fontSize: 14, color: '#0f1117' }}>{t('loadError')}<span style={{ color: '#6b7280' }}>{error}</span></span>
-          </div>
+      <div className="hc-bk-bar">
+        <BookingTabsBar
+          tab={tab}
+          onChange={goToTab}
+          counts={{ bookings: loading ? null : bookings.length, extensions: extLoading ? null : extensions.length, replacements: sheetsLoading ? null : sheets.length }}
+        />
+        <MonthSwitcher label={formatMonthLabel(selectedMonth, dateLocale)} prevLabel={t('months.prev')} nextLabel={t('months.next')} onPrev={() => goToMonth(-1)} onNext={() => goToMonth(1)} />
+      </div>
+
+      {tab === 'bookings' && (
+        <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
+          <StatTile tone="total" art={<StatusArt name="total" className="hc-tile-art" />} label={t('tiles.total')} sub={t('tiles.totalSub')} value={num(loading, tiles.total)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+          <StatTile tone="received" art={<StatusArt name="working" className="hc-tile-art" />} label={t('tiles.confirmed')} sub={t('tiles.confirmedSub', { n: tiles.activeNow })} value={num(loading, tiles.confirmed)} pressed={tileFilter === 'confirmed'} onPress={() => setTileFilter('confirmed')} />
+          <StatTile tone="paid" art={<StatusArt name="parking" className="hc-tile-art" />} label={t('tiles.completed')} sub={t('tiles.completedSub')} value={num(loading, tiles.completed)} pressed={tileFilter === 'completed'} onPress={() => setTileFilter('completed')} />
+          <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('tiles.kabis')} sub={t('tiles.kabisSub')} value={num(loading, tiles.kabis)} pressed={tileFilter === 'kabis'} onPress={() => setTileFilter('kabis')} />
+          <StatTile tone="balance" art={<HomeArt name="tasks" className="hc-tile-art" />} label={t('tiles.invoice')} sub={t('tiles.invoiceSub')} value={num(loading, tiles.invoice)} pressed={tileFilter === 'invoice'} onPress={() => setTileFilter('invoice')} />
+        </div>
+      )}
+      {tab === 'extensions' && (
+        <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
+          <StatTile tone="total" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.extCount')} sub={t('tiles.extCountSub')} value={num(extLoading, extTiles.count)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+          <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.extValue')} sub={t('tiles.extValueSub')} value={num(extLoading, formatLira(extTiles.value, 'TRY'))} />
+          <StatTile tone="paid" art={<HomeArt name="operations" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={extTiles.undated ? t('tiles.extAvgUndated', { n: extTiles.undated }) : t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
+          <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('tiles.extZero')} sub={t('tiles.extZeroSub')} value={num(extLoading, extTiles.zero)} pressed={tileFilter === 'zero'} onPress={() => setTileFilter('zero')} />
+        </div>
+      )}
+      {tab === 'replacements' && (
+        <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
+          <StatTile tone="total" art={<StatusArt name="replacement" className="hc-tile-art" />} label={t('tiles.sheetTotal')} sub={t('tiles.sheetTotalSub')} value={num(sheetsLoading, scopedSheets.length)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+          <StatTile tone="received" art={<StatusArt name="working" className="hc-tile-art" />} label={t('tiles.sheetOpen')} sub={t('tiles.sheetOpenSub')} value={num(sheetsLoading, sheetTiles.open)} pressed={tileFilter === 'open'} onPress={() => setTileFilter('open')} />
+          <StatTile tone="balance" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.sheetMonth')} sub={formatMonthLabel(selectedMonth, dateLocale)} value={num(sheetsLoading, sheetTiles.month)} pressed={tileFilter === 'month'} onPress={() => setTileFilter('month')} />
+        </div>
+      )}
+
+      <div className="hc-bk-tools">
+        <input
+          type="search"
+          className="hc-input !mt-0"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={t(tab === 'bookings' ? 'filters.search' : tab === 'extensions' ? 'filters.searchExtensions' : 'filters.searchSheets')}
+          aria-label={t(tab === 'bookings' ? 'filters.search' : tab === 'extensions' ? 'filters.searchExtensions' : 'filters.searchSheets')}
+        />
+        {tab !== 'replacements' && (
+          <select className="hc-input !mt-0" aria-label={tc('filterBar.status')} value={statusFilter} onChange={e => setStatusFilter(e.target.value as BookingStatus | '')}>
+            <option value="">{t('filters.allStatuses')}</option>
+            {tab === 'bookings' && <option value="pending">{t('status.pending')}</option>}
+            <option value="confirmed">{t('status.confirmed')}</option>
+            <option value="completed">{t('status.completed')}</option>
+            {tab === 'bookings' && <option value="cancelled">{t('status.cancelled')}</option>}
+          </select>
         )}
+        <Button variant="secondary" onClick={handleExport}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {t('export')}
+        </Button>
+      </div>
 
-        {/* ── Table ── */}
-        <div className="surface-depth" style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
+      {tab === 'bookings' && (
+        <>
+          {error && <p role="alert" className="hc-bk-state surface-depth">{t('loadError')}{error}</p>}
+          <div className="hc-cash-table hc-bk-table hc-bk-main surface-depth">
+            <table>
               <thead>
                 <tr>
-                  <Th style={{ width: 48, paddingInlineStart: 16, paddingInlineEnd: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      ref={el => { if (el) el.indeterminate = someSelected; }}
-                      onChange={toggleSelectAll}
-                      style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#4ba6ea' }}
-                    />
-                  </Th>
-                  <Th onClick={() => handleSort('booking_number')} style={{ cursor: 'pointer' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      {t('table.bookingNumberShort')} {sortIcon('booking_number')}
-                    </span>
-                  </Th>
-                  <Th style={{ minWidth: 120 }}>{tc('fields.status')}</Th>
-                  <Th>{tc('fields.car')}</Th>
-                  <Th>{tc('fields.plate')}</Th>
-                  <Th style={{ minWidth: 150 }}>{tc('fields.customer')}</Th>
-                  <Th onClick={() => handleSort('start_date')} style={{ cursor: 'pointer' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      {t('table.start')} {sortIcon('start_date')}
-                    </span>
-                  </Th>
-                  <Th onClick={() => handleSort('end_date')} style={{ cursor: 'pointer' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      {t('table.end')} {sortIcon('end_date')}
-                    </span>
-                  </Th>
-                  <Th style={{ textAlign: 'center' }}>{t('table.kabis')}</Th>
-                  <Th style={{ textAlign: 'center' }}>{t('table.invoice')}</Th>
-                  <Th style={{ textAlign: 'end', paddingInlineEnd: 16 }}>{t('table.actions')}</Th>
+                  <th><input type="checkbox" className="hc-appr-check" aria-label={t('table.selectAll')} checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected; }} onChange={toggleSelectAll} /></th>
+                  <th>{sortHeader('booking_number', t('table.bookingNumberShort'))}</th>
+                  <th>{tc('fields.car')}</th>
+                  <th>{tc('fields.customer')}</th>
+                  <th><span className="hc-bk-sorts">{sortHeader('start_date', t('table.start'))}{sortHeader('end_date', t('table.end'))}</span></th>
+                  <th>{t('table.kabis')}</th>
+                  <th>{t('table.invoice')}</th>
+                  <th aria-label={t('table.actions')} />
                 </tr>
               </thead>
               <tbody>
-                {loading && Array.from({ length: 7 }).map((_, i) => <SkeletonRow key={i} />)}
-
-                {!loading && sorted.length === 0 && (
-                  <tr>
-                    <td colSpan={11} style={{ padding: '60px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                      {search || statusFilter ? t('table.empty') : t('table.emptyMonth')}
-                    </td>
-                  </tr>
-                )}
-
+                {loading && Array.from({ length: 7 }).map((_, index) => <SkeletonRow key={index} />)}
                 {!loading && sorted.map(booking => (
                   <BookingTableRow
                     key={booking.id}
                     booking={booking}
+                    today={today}
                     isSelected={selectedIds.has(booking.id)}
                     onSelect={() => toggleSelectRow(booking.id)}
                     onToggle={handleToggle}
@@ -3763,165 +3626,37 @@ const BookingsPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-
-          {/* Footer */}
+          {!loading && sorted.length === 0 && !error && <p className="hc-bk-state surface-depth">{emptyFiltered ? t('table.empty') : t('table.emptyMonth')}</p>}
           {!loading && (
-            <div style={{ padding: '12px 20px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ fontSize: 13, color: '#9ca3af' }}>
-                Showing{' '}
-                <strong style={{ color: '#374151' }}>{sorted.length}</strong>
-                {' '}of{' '}
-                <strong style={{ color: '#374151' }}>{bookings.length}</strong>
-                {' '}booking{bookings.length !== 1 ? 's' : ''}
-              </span>
-              {selectedIds.size > 0 && (
-                <span style={{ fontSize: 13, color: '#3A74C2', fontWeight: 600 }}>
-                  {selectedIds.size} selected
-                </span>
-              )}
-            </div>
+            <p className="hc-bk-count">
+              {t('table.showing', { shown: sorted.length, total: bookings.length })}
+              {selectedIds.size > 0 && <strong>{t('table.selected', { n: selectedIds.size })}</strong>}
+            </p>
           )}
-        </div>
+        </>
+      )}
 
-        {/* ── Replacement sheets ── */}
-        <div className="surface-depth" style={{
-          background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
-          marginTop: 20, overflow: 'hidden',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '14px 16px', borderBottom: '1px solid #f3f4f6',
-          }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 8, background: 'rgba(75,166,234,0.10)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3A74C2', flexShrink: 0,
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M17 2l4 4-4 4M21 6H9M7 22l-4-4 4-4M3 18h12"
-                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              {t('replacementSheet')}
-            </span>
-            {!sheetsLoading && sheets.length > 0 && (
-              <span style={{ fontSize: 12, color: '#9ca3af', marginInlineStart: 'auto' }}>
-                {sheets.length} sheet{sheets.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-
-          {sheetsLoading ? (
-            <div style={{ padding: '28px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-              {t('loadingSheets')}
-            </div>
-          ) : sheets.length === 0 ? (
-            <div style={{ padding: '28px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-              {t('noSheets')}
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-                <thead>
-                  <tr>
-                    {[t('replacement.sheetNo'), tc('fields.customer'),
-                      t('replacement.originalToReplacement'), t('replacement.period'), ''].map((h, i) => (
-                      <th key={h || i} style={{
-                        textAlign: i === 4 ? 'end' : 'start',
-                        padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#9ca3af',
-                        textTransform: 'uppercase', letterSpacing: '0.5px',
-                        borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap',
-                      }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sheets.map(s => (
-                    <tr key={s.id} className="bk-row">
-                      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 700, color: '#0f1117', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
-                        {s.sheet_number}
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb' }}>
-                        {s.customer_name || '—'}
-                        {s.customer_banned && <div style={{ marginTop: 3 }}><BannedBadge reason={s.customer_ban_reason} showReason /></div>}
-                        {s.original_booking_number && (
-                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                            <span className="hc-num">{s.original_booking_number}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#374151', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
-                        <span className="hc-num" style={{ fontWeight: 600 }}>{s.original_plate ?? '—'}</span>
-                        <span style={{ color: '#3A74C2', margin: '0 7px', fontWeight: 700 }}>→</span>
-                        <span className="hc-num" style={{ fontWeight: 600 }}>{s.replacement_plate}</span>
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #f9fafb', whiteSpace: 'nowrap' }}>
-                        {s.start_date} → {s.end_date}
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'end', borderBottom: '1px solid #f9fafb' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        <button
-                          onClick={() => setEditingSheet(s)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            minHeight: 44, padding: '0 14px', borderRadius: 9,
-                            border: '1px solid #e5e7eb', background: '#fff',
-                            fontSize: 13, fontWeight: 600, color: '#374151',
-                            cursor: 'pointer', fontFamily: 'inherit',
-                            transition: 'border-color 150ms ease, color 150ms ease',
-                          }}
-                          onMouseEnter={e => {
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2';
-                          }}
-                          onMouseLeave={e => {
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#374151';
-                          }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          {t('replacement.edit')}
-                        </button>
-                        <button
-                          onClick={() => printReplacementSheet(s)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            minHeight: 44, padding: '0 14px', borderRadius: 9,
-                            border: '1px solid #e5e7eb', background: '#fff',
-                            fontSize: 13, fontWeight: 600, color: '#374151',
-                            cursor: 'pointer', fontFamily: 'inherit',
-                            transition: 'border-color 150ms ease, color 150ms ease',
-                          }}
-                          onMouseEnter={e => {
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#4ba6ea';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#3A74C2';
-                          }}
-                          onMouseLeave={e => {
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#374151';
-                          }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                            <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"
-                              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          {t('reprint')}
-                        </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      {tab === 'extensions' && (extFailed ? (
+        <div className="hc-bk-state surface-depth">
+          <p role="alert">{t('extensions.loadFailed')}</p>
+          <Button variant="secondary" onClick={() => fetchExtensions(monthKey)}>{t('extensions.retry')}</Button>
         </div>
-      </div>
+      ) : extLoading ? (
+        <p role="status" className="hc-bk-state surface-depth">{t('extensions.loading')}</p>
+      ) : shownExtensions.length === 0 ? (
+        <p className="hc-bk-state surface-depth">{emptyFiltered ? t('extensions.noMatch') : t('extensions.emptyMonth')}</p>
+      ) : <ExtensionsList rows={shownExtensions} onOpen={row => void openBooking(row.booking_id, true)} />)}
+
+      {tab === 'replacements' && (sheetsFailed ? (
+        <div className="hc-bk-state surface-depth">
+          <p role="alert">{t('extensions.loadFailed')}</p>
+          <Button variant="secondary" onClick={() => void fetchSheets()}>{t('extensions.retry')}</Button>
+        </div>
+      ) : sheetsLoading ? (
+        <p role="status" className="hc-bk-state surface-depth">{t('loadingSheets')}</p>
+      ) : shownSheets.length === 0 ? (
+        <p className="hc-bk-state surface-depth">{emptyFiltered ? t('table.empty') : t('noSheets')}</p>
+      ) : <ReplacementsList rows={shownSheets} today={today} onEdit={setEditingSheet} onPrint={printReplacementSheet} />)}
 
       {/* ── Modals ── */}
       {extendTarget && (
@@ -3940,10 +3675,9 @@ const BookingsPage: React.FC = () => {
                   }),
                 });
             showToast(noteSaved ? done : `${done} · ${t('extend.toast.noteFailed')}`, 'success');
-            // The function moved end_date and forced status to confirmed, so
-            // both the list and the month counters are stale until refetched.
-            fetchStats(selectedMonth);
-            fetchBookings(selectedMonth);
+            // The function moved end_date and forced status to confirmed, and there is
+            // a new extension, so all of it is stale until refetched.
+            refreshAfterChange();
           }}
         />
       )}
@@ -3981,8 +3715,7 @@ const BookingsPage: React.FC = () => {
           onRentalFailed={afterRentalFailure}
           onSaved={() => {
             showToast(t('toast.added'), 'success');
-            fetchStats(selectedMonth);
-            fetchBookings(selectedMonth);
+            refreshAfterChange();
           }}
         />
       )}
@@ -3992,27 +3725,19 @@ const BookingsPage: React.FC = () => {
           initial={editFormData(modal.booking)}
           editId={modal.booking.id}
           editCustomerId={modal.booking.customer_id}
+          openAtFinance={modal.atFinance}
           onClose={() => setModal(null)}
           onPaid={afterPayment}
           onRentalFailed={afterRentalFailure}
           onSaved={() => {
             showToast(t('toast.updated'), 'success');
-            fetchStats(selectedMonth);
-            fetchBookings(selectedMonth);
+            refreshAfterChange();
           }}
         />
       )}
       {toast && <Toast {...toast} />}
       {paymentReceipts.length > 0 && <PaymentReceipts receipts={paymentReceipts} onClose={() => setPaymentReceipts([])} />}
 
-      <style>{`
-        .bk-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-        @media (min-width: 768px) { .bk-stats { grid-template-columns: repeat(4, 1fr); gap: 16px; } }
-        .bk-row td { border-bottom: 1px solid var(--border-subtle); }
-        .bk-row:hover td { background: #f9fafb !important; }
-        @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.45} }
-        @keyframes slideUpIn { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
-      `}</style>
     </div>
   );
 };

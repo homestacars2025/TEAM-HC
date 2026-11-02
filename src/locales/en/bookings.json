@@ -11,15 +11,11 @@
     "cancelled": "Cancelled",
     "completed": "Completed"
   },
-  "stats": {
-    "total": "Total Bookings",
-    "confirmed": "Confirmed",
-    "pending": "Pending",
-    "completed": "Completed"
-  },
   "filters": {
     "search": "Search booking number, customer, plate…",
-    "allStatuses": "All Statuses"
+    "allStatuses": "All Statuses",
+    "searchExtensions": "Search booking, customer, plate…",
+    "searchSheets": "Search sheet, customer, plate…"
   },
   "table": {
     "car": "Car",
@@ -32,7 +28,12 @@
     "edit": "Edit",
     "bookingNumberShort": "Booking #",
     "start": "Start",
-    "end": "End"
+    "end": "End",
+    "select": "Select {{number}}",
+    "selectAll": "Select all",
+    "progress": "Trip progress",
+    "showing": "Showing {{shown}} of {{total}}",
+    "selected": "{{n}} selected"
   },
   "form": {
     "newTitle": "New Booking",
@@ -364,5 +365,61 @@
     "other": "Anything else this booking needs",
     "fewer": "One fewer: {{name}}",
     "more": "One more: {{name}}"
+  },
+  "tabs": {
+    "label": "Bookings views",
+    "bookings": "Bookings",
+    "extensions": "Extensions",
+    "replacements": "Replacement sheets"
+  },
+  "months": {
+    "prev": "Previous month",
+    "next": "Next month"
+  },
+  "tiles": {
+    "total": "Total",
+    "totalSub": "Starting this month",
+    "confirmed": "Confirmed",
+    "confirmedSub": "{{n}} active now",
+    "completed": "Completed",
+    "completedSub": "Finished bookings",
+    "kabis": "KABIS missing",
+    "kabisSub": "Started, not reported",
+    "invoice": "Invoice pending",
+    "invoiceSub": "Reported, not invoiced",
+    "extCount": "Extensions",
+    "extCountSub": "Starting this month",
+    "extValue": "Extension value",
+    "extValueSub": "Rental added",
+    "extAvg": "Avg days",
+    "extAvgSub": "Per extension",
+    "extZero": "Zero amount",
+    "extZeroSub": "No rental entered",
+    "sheetTotal": "Total",
+    "sheetTotalSub": "All sheets",
+    "sheetOpen": "Open",
+    "sheetOpenSub": "End date not passed",
+    "sheetMonth": "This month",
+    "extAvgUndated": "{{n}} without dates left out"
+  },
+  "extensions": {
+    "extension": "Extension",
+    "car": "Car",
+    "customer": "Customer",
+    "period": "Period",
+    "amount": "Amount",
+    "enteredBy": "Entered by",
+    "badge": "Extension #{{no}}",
+    "legacy": "Legacy",
+    "emptyMonth": "No extensions starting this month",
+    "noMatch": "No extensions match.",
+    "loading": "Loading extensions…",
+    "loadFailed": "Couldn't load this list.",
+    "retry": "Try again",
+    "openFailed": "Couldn't open that booking."
+  },
+  "sheetStatus": {
+    "open": "Open",
+    "closed": "Closed"
   }
 }

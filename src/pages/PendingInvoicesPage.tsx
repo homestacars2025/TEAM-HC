@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import Button from '../components/Button';
 import CustomerAvatar from '../components/CustomerAvatar';
 import HomeArt from '../components/HomeArt';
+import MonthSwitcher from '../components/MonthSwitcher';
 import { StatTile } from '../components/WalletParts';
 import PlateChip from '../components/booking/PlateChip';
 import { ComplianceTriangle } from '../components/cars/Compliance';
@@ -21,10 +22,6 @@ import { formatMoney } from '../lib/suppliers';
 const TOAST_MS = 7000;
 
 const lira = (amount: number) => formatMoney(amount, 'TRY');
-
-const Chevron: React.FC = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-);
 
 interface Toast {
   message: string;
@@ -137,11 +134,14 @@ const PendingInvoicesPage: React.FC = () => {
           <p>{t('invoices.subtitle')}</p>
         </div>
         <div className="hc-pi-months">
-          <div className={`hc-pi-month ${allMonths ? 'is-off' : ''}`}>
-            <button type="button" aria-label={t('invoices.month.prev')} disabled={allMonths} onClick={() => setMonth(shiftMonth(month, -1))}><Chevron /></button>
-            <strong aria-live="polite">{allMonths ? t('invoices.month.all') : monthName(month)}</strong>
-            <button type="button" aria-label={t('invoices.month.next')} disabled={allMonths} className="is-next" onClick={() => setMonth(shiftMonth(month, 1))}><Chevron /></button>
-          </div>
+          <MonthSwitcher
+            label={allMonths ? t('invoices.month.all') : monthName(month)}
+            prevLabel={t('invoices.month.prev')}
+            nextLabel={t('invoices.month.next')}
+            disabled={allMonths}
+            onPrev={() => setMonth(shiftMonth(month, -1))}
+            onNext={() => setMonth(shiftMonth(month, 1))}
+          />
           <button type="button" aria-pressed={allMonths} className="hc-pi-all" onClick={() => setMonth(allMonths ? lastMonth.current : ALL_MONTHS)}>{t('invoices.month.all')}</button>
         </div>
       </header>
