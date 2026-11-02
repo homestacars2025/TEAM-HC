@@ -27,7 +27,8 @@
     "kabis": "KABIS",
     "ideas": "Ideas",
     "influencers": "Influencers",
-    "mediaCalendar": "Calendar"
+    "mediaCalendar": "Calendar",
+    "pendingInvoices": "Pending Invoices"
   },
   "currency": {
     "label": "Currency",

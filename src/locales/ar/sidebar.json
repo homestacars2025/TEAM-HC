@@ -27,7 +27,8 @@
     "kabis": "KABIS",
     "ideas": "الأفكار",
     "influencers": "المؤثرون",
-    "mediaCalendar": "التقويم"
+    "mediaCalendar": "التقويم",
+    "pendingInvoices": "الفواتير المعلقة"
   },
   "currency": {
     "label": "العملة",

@@ -6,12 +6,7 @@ import type { PaymentReceipt } from '../../lib/payments';
 import { formatMoney } from '../../lib/suppliers';
 import PlateChip from '../booking/PlateChip';
 import Button from '../Button';
-
-const CopyMark: React.FC<{ done: boolean }> = ({ done }) => (done ? (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-) : (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5" stroke="currentColor" strokeWidth="2" /><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-));
+import { CopyMark } from '../CopyButton';
 
 /**
  * After cash: everything that goes on the envelope. It can't be dismissed, because until

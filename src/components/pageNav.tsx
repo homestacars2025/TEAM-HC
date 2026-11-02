@@ -101,6 +101,10 @@ export const pageIcons: Record<string, React.ReactNode> = {
     <path d="M8 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
     <circle cx="16" cy="16" r="1.1" fill="currentColor"/>
   </>),
+  pending_invoices: icon(<>
+    <path d="M6 2h12a1 1 0 011 1v18l-3-2-2 2-2-2-2 2-2-2-3 2V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M9 8h6M9 12h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+  </>),
   media_ideas: icon(<>
     <path d="M15 14c.2-1 .7-1.7 1.5-2.5A5.7 5.7 0 0018 8 6 6 0 006 8c0 1 .2 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M9 18h6M10 22h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -138,6 +142,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   fines: 'nav.fines',
   kabis: 'nav.kabis',
   accounting: 'nav.accounting',
+  pending_invoices: 'nav.pendingInvoices',
   customer_wallets: 'nav.customerWallets',
   media_ideas: 'nav.ideas',
   media_calendar: 'nav.mediaCalendar',

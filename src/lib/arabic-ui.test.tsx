@@ -28,6 +28,7 @@ jest.mock('../contexts/PageAccessContext', () => {
     page('kabis', '/dashboard/kabis', 'operations', 23),
     page('accounting', '/dashboard/accounting', 'finance', 30),
     page('customer_wallets', '/dashboard/customer-wallets', 'finance', 31),
+    page('pending_invoices', '/dashboard/pending-invoices', 'finance', 32),
     page('media_ideas', '/dashboard/media/ideas', 'media', 40),
     page('media_calendar', '/dashboard/media/calendar', 'media', 41),
     page('media_influencers', '/dashboard/media/influencers', 'media', 42),

@@ -3305,7 +3305,7 @@ const BookingsPage: React.FC = () => {
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => getMonthStart(new Date()));
-  const [urlParams] = useSearchParams();
+  const [urlParams, setUrlParams] = useSearchParams();
   const urlMonth = urlParams.get('month');
   useEffect(() => {
     const match = /^(\d{4})-(\d{2})$/.exec(urlMonth ?? '');
@@ -3394,6 +3394,20 @@ const BookingsPage: React.FC = () => {
     if (fetchError) { setError(fetchError.message); return; }
     setBookings(((data ?? []) as unknown as BookingRow[]).map(resolveBooking));
   }, []);
+
+  // Sent here to fix a detail on a booking, as from Pending Invoices.
+  const urlEdit = urlParams.get('edit');
+  useEffect(() => {
+    if (!urlEdit) return;
+    const booking = bookings.find(item => String(item.id) === urlEdit);
+    if (!booking) return;
+    setModal({ mode: 'edit', booking });
+    setUrlParams(current => {
+      const next = new URLSearchParams(current);
+      next.delete('edit');
+      return next;
+    }, { replace: true });
+  }, [urlEdit, bookings, setUrlParams]);
 
   useEffect(() => {
     fetchStats(selectedMonth);
