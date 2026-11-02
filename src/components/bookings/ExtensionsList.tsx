@@ -50,7 +50,7 @@ const ExtensionsList: React.FC<ExtensionsListProps> = ({ rows, onOpen }) => {
                     <span>{t('range.span', { start: formatDay(row.period_start, locale), end: formatDay(row.period_end, locale) })}</span>
                     {row.days !== null && <small>{t('range.days', { count: row.days })}</small>}
                   </>
-                ) : '—'}
+                ) : <span className="hc-bk-legacy">{t('extensions.noDates')}</span>}
               </td>
               <td data-label={t('extensions.amount')} className="hc-bk-c-amount">
                 <b className="hc-num" dir="ltr">{formatMoney(row.rental_amount, 'TRY')}</b>

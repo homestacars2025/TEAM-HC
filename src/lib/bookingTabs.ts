@@ -67,13 +67,15 @@ export interface BookingExtension {
   is_legacy: boolean;
 }
 
+/** The month goes by start date, so a row with no recorded period isn't counted in one. */
+export const hasPeriod = (row: Pick<BookingExtension, 'period_start'>): boolean => row.period_start !== null;
+
 export function extensionTiles(rows: Pick<BookingExtension, 'rental_amount' | 'days'>[]) {
   const dated = rows.filter(row => row.days !== null);
   return {
     count: rows.length,
     value: Math.round(rows.reduce((sum, row) => sum + row.rental_amount, 0) * 100) / 100,
     avgDays: dated.length ? Math.round((dated.reduce((sum, row) => sum + (row.days as number), 0) / dated.length) * 10) / 10 : null,
-    undated: rows.length - dated.length,
     zero: rows.filter(row => row.rental_amount === 0).length,
   };
 }

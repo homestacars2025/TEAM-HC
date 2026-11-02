@@ -393,11 +393,11 @@
     "sheetTotalSub": "Starting this month",
     "sheetOpen": "Open",
     "sheetOpenSub": "End date not passed",
-    "extAvgUndated": "{{n}} without dates left out",
     "pending": "Pending",
     "pendingSub": "Waiting",
     "sheetClosed": "Closed",
-    "sheetClosedSub": "End date passed"
+    "sheetClosedSub": "End date passed",
+    "extCountUndated": "{{n}} without dates not counted"
   },
   "extensions": {
     "extension": "Extension",
@@ -413,7 +413,8 @@
     "loading": "Loading extensions…",
     "loadFailed": "Couldn't load this list.",
     "retry": "Try again",
-    "openFailed": "Couldn't open that booking."
+    "openFailed": "Couldn't open that booking.",
+    "noDates": "No dates"
   },
   "sheetStatus": {
     "open": "Open",

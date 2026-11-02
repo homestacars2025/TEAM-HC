@@ -1,5 +1,5 @@
 import {
-  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, isActiveNow, isOpenSheet, readTab, sheetInMonth, sheetMatches, tripProgress, type BookingExtension,
+  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, hasPeriod, isActiveNow, isOpenSheet, readTab, sheetInMonth, sheetMatches, tripProgress, type BookingExtension,
 } from './bookingTabs';
 
 const TODAY = '2026-11-02';
@@ -50,12 +50,17 @@ const extension = (o: Partial<BookingExtension> = {}): BookingExtension => ({
 
 describe('extensions tab', () => {
   it('leaves undated rows out of the average, but not the value', () => {
-    expect(extensionTiles([extension(), extension({ days: 20 }), extension({ days: null, period_start: null, period_end: null, rental_amount: 500.5 })])).toEqual({ count: 3, value: 2500.5, avgDays: 15, undated: 1, zero: 0 });
+    expect(extensionTiles([extension(), extension({ days: 20 }), extension({ days: null, period_start: null, period_end: null, rental_amount: 500.5 })])).toEqual({ count: 3, value: 2500.5, avgDays: 15, zero: 0 });
   });
 
   it('has no average with nothing dated', () => {
     expect(extensionTiles([extension({ days: null })]).avgDays).toBeNull();
     expect(extensionTiles([]).avgDays).toBeNull();
+  });
+
+  it('only counts a row with a recorded start date', () => {
+    expect(hasPeriod(extension())).toBe(true);
+    expect(hasPeriod(extension({ period_start: null }))).toBe(false);
   });
 
   it('counts zero amounts', () => {

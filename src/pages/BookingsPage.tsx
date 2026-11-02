@@ -53,7 +53,7 @@ import MonthSwitcher from '../components/MonthSwitcher';
 import { StatTile } from '../components/WalletParts';
 import { useTileFilter } from '../hooks/useTileFilter';
 import {
-  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, isActiveNow, isOpenSheet, readTab, sheetCsvRows, sheetInMonth, sheetMatches, TAB_FILTERS, tripProgress, type BookingExtension, type BookingFilter, type BookingTab,
+  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, hasPeriod, isActiveNow, isOpenSheet, readTab, sheetCsvRows, sheetInMonth, sheetMatches, TAB_FILTERS, tripProgress, type BookingExtension, type BookingFilter, type BookingTab,
 } from '../lib/bookingTabs';
 import { downloadCsv } from '../lib/csv';
 import { istanbulDate } from '../lib/istanbulTime';
@@ -3371,12 +3371,16 @@ const BookingsPage: React.FC = () => {
     [scopedBookings, tab, tileFilter],
   );
 
-  const scopedExtensions = useMemo(() => extensions.filter(item => extensionMatches(item, search) && (!statusFilter || item.booking_status === statusFilter)), [extensions, search, statusFilter]);
+  const datedExtensions = useMemo(() => extensions.filter(hasPeriod), [extensions]);
+  const matchingExtensions = useMemo(() => extensions.filter(item => extensionMatches(item, search) && (!statusFilter || item.booking_status === statusFilter)), [extensions, search, statusFilter]);
+  const scopedExtensions = useMemo(() => matchingExtensions.filter(hasPeriod), [matchingExtensions]);
+  const undatedExtensions = matchingExtensions.length - scopedExtensions.length;
   const extTiles = useMemo(() => extensionTiles(scopedExtensions), [scopedExtensions]);
-  const shownExtensions = useMemo(
-    () => (tab === 'extensions' && tileFilter === 'zero' ? scopedExtensions.filter(item => item.rental_amount === 0) : scopedExtensions),
-    [scopedExtensions, tab, tileFilter],
-  );
+  // Undated rows aren't counted, but the money in them stays on the page, last.
+  const shownExtensions = useMemo(() => {
+    if (tab === 'extensions' && tileFilter === 'zero') return scopedExtensions.filter(item => item.rental_amount === 0);
+    return [...scopedExtensions, ...matchingExtensions.filter(item => !hasPeriod(item))];
+  }, [matchingExtensions, scopedExtensions, tab, tileFilter]);
 
   const monthSheets = useMemo(() => sheets.filter(item => sheetInMonth(item, monthKey)), [sheets, monthKey]);
   const scopedSheets = useMemo(() => monthSheets.filter(item => sheetMatches(item, search)), [monthSheets, search]);
@@ -3534,7 +3538,7 @@ const BookingsPage: React.FC = () => {
         <BookingTabsBar
           tab={tab}
           onChange={goToTab}
-          counts={{ bookings: loading ? null : bookings.length, extensions: extLoading ? null : extensions.length, replacements: sheetsLoading ? null : monthSheets.length }}
+          counts={{ bookings: loading ? null : bookings.length, extensions: extLoading ? null : datedExtensions.length, replacements: sheetsLoading ? null : monthSheets.length }}
         />
         <MonthSwitcher label={formatMonthLabel(selectedMonth, dateLocale)} prevLabel={t('months.prev')} nextLabel={t('months.next')} onPrev={() => goToMonth(-1)} onNext={() => goToMonth(1)} />
       </div>
@@ -3548,10 +3552,10 @@ const BookingsPage: React.FC = () => {
         </div>
       )}
       {tab === 'extensions' && (
-        <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
-          <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.extCount')} sub={t('tiles.extCountSub')} value={num(extLoading, extTiles.count)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+        <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-bk-tiles-money">
+          <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.extCount')} sub={undatedExtensions > 0 ? t('tiles.extCountUndated', { n: undatedExtensions }) : t('tiles.extCountSub')} value={num(extLoading, extTiles.count)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
           <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.extValue')} sub={t('tiles.extValueSub')} value={num(extLoading, formatLira(extTiles.value, 'TRY'))} />
-          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={extTiles.undated ? t('tiles.extAvgUndated', { n: extTiles.undated }) : t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
+          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
           <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('tiles.extZero')} sub={t('tiles.extZeroSub')} value={num(extLoading, extTiles.zero)} pressed={tileFilter === 'zero'} onPress={() => setTileFilter('zero')} />
         </div>
       )}

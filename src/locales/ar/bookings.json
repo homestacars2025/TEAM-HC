@@ -405,11 +405,11 @@
     "sheetTotalSub": "تبدأ هذا الشهر",
     "sheetOpen": "مفتوحة",
     "sheetOpenSub": "لم ينتهِ تاريخها",
-    "extAvgUndated": "{{n}} بلا تواريخ غير محسوبة",
     "pending": "قيد الانتظار",
     "pendingSub": "بالانتظار",
     "sheetClosed": "مغلقة",
-    "sheetClosedSub": "انتهى تاريخها"
+    "sheetClosedSub": "انتهى تاريخها",
+    "extCountUndated": "{{n}} بلا تواريخ غير محسوبة"
   },
   "extensions": {
     "extension": "التمديد",
@@ -425,7 +425,8 @@
     "loading": "جارٍ تحميل التمديدات…",
     "loadFailed": "تعذّر تحميل هذه القائمة.",
     "retry": "حاول مرة أخرى",
-    "openFailed": "تعذّر فتح هذا الحجز."
+    "openFailed": "تعذّر فتح هذا الحجز.",
+    "noDates": "بلا تواريخ"
   },
   "sheetStatus": {
     "open": "مفتوحة",
