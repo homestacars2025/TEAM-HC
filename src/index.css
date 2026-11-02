@@ -4459,17 +4459,15 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-bk-tabs button[aria-selected="true"] .hc-num { opacity: 1; }
 /* Bookings tiles fill the row, unlike the capped filter tiles elsewhere. */
 .hc-tiles.hc-tiles-filter.hc-bk-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: none; }
-.hc-tiles-filter.hc-bk-tiles .hc-tile, .hc-tiles-filter.hc-bk-tiles > .hc-tile:first-child, .hc-tiles-filter.hc-bk-tiles > .hc-tile:first-child:nth-last-child(odd) { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; height: 132px; padding: 12px 14px; aspect-ratio: auto; --depth-fill: #fff; background-color: #fff; color: #0f1117; box-shadow: inset 0 0 0 1px #ebebeb, var(--depth-shadow); }
+.hc-tiles-filter.hc-bk-tiles .hc-tile, .hc-tiles-filter.hc-bk-tiles > .hc-tile:first-child, .hc-tiles-filter.hc-bk-tiles > .hc-tile:first-child:nth-last-child(odd) { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; height: 132px; padding: 12px 14px; aspect-ratio: auto; }
 .hc-tiles-filter.hc-bk-tiles > .hc-tile:first-child:nth-last-child(odd) { grid-column: 1 / -1; }
 /* Icon side first, number side last, so the tile mirrors with the page. */
 .hc-tiles-filter.hc-bk-tiles .hc-tile-head { flex: none; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 78px; padding-inline-end: 0; }
 .hc-tiles-filter.hc-bk-tiles .hc-tile-art { flex: none; width: 56px !important; height: 56px !important; margin-block: 0; object-fit: contain; }
-.hc-bk-tiles .hc-tile-label { color: var(--tile-ink); font-size: 12.5px; line-height: 1.2; opacity: 1; }
+.hc-bk-tiles .hc-tile-label { font-size: 12.5px; line-height: 1.2; }
 .hc-tiles-filter.hc-bk-tiles .hc-tile-bottom { flex: 1 1 0; min-width: 0; margin-top: 0; text-align: end; }
 .hc-tiles-filter.hc-bk-tiles .hc-tile-value { max-width: 100%; font-family: var(--font-mono); font-size: min(40px, calc((100cqi - 84px) / (var(--chars) * 0.62))); font-weight: 600; line-height: 1.1; letter-spacing: -0.04em; }
-.hc-bk-tiles .hc-tile-sub { margin-top: 3px; color: #6b7280; font-size: 12px; line-height: 1.25; opacity: 1; white-space: normal; }
-.hc-tiles-filter.hc-bk-tiles .hc-tile-button.is-active { --depth-fill: #f5f9fe; background-color: #f5f9fe; box-shadow: inset 0 0 0 2px #6ea4e7, var(--depth-shadow); }
-.hc-bk-tiles .hc-tile-check { background: #6ea4e7; }
+.hc-bk-tiles .hc-tile-sub { margin-top: 3px; font-size: 12px; line-height: 1.25; white-space: normal; }
 
 /* The smallest phones can't fit a full-size icon and a caption side by side. */
 @media (max-width: 359px) {

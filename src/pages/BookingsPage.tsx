@@ -3555,14 +3555,14 @@ const BookingsPage: React.FC = () => {
         <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-bk-tiles-money">
           <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.extCount')} sub={undatedExtensions > 0 ? t('tiles.extCountUndated', { n: undatedExtensions }) : t('tiles.extCountSub')} value={num(extLoading, extTiles.count)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
           <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.extValue')} sub={t('tiles.extValueSub')} value={num(extLoading, formatLira(extTiles.value, 'TRY'))} />
-          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
-          <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('tiles.extZero')} sub={t('tiles.extZeroSub')} value={num(extLoading, extTiles.zero)} pressed={tileFilter === 'zero'} onPress={() => setTileFilter('zero')} />
+          <StatTile tone="paid" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
+          <StatTile tone="negative" art={<ComplianceTriangle severity="expired" size={40} className="hc-tile-art" />} label={t('tiles.extZero')} sub={t('tiles.extZeroSub')} value={num(extLoading, extTiles.zero)} pressed={tileFilter === 'zero'} onPress={() => setTileFilter('zero')} />
         </div>
       )}
       {tab === 'replacements' && (
         <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
           <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.sheetTotal')} sub={t('tiles.sheetTotalSub')} value={num(sheetsLoading, scopedSheets.length)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
-          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.sheetOpen')} sub={t('tiles.sheetOpenSub')} value={num(sheetsLoading, openSheets)} pressed={tileFilter === 'open'} onPress={() => setTileFilter('open')} />
+          <StatTile tone="received" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.sheetOpen')} sub={t('tiles.sheetOpenSub')} value={num(sheetsLoading, openSheets)} pressed={tileFilter === 'open'} onPress={() => setTileFilter('open')} />
           <StatTile tone="paid" art={<Icon3D name="completed" className="hc-tile-art" />} label={t('tiles.sheetClosed')} sub={t('tiles.sheetClosedSub')} value={num(sheetsLoading, scopedSheets.length - openSheets)} pressed={tileFilter === 'closed'} onPress={() => setTileFilter('closed')} />
         </div>
       )}
