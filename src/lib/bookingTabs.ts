@@ -7,9 +7,9 @@ export const readTab = (param: string | null): BookingTab =>
   (BOOKING_TABS as readonly string[]).includes(param ?? '') ? param as BookingTab : 'bookings';
 
 export const TAB_FILTERS = {
-  bookings: ['confirmed', 'completed', 'kabis', 'invoice'],
+  bookings: ['confirmed', 'pending', 'completed'],
   extensions: ['zero'],
-  replacements: ['open', 'month'],
+  replacements: ['open', 'closed'],
 } as const;
 
 export type BookingFilter = typeof TAB_FILTERS.bookings[number];
@@ -18,8 +18,6 @@ interface BookingFacts {
   status: string;
   start_date: string;
   end_date: string;
-  kabis_reported: boolean;
-  invoice_issued: boolean;
 }
 
 const day = (value: string) => value.slice(0, 10);
@@ -27,29 +25,16 @@ const day = (value: string) => value.slice(0, 10);
 export const isActiveNow = (booking: Pick<BookingFacts, 'status' | 'start_date' | 'end_date'>, today: string): boolean =>
   booking.status === 'confirmed' && day(booking.start_date) <= today && today <= day(booking.end_date);
 
-/** A booking that hasn't started has nothing to report yet. */
-export const isKabisMissing = (booking: Pick<BookingFacts, 'status' | 'start_date' | 'kabis_reported'>, today: string): boolean =>
-  (booking.status === 'confirmed' || booking.status === 'completed') && day(booking.start_date) <= today && !booking.kabis_reported;
-
-/** The same bookings Pending Invoices lists. */
-export const isInvoicePending = (booking: Pick<BookingFacts, 'status' | 'kabis_reported' | 'invoice_issued'>): boolean =>
-  booking.status === 'completed' && booking.kabis_reported && !booking.invoice_issued;
-
-export function bookingInFilter(booking: BookingFacts, filter: BookingFilter | 'all', today: string): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'kabis') return isKabisMissing(booking, today);
-  if (filter === 'invoice') return isInvoicePending(booking);
-  return booking.status === filter;
-}
+export const bookingInFilter = (booking: Pick<BookingFacts, 'status'>, filter: BookingFilter | 'all'): boolean =>
+  filter === 'all' || booking.status === filter;
 
 export function bookingTiles(bookings: BookingFacts[], today: string) {
   return {
     total: bookings.length,
     confirmed: bookings.filter(item => item.status === 'confirmed').length,
     activeNow: bookings.filter(item => isActiveNow(item, today)).length,
+    pending: bookings.filter(item => item.status === 'pending').length,
     completed: bookings.filter(item => item.status === 'completed').length,
-    kabis: bookings.filter(item => isKabisMissing(item, today)).length,
-    invoice: bookings.filter(isInvoicePending).length,
   };
 }
 

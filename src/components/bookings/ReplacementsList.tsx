@@ -56,7 +56,7 @@ function ReplacementsList<T extends SheetRow>({ rows, today, onEdit, onPrint }: 
                   <PlateChip plate={sheet.replacement_plate} />
                 </td>
                 <td data-label={t('replacement.period')} className="hc-bk-c-period">
-                  <span>{formatDay(sheet.start_date, locale)} → {formatDay(sheet.end_date, locale)}</span>
+                  <span>{t('range.span', { start: formatDay(sheet.start_date, locale), end: formatDay(sheet.end_date, locale) })}</span>
                   <small>{t('range.days', { count: rentalDays(sheet.start_date, sheet.end_date) })}</small>
                 </td>
                 <td className="hc-bk-c-actions">

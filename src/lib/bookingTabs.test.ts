@@ -1,9 +1,9 @@
 import {
-  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, isActiveNow, isInvoicePending, isKabisMissing, isOpenSheet, readTab, sheetInMonth, sheetMatches, tripProgress, type BookingExtension,
+  bookingInFilter, bookingMatches, bookingTiles, extensionCsvRows, extensionMatches, extensionTiles, isActiveNow, isOpenSheet, readTab, sheetInMonth, sheetMatches, tripProgress, type BookingExtension,
 } from './bookingTabs';
 
 const TODAY = '2026-11-02';
-const booking = (o = {}) => ({ status: 'confirmed', start_date: '2026-11-01', end_date: '2026-11-05', kabis_reported: true, invoice_issued: false, ...o });
+const booking = (o = {}) => ({ status: 'confirmed', start_date: '2026-11-01', end_date: '2026-11-05', ...o });
 
 describe('tabs', () => {
   it('falls back to Bookings', () => {
@@ -26,30 +26,14 @@ describe('bookings tab', () => {
     expect(isActiveNow(booking({ start_date: '2026-11-02T00:00:00+00:00', end_date: '2026-11-02T00:00:00+00:00' }), TODAY)).toBe(true);
   });
 
-  it('only calls KABIS missing once the booking has started', () => {
-    expect(isKabisMissing(booking({ kabis_reported: false }), TODAY)).toBe(true);
-    expect(isKabisMissing(booking({ kabis_reported: false, start_date: '2026-11-20' }), TODAY)).toBe(false);
-    expect(isKabisMissing(booking({ kabis_reported: false, status: 'cancelled' }), TODAY)).toBe(false);
-    expect(isKabisMissing(booking({ kabis_reported: false, status: 'pending' }), TODAY)).toBe(false);
-    expect(isKabisMissing(booking(), TODAY)).toBe(false);
-  });
-
-  it('matches Pending Invoices on what is waiting for an invoice', () => {
-    expect(isInvoicePending(booking({ status: 'completed' }))).toBe(true);
-    expect(isInvoicePending(booking({ status: 'completed', kabis_reported: false }))).toBe(false);
-    expect(isInvoicePending(booking({ status: 'completed', invoice_issued: true }))).toBe(false);
-    expect(isInvoicePending(booking())).toBe(false);
-  });
-
   it('counts each tile, and the filter agrees with it', () => {
-    const rows = [booking(), booking({ status: 'completed' }), booking({ status: 'completed', kabis_reported: false }), booking({ start_date: '2026-11-20', end_date: '2026-11-22' }), booking({ status: 'pending' })];
+    const rows = [booking(), booking({ status: 'completed' }), booking({ status: 'completed' }), booking({ start_date: '2026-11-20', end_date: '2026-11-22' }), booking({ status: 'pending' }), booking({ status: 'cancelled' })];
     const tiles = bookingTiles(rows, TODAY);
-    expect(tiles).toEqual({ total: 5, confirmed: 2, activeNow: 1, completed: 2, kabis: 1, invoice: 1 });
-    expect(rows.filter(row => bookingInFilter(row, 'confirmed', TODAY))).toHaveLength(tiles.confirmed);
-    expect(rows.filter(row => bookingInFilter(row, 'completed', TODAY))).toHaveLength(tiles.completed);
-    expect(rows.filter(row => bookingInFilter(row, 'kabis', TODAY))).toHaveLength(tiles.kabis);
-    expect(rows.filter(row => bookingInFilter(row, 'invoice', TODAY))).toHaveLength(tiles.invoice);
-    expect(rows.filter(row => bookingInFilter(row, 'all', TODAY))).toHaveLength(5);
+    expect(tiles).toEqual({ total: 6, confirmed: 2, activeNow: 1, pending: 1, completed: 2 });
+    expect(rows.filter(row => bookingInFilter(row, 'confirmed'))).toHaveLength(tiles.confirmed);
+    expect(rows.filter(row => bookingInFilter(row, 'pending'))).toHaveLength(tiles.pending);
+    expect(rows.filter(row => bookingInFilter(row, 'completed'))).toHaveLength(tiles.completed);
+    expect(rows.filter(row => bookingInFilter(row, 'all'))).toHaveLength(6);
   });
 
   it('measures how far along a trip is, and stays in range', () => {

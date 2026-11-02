@@ -2,7 +2,6 @@
   "title": "الحجوزات",
   "subtitle": "مركز إدارة الحجوزات الشهرية",
   "newBooking": "حجز جديد",
-  "replacementSheet": "أوراق السيارات البديلة",
   "loadError": "تعذّر تحميل الحجوزات: ",
   "lookingUp": "جارٍ البحث عن العميل…",
   "status": {
@@ -186,7 +185,6 @@
   "newCustomerHint": "عميل جديد — أدخل البيانات",
   "whatsappHint": "يُستخدم لرسائل واتساب المرسلة لهذا العميل.",
   "convertHint": "ستُحوَّل القيم إلى الليرة التركية قبل الحفظ",
-  "noSheets": "لا توجد أوراق سيارات بديلة بعد.",
   "reprint": "إعادة طباعة",
   "loadingSheets": "جارٍ تحميل أوراق السيارات البديلة…",
   "extend": {
@@ -394,11 +392,7 @@
     "confirmed": "مؤكدة",
     "confirmedSub": "{{n}} نشطة الآن",
     "completed": "مكتملة",
-    "completedSub": "حجوزات منتهية",
-    "kabis": "KABIS ناقص",
-    "kabisSub": "بدأت ولم يُبلَّغ عنها",
-    "invoice": "فاتورة معلقة",
-    "invoiceSub": "مُبلَّغ عنها بلا فاتورة",
+    "completedSub": "تمت إعادتها",
     "extCount": "التمديدات",
     "extCountSub": "تبدأ هذا الشهر",
     "extValue": "قيمة التمديدات",
@@ -408,11 +402,14 @@
     "extZero": "مبلغ صفر",
     "extZeroSub": "بدون إيجار مُدخل",
     "sheetTotal": "الإجمالي",
-    "sheetTotalSub": "كل الأوراق",
+    "sheetTotalSub": "تبدأ هذا الشهر",
     "sheetOpen": "مفتوحة",
     "sheetOpenSub": "لم ينتهِ تاريخها",
-    "sheetMonth": "هذا الشهر",
-    "extAvgUndated": "{{n}} بلا تواريخ غير محسوبة"
+    "extAvgUndated": "{{n}} بلا تواريخ غير محسوبة",
+    "pending": "قيد الانتظار",
+    "pendingSub": "بالانتظار",
+    "sheetClosed": "مغلقة",
+    "sheetClosedSub": "انتهى تاريخها"
   },
   "extensions": {
     "extension": "التمديد",
@@ -433,5 +430,6 @@
   "sheetStatus": {
     "open": "مفتوحة",
     "closed": "مغلقة"
-  }
+  },
+  "noSheetsMonth": "لا توجد أوراق سيارات بديلة تبدأ هذا الشهر"
 }

@@ -48,6 +48,7 @@ import StatusArt from '../components/cars/StatusArt';
 import CustomerAvatar from '../components/CustomerAvatar';
 import BannedBadge from '../components/customers/BannedBadge';
 import HomeArt from '../components/HomeArt';
+import Icon3D from '../components/Icon3D';
 import MonthSwitcher from '../components/MonthSwitcher';
 import { StatTile } from '../components/WalletParts';
 import { useTileFilter } from '../hooks/useTileFilter';
@@ -379,7 +380,7 @@ const BookingTableRow: React.FC<RowProps> = ({
       </span>
     </td>
     <td className="hc-bk-c-period">
-      <span>{formatDateDisplay(booking.start_date, dateLocale)} → {formatDateDisplay(booking.end_date, dateLocale)}</span>
+      <span>{t('range.span', { start: formatDateDisplay(booking.start_date, dateLocale), end: formatDateDisplay(booking.end_date, dateLocale) })}</span>
       <small>{t('range.days', { count: rentalDays(start, end) })}</small>
       {active && <span role="img" aria-label={t('table.progress')} className="hc-bk-progress"><i style={{ width: `${Math.round(tripProgress(booking, today) * 100)}%` }} /></span>}
     </td>
@@ -3345,7 +3346,7 @@ const BookingsPage: React.FC = () => {
     fetchExtensions(monthKey);
   }, [fetchBookings, fetchExtensions, selectedMonth, monthKey]);
 
-  // ── Fetch replacement sheets (not month-scoped — this is a running log) ──────
+  // ── Fetch replacement sheets (all of them: the page narrows them to the month) ──
   const fetchSheets = useCallback(async () => {
     setSheetsLoading(true);
     setSheetsFailed(false);
@@ -3366,8 +3367,8 @@ const BookingsPage: React.FC = () => {
   const scopedBookings = useMemo(() => bookings.filter(item => bookingMatches(item, search) && (!statusFilter || item.status === statusFilter)), [bookings, search, statusFilter]);
   const tiles = useMemo(() => bookingTiles(scopedBookings, today), [scopedBookings, today]);
   const filtered = useMemo(
-    () => scopedBookings.filter(item => bookingInFilter(item, tab === 'bookings' ? tileFilter as BookingFilter | 'all' : 'all', today)),
-    [scopedBookings, tab, tileFilter, today],
+    () => scopedBookings.filter(item => bookingInFilter(item, tab === 'bookings' ? tileFilter as BookingFilter | 'all' : 'all')),
+    [scopedBookings, tab, tileFilter],
   );
 
   const scopedExtensions = useMemo(() => extensions.filter(item => extensionMatches(item, search) && (!statusFilter || item.booking_status === statusFilter)), [extensions, search, statusFilter]);
@@ -3377,15 +3378,13 @@ const BookingsPage: React.FC = () => {
     [scopedExtensions, tab, tileFilter],
   );
 
-  const scopedSheets = useMemo(() => sheets.filter(item => sheetMatches(item, search)), [sheets, search]);
-  const sheetTiles = useMemo(() => ({
-    open: scopedSheets.filter(item => isOpenSheet(item, today)).length,
-    month: scopedSheets.filter(item => sheetInMonth(item, monthKey)).length,
-  }), [scopedSheets, today, monthKey]);
+  const monthSheets = useMemo(() => sheets.filter(item => sheetInMonth(item, monthKey)), [sheets, monthKey]);
+  const scopedSheets = useMemo(() => monthSheets.filter(item => sheetMatches(item, search)), [monthSheets, search]);
+  const openSheets = useMemo(() => scopedSheets.filter(item => isOpenSheet(item, today)).length, [scopedSheets, today]);
   const shownSheets = useMemo(() => {
     if (tab !== 'replacements' || tileFilter === 'all') return scopedSheets;
-    return scopedSheets.filter(item => (tileFilter === 'open' ? isOpenSheet(item, today) : sheetInMonth(item, monthKey)));
-  }, [scopedSheets, tab, tileFilter, today, monthKey]);
+    return scopedSheets.filter(item => isOpenSheet(item, today) === (tileFilter === 'open'));
+  }, [scopedSheets, tab, tileFilter, today]);
 
   const goToMonth = (by: number) => setUrlParams(current => {
     const next = new URLSearchParams(current);
@@ -3467,7 +3466,7 @@ const BookingsPage: React.FC = () => {
   const handleExport = () => {
     const month = formatMonthLabel(selectedMonth, 'en-GB').replace(' ', '-').toLowerCase();
     if (tab === 'extensions') { downloadCsv(`extensions-${month}`, extensionCsvRows(shownExtensions)); return; }
-    if (tab === 'replacements') { downloadCsv('replacement-sheets', sheetCsvRows(shownSheets, today)); return; }
+    if (tab === 'replacements') { downloadCsv(`replacement-sheets-${month}`, sheetCsvRows(shownSheets, today)); return; }
     // English on purpose — a CSV is opened in a spreadsheet, and its columns
     // are what any saved filter or formula keys on.
     downloadCsv(`bookings-${month}`, [
@@ -3535,33 +3534,32 @@ const BookingsPage: React.FC = () => {
         <BookingTabsBar
           tab={tab}
           onChange={goToTab}
-          counts={{ bookings: loading ? null : bookings.length, extensions: extLoading ? null : extensions.length, replacements: sheetsLoading ? null : sheets.length }}
+          counts={{ bookings: loading ? null : bookings.length, extensions: extLoading ? null : extensions.length, replacements: sheetsLoading ? null : monthSheets.length }}
         />
         <MonthSwitcher label={formatMonthLabel(selectedMonth, dateLocale)} prevLabel={t('months.prev')} nextLabel={t('months.next')} onPrev={() => goToMonth(-1)} onNext={() => goToMonth(1)} />
       </div>
 
       {tab === 'bookings' && (
         <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
-          <StatTile tone="total" art={<StatusArt name="total" className="hc-tile-art" />} label={t('tiles.total')} sub={t('tiles.totalSub')} value={num(loading, tiles.total)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
-          <StatTile tone="received" art={<StatusArt name="working" className="hc-tile-art" />} label={t('tiles.confirmed')} sub={t('tiles.confirmedSub', { n: tiles.activeNow })} value={num(loading, tiles.confirmed)} pressed={tileFilter === 'confirmed'} onPress={() => setTileFilter('confirmed')} />
-          <StatTile tone="paid" art={<StatusArt name="parking" className="hc-tile-art" />} label={t('tiles.completed')} sub={t('tiles.completedSub')} value={num(loading, tiles.completed)} pressed={tileFilter === 'completed'} onPress={() => setTileFilter('completed')} />
-          <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('tiles.kabis')} sub={t('tiles.kabisSub')} value={num(loading, tiles.kabis)} pressed={tileFilter === 'kabis'} onPress={() => setTileFilter('kabis')} />
-          <StatTile tone="balance" art={<HomeArt name="tasks" className="hc-tile-art" />} label={t('tiles.invoice')} sub={t('tiles.invoiceSub')} value={num(loading, tiles.invoice)} pressed={tileFilter === 'invoice'} onPress={() => setTileFilter('invoice')} />
+          <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.total')} sub={t('tiles.totalSub')} value={num(loading, tiles.total)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+          <StatTile tone="received" art={<Icon3D name="confirmed" className="hc-tile-art" />} label={t('tiles.confirmed')} sub={t('tiles.confirmedSub', { n: tiles.activeNow })} value={num(loading, tiles.confirmed)} pressed={tileFilter === 'confirmed'} onPress={() => setTileFilter('confirmed')} />
+          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.pending')} sub={t('tiles.pendingSub')} value={num(loading, tiles.pending)} pressed={tileFilter === 'pending'} onPress={() => setTileFilter('pending')} />
+          <StatTile tone="paid" art={<Icon3D name="completed" className="hc-tile-art" />} label={t('tiles.completed')} sub={t('tiles.completedSub')} value={num(loading, tiles.completed)} pressed={tileFilter === 'completed'} onPress={() => setTileFilter('completed')} />
         </div>
       )}
       {tab === 'extensions' && (
         <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
-          <StatTile tone="total" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.extCount')} sub={t('tiles.extCountSub')} value={num(extLoading, extTiles.count)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+          <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.extCount')} sub={t('tiles.extCountSub')} value={num(extLoading, extTiles.count)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
           <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.extValue')} sub={t('tiles.extValueSub')} value={num(extLoading, formatLira(extTiles.value, 'TRY'))} />
-          <StatTile tone="paid" art={<HomeArt name="operations" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={extTiles.undated ? t('tiles.extAvgUndated', { n: extTiles.undated }) : t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
+          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.extAvg')} sub={extTiles.undated ? t('tiles.extAvgUndated', { n: extTiles.undated }) : t('tiles.extAvgSub')} value={num(extLoading, extTiles.avgDays ?? '—')} />
           <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('tiles.extZero')} sub={t('tiles.extZeroSub')} value={num(extLoading, extTiles.zero)} pressed={tileFilter === 'zero'} onPress={() => setTileFilter('zero')} />
         </div>
       )}
       {tab === 'replacements' && (
         <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
-          <StatTile tone="total" art={<StatusArt name="replacement" className="hc-tile-art" />} label={t('tiles.sheetTotal')} sub={t('tiles.sheetTotalSub')} value={num(sheetsLoading, scopedSheets.length)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
-          <StatTile tone="received" art={<StatusArt name="working" className="hc-tile-art" />} label={t('tiles.sheetOpen')} sub={t('tiles.sheetOpenSub')} value={num(sheetsLoading, sheetTiles.open)} pressed={tileFilter === 'open'} onPress={() => setTileFilter('open')} />
-          <StatTile tone="balance" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.sheetMonth')} sub={formatMonthLabel(selectedMonth, dateLocale)} value={num(sheetsLoading, sheetTiles.month)} pressed={tileFilter === 'month'} onPress={() => setTileFilter('month')} />
+          <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.sheetTotal')} sub={t('tiles.sheetTotalSub')} value={num(sheetsLoading, scopedSheets.length)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
+          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.sheetOpen')} sub={t('tiles.sheetOpenSub')} value={num(sheetsLoading, openSheets)} pressed={tileFilter === 'open'} onPress={() => setTileFilter('open')} />
+          <StatTile tone="paid" art={<Icon3D name="completed" className="hc-tile-art" />} label={t('tiles.sheetClosed')} sub={t('tiles.sheetClosedSub')} value={num(sheetsLoading, scopedSheets.length - openSheets)} pressed={tileFilter === 'closed'} onPress={() => setTileFilter('closed')} />
         </div>
       )}
 
@@ -3655,7 +3653,7 @@ const BookingsPage: React.FC = () => {
       ) : sheetsLoading ? (
         <p role="status" className="hc-bk-state surface-depth">{t('loadingSheets')}</p>
       ) : shownSheets.length === 0 ? (
-        <p className="hc-bk-state surface-depth">{emptyFiltered ? t('table.empty') : t('noSheets')}</p>
+        <p className="hc-bk-state surface-depth">{emptyFiltered ? t('table.empty') : t('noSheetsMonth')}</p>
       ) : <ReplacementsList rows={shownSheets} today={today} onEdit={setEditingSheet} onPrint={printReplacementSheet} />)}
 
       {/* ── Modals ── */}

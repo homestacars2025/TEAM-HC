@@ -47,7 +47,7 @@ const ExtensionsList: React.FC<ExtensionsListProps> = ({ rows, onOpen }) => {
               <td data-label={t('extensions.period')} className="hc-bk-c-period">
                 {row.period_start ? (
                   <>
-                    <span>{formatDay(row.period_start, locale)} → {formatDay(row.period_end, locale)}</span>
+                    <span>{t('range.span', { start: formatDay(row.period_start, locale), end: formatDay(row.period_end, locale) })}</span>
                     {row.days !== null && <small>{t('range.days', { count: row.days })}</small>}
                   </>
                 ) : '—'}
@@ -56,7 +56,7 @@ const ExtensionsList: React.FC<ExtensionsListProps> = ({ rows, onOpen }) => {
                 <b className="hc-num" dir="ltr">{formatMoney(row.rental_amount, 'TRY')}</b>
               </td>
               <td data-label={t('extensions.enteredBy')} className="hc-bk-c-by">
-                <span>{row.created_by_name ?? '—'}</span>
+                <span><bdi dir="auto">{row.created_by_name ?? '—'}</bdi></span>
                 <small>{formatDay(row.created_at.slice(0, 10), locale)}</small>
               </td>
             </tr>

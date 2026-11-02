@@ -2,7 +2,6 @@
   "title": "Bookings",
   "subtitle": "Monthly bookings control center",
   "newBooking": "New Booking",
-  "replacementSheet": "Replacement Sheets",
   "loadError": "Failed to load bookings: ",
   "lookingUp": "Looking up customer…",
   "status": {
@@ -186,7 +185,6 @@
   "newCustomerHint": "New customer — fill in details",
   "whatsappHint": "Used for WhatsApp messages sent to this customer.",
   "convertHint": "Values will be converted to TRY before saving",
-  "noSheets": "No replacement sheets yet.",
   "reprint": "Reprint",
   "loadingSheets": "Loading replacement sheets…",
   "extend": {
@@ -382,11 +380,7 @@
     "confirmed": "Confirmed",
     "confirmedSub": "{{n}} active now",
     "completed": "Completed",
-    "completedSub": "Finished bookings",
-    "kabis": "KABIS missing",
-    "kabisSub": "Started, not reported",
-    "invoice": "Invoice pending",
-    "invoiceSub": "Reported, not invoiced",
+    "completedSub": "Returned",
     "extCount": "Extensions",
     "extCountSub": "Starting this month",
     "extValue": "Extension value",
@@ -395,12 +389,15 @@
     "extAvgSub": "Per extension",
     "extZero": "Zero amount",
     "extZeroSub": "No rental entered",
-    "sheetTotal": "Total",
-    "sheetTotalSub": "All sheets",
+    "sheetTotal": "Total this month",
+    "sheetTotalSub": "Starting this month",
     "sheetOpen": "Open",
     "sheetOpenSub": "End date not passed",
-    "sheetMonth": "This month",
-    "extAvgUndated": "{{n}} without dates left out"
+    "extAvgUndated": "{{n}} without dates left out",
+    "pending": "Pending",
+    "pendingSub": "Waiting",
+    "sheetClosed": "Closed",
+    "sheetClosedSub": "End date passed"
   },
   "extensions": {
     "extension": "Extension",
@@ -421,5 +418,6 @@
   "sheetStatus": {
     "open": "Open",
     "closed": "Closed"
-  }
+  },
+  "noSheetsMonth": "No replacement sheets starting this month"
 }
