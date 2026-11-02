@@ -1,17 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
-import DateRangePicker from '../booking/DateRangePicker';
+import { formatDay, useDateLocale } from '../hooks/useDateLocale';
+import DateRangePicker from './booking/DateRangePicker';
 
-interface DateFilterProps {
+interface DateRangeFilterProps {
   from: string;
   to: string;
   onChange: (from: string, to: string) => void;
 }
 
-/** The shared calendar is too big to sit in a filter row, so it opens from a button. */
-const DateFilter: React.FC<DateFilterProps> = ({ from, to, onChange }) => {
-  const { t } = useTranslation('finance');
+/**
+ * The shared calendar is too big to sit in a filter row, so it opens from a button. It
+ * hangs off the nearest positioned ancestor, which should be the whole row.
+ */
+const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ from, to, onChange }) => {
+  const { t } = useTranslation('common');
   const locale = useDateLocale();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -33,18 +36,18 @@ const DateFilter: React.FC<DateFilterProps> = ({ from, to, onChange }) => {
     };
   }, [open]);
 
-  const label = !from ? t('cash.filters.allDates') : to && to !== from ? `${formatDay(from, locale)} – ${formatDay(to, locale)}` : formatDay(from, locale);
+  const label = !from ? t('dateFilter.all') : to && to !== from ? `${formatDay(from, locale)} – ${formatDay(to, locale)}` : formatDay(from, locale);
 
   return (
-    <div ref={root} className="hc-cash-dates">
-      <button ref={toggle} type="button" aria-expanded={open} aria-haspopup="dialog" className="hc-cash-dates-open" onClick={() => setOpen(current => !current)}>
+    <div ref={root} className="hc-date-filter">
+      <button ref={toggle} type="button" aria-expanded={open} aria-haspopup="dialog" className="hc-date-filter-open" onClick={() => setOpen(current => !current)}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" stroke="currentColor" strokeWidth="2" /><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         <span>{label}</span>
       </button>
       {open && (
-        <div role="dialog" aria-label={t('cash.filters.dates')} className="hc-cash-dates-pop surface-depth surface-float">
+        <div role="dialog" aria-label={t('dateFilter.dates')} className="hc-date-filter-pop surface-depth surface-float">
           <DateRangePicker
-            label={t('cash.filters.dates')}
+            label={t('dateFilter.dates')}
             locale={locale}
             start={from}
             end={to}
@@ -53,11 +56,11 @@ const DateFilter: React.FC<DateFilterProps> = ({ from, to, onChange }) => {
               if (end) setOpen(false);
             }}
           />
-          {from && <button type="button" className="hc-cash-dates-clear" onClick={() => { onChange('', ''); setOpen(false); toggle.current?.focus(); }}>{t('cash.filters.clearDates')}</button>}
+          {from && <button type="button" className="hc-date-filter-clear" onClick={() => { onChange('', ''); setOpen(false); toggle.current?.focus(); }}>{t('dateFilter.clear')}</button>}
         </div>
       )}
     </div>
   );
 };
 
-export default DateFilter;
+export default DateRangeFilter;

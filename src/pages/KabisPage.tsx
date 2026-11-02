@@ -1,55 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import StaffAvatar from '../components/StaffAvatar';
-import type { StaffAvatarProfile } from '../lib/staffAvatar';
 import Button from '../components/Button';
-import FilterBar from '../components/FilterBar';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type KabisStatus = 'pending' | 'checked_in' | 'checked_out';
-type KabisAction = 'delivery' | 'pickup';
-
-interface EnteredByProfile extends StaffAvatarProfile { full_name: string | null; }
-
-interface KabisRow {
-  id: number;
-  created_at: string;
-  operation_id: number | null;
-  booking_id: number | null;
-  car_id: number | null;
-  customer_name: string | null;
-  customer_id_number: string | null;
-  booking_number: string | null;
-  plate_number: string | null;
-  /** numeric arrives from PostgREST as a string, so accept both. */
-  km: number | string | null;
-  operation_date: string | null;
-  action_type: string;
-  status: string;
-  entered_by: string | null;
-  entered_at: string | null;
-  note: string | null;
-  entered_by_profile: EnteredByProfile | EnteredByProfile[] | null;
-}
-
-interface KabisEntry extends Omit<KabisRow, 'entered_by_profile'> {
-  entered_by_name: string | null;
-  entered_by_avatar: EnteredByProfile | null;
-}
+import DateRangeFilter from '../components/DateRangeFilter';
+import PlateChip from '../components/booking/PlateChip';
+import { StatTile } from '../components/WalletParts';
+import { useTileFilter } from '../hooks/useTileFilter';
+import { asAction, asStatus, entryMatches, groupByBooking, insideIds, kabisDay, KABIS_FILTERS, type KabisAction, type KabisEntry, type KabisFilter, type KabisStatus } from '../lib/kabis';
+import { useKabisLive } from '../lib/KabisLiveContext';
+import { getKabisEntries } from '../lib/queries/kabis';
 
 interface ToastState { message: string; kind: 'success' | 'error' }
-
-/** Who marked the entry, resolved through an explicitly named foreign key. */
-const KABIS_SELECT = `
-  id, created_at, operation_id, booking_id, car_id,
-  customer_name, customer_id_number, booking_number, plate_number, km, operation_date,
-  action_type, status, entered_by, entered_at, note,
-  entered_by_profile:profiles!kabis_entries_entered_by_fkey(full_name, avatar_url, gender, avatar_bg)
-`;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -80,10 +44,6 @@ const ACTION_CONFIG: Record<KabisAction, {
     target: 'checked_out',
   },
 };
-
-const asStatus = (v: string): KabisStatus =>
-  v === 'checked_in' || v === 'checked_out' ? v : 'pending';
-const asAction = (v: string): KabisAction => (v === 'pickup' ? 'pickup' : 'delivery');
 
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%', height: 44, padding: '0 12px',
@@ -133,12 +93,6 @@ function formatKm(v: number | string | null, kmUnit: string): string {
   return Number.isFinite(n) ? `${n.toLocaleString('en-US')} ${kmUnit}` : '—';
 }
 
-function resolveRow(row: KabisRow): KabisEntry {
-  const p = Array.isArray(row.entered_by_profile) ? row.entered_by_profile[0] : row.entered_by_profile;
-  const { entered_by_profile, ...rest } = row;
-  return { ...rest, entered_by_name: p?.full_name ?? null, entered_by_avatar: p ?? null };
-}
-
 // ─── Small pieces ─────────────────────────────────────────────────────────────
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -171,25 +125,6 @@ const ActionBadge: React.FC<{ action: string }> = ({ action }) => {
     </span>
   );
 };
-
-const StatCard: React.FC<{
-  label: string; value: number; bg: string; loading: boolean; hint?: string;
-}> = ({ label, value, bg, loading, hint }) => (
-  <div className="surface-depth" style={{
-    background: bg, borderRadius: 12, padding: '14px 18px', color: '#fff',
-    display: 'flex', flexDirection: 'column', gap: 6,
-  }}>
-    <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', opacity: 0.85 }}>
-      {label}
-    </div>
-    <div style={{ ...NUM, fontSize: 36, fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1 }}>
-      {loading ? '—' : value}
-    </div>
-    {hint && (
-      <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.8, lineHeight: 1.3 }}>{hint}</div>
-    )}
-  </div>
-);
 
 const Toast: React.FC<ToastState> = ({ message, kind }) =>
   ReactDOM.createPortal(
@@ -322,9 +257,10 @@ const KabisPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<'all' | KabisStatus>('all');
-  const [actionFilter, setActionFilter] = useState<'all' | KabisAction>('all');
-  const [search, setSearch]             = useState('');
+  const [filter, setFilter] = useTileFilter(KABIS_FILTERS);
+  const [search, setSearch] = useState('');
+  const [from, setFrom]     = useState('');
+  const [to, setTo]         = useState('');
 
   const [confirmEntry, setConfirmEntry] = useState<KabisEntry | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -350,22 +286,22 @@ const KabisPage: React.FC = () => {
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-  const fetchEntries = useCallback(async () => {
-    setLoading(true);
+  const fetchEntries = useCallback(async (quietly = false) => {
+    if (!quietly) setLoading(true);
     setError(null);
-    // Pending first, then newest.
-    const { data, error: fetchError } = await supabase
-      .from('kabis_entries')
-      .select(KABIS_SELECT)
-      .order('status', { ascending: true })
-      .order('created_at', { ascending: false });
-
-    setLoading(false);
-    if (fetchError) { setError(fetchError.message); return; }
-    setEntries(((data ?? []) as unknown as KabisRow[]).map(resolveRow));
-  }, []);
+    try {
+      setEntries(await getKabisEntries());
+    } catch (failure) {
+      if (!quietly) setError((failure as { message?: string })?.message ?? t('loadFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
+
+  const { version: liveVersion } = useKabisLive();
+  useEffect(() => { if (liveVersion > 0) fetchEntries(true); }, [liveVersion, fetchEntries]);
 
   useEffect(() => {
     if (!highlightId || loading) return;
@@ -373,35 +309,36 @@ const KabisPage: React.FC = () => {
     if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightId, loading, entries]);
 
-  const stats = useMemo(() => {
-    // A car is "inside KABIS" once it has a checked-in row and no checked-out row yet.
-    const checkedInCarIds = new Set(
-      entries.filter(e => asStatus(e.status) === 'checked_in' && e.car_id != null).map(e => e.car_id),
-    );
-    const checkedOutCarIds = new Set(
-      entries.filter(e => asStatus(e.status) === 'checked_out' && e.car_id != null).map(e => e.car_id),
-    );
-    return {
-      pending:     entries.filter(e => asStatus(e.status) === 'pending').length,
-      insideKabis: [...checkedInCarIds].filter(id => !checkedOutCarIds.has(id)).length,
-      checkedOut:  entries.filter(e => asStatus(e.status) === 'checked_out').length,
-    };
-  }, [entries]);
+  const inside = useMemo(() => insideIds(entries), [entries]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return entries.filter(e => {
-      if (statusFilter !== 'all' && asStatus(e.status) !== statusFilter) return false;
-      if (actionFilter !== 'all' && asAction(e.action_type) !== actionFilter) return false;
-      if (!q) return true;
-      return (
-        (e.customer_name      ?? '').toLowerCase().includes(q) ||
-        (e.customer_id_number ?? '').toLowerCase().includes(q) ||
-        (e.booking_number     ?? '').toLowerCase().includes(q) ||
-        (e.plate_number       ?? '').toLowerCase().includes(q)
-      );
-    });
-  }, [entries, statusFilter, actionFilter, search]);
+  // The tiles count what the search and dates leave, so a tile's number is what pressing it shows.
+  const scoped = useMemo(() => entries.filter(entry => {
+    const day = kabisDay(entry);
+    return entryMatches(entry, search) && (!from || day >= from) && (!to || day <= to);
+  }), [entries, search, from, to]);
+
+  const inFilter = useCallback((entry: KabisEntry, tile: KabisFilter) => (
+    tile === 'inside' ? inside.has(entry.id) : asStatus(entry.status) === tile
+  ), [inside]);
+
+  const counts = useMemo(() => Object.fromEntries(
+    KABIS_FILTERS.map(tile => [tile, scoped.filter(entry => inFilter(entry, tile)).length]),
+  ) as Record<KabisFilter, number>, [scoped, inFilter]);
+
+  const filtered = useMemo(
+    () => (filter === 'all' ? scoped : scoped.filter(entry => inFilter(entry, filter))),
+    [scoped, filter, inFilter],
+  );
+
+  const grouped = searchParams.get('group') === '1';
+  const setGrouped = (next: boolean) => setSearchParams(current => {
+    const params = new URLSearchParams(current);
+    if (next) params.set('group', '1');
+    else params.delete('group');
+    return params;
+  }, { replace: true });
+
+  const groups = useMemo(() => (grouped ? groupByBooking(filtered) : null), [grouped, filtered]);
 
   /**
    * The target status follows the row's own action type — never the other one.
@@ -423,8 +360,8 @@ const KabisPage: React.FC = () => {
 
     setConfirmEntry(null);
     showToast(t('toast.marked', { status: t(`status.${target}`) }), 'success');
-    fetchEntries();
-  }, [confirmEntry, showToast, fetchEntries]);
+    fetchEntries(true);
+  }, [confirmEntry, showToast, fetchEntries, t]);
 
   /** Back to pending — the trigger clears entered_by / entered_at automatically. */
   const handleRevert = useCallback(async (entry: KabisEntry) => {
@@ -435,10 +372,10 @@ const KabisPage: React.FC = () => {
       .eq('id', entry.id);
     setRevertingId(null);
 
-    if (updateError) { showToast(`Could not undo: ${updateError.message}`, 'error'); return; }
+    if (updateError) { showToast(t('undoFailed', { message: updateError.message }), 'error'); return; }
     showToast(t('toast.movedBack'), 'success');
-    fetchEntries();
-  }, [showToast, fetchEntries]);
+    fetchEntries(true);
+  }, [showToast, fetchEntries, t]);
 
   const clearHighlight = useCallback(() => {
     const next = new URLSearchParams(searchParams);
@@ -446,14 +383,44 @@ const KabisPage: React.FC = () => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const th: React.CSSProperties = {
-    textAlign: 'start', padding: '11px 14px', fontSize: 11, fontWeight: 700,
-    color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px',
-    whiteSpace: 'nowrap', borderBottom: '1px solid #f3f4f6',
-  };
-  const td: React.CSSProperties = {
-    padding: '13px 14px', fontSize: 13.5, color: '#374151',
-    borderBottom: '1px solid #f9fafb', verticalAlign: 'middle',
+  const renderRow = (entry: KabisEntry) => {
+    const status = asStatus(entry.status);
+    const isHighlight = highlightId === entry.id;
+    return (
+      <tr key={entry.id} ref={isHighlight ? highlightRef : undefined} className={isHighlight ? 'is-selected' : status === 'pending' ? 'is-pending' : undefined}>
+        <td data-label={t('table.type')}><ActionBadge action={entry.action_type} /></td>
+        <td data-label={tc('fields.status')} className="hc-kb-end"><StatusBadge status={entry.status} /></td>
+        <td data-label={t('table.date')} style={NUM} className="hc-kb-nowrap">{formatDate(entry.operation_date, dateLocale)}</td>
+        <td data-label={t('table.plate')} className="hc-kb-end hc-kb-nowrap">{entry.plate_number ? <PlateChip plate={entry.plate_number} /> : '—'}</td>
+        <td data-label={tc('fields.customer')} className="hc-kb-customer"><bdi dir="auto">{dash(entry.customer_name)}</bdi></td>
+        <td data-label={t('table.idNumber')} style={MONO} className="hc-kb-nowrap">{dash(entry.customer_id_number)}</td>
+        <td data-label={t('table.booking')} style={MONO} className="hc-kb-end hc-kb-nowrap">{dash(entry.booking_number)}</td>
+        <td data-label={t('table.km')} style={NUM} className="hc-kb-nowrap">{formatKm(entry.km, t('km'))}</td>
+        <td data-label={t('table.enteredBy')} className="hc-kb-by">
+          {status === 'pending' ? '—' : (
+            <span className="hc-kb-who">
+              {entry.entered_by_name && <StaffAvatar profile={entry.entered_by_avatar} size={24} />}
+              <span>
+                <strong>{dash(entry.entered_by_name)}</strong>
+                <small style={NUM}>{formatDateTime(entry.entered_at, dateLocale)}</small>
+              </span>
+            </span>
+          )}
+          {entry.note && <p className="hc-kb-note">{t('notePrefix')} {entry.note}</p>}
+        </td>
+        <td className="hc-kb-action">
+          {status === 'pending' ? (
+            <Button onClick={() => { setModalError(null); setConfirmEntry(entry); }}>
+              {t(asAction(entry.action_type) === 'delivery' ? 'action.ctaDelivery' : 'action.ctaPickup')}
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={() => handleRevert(entry)} disabled={revertingId === entry.id}>
+              {revertingId === entry.id ? t('table.undoing') : t('table.undo')}
+            </Button>
+          )}
+        </td>
+      </tr>
+    );
   };
 
   return (
@@ -477,72 +444,32 @@ const KabisPage: React.FC = () => {
         </p>
       </div>
 
-      {/* ── Stat cards ── */}
-      <div className="kb-stats">
-        <StatCard label={t('stats.pending')}     value={stats.pending}    bg="#ea580c" loading={loading} />
-        <StatCard label={t('stats.insideKabis')} value={stats.insideKabis} bg="#16a34a" loading={loading} hint={t('stats.insideHint')} />
-        <StatCard label={t('stats.checkedOut')} value={stats.checkedOut} bg="#2563eb" loading={loading} />
+      {/* ── Tiles, which are the filters ── */}
+      <div className="hc-tiles hc-tiles-filter kb-tiles">
+        <StatTile tone="total" label={t('tiles.all')} sub={t('tiles.allSub')} value={loading ? null : String(scoped.length)} pressed={filter === 'all'} onPress={() => setFilter('all')} />
+        <StatTile tone="warn" label={t('tiles.pending')} sub={t('tiles.pendingSub')} value={loading ? null : String(counts.pending)} pressed={filter === 'pending'} onPress={() => setFilter('pending')} />
+        <StatTile tone="received" label={t('tiles.checkedIn')} sub={t('tiles.checkedInSub')} value={loading ? null : String(counts.checked_in)} pressed={filter === 'checked_in'} onPress={() => setFilter('checked_in')} />
+        <StatTile tone="paid" label={t('tiles.checkedOut')} sub={t('tiles.checkedOutSub')} value={loading ? null : String(counts.checked_out)} pressed={filter === 'checked_out'} onPress={() => setFilter('checked_out')} />
+        <StatTile tone="balance" label={t('tiles.inside')} sub={t('tiles.insideSub')} value={loading ? null : String(counts.inside)} pressed={filter === 'inside'} onPress={() => setFilter('inside')} />
       </div>
 
-      {/* ── Filters ── */}
-      <div className="surface-depth" style={{
-        background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
-        padding: '12px 14px', marginBottom: 16,
-        display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-      }}>
-        <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-          <input
-            type="text"
-            placeholder={t('search')}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={INPUT_STYLE}
-            onFocus={onFocus}
-            onBlur={onBlur}
-          />
-        </div>
-
-        <FilterBar
-          fields={[
-            {
-              key: 'status',
-              label: tc('filterBar.status'),
-              activeLabel: statusFilter === 'all' ? null : t(`status.${statusFilter}`),
-              onClear: () => setStatusFilter('all'),
-              control: (
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value as 'all' | KabisStatus)}
-                style={{ ...INPUT_STYLE, width: 'auto', minWidth: 140, cursor: 'pointer', flex: '0 1 auto' }}
-                onFocus={onFocus} onBlur={onBlur}
-              >
-                <option value="all">{t('status.all')}</option>
-                <option value="pending">{t('status.pending')}</option>
-                <option value="checked_in">{t('status.checked_in')}</option>
-                <option value="checked_out">{t('status.checked_out')}</option>
-              </select>
-              ),
-            },
-            {
-              key: 'action',
-              label: tc('filterBar.type'),
-              activeLabel: actionFilter === 'all' ? null : t(`action.${actionFilter}`),
-              onClear: () => setActionFilter('all'),
-              control: (
-              <select
-                value={actionFilter}
-                onChange={e => setActionFilter(e.target.value as 'all' | KabisAction)}
-                style={{ ...INPUT_STYLE, width: 'auto', minWidth: 130, cursor: 'pointer', flex: '0 1 auto' }}
-                onFocus={onFocus} onBlur={onBlur}
-              >
-                <option value="all">{t('action.all')}</option>
-                <option value="delivery">{t('action.delivery')}</option>
-                <option value="pickup">{t('action.pickup')}</option>
-              </select>
-              ),
-            },
-          ]}
+      {/* ── Search and dates ── */}
+      <div className="kb-filters">
+        <input
+          type="text"
+          placeholder={t('search')}
+          aria-label={t('search')}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={INPUT_STYLE}
+          onFocus={onFocus}
+          onBlur={onBlur}
         />
+        <DateRangeFilter from={from} to={to} onChange={(start, end) => { setFrom(start); setTo(end); }} />
+        <label className="kb-group-toggle">
+          <input type="checkbox" className="hc-appr-check" checked={grouped} onChange={e => setGrouped(e.target.checked)} />
+          {t('groupByBooking')}
+        </label>
       </div>
 
       {/* ── Highlight banner ── */}
@@ -577,7 +504,7 @@ const KabisPage: React.FC = () => {
         }}>
           <div style={{ fontSize: 14, color: '#ef4444', marginBottom: 14 }}>{error}</div>
           <Button variant="secondary"
-            onClick={fetchEntries}
+            onClick={() => fetchEntries()}
           >
             {t('tryAgain')}
           </Button>
@@ -598,9 +525,7 @@ const KabisPage: React.FC = () => {
             {entries.length === 0 ? t('table.emptyNone') : t('table.emptyFiltered')}
           </div>
           <div style={{ fontSize: 13.5, color: '#9ca3af', lineHeight: 1.6 }}>
-            {entries.length === 0
-              ? 'Entries are created automatically when a delivery or pickup is recorded.'
-              : t('table.emptyHint')}
+            {entries.length === 0 ? t('table.emptyNoneHint') : t('table.emptyHint')}
           </div>
         </div>
       ) : (
@@ -609,105 +534,35 @@ const KabisPage: React.FC = () => {
             {t('showing', { shown: filtered.length, count: entries.length })}
           </div>
 
-          <div className="surface-depth" style={{
-            background: '#fff', borderRadius: 14, border: '1px solid var(--border-subtle)',
-            overflow: 'hidden',
-          }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
-                <thead>
-                  <tr>
-                    <th style={th}>{t('table.plate')}</th>
-                    <th style={th}>KM</th>
-                    <th style={th}>{tc('fields.customer')}</th>
-                    <th style={th}>{t('table.idNumber')}</th>
-                    <th style={th}>{t('table.booking')}</th>
-                    <th style={th}>{t('table.type')}</th>
-                    <th style={th}>{t('table.date')}</th>
-                    <th style={th}>{tc('fields.status')}</th>
-                    <th style={th}>{t('table.registeredAt')}</th>
-                    <th style={{ ...th, textAlign: 'center' }}>{t('table.action')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(entry => {
-                    const status      = asStatus(entry.status);
-                    const isHighlight = highlightId === entry.id;
-                    return (
-                      <tr
-                        key={entry.id}
-                        ref={isHighlight ? highlightRef : undefined}
-                        style={{
-                          background: isHighlight ? 'rgba(75,166,234,0.07)' : 'transparent',
-                          boxShadow: isHighlight ? 'inset 3px 0 0 #4ba6ea' : 'none',
-                          transition: 'background 160ms ease',
-                        }}
-                      >
-                        <td style={{ ...td, ...MONO, fontWeight: 700, color: '#0f1117', whiteSpace: 'nowrap' }}>
-                          {dash(entry.plate_number)}
-                        </td>
-                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatKm(entry.km, t('km'))}</td>
-                        <td style={{ ...td, maxWidth: 200 }}>{dash(entry.customer_name)}</td>
-                        <td style={{ ...td, ...MONO, whiteSpace: 'nowrap' }}>{dash(entry.customer_id_number)}</td>
-                        <td style={{ ...td, ...MONO, whiteSpace: 'nowrap' }}>{dash(entry.booking_number)}</td>
-                        <td style={td}><ActionBadge action={entry.action_type} /></td>
-                        <td style={{ ...td, ...NUM, whiteSpace: 'nowrap' }}>{formatDate(entry.operation_date, dateLocale)}</td>
-                        <td style={td}>
-                          <StatusBadge status={entry.status} />
-                          {status !== 'pending' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#9ca3af', marginTop: 5, lineHeight: 1.6 }}>
-                              {entry.entered_by_name && <StaffAvatar profile={entry.entered_by_avatar} size={20} />}
-                              {t('by', { name: dash(entry.entered_by_name) })}
-                            </div>
-                          )}
-                          {entry.note && (
-                            <div style={{
-                              fontSize: 11.5, color: '#6b7280', marginTop: 5,
-                              maxWidth: 220, lineHeight: 1.6, wordBreak: 'break-word',
-                            }}>
-                              {t('notePrefix')} {entry.note}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Check-in row stamps the entry time, check-out row the exit time. */}
-                        <td style={{
-                          ...td, ...NUM, whiteSpace: 'nowrap',
-                          color: status === 'pending' ? '#d1d5db' : '#374151',
-                        }}>
-                          {status === 'pending' ? '—' : formatDateTime(entry.entered_at, dateLocale)}
-                        </td>
-                        <td style={{ ...td, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {status === 'pending' ? (
-                            <Button
-                              onClick={() => { setModalError(null); setConfirmEntry(entry); }}
-                            >
-                              {t(asAction(entry.action_type) === 'delivery' ? 'action.ctaDelivery' : 'action.ctaPickup')}
-                            </Button>
-                          ) : (
-                            <button
-                              onClick={() => handleRevert(entry)}
-                              disabled={revertingId === entry.id}
-                              style={{
-                                minHeight: 44, padding: '0 16px', borderRadius: 9,
-                                border: '1px solid #e5e7eb', background: '#fff',
-                                fontSize: 13, fontWeight: 600, color: '#6b7280',
-                                cursor: revertingId === entry.id ? 'not-allowed' : 'pointer',
-                                fontFamily: 'inherit',
-                              }}
-                              onMouseEnter={e => { if (revertingId !== entry.id) (e.currentTarget as HTMLButtonElement).style.borderColor = '#9ca3af'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#e5e7eb'; }}
-                            >
-                              {revertingId === entry.id ? t('table.undoing') : t('table.undo')}
-                            </button>
-                          )}
-                        </td>
+          <div className="hc-cash-table kb-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('table.type')}</th>
+                  <th>{tc('fields.status')}</th>
+                  <th>{t('table.date')}</th>
+                  <th>{t('table.plate')}</th>
+                  <th>{tc('fields.customer')}</th>
+                  <th>{t('table.idNumber')}</th>
+                  <th>{t('table.booking')}</th>
+                  <th>{t('table.km')}</th>
+                  <th>{t('table.enteredBy')}</th>
+                  <th aria-label={t('table.action')} />
+                </tr>
+              </thead>
+              <tbody>
+                {groups ? groups.map(group => (
+                  <Fragment key={group.key}>
+                    {group.bookingNumber && (
+                      <tr className="kb-group-head">
+                        <td colSpan={10}><strong style={MONO}>{group.bookingNumber}</strong> · <bdi dir="auto">{dash(group.entries[0].customer_name)}</bdi></td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    )}
+                    {group.entries.map(renderRow)}
+                  </Fragment>
+                )) : filtered.map(renderRow)}
+              </tbody>
+            </table>
           </div>
         </>
       )}
@@ -726,10 +581,8 @@ const KabisPage: React.FC = () => {
 
       <style>{`
         .kb-page  { padding: 24px 16px; }
-        .kb-stats { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 18px; }
         @media (min-width: 640px) {
           .kb-page  { padding: 32px 24px; }
-          .kb-stats { grid-template-columns: repeat(3, 1fr); gap: 16px; }
         }
         @media (min-width: 1024px) { .kb-page { padding: 44px 40px; } }
         @keyframes kbFade    { from { opacity: 0 } to { opacity: 1 } }

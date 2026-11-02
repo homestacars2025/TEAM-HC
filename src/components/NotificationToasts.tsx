@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useInbox } from '../lib/InboxContext';
+import { asAction } from '../lib/kabis';
+import { useKabisLive } from '../lib/KabisLiveContext';
 import type { MyNotification } from '../lib/types/tasks';
 import { hasNotificationArt, NotificationArt, useNotificationWords, useOpenNotification } from './NotificationRow';
 import Button from './Button';
@@ -14,7 +16,9 @@ const MAX_VISIBLE = 3;
 
 const NotificationToasts: React.FC = () => {
   const { t } = useTranslation('notifications');
+  const { t: tk } = useTranslation('kabis');
   const { arrival } = useInbox();
+  const { arrivals: kabisArrivals, dismiss: dismissKabis } = useKabisLive();
   const words = useNotificationWords();
   const navigate = useNavigate();
   const openNotification = useOpenNotification();
@@ -35,10 +39,22 @@ const NotificationToasts: React.FC = () => {
     return () => pending.forEach(timer => window.clearTimeout(timer));
   }, []);
 
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0 && kabisArrivals.length === 0) return null;
 
   return ReactDOM.createPortal(
     <div className="pointer-events-none fixed inset-x-3 top-[72px] z-[9500] flex flex-col gap-2 sm:inset-x-auto sm:bottom-6 sm:end-6 sm:top-auto sm:w-[340px]">
+      {kabisArrivals.map(entry => (
+        <div key={entry.id} role="status" className="surface-depth surface-float hc-toast-in pointer-events-auto rounded-2xl border border-[var(--border-subtle)] bg-white p-3">
+          <div className="flex items-start gap-3">
+            <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--accent)]" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold leading-snug text-[#0f1117]">{tk(`live.${asAction(entry.action_type)}`)}</div>
+              <div className="mt-0.5 text-[13px] text-gray-500"><bdi dir="ltr">{entry.plate_number ?? '—'}</bdi>{entry.customer_name ? ` · ${entry.customer_name}` : ''}</div>
+            </div>
+            <Button onClick={() => { dismissKabis(entry.id); navigate(`/dashboard/kabis?entry=${entry.id}`); }} className="shrink-0">{t('toast.open')}</Button>
+          </div>
+        </div>
+      ))}
       {toasts.map(n => {
         const isNewTask = n.event_key === 'task.assigned';
         const { title, body } = words(n);

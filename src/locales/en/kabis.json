@@ -6,20 +6,12 @@
   "clearHighlight": "Clear highlight",
   "search": "Search customer, ID number, booking, plate…",
   "km": "km",
-  "stats": {
-    "pending": "Pending",
-    "insideKabis": "Inside KABIS",
-    "insideHint": "Checked in, not yet out",
-    "checkedOut": "Checked out"
-  },
   "status": {
-    "all": "All statuses",
     "pending": "Pending",
     "checked_in": "Checked in",
     "checked_out": "Checked out"
   },
   "action": {
-    "all": "All types",
     "delivery": "Check-in",
     "pickup": "Check-out",
     "ctaDelivery": "Mark checked-in",
@@ -27,19 +19,19 @@
   },
   "table": {
     "plate": "Plate",
-    "customer": "Customer",
     "idNumber": "ID Number",
     "booking": "Booking",
     "type": "Type",
     "date": "Date",
-    "status": "Status",
-    "registeredAt": "Registered At",
     "action": "Action",
     "emptyNone": "No KABIS entries yet",
     "emptyFiltered": "No entries match these filters",
     "emptyHint": "Try clearing the search or changing the filters.",
     "undo": "Undo",
-    "undoing": "Undoing…"
+    "undoing": "Undoing…",
+    "km": "KM",
+    "enteredBy": "Entered by",
+    "emptyNoneHint": "Entries are created automatically when a delivery or pickup is recorded."
   },
   "confirm": {
     "notePlaceholder": "Anything worth recording about this entry…",
@@ -54,9 +46,27 @@
   "noteLabel": "Note",
   "optional": "(optional)",
   "notePrefix": "Note:",
-  "by": "By {{name}}",
   "showing_one": "Showing {{shown}} of {{count}} entry",
   "showing_other": "Showing {{shown}} of {{count}} entries",
   "fromNotification": "Opened from a notification — entry <1>#{{id}}</1> is highlighted below.",
-  "subtitle": "KABIS ledger — register deliveries as check-ins and pickups as check-outs in the KABIS system, then mark them here."
+  "subtitle": "KABIS ledger — register deliveries as check-ins and pickups as check-outs in the KABIS system, then mark them here.",
+  "tiles": {
+    "all": "All",
+    "allSub": "Check-ins and check-outs",
+    "pending": "Awaiting registration",
+    "pendingSub": "To enter in KABIS",
+    "checkedIn": "Checked in",
+    "checkedInSub": "Deliveries registered",
+    "checkedOut": "Checked out",
+    "checkedOutSub": "Pickups registered",
+    "inside": "Inside now",
+    "insideSub": "Checked in, not yet out"
+  },
+  "groupByBooking": "Group by booking",
+  "live": {
+    "delivery": "New KABIS check-in waiting",
+    "pickup": "New KABIS check-out waiting"
+  },
+  "loadFailed": "Could not load the KABIS entries.",
+  "undoFailed": "Could not undo: {{message}}"
 }

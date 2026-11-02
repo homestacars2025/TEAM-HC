@@ -14,11 +14,11 @@ import { formatMoney, SUPPLIER_CURRENCIES, type SupplierCurrency } from '../../l
 import { relativeSignal } from '../../lib/tracking';
 import PlateChip from '../booking/PlateChip';
 import Button from '../Button';
+import DateRangeFilter from '../DateRangeFilter';
 import ConfirmDialog from '../custody/ConfirmDialog';
 import ReasonDialog from '../custody/ReasonDialog';
 import StaffAvatar from '../StaffAvatar';
 import { StatTile, selectClass, type TileTone } from '../WalletParts';
-import DateFilter from './DateFilter';
 import ReceiveEnvelope from './ReceiveEnvelope';
 import TransferDialog from './TransferDialog';
 
@@ -309,7 +309,7 @@ const CashTab: React.FC<{ notify: (message: string, failed: boolean) => void }> 
             <option value="all">{t('cash.filters.allKinds')}</option>
             {MOVEMENT_GROUPS.map(item => <option key={item} value={item}>{t(`cash.movementKinds.${item}`)}</option>)}
           </select>
-          <DateFilter from={from} to={to} onChange={(start, end) => { setFrom(start); setTo(end); }} />
+          <DateRangeFilter from={from} to={to} onChange={(start, end) => { setFrom(start); setTo(end); }} />
           {isAdmin && (
             <label className="hc-cash-internal">
               <input type="checkbox" className="hc-appr-check" checked={showInternal} onChange={e => setShowInternal(e.target.checked)} />

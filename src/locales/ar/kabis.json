@@ -6,20 +6,12 @@
   "clearHighlight": "مسح التمييز",
   "search": "ابحث بالعميل أو رقم الهوية أو الحجز أو اللوحة…",
   "km": "كم",
-  "stats": {
-    "pending": "قيد الانتظار",
-    "insideKabis": "داخل KABIS",
-    "insideHint": "دخلت ولم تخرج بعد",
-    "checkedOut": "خرجت"
-  },
   "status": {
-    "all": "كل الحالات",
-    "pending": "قيد الانتظار",
+    "pending": "بانتظار",
     "checked_in": "دخلت",
     "checked_out": "خرجت"
   },
   "action": {
-    "all": "كل الأنواع",
     "delivery": "دخول",
     "pickup": "خروج",
     "ctaDelivery": "تعليم كداخلة",
@@ -27,19 +19,19 @@
   },
   "table": {
     "plate": "اللوحة",
-    "customer": "العميل",
     "idNumber": "رقم الهوية",
     "booking": "الحجز",
     "type": "النوع",
     "date": "التاريخ",
-    "status": "الحالة",
-    "registeredAt": "وقت التسجيل",
     "action": "الإجراء",
     "emptyNone": "لا توجد سجلات KABIS بعد",
     "emptyFiltered": "لا توجد سجلات مطابقة لهذه الفلاتر",
     "emptyHint": "جرّب مسح البحث أو تغيير الفلاتر.",
     "undo": "تراجع",
-    "undoing": "جارٍ التراجع…"
+    "undoing": "جارٍ التراجع…",
+    "km": "كم",
+    "enteredBy": "سجّلها",
+    "emptyNoneHint": "تُنشأ القيود تلقائياً عند تسجيل تسليم أو استلام."
   },
   "confirm": {
     "notePlaceholder": "أي شيء يستحق تسجيله عن هذا السجل…",
@@ -54,7 +46,6 @@
   "noteLabel": "ملاحظة",
   "optional": "(اختياري)",
   "notePrefix": "ملاحظة:",
-  "by": "بواسطة {{name}}",
   "showing_zero": "عرض {{shown}} من أصل {{count}} سجل",
   "showing_one": "عرض {{shown}} من أصل {{count}} سجل",
   "showing_two": "عرض {{shown}} من أصل {{count}} سجل",
@@ -62,5 +53,24 @@
   "showing_many": "عرض {{shown}} من أصل {{count}} سجل",
   "showing_other": "عرض {{shown}} من أصل {{count}} سجل",
   "fromNotification": "فُتحت من إشعار — السجل <1>#{{id}}</1> مميّز أدناه.",
-  "subtitle": "سجل KABIS — سجّل التسليمات كدخول والاستلامات كخروج في نظام KABIS، ثم علّمها هنا."
+  "subtitle": "سجل KABIS — سجّل التسليمات كدخول والاستلامات كخروج في نظام KABIS، ثم علّمها هنا.",
+  "tiles": {
+    "all": "الكل",
+    "allSub": "دخول وخروج",
+    "pending": "بانتظار التسجيل",
+    "pendingSub": "للتسجيل في KABIS",
+    "checkedIn": "دخلت",
+    "checkedInSub": "تسليمات مسجّلة",
+    "checkedOut": "خرجت",
+    "checkedOutSub": "استلامات مسجّلة",
+    "inside": "داخل الآن",
+    "insideSub": "دخلت ولم تخرج بعد"
+  },
+  "groupByBooking": "تجميع حسب الحجز",
+  "live": {
+    "delivery": "دخول KABIS جديد بانتظار التسجيل",
+    "pickup": "خروج KABIS جديد بانتظار التسجيل"
+  },
+  "loadFailed": "تعذّر تحميل قيود KABIS.",
+  "undoFailed": "تعذّر التراجع: {{message}}"
 }

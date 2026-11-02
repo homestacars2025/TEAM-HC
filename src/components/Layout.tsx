@@ -8,6 +8,7 @@ import TopBar from './TopBar';
 import NotificationToasts from './NotificationToasts';
 import { hideBootSplash, loadBootFonts } from '../lib/bootSplash';
 import { InboxProvider } from '../lib/InboxContext';
+import { KabisLiveProvider } from '../lib/KabisLiveContext';
 import { readBootCollapsed } from '../lib/userSettings';
 import { CurrentUserProvider, useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
@@ -187,7 +188,9 @@ const Layout: React.FC = () => (
   <CurrentUserProvider>
     <BootGate>
       <InboxProvider>
-        <Shell />
+        <KabisLiveProvider>
+          <Shell />
+        </KabisLiveProvider>
       </InboxProvider>
     </BootGate>
   </CurrentUserProvider>

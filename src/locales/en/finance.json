@@ -401,10 +401,7 @@
       "account": "Account",
       "allAccounts": "All accounts",
       "kind": "Type",
-      "allKinds": "All types",
-      "dates": "Dates",
-      "allDates": "All dates",
-      "clearDates": "Clear dates"
+      "allKinds": "All types"
     },
     "movementKinds": {
       "customer_payment": "Customer payment",

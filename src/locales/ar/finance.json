@@ -445,10 +445,7 @@
       "account": "الحساب",
       "allAccounts": "كل الحسابات",
       "kind": "النوع",
-      "allKinds": "كل الأنواع",
-      "dates": "التواريخ",
-      "allDates": "كل التواريخ",
-      "clearDates": "مسح التواريخ"
+      "allKinds": "كل الأنواع"
     },
     "movementKinds": {
       "customer_payment": "دفعة عميل",
