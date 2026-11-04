@@ -28,7 +28,8 @@
     "ideas": "Ideas",
     "influencers": "Influencers",
     "mediaCalendar": "Calendar",
-    "pendingInvoices": "Pending Invoices"
+    "pendingInvoices": "Pending Invoices",
+    "hgs": "HGS"
   },
   "currency": {
     "label": "Currency",

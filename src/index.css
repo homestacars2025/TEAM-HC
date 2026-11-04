@@ -4618,3 +4618,81 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-cash-found { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); }
 .hc-cash-found strong { color: #0f1117; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .hc-cash-found small { color: #4b5563; font-size: 13px; }
+
+/* HGS: card rows that open to show a car's transits. */
+.hc-hgs-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.hc-hgs-sync > span { color: #6b7280; font-size: 12.5px; }
+.hc-hgs-warn { padding: 8px 12px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: 13px; }
+.hc-hgs-banner { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; border: 1px solid #fecaca; border-radius: 16px; background: linear-gradient(145deg, #fef2f2 0%, #fde8e8 100%); color: #991b1b; }
+.hc-hgs-banner h2 { font-size: 14.5px; font-weight: 600; line-height: 1.45; }
+.hc-hgs-banner-art { flex: none; margin-top: 2px; }
+.hc-hgs-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.hc-hgs-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-block: 4px; padding-inline: 6px 12px; border: 1px solid #fecaca; border-radius: 999px; background: #fff; color: #374151; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease; }
+.hc-hgs-chip:hover { border-color: #f87171; box-shadow: 0 2px 8px -4px rgba(153, 27, 27, 0.35); }
+.hc-hgs-chip:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+
+@media (max-width: 1279px) {
+  .hc-tiles-filter.hc-hgs-tiles > .hc-tile:nth-child(1), .hc-tiles-filter.hc-hgs-tiles > .hc-tile:nth-child(4) { grid-column: 1 / -1; }
+}
+
+.hc-hgs-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.hc-hgs-card { container-type: inline-size; overflow: hidden; border: 1px solid #ebebeb; border-radius: 16px; background: #fff; }
+.hc-hgs-skeleton { display: grid; gap: 10px; padding: 18px 16px; }
+.hc-hgs-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+  grid-template-areas: "car car car chev" "code code code code" "tr last amount amount";
+  gap: 8px 14px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px;
+  border: 0; background: none; color: inherit; font-family: inherit; text-align: start; cursor: pointer;
+}
+.hc-hgs-row:hover { background: #fafbfc; }
+.hc-hgs-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 16px; }
+.hc-hgs-car { grid-area: car; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hc-hgs-car-art { flex: none; width: 46px; height: 30px; object-fit: contain; }
+.hc-hgs-car-text { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.hc-hgs-model { max-width: 100%; overflow: hidden; color: #374151; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.hc-hgs-barcode { grid-area: code; min-width: 0; overflow: hidden; color: #9ca3af; font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.02em; text-overflow: ellipsis; white-space: nowrap; }
+.hc-hgs-row > .hc-hgs-stat:nth-child(3) { grid-area: tr; }
+.hc-hgs-row > .hc-hgs-stat:nth-child(4) { grid-area: last; }
+.hc-hgs-stat { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hc-hgs-stat small { color: #9ca3af; font-size: 11.5px; font-weight: 600; }
+.hc-hgs-stat b { color: #0f1117; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.hc-hgs-amount { grid-area: amount; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; min-width: 0; text-align: end; }
+.hc-hgs-amount b { color: #0f1117; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hc-hgs-share { display: flex; align-items: center; justify-content: flex-end; gap: 6px; width: 100%; }
+.hc-hgs-bar { display: block; inline-size: 100%; max-inline-size: 120px; height: 4px; overflow: hidden; border-radius: 999px; background: #eef2f7; }
+.hc-hgs-bar i { display: block; height: 100%; border-radius: inherit; background: #6ea4e7; }
+.hc-hgs-share small { min-width: 30px; color: #6b7280; font-size: 11.5px; text-align: end; }
+.hc-hgs-row > .hc-hgs-chevron { grid-area: chev; color: #9ca3af; transition: transform 160ms ease; }
+.hc-hgs-card.is-open .hc-hgs-chevron { transform: rotate(180deg); }
+
+.hc-hgs-panel { padding: 4px 14px 10px; border-top: 1px solid #ebebeb; background: #fbfcfd; }
+.hc-hgs-panel-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; color: #6b7280; font-size: 13px; }
+.hc-hgs-bones { display: grid; gap: 8px; padding: 12px 0; }
+.hc-hgs-transits { margin: 0; padding: 0; list-style: none; }
+.hc-hgs-transits li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "date route amount" "date who amount"; gap: 2px 12px; align-items: start; padding: 9px 0; border-bottom: 1px solid #f0f0f0; }
+.hc-hgs-transits li:last-child { border-bottom: 0; }
+.hc-hgs-t-date { grid-area: date; min-width: 84px; color: #6b7280; font-size: 12.5px; white-space: nowrap; }
+.hc-hgs-t-route { grid-area: route; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: #0f1117; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.hc-hgs-t-who { grid-area: who; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; min-width: 0; color: #374151; font-size: 12.5px; }
+.hc-hgs-t-who small { color: #6b7280; font-size: 12px; }
+.hc-hgs-t-amount { grid-area: amount; align-self: center; color: #0f1117; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.hc-hgs-link { display: inline-flex; align-items: center; min-height: 44px; margin-block: -12px; color: #3a74c2; font-weight: 600; text-decoration: none; }
+.hc-hgs-link:hover { text-decoration: underline; }
+.hc-hgs-muted { color: #9ca3af; }
+
+@container (min-width: 760px) {
+  .hc-hgs-row { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) 84px 120px minmax(150px, 1.2fr) 20px; grid-template-areas: "car code tr last amount chev"; gap: 14px; }
+  .hc-hgs-transits li { grid-template-columns: 110px minmax(0, 1.4fr) minmax(0, 1fr) auto; grid-template-areas: "date route who amount"; align-items: center; }
+  .hc-hgs-link { min-height: 32px; margin-block: -6px; }
+}
+
+.hc-hgs-dialog-car { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #374151; font-size: 13px; font-weight: 600; }
+.hc-hgs-barcode-input { height: 52px; font-family: var(--font-mono); font-size: 18px; letter-spacing: 0.08em; }
+.hc-hgs-dialog-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+
+.hc-hgs-sort { display: inline-flex; flex: none; gap: 2px; padding: 3px; border: 1px solid #ebebeb; border-radius: 12px; background: #fff; }
+.hc-hgs-sort button { min-height: 38px; padding-inline: 12px; border-radius: 9px; color: #4b5563; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.hc-hgs-sort button:hover { color: #3a74c2; }
+.hc-hgs-sort button[aria-pressed="true"] { background: #6ea4e7; color: #fff; }
+.hc-hgs-sort button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 639.98px) { .hc-hgs-sort { width: 100%; } .hc-hgs-sort button { flex: 1 1 0; min-height: 44px; } }

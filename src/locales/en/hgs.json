@@ -1,0 +1,77 @@
+{
+  "title": "HGS",
+  "subtitle": "Motorway tolls from each car's HGS tag",
+  "sync": {
+    "last": "Last sync: {{when}}",
+    "never": "Not synced yet",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…"
+  },
+  "month": {
+    "prev": "Previous month",
+    "next": "Next month",
+    "all": "All time"
+  },
+  "banner": {
+    "title_one": "{{count}} car has no HGS barcode — its tolls are not tracked",
+    "title_other": "{{count}} cars have no HGS barcode — tolls for these cars are not tracked",
+    "fix": "Add the HGS barcode for {{plate}}"
+  },
+  "tiles": {
+    "spend": "Total spend",
+    "transits": "Transits",
+    "cars": "Cars on HGS",
+    "carsSub": "{{n}} had no transit",
+    "thisMonth": "This month",
+    "delta": "{{pct}} vs {{month}}",
+    "noLastMonth": "Nothing in {{month}}",
+    "transitsSub_one": "{{count}} car used it",
+    "transitsSub_other": "{{count}} cars used it",
+    "sameAs": "Same as {{month}}"
+  },
+  "tools": {
+    "search": "Search plate, barcode or model…",
+    "sort": "Sort",
+    "sort_amount": "Amount",
+    "sort_transits": "Transits",
+    "sort_last": "Last"
+  },
+  "row": {
+    "transits": "Transits",
+    "last": "Last transit",
+    "noModel": "No model",
+    "noBarcode": "No barcode",
+    "share": "{{pct}} of the spend",
+    "pending": "{{n}} pending"
+  },
+  "transits": {
+    "loading": "Loading transits…",
+    "failed": "Couldn't load the transits.",
+    "retry": "Try again",
+    "empty": "No transits in this period.",
+    "pending": "Pending",
+    "booking": "Booking {{number}}",
+    "noBooking": "No booking linked"
+  },
+  "fix": {
+    "title": "HGS barcode",
+    "label": "Barcode (10 digits)",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "openCar": "Open in Cars",
+    "saved": "Barcode saved for {{plate}}",
+    "errors": {
+      "empty": "Enter the barcode.",
+      "format": "A barcode is 10 digits.",
+      "taken": "Another car already has this barcode.",
+      "failed": "Couldn't save. Try again."
+    }
+  },
+  "count": "{{shown}} of {{total}} cars",
+  "empty": "No car matches.",
+  "emptyUsed": "No car passed a toll in this period.",
+  "failed": "Couldn't load HGS.",
+  "retry": "Try again",
+  "refreshFailed": "Couldn't refresh. This is what was loaded before."
+}

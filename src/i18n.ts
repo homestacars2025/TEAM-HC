@@ -18,6 +18,7 @@ import enFinance from './locales/en/finance.json';
 import enModelGroups from './locales/en/modelGroups.json';
 import enWallets from './locales/en/wallets.json';
 import enKabis from './locales/en/kabis.json';
+import enHgs from './locales/en/hgs.json';
 import enMedia from './locales/en/media.json';
 import enAccounting from './locales/en/accounting.json';
 import enShell from './locales/en/shell.json';
@@ -43,6 +44,7 @@ import arFinance from './locales/ar/finance.json';
 import arModelGroups from './locales/ar/modelGroups.json';
 import arWallets from './locales/ar/wallets.json';
 import arKabis from './locales/ar/kabis.json';
+import arHgs from './locales/ar/hgs.json';
 import arMedia from './locales/ar/media.json';
 import arAccounting from './locales/ar/accounting.json';
 import arShell from './locales/ar/shell.json';
@@ -73,8 +75,8 @@ export function dirFor(lang: Language): 'ltr' | 'rtl' {
  * those pages are translated.
  */
 const resources = {
-  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking, finance: enFinance, modelGroups: enModelGroups, wallets: enWallets, kabis: enKabis, media: enMedia, accounting: enAccounting, shell: enShell, home: enHome, myWallet: enMyWallet, custody: enCustody, goals: enGoals, profile: enProfile, settings: enSettings },
-  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking, finance: arFinance, modelGroups: arModelGroups, wallets: arWallets, kabis: arKabis, media: arMedia, accounting: arAccounting, shell: arShell, home: arHome, myWallet: arMyWallet, custody: arCustody, goals: arGoals, profile: arProfile, settings: arSettings },
+  en: { common: enCommon, sidebar: enSidebar, notifications: enNotifications, tasks: enTasks, cars: enCars, carIssues: enCarIssues, bookings: enBookings, operations: enOperations, calendar: enCalendar, fines: enFines, kgm: enKgm, tracking: enTracking, finance: enFinance, modelGroups: enModelGroups, wallets: enWallets, kabis: enKabis, hgs: enHgs, media: enMedia, accounting: enAccounting, shell: enShell, home: enHome, myWallet: enMyWallet, custody: enCustody, goals: enGoals, profile: enProfile, settings: enSettings },
+  ar: { common: arCommon, sidebar: arSidebar, notifications: arNotifications, tasks: arTasks, cars: arCars, carIssues: arCarIssues, bookings: arBookings, operations: arOperations, calendar: arCalendar, fines: arFines, kgm: arKgm, tracking: arTracking, finance: arFinance, modelGroups: arModelGroups, wallets: arWallets, kabis: arKabis, hgs: arHgs, media: arMedia, accounting: arAccounting, shell: arShell, home: arHome, myWallet: arMyWallet, custody: arCustody, goals: arGoals, profile: arProfile, settings: arSettings },
 };
 
 i18n
@@ -84,7 +86,7 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: [...LANGUAGES],
-    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking', 'finance', 'modelGroups', 'wallets', 'kabis', 'media', 'accounting', 'shell', 'home', 'myWallet', 'custody', 'goals', 'profile', 'settings'],
+    ns: ['common', 'sidebar', 'notifications', 'tasks', 'cars', 'carIssues', 'bookings', 'operations', 'calendar', 'fines', 'kgm', 'tracking', 'finance', 'modelGroups', 'wallets', 'kabis', 'hgs', 'media', 'accounting', 'shell', 'home', 'myWallet', 'custody', 'goals', 'profile', 'settings'],
     defaultNS: 'common',
     detection: {
       order: ['localStorage'],

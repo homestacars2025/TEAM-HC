@@ -14,6 +14,7 @@ import CarTrackingPage from './pages/CarTrackingPage';
 import CarIssuesPage from './pages/CarIssuesPage';
 import KabisPage from './pages/KabisPage';
 import PendingInvoicesPage from './pages/PendingInvoicesPage';
+import HgsPage from './pages/HgsPage';
 import OperationsPage from './pages/OperationsPage';
 import AccountingPage from './pages/AccountingPage';
 import { CustomerWalletsRoute, SupplierRedirect } from './components/accounting/FinanceRoutes';
@@ -88,6 +89,7 @@ const App: React.FC = () => {
           <Route path="suppliers/:id" element={<RequirePage page="accounting"><SupplierRedirect /></RequirePage>} />
           <Route path="kabis" element={<RequirePage page="kabis"><KabisPage /></RequirePage>} />
           <Route path="pending-invoices" element={<RequirePage page="pending_invoices"><PendingInvoicesPage /></RequirePage>} />
+          <Route path="hgs" element={<RequirePage page="hgs" redirect><HgsPage /></RequirePage>} />
           {/* Each Media page has its own key, so the guard sits on the children. */}
           <Route
             path="media"

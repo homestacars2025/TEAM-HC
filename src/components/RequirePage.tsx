@@ -101,8 +101,9 @@ function useAccessState(): React.ReactNode {
   return null;
 }
 
-const RequirePage: React.FC<{ page: string; children: React.ReactNode }> = ({ page, children }) => {
-  const { canAccessPage, firstAllowedRoute } = usePageAccess();
+/** `redirect` sends someone without the page home instead of explaining. */
+const RequirePage: React.FC<{ page: string; redirect?: boolean; children: React.ReactNode }> = ({ page, redirect = false, children }) => {
+  const { pages, canAccessPage, firstAllowedRoute } = usePageAccess();
   const state = useAccessState();
   const openedPage = useRef<string | null>(null);
 
@@ -116,6 +117,11 @@ const RequirePage: React.FC<{ page: string; children: React.ReactNode }> = ({ pa
   // Taken away while it was open, by a refresh that succeeded: move on quietly.
   // A page that was never open is someone typing a URL, and they get told why.
   if (openedPage.current === page && firstAllowedRoute) return <Navigate to={firstAllowedRoute} replace />;
+  if (redirect) {
+    const home = canAccessPage('home') ? pages.find(p => p.key === 'home')?.route : undefined;
+    const target = home ?? firstAllowedRoute;
+    if (target) return <Navigate to={target} replace />;
+  }
   return <NoAccess />;
 };
 
