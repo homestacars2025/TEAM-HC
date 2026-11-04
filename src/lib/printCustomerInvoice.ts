@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
+import { printHtml } from './printDocument';
 
 /* ────────────────────────────────────────────────────────────────────────────
    printCustomerInvoice — replicates the ADMIN dashboard customer invoice
@@ -91,14 +92,18 @@ export async function printCustomerInvoice(
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Invoice ${invNum} — HomestaCars</title>
 ${printFontStyles()}
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:var(--font-sans);background:#f0f2f5;color:#0f1117;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .print-bar{text-align:center;padding:24px 0 16px;background:#f0f2f5}
+  .print-bar{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;padding:24px 16px 16px;background:#f0f2f5}
   .print-btn{padding:11px 32px;background:#4ba6ea;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.3px;box-shadow:0 4px 12px rgba(75,166,234,.35)}
+  .print-btn{min-height:44px}
   .print-btn:hover{background:#3a95d9}
+  .back-btn{background:#fff;color:#0f1117;box-shadow:0 0 0 1px #d1d5db}
+  .back-btn:hover{background:#f3f4f6}
   .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
   .hdr{background:linear-gradient(135deg,#0d1117 0%,#1c2a3a 100%);padding:40px 48px;display:flex;justify-content:space-between;align-items:flex-start}
   .brand-name{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px}
@@ -138,7 +143,7 @@ ${printFontStyles()}
 </style>
 </head>
 <body>
-<div class="print-bar"><button class="print-btn" onclick="window.print()">🖨&nbsp; Print Invoice</button></div>
+<div class="print-bar"><button type="button" class="print-btn back-btn" onclick="history.back()">←&nbsp; Back</button><button type="button" class="print-btn" onclick="window.print()">🖨&nbsp; Print Invoice</button></div>
 <div class="page">
   <div class="hdr">
     <div>
@@ -192,11 +197,5 @@ ${printFontStyles()}
 </div>
 </body></html>`;
 
-  const win = window.open('', '_blank', 'width=920,height=780');
-  if (!win) {
-    handlers.onError('Popup blocked — allow popups for this site to print the invoice');
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
+  printHtml(html);
 }

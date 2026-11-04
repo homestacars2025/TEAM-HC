@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { fmt, fmtKm, fmtFuel, fmtDate, infoRow, infoRowPair } from './printContract';
 import { printFontStyles } from './printFonts';
+import { printHtml } from './printDocument';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -145,10 +146,16 @@ ${printFontStyles()}
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
     font-family: var(--font-sans);
     font-size: 13px;
     font-weight: 500;
   }
+  .preview-bar .actions { display: flex; gap: 8px; }
   .preview-bar button {
     background: #4ba6ea;
     color: #fff;
@@ -160,8 +167,11 @@ ${printFontStyles()}
     cursor: pointer;
     font-family: inherit;
     letter-spacing: 0.3px;
+    min-height: 44px;
   }
   .preview-bar button:hover { background: #2e8fd4; }
+  .preview-bar button.back { background: rgba(255,255,255,0.12); }
+  .preview-bar button.back:hover { background: rgba(255,255,255,0.2); }
 
   /* ── Header ─────────────────────────────────────────── */
   .doc-header {
@@ -276,8 +286,8 @@ ${printFontStyles()}
   .info-table {
     width: 100%;
     border-collapse: collapse;
+    /* No 100% height: Safari would clip the last row, as on the contract. */
     flex: 1;
-    height: 100%;
   }
   .info-label {
     width: 106px;
@@ -548,7 +558,10 @@ ${printFontStyles()}
 <!-- Preview bar -->
 <div class="preview-bar no-print">
   <span>Replacement Sheet Preview – ${sheetNo}</span>
-  <button onclick="window.print()">🖨 Print / Save PDF</button>
+  <div class="actions">
+    <button type="button" class="back" onclick="history.back()">← Back</button>
+    <button type="button" onclick="window.print()">🖨 Print / Save PDF</button>
+  </div>
 </div>
 
 <div class="page">
@@ -738,14 +751,6 @@ export async function printReplacementSheet(sheet: ReplacementSheet): Promise<vo
     phone:                  null,
   };
 
-  const html = buildHTML(sheet, cust);
 
-  const win = window.open('', '_blank', 'width=960,height=1150');
-  if (!win) {
-    alert('Pop-up blocked. Please allow pop-ups for this site and try again.');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  printHtml(buildHTML(sheet, cust));
 }

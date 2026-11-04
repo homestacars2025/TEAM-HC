@@ -1,8 +1,8 @@
 /**
- * Fonts for the print popups.
+ * Fonts for the print documents.
  *
- * Each print template is its own document, written into a `window.open` popup, so
- * it inherits none of the app's stylesheets or CSS variables. Rather than a second
+ * Each print template is its own document, in a hidden iframe or a page of its
+ * own, so it inherits none of the app's stylesheets or CSS variables. Rather than a second
  * list of font files that could drift, this copies the `@font-face` rules the app
  * already loaded — same self-hosted files, same 600 cap on Latin — and defines the
  * variables the templates use.
@@ -18,7 +18,7 @@ const FONT_VARIABLES = `:root{
 }
 html{font-synthesis-weight:none}`;
 
-/** A popup has no stylesheet to resolve against, so each URL is made absolute. */
+/** A print document has no stylesheet to resolve against, so each URL is made absolute. */
 const absoluteUrls = (rule: string, base: string): string =>
   rule.replace(/url\(["']?([^"')]+)["']?\)/g, (_match, url: string) => `url("${new URL(url, base).href}")`);
 
