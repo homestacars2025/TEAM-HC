@@ -18,7 +18,7 @@ import type {
 
 // ─── Counts (the bell badge and the sidebar badge) ────────────────────────────
 
-async function count(fn: 'my_unread_count' | 'my_open_tasks_count'): Promise<number> {
+async function count(fn: 'my_unread_notifications_count' | 'my_open_tasks_count'): Promise<number> {
   const { data, error } = await supabase.rpc(fn);
   if (error) {
     console.error(`[tasks] ${fn}:`, error.message);
@@ -27,7 +27,8 @@ async function count(fn: 'my_unread_count' | 'my_open_tasks_count'): Promise<num
   return typeof data === 'number' ? data : 0;
 }
 
-export const getUnreadCount = () => count('my_unread_count');
+/** The bell badge. The same recipients as `my_notifications`: to them, their role or a section they work in. */
+export const getUnreadCount = () => count('my_unread_notifications_count');
 export const getOpenTasksCount = () => count('my_open_tasks_count');
 
 // ─── Notifications ────────────────────────────────────────────────────────────

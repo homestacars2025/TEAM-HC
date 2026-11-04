@@ -26,7 +26,7 @@ const TasksBell: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { unreadCount, refresh, notificationsOpen: open, setNotificationsOpen: setOpen, arrival } = useInbox();
+  const { unreadCount, refresh, adjustUnread, notificationsOpen: open, setNotificationsOpen: setOpen, arrival } = useInbox();
   const { pages, canAccessPage } = usePageAccess();
   const { t } = useTranslation('notifications');
   const openNotification = useOpenNotification();
@@ -77,11 +77,13 @@ const TasksBell: React.FC = () => {
     openNotification(n);
   }, [openNotification, setOpen]);
 
+  // Optimistic: every row and the badge at once, then the server's count.
   const handleMarkAll = useCallback(async () => {
     setItems(prev => prev.map(x => ({ ...x, is_read: true })));
+    adjustUnread(null);
     await markAllNotificationsRead();
     refresh();
-  }, [refresh]);
+  }, [refresh, adjustUnread]);
 
   return (
     <div ref={ref} className="relative shrink-0">

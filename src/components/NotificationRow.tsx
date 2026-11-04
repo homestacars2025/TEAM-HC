@@ -140,7 +140,7 @@ export const NotificationArt: React.FC<{ notification: MyNotification; size: num
 
 export function useOpenNotification(): (n: MyNotification) => Promise<void> {
   const navigate = useNavigate();
-  const { refresh } = useInbox();
+  const { refresh, adjustUnread } = useInbox();
   const { pages, canAccessPage, canAccessRoute, firstAllowedRoute } = usePageAccess();
   const tasksRoute = canAccessPage('tasks') ? pages.find(p => p.key === 'tasks')?.route : undefined;
   const fallbackRoute = tasksRoute ?? firstAllowedRoute ?? '/dashboard';
@@ -148,13 +148,14 @@ export function useOpenNotification(): (n: MyNotification) => Promise<void> {
 
   return useCallback(async (n: MyNotification) => {
     if (!n.is_read) {
+      adjustUnread(-1);
       await markNotificationRead(n.id);
       refresh();
     }
     const path = resolveNotificationPath(n.link, canAccessRoute, fallbackRoute);
     // About one car, so the page can find its row.
     navigate(path === carsRoute && n.entity_type === 'car' && n.entity_id ? `${path}?car=${n.entity_id}` : path);
-  }, [navigate, refresh, canAccessRoute, fallbackRoute, carsRoute]);
+  }, [navigate, refresh, adjustUnread, canAccessRoute, fallbackRoute, carsRoute]);
 }
 
 // ─── Row ──────────────────────────────────────────────────────────────────────

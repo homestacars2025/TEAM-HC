@@ -21,6 +21,8 @@ const POLL_MS = 30_000;
 const CONNECTED_POLL_MS = 60_000;
 /** How many recent rows to look through for the one that just arrived. */
 const ARRIVAL_WINDOW = 10;
+/** Mark all writes one read row per notification; their events become one re-read. */
+const REALTIME_REFRESH_MS = 300;
 
 interface InboxValue {
   unreadCount: number;
@@ -40,6 +42,8 @@ interface InboxValue {
   bumpTasks: () => void;
   /** Moves the sidebar badge ahead of the server, for an optimistic completion. */
   adjustOpenTasks: (by: number) => void;
+  /** Moves the bell badge ahead of the server, for an optimistic read. `null` takes it to 0. */
+  adjustUnread: (by: number | null) => void;
 }
 
 const InboxContext = createContext<InboxValue>({
@@ -52,6 +56,7 @@ const InboxContext = createContext<InboxValue>({
   tasksVersion: 0,
   bumpTasks: () => {},
   adjustOpenTasks: () => {},
+  adjustUnread: () => {},
 });
 
 export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -75,17 +80,36 @@ export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => { mounted.current = false; };
   }, []);
 
+  /** Goes up with every read and every optimistic change, so an answer that was overtaken is dropped. */
+  const unreadVersion = useRef(0);
+
   const refresh = useCallback(async () => {
+    const version = ++unreadVersion.current;
     const [unread, open] = await Promise.all([getUnreadCount(), getOpenTasksCount()]);
     if (!mounted.current) return;
+    setOpenTasksCount(open);
+    // A click made while this was in flight knows better than this answer.
+    if (version !== unreadVersion.current) return;
     if (soundOn.current && lastUnread.current !== null && unread > lastUnread.current) playNotificationSound();
     lastUnread.current = unread;
     setUnreadCount(unread);
-    setOpenTasksCount(open);
   }, []);
+
+  const refreshTimer = useRef(0);
+  const refreshSoon = useCallback(() => {
+    window.clearTimeout(refreshTimer.current);
+    refreshTimer.current = window.setTimeout(() => { refresh(); }, REALTIME_REFRESH_MS);
+  }, [refresh]);
+  useEffect(() => () => window.clearTimeout(refreshTimer.current), []);
 
   const bumpTasks = useCallback(() => setTasksVersion(v => v + 1), []);
   const adjustOpenTasks = useCallback((by: number) => setOpenTasksCount(n => Math.max(n + by, 0)), []);
+  const adjustUnread = useCallback((by: number | null) => {
+    unreadVersion.current += 1;
+    const next = by === null ? 0 : Math.max((lastUnread.current ?? 0) + by, 0);
+    lastUnread.current = next;
+    setUnreadCount(next);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -112,7 +136,7 @@ export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setArrival(notification);
         if (notification.event_key?.startsWith('task.')) bumpTasks();
       }
-      refresh();
+      refreshSoon();
     };
 
     const channel = supabase
@@ -126,15 +150,27 @@ export const InboxProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!cancelled) setConnected(status === 'SUBSCRIBED');
       });
 
+    // The badge only: any new notification (row-level security shows this person
+    // only theirs, sections included) and any read, from this tab or another
+    // device. Its own channel, so neither table can take the one above offline.
+    // Both stay silent until the tables are in the supabase_realtime publication;
+    // the poll and the re-read after every click cover that.
+    const counts = supabase
+      .channel(`inbox-counts-${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications_v2' }, () => refreshSoon())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notification_reads', filter: `profile_id=eq.${userId}` }, () => refreshSoon())
+      .subscribe();
+
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+      supabase.removeChannel(counts);
     };
-  }, [userId, refresh, bumpTasks]);
+  }, [userId, refreshSoon, bumpTasks]);
 
   const value = useMemo(() => ({
-    unreadCount, openTasksCount, refresh, notificationsOpen, setNotificationsOpen, arrival, tasksVersion, bumpTasks, adjustOpenTasks,
-  }), [unreadCount, openTasksCount, refresh, notificationsOpen, arrival, tasksVersion, bumpTasks, adjustOpenTasks]);
+    unreadCount, openTasksCount, refresh, notificationsOpen, setNotificationsOpen, arrival, tasksVersion, bumpTasks, adjustOpenTasks, adjustUnread,
+  }), [unreadCount, openTasksCount, refresh, notificationsOpen, arrival, tasksVersion, bumpTasks, adjustOpenTasks, adjustUnread]);
 
   return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>;
 };

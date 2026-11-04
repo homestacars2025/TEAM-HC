@@ -195,6 +195,22 @@ describe('realtime', () => {
 
   test('the channel is closed on the way out', () => {
     expect(inbox).toContain('supabase.removeChannel(channel)');
+    expect(inbox).toContain('supabase.removeChannel(counts)');
+  });
+
+  test('the badge re-reads on any new notification and any read of theirs, once per burst', () => {
+    expect(inbox).toContain("{ event: 'INSERT', schema: 'public', table: 'notifications_v2' }, () => refreshSoon()");
+    expect(inbox).toContain("{ event: 'INSERT', schema: 'public', table: 'notification_reads', filter: `profile_id=eq.${userId}` }, () => refreshSoon()");
+    expect(inbox).toContain('const REALTIME_REFRESH_MS = 300;');
+  });
+
+  test('the badge count comes from my_unread_notifications_count, and nothing reads the v1 table', () => {
+    expect(read('lib/queries/tasks.ts')).toContain("count('my_unread_notifications_count')");
+    const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory()
+      ? walk(path.join(dir, e.name))
+      : /\.tsx?$/.test(e.name) && !e.name.includes('.test.') ? [path.join(dir, e.name)] : []));
+    const offenders = walk(SRC).filter(f => /from\('notifications'\)|table: 'notifications'[,\s}]|rpc\('my_unread_count'\)/.test(fs.readFileSync(f, 'utf8')));
+    expect(offenders).toEqual([]);
   });
 });
 
