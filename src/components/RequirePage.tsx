@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { signOutOnPurpose } from '../lib/sessionKeeper';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { buttonClass } from './Button';
 
@@ -67,7 +67,7 @@ const NoPagesAssigned: React.FC = () => {
 
   const handleSignOut = async () => {
     setSigningOut(true);
-    await supabase.auth.signOut();
+    await signOutOnPurpose();
     navigate('/login', { replace: true });
   };
 

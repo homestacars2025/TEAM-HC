@@ -1,9 +1,4 @@
 {
-  "inactivity": {
-    "title": "Still there?",
-    "message": "You will be logged out in <b>{{seconds}} seconds</b> due to inactivity.",
-    "stay": "Stay logged in"
-  },
   "pageAccess": {
     "noAccessTitle": "No access to this page",
     "noAccessBody": "You don't have permission to open this page. Ask your admin if you need it.",
@@ -137,5 +132,18 @@
     "dates": "Dates",
     "all": "All dates",
     "clear": "Clear dates"
+  },
+  "session": {
+    "reconnecting": "Reconnecting…",
+    "title": "Sign in to continue",
+    "body": "Your session has ended. Sign in again and carry on where you were. Nothing on this page is lost.",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "otherAccount": "Use another account",
+    "wrongPassword": "That email and password don't match.",
+    "failed": "Couldn't sign in. Check your connection and try again.",
+    "noAccess": "This account doesn't have access to the team dashboard."
   }
 }

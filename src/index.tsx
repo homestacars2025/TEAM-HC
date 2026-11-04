@@ -8,7 +8,10 @@ import '@fontsource/ibm-plex-sans-arabic/700.css';
 import './index.css';
 import './i18n';
 import App from './App';
+import { installSessionKeeper } from './lib/sessionKeeper';
 import reportWebVitals from './reportWebVitals';
+
+installSessionKeeper();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

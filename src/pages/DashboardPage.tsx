@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { signOutOnPurpose } from '../lib/sessionKeeper';
 import type { User } from '@supabase/supabase-js';
 
 const DashboardPage: React.FC = () => {
@@ -15,8 +16,8 @@ const DashboardPage: React.FC = () => {
 
   const handleSignOut = async () => {
     sessionStorage.removeItem('mock_authed');
-    await supabase.auth.signOut();
-    navigate('/login');
+    await signOutOnPurpose();
+    navigate('/login', { replace: true });
   };
 
   return (

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { signOutOnPurpose } from '../lib/sessionKeeper';
 import { formatTRY } from '../lib/CurrencyContext';
 import { holdingSummary } from '../lib/envelopes';
 import { useMyEnvelopes } from '../hooks/useMyEnvelopes';
@@ -73,8 +73,8 @@ const AccountMenu: React.FC = () => {
   const close = () => setOpen(false);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    await signOutOnPurpose();
+    navigate('/login', { replace: true });
   };
 
   return (

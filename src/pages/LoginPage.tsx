@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hideBootSplash } from '../lib/bootSplash';
 import { supabase } from '../lib/supabase';
+import { signOutOnPurpose } from '../lib/sessionKeeper';
 import Button from '../components/Button';
 
 const LoginPage: React.FC = () => {
@@ -41,7 +42,7 @@ const LoginPage: React.FC = () => {
       .single();
 
     if (profileError || !profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
-      await supabase.auth.signOut();
+      await signOutOnPurpose();
       setError("You don't have access to this portal");
       setLoading(false);
       return;
