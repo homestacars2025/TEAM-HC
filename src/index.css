@@ -1852,6 +1852,7 @@ html[dir="rtl"] .hc-range-head svg { transform: scaleX(-1); }
 }
 
 .hc-car-dot.is-busy { background: #ef4444; }
+.hc-car-dot.is-caution { background: #f59e0b; }
 
 .hc-booking-rows {
   max-height: 300px;
@@ -4736,3 +4737,15 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-session-dialog input[readonly] { background: #f3f4f6; color: #4b5563; }
 .hc-session-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
 .hc-session-actions .hc-hgs-link { min-height: 44px; background: none; border: 0; padding: 0; cursor: pointer; }
+
+/* ── Booking over maintenance or a replacement: a warning, not a stop ────── */
+.hc-car-caution { display: inline-flex; padding: 1px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.hc-block-warn { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 12px 14px; border: 1px solid #fcd34d; border-radius: 12px; background: #fffbeb; color: #78350f; font-size: 13px; line-height: 1.5; }
+.hc-block-warn.is-flagged { border-width: 2px; border-color: #f59e0b; }
+.hc-block-warn-title { font-weight: 600; color: #78350f; }
+.hc-block-warn ul { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.hc-block-warn li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.hc-block-warn-type { font-weight: 600; }
+.hc-block-warn-note { color: #92400e; }
+.hc-block-warn-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.hc-block-warn-actions button { min-height: 44px; }

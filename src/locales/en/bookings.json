@@ -417,5 +417,13 @@
     "open": "Open",
     "closed": "Closed"
   },
-  "noSheetsMonth": "No replacement sheets starting this month"
+  "noSheetsMonth": "No replacement sheets starting this month",
+  "blockWarn": {
+    "title": "{{plate}} is blocked for part of these dates",
+    "range": "{{from}} – {{to}}",
+    "adminHint": "Nothing in the system stops this booking. Save it only if the car will be ready in time.",
+    "adminOnly": "Only an admin can book over this. Choose another car or change the dates.",
+    "saveAnyway": "Save anyway",
+    "continueAnyway": "Continue anyway"
+  }
 }

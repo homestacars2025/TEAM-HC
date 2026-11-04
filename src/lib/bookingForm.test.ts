@@ -1,5 +1,5 @@
 import { addDay, monthGrid, nextRange, rentalDays } from './bookingDates';
-import { busyCars, firstBusyDay, isCarBusyError, type CalendarBlock } from './queries/availability';
+import { busyCars, carConflicts, conflictLevel, firstBusyDay, isCarBusyError, isSoftBlock, type CalendarBlock } from './queries/availability';
 
 const block = (over: Partial<CalendarBlock>): CalendarBlock => ({
   id: 1, car_id: 7, block_type: 'booked_confirmed', booking_id: null, start_date: '2026-11-10', end_date: '2026-11-15', ...over,
@@ -48,6 +48,35 @@ describe('car availability', () => {
     expect(busyCars([block({ booking_id: 5 })], { bookingId: 5 }).size).toBe(0);
     expect(busyCars([block({ id: 9, block_type: 'replacement' })], { blockId: 9 }).size).toBe(0);
     expect(busyCars([block({ booking_id: 6 })], { bookingId: 5 }).size).toBe(1);
+  });
+
+  test('editing a booking leaves out its own block and the customer\'s own replacement cars', () => {
+    const blocks = [
+      block({ id: 1, booking_id: 5, block_type: 'booked_confirmed' }),
+      block({ id: 2, block_type: 'replacement' }),
+      block({ id: 3, block_type: 'booked_confirmed', booking_id: 6 }),
+    ];
+    // Their own booking and their own replacement sheet: only the other customer's booking is left.
+    expect(carConflicts(blocks, 7, { bookingId: 5, blockIds: [2] }).map(b => b.id)).toEqual([3]);
+    expect(conflictLevel(carConflicts(blocks, 7, { bookingId: 5, blockIds: [2] }))).toBe('hard');
+    expect(conflictLevel(carConflicts(blocks.slice(0, 2), 7, { bookingId: 5, blockIds: [2] }))).toBeNull();
+    expect(busyCars(blocks.slice(0, 2), { bookingId: 5, blockIds: [2] }).size).toBe(0);
+    // Someone else's replacement on this car still counts.
+    expect(conflictLevel(carConflicts(blocks.slice(0, 2), 7, { bookingId: 5 }))).toBe('soft');
+  });
+
+  test('maintenance and replacement only warn; another booking or a sale stops the save', () => {
+    expect(isSoftBlock('maintenance') && isSoftBlock('replacement')).toBe(true);
+    expect(isSoftBlock('selling') || isSoftBlock('booked_pending') || isSoftBlock('booked_confirmed')).toBe(false);
+    expect(conflictLevel([block({ block_type: 'maintenance' }), block({ id: 2, block_type: 'replacement' })])).toBe('soft');
+    expect(conflictLevel([block({ block_type: 'maintenance' }), block({ id: 2, block_type: 'booked_pending' })])).toBe('hard');
+    expect(conflictLevel([block({ block_type: 'selling' })])).toBe('hard');
+    expect(conflictLevel([])).toBeNull();
+  });
+
+  test('conflicts are per car, earliest first', () => {
+    const blocks = [block({ id: 1, start_date: '2026-12-05' }), block({ id: 2, start_date: '2026-12-01' }), block({ id: 3, car_id: 8 })];
+    expect(carConflicts(blocks, 7).map(b => b.id)).toEqual([2, 1]);
   });
 
   test('finds the day an extension has to stop at', () => {

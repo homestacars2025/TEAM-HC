@@ -19,6 +19,8 @@ interface CarPickerProps {
   showAvailability?: boolean;
   /** Cars that can still be chosen, but only with a warning. The text goes on a red badge. */
   warned?: ReadonlyMap<number, string>;
+  /** Free to choose but blocked for part of the dates, such as maintenance. Amber, not red. */
+  cautions?: ReadonlyMap<number, string>;
 }
 
 interface Section {
@@ -32,7 +34,7 @@ interface Section {
  * scrolling sheet a popup gets clipped, and on a phone the thumb can scroll and tap
  * without typing at all.
  */
-const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, recent, value, onChange, disabled, busy, showAvailability = false, warned }) => {
+const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, recent, value, onChange, disabled, busy, showAvailability = false, warned, cautions }) => {
   const { t: tc } = useTranslation('common');
   const baseId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +100,7 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
           <PlateChip plate={selected.plate_number} />
           {selected.model && <span className="truncate text-sm text-gray-600">{selected.model}</span>}
           {busy?.has(selected.id) && <span className="text-xs font-semibold text-red-600">{busy.get(selected.id)}</span>}
+          {cautions?.has(selected.id) && <span className="hc-car-caution">{cautions.get(selected.id)}</span>}
           {warned?.has(selected.id) && <span className="hc-car-warn">{warned.get(selected.id)}</span>}
         </div>
         <button
@@ -167,13 +170,14 @@ const CarPicker: React.FC<CarPickerProps> = ({ labelId, cars, failed, onRetry, r
                   onClick={() => { if (!disabled && !busy?.has(car.id)) choose(car.id); }}
                   className={`flex min-h-12 items-center gap-3 px-3 py-1.5 ${busy?.has(car.id) ? 'cursor-not-allowed' : 'cursor-pointer'} ${index === active ? 'bg-[var(--accent-soft)]' : busy?.has(car.id) ? '' : 'hover:bg-black/[0.03]'}`}
                 >
-                  {showAvailability && <span aria-hidden="true" className={`hc-car-dot ${busy?.has(car.id) ? 'is-busy' : ''}`} />}
+                  {showAvailability && <span aria-hidden="true" className={`hc-car-dot ${busy?.has(car.id) ? 'is-busy' : cautions?.has(car.id) ? 'is-caution' : ''}`} />}
                   <span className={busy?.has(car.id) ? 'opacity-50' : undefined}><PlateChip plate={car.plate_number} /></span>
                   <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
                     {car.model && <span className={`max-w-full truncate text-sm text-gray-600 ${busy?.has(car.id) ? 'opacity-50' : ''}`}>{car.model}</span>}
                     {warned?.has(car.id) && <span className="hc-car-warn">{warned.get(car.id)}</span>}
                   </span>
                   {busy?.has(car.id) && <span className="shrink-0 text-xs font-semibold text-red-600">{busy.get(car.id)}</span>}
+                  {!busy?.has(car.id) && cautions?.has(car.id) && <span className="hc-car-caution shrink-0">{cautions.get(car.id)}</span>}
                 </div>
               );
             })}

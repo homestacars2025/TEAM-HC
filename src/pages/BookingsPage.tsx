@@ -25,7 +25,7 @@ import { fuelRangeProblem } from '../lib/fuelRange';
 import { formatExtras, hasExtras, parseExtras, type BookingExtras } from '../lib/bookingExtras';
 import type { ExpenseCar } from '../lib/custodyExpense';
 import {
-  firstBusyDay, getBlocks, isCarBusyError, recentCarIds, rememberCar, type CalendarBlock,
+  conflictLevel, firstBusyDay, getBlocks, isCarBusyError, recentCarIds, rememberCar, type CalendarBlock,
 } from '../lib/queries/availability';
 import { appendLedgerNote, customerBalance } from '../lib/queries/ledger';
 import Button from '../components/Button';
@@ -38,7 +38,8 @@ import { Field, FieldError, FormCard, FormError, FormNote, Stepper, SummaryBar, 
 import MoneyField, { CurrencySwitch, formatMoney, formatRate, type FormCurrency } from '../components/booking/MoneyField';
 import { ExtraOption, preloadOptionArt, OptionSwitch, QuantityStepper, RadioOption, type OptionArtName } from '../components/booking/OptionCards';
 import PlateChip from '../components/booking/PlateChip';
-import { useCarAvailability } from '../components/booking/useCarAvailability';
+import { busyLabelKey, useCarAvailability } from '../components/booking/useCarAvailability';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
 import BanAlert from '../components/customers/BanAlert';
 import BookingTabsBar from '../components/bookings/BookingTabsBar';
 import ExtensionsList from '../components/bookings/ExtensionsList';
@@ -1360,7 +1361,11 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const selectedCar = cars?.find(car => car.id === selectedCarId) ?? null;
   const days = rentalDays(form.start_date, form.end_date);
   const recentCars = useMemo(() => (cars ? recentCarIds().flatMap(id => cars.filter(car => car.id === id)) : []), [cars]);
-  const { busy, failed: availabilityFailed } = useCarAvailability(form.start_date, form.end_date, { bookingId: editId });
+  const { busy, cautions, failed: availabilityFailed, conflictsFor } = useCarAvailability(form.start_date, form.end_date, { bookingId: editId, customerId: thisCustomerId, softAllowed: true });
+  const isAdmin = useCurrentUser().profile?.role === 'admin';
+  /** Car and dates an admin has agreed to book over maintenance or a replacement. */
+  const softAccepted = useRef<string | null>(null);
+  const [softFlagged, setSoftFlagged] = useState(false);
   const carWarning = useCarWarning(id => { set('car_id', id == null ? '' : String(id)); setFieldErrors(fe => ({ ...fe, car_id: undefined })); });
 
   useEffect(() => {
@@ -1440,16 +1445,23 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     return false;
   };
 
+  // An old booking may overlap a block already. Only a new car or new dates have to fit.
+  const tripMoved = !baseline || form.car_id !== baseline.form.car_id
+    || form.start_date !== baseline.form.start_date || form.end_date !== baseline.form.end_date;
+  const tripKey = `${form.car_id}|${form.start_date}|${form.end_date}`;
+  const tripConflicts = selectedCarId && form.start_date && form.end_date && tripMoved && form.status !== 'cancelled' ? conflictsFor(selectedCarId) : [];
+  const tripConflict = conflictLevel(tripConflicts);
+
   const validateTrip = (): boolean => {
     const errors: typeof fieldErrors = {};
-    const moved = !baseline || form.car_id !== baseline.form.car_id
-      || form.start_date !== baseline.form.start_date || form.end_date !== baseline.form.end_date;
     if (!form.start_date || !form.end_date) errors.dates = t('errors.datesRequired');
     if (!form.car_id) errors.car_id = t('errors.carRequired');
-    // An old booking may overlap a block already. Only a new car or new dates have to fit.
-    else if (moved && form.status !== 'cancelled' && busy?.has(Number(form.car_id))) errors.car_id = t('errors.carBusy');
+    else if (tripConflict === 'hard') errors.car_id = t('errors.carBusy');
     setFieldErrors(fe => ({ ...fe, dates: errors.dates, car_id: errors.car_id }));
-    if (Object.keys(errors).length === 0) return true;
+    // Maintenance or a replacement only: shown with its details, and only an admin goes on.
+    const softStop = Object.keys(errors).length === 0 && tripConflict === 'soft' && softAccepted.current !== tripKey;
+    setSoftFlagged(softStop);
+    if (Object.keys(errors).length === 0 && !softStop) return true;
     reveal(refTrip);
     return false;
   };
@@ -1734,8 +1746,20 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const rentalIssue = mode === 'add' || existingLedgerIds.rental || form.fin_rental_amount.trim() ? rentalProblem(form.fin_rental_amount) : null;
   const zeroToConfirm = isZeroRental(form.fin_rental_amount) && (mode === 'add' || changedFields.has('fin_rental_amount'));
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    void submitForm();
+  };
+
+  /** "Save anyway" (or "Continue anyway" mid-way through a new booking), for admins. */
+  const acceptSoftConflict = () => {
+    softAccepted.current = tripKey;
+    setSoftFlagged(false);
+    if (mode === 'add' && step < STEP_KEYS.length - 1) void goNext();
+    else void submitForm();
+  };
+
+  const submitForm = async () => {
     if (submitting.current || checkingStep) return;
     if (mode === 'add' && step < STEP_KEYS.length - 1) { void goNext(); return; }
 
@@ -2030,10 +2054,33 @@ const BookingFormModal: React.FC<FormModalProps> = ({
               busy={busy}
               showAvailability={!!busy}
               warned={carWarning.warned}
+              cautions={cautions}
             />
           )}
           {availabilityFailed && <FormNote>{t('carBusy.checkFailed')}</FormNote>}
           <FieldError>{fieldErrors.car_id}</FieldError>
+          {tripConflict === 'soft' && selectedCar && (
+            <div role={softFlagged ? 'alert' : 'status'} className={`hc-block-warn${softFlagged ? ' is-flagged' : ''}`}>
+              <span className="hc-block-warn-title">{t('blockWarn.title', { plate: selectedCar.plate_number })}</span>
+              <ul>
+                {tripConflicts.map(block => (
+                  <li key={block.id}>
+                    <span className="hc-block-warn-type">{t(busyLabelKey(block.block_type))}</span>
+                    <span>{t('blockWarn.range', { from: formatDateDisplay(block.start_date, dateLocale), to: formatDateDisplay(block.end_date, dateLocale) })}</span>
+                    {block.notes?.trim() && <bdi dir="auto" className="hc-block-warn-note">{block.notes.trim()}</bdi>}
+                  </li>
+                ))}
+              </ul>
+              <span>{isAdmin ? t('blockWarn.adminHint') : t('blockWarn.adminOnly')}</span>
+              {isAdmin && (
+                <div className="hc-block-warn-actions">
+                  <Button variant="secondary" onClick={acceptSoftConflict} disabled={saving || checkingStep}>
+                    {mode === 'add' && step < STEP_KEYS.length - 1 ? t('blockWarn.continueAnyway') : t('blockWarn.saveAnyway')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </Field>
 
         {locationField('pickup_location', t('form.pickupLocation'), pickupOther, setPickupOther)}
