@@ -1452,7 +1452,8 @@ const ReceiptChip: React.FC<{ url: string; onOpen: () => void }> = ({ url, onOpe
   );
 };
 
-export const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+/** `zIndex` lifts it above a sheet it was opened from. */
+export const ReceiptLightbox: React.FC<{ url: string; onClose: () => void; zIndex?: number }> = ({ url, onClose, zIndex = 1200 }) => {
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   useEffect(() => {
@@ -1463,7 +1464,7 @@ export const ReceiptLightbox: React.FC<{ url: string; onClose: () => void }> = (
 
   return ReactDOM.createPortal(
     <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(15,17,23,0.72)',
+      position: 'fixed', inset: 0, zIndex, background: 'rgba(15,17,23,0.72)',
       backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24,
     }}>

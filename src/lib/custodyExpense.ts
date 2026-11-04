@@ -2,7 +2,8 @@ import { sortCarsByModel } from './car-picker';
 
 /**
  * The rules of the Add expense form, kept out of the components so they can be
- * tested. The server checks the same things again in `staff_add_custody_expense`.
+ * tested. The server checks the same things again in `staff_add_custody_expense`
+ * and `staff_update_custody_expense`.
  */
 
 export type ExpenseScope = 'car' | 'company';
@@ -129,25 +130,23 @@ export function recentCars(rows: readonly UsedCar[], cars: readonly ExpenseCar[]
   return recent;
 }
 
-export type ExpenseProblem = 'amount' | 'car' | 'category' | 'description' | 'date' | 'receipt';
+export type ExpenseProblem = 'amount' | 'car' | 'category' | 'date' | 'receipt';
 
 export interface ExpenseDraft {
   amount: string;
   scope: ExpenseScope;
   carId: number | null;
   category: string | null;
-  description: string;
   date: string;
   hasReceipt: boolean;
 }
 
-/** What still stands in the way of saving, in the order the form asks for it. */
+/** What still stands in the way of saving, in the order the form asks for it. The note is optional. */
 export function expenseProblems(draft: ExpenseDraft, today: string): ExpenseProblem[] {
   const problems: ExpenseProblem[] = [];
   if (parseAmount(draft.amount) === null) problems.push('amount');
   if (draft.scope === 'car' && draft.carId === null) problems.push('car');
   if (!draft.category) problems.push('category');
-  if (!draft.description.trim()) problems.push('description');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date) || draft.date > today) problems.push('date');
   if (!draft.hasReceipt) problems.push('receipt');
   return problems;
@@ -172,12 +171,28 @@ export function canDeleteExpense(row: DeletableRow, userId: string | null, now =
   return now - new Date(row.created_at).getTime() < HOURS_24;
 }
 
+interface EditableRow {
+  direction: 'IN' | 'OUT';
+  created_by?: string | null;
+  review_status?: string | null;
+}
+
+/** Their own expense, until finance approves it: the test `staff_update_custody_expense` applies. */
+export function canEditExpense(row: EditableRow, userId: string | null): boolean {
+  if (!userId || row.direction !== 'OUT' || row.created_by !== userId) return false;
+  return row.review_status === 'pending' || row.review_status === 'rejected';
+}
+
+/** A stored amount as the field shows it: `1250.5` → `1250,50`, `75` → `75`. Reads back through `parseAmount`. */
+export function amountInput(amount: number): string {
+  return amount.toFixed(2).replace('.', ',').replace(/,00$/, '');
+}
+
 /** Turns the server's refusal into a translation key under `expense.errors`. */
 export function expenseErrorKey(message: string | undefined): string {
   const known: Array<[RegExp, string]> = [
     [/Amount/i, 'amount'],
     [/Category/i, 'category'],
-    [/Description/i, 'description'],
     [/Choose a car/i, 'car'],
     [/Choose car or company/i, 'scope'],
     [/Receipt/i, 'receipt'],
@@ -185,6 +200,8 @@ export function expenseErrorKey(message: string | undefined): string {
     [/not active/i, 'inactive'],
     [/signed in/i, 'signedOut'],
     [/within 24 hours/i, 'tooLate'],
+    [/cannot be edited/i, 'locked'],
+    [/not found/i, 'notFound'],
   ];
   return known.find(([pattern]) => pattern.test(message ?? ''))?.[1] ?? 'generic';
 }

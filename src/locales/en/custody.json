@@ -80,9 +80,8 @@
       "transport": "Transport"
     },
     "description": {
-      "label": "Description",
-      "placeholder": "Example: Sabiha parking",
-      "invalid": "Add a short description."
+      "label": "Note",
+      "placeholder": "Note (optional)"
     },
     "date": {
       "label": "Date",
@@ -104,14 +103,18 @@
       "preparing": "Preparing the image…",
       "uploading": "Uploading the receipt… {{percent}}%",
       "previewAlt": "Receipt preview",
-      "pdf": "PDF file"
+      "pdf": "PDF file",
+      "current": "Current receipt",
+      "currentAlt": "Current receipt",
+      "replaceCurrent": "Replace image/file",
+      "view": "View",
+      "keepCurrent": "Keep current"
     },
     "missing": {
       "title": "Still needed:",
       "amount": "amount",
       "car": "car",
       "category": "category",
-      "description": "description",
       "date": "date",
       "receipt": "receipt"
     },
@@ -127,7 +130,6 @@
     "errors": {
       "amount": "Enter an amount greater than zero.",
       "category": "Choose a category.",
-      "description": "Add a description.",
       "car": "Choose a car.",
       "scope": "Choose a car or company expenses.",
       "receipt": "A receipt is required.",
@@ -140,10 +142,25 @@
       "deleteFailed": "Could not delete the expense. Try again.",
       "receiptType": "The file must be an image or a PDF.",
       "receiptTooLarge": "That file is too large. A PDF can be up to 10 MB.",
-      "receiptUnreadable": "This image can't be read. Try a JPEG or PNG."
+      "receiptUnreadable": "This image can't be read. Try a JPEG or PNG.",
+      "locked": "An approved expense can no longer be edited.",
+      "notFound": "This expense no longer exists. Refresh the page."
+    },
+    "editTitle": "Edit expense",
+    "editNote": "Editing sends the expense back for review.",
+    "rejectedBecause": "Rejected: {{note}}",
+    "saveChanges": "Save changes",
+    "noChanges": "Nothing has changed yet.",
+    "discardEdit": {
+      "title": "Discard your changes?",
+      "body": "The expense stays as it was.",
+      "confirm": "Discard",
+      "keep": "Keep editing"
     }
   },
   "tile": {
     "current": "Current balance"
-  }
+  },
+  "toastUpdated": "Changes saved, back in review",
+  "editExpense": "Edit expense"
 }

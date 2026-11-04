@@ -3,17 +3,18 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../../lib/CurrencyContext';
 import {
-  EXPENSE_CATEGORIES, expenseErrorKey, expenseProblems, parseAmount, recentCars,
+  EXPENSE_CATEGORIES, amountInput, expenseErrorKey, expenseProblems, parseAmount, recentCars,
   type ExpenseCar, type ExpenseScope,
 } from '../../lib/custodyExpense';
 import { istanbulDate } from '../../lib/istanbulTime';
-import { addCustodyExpense, getActiveCars, uploadCustodyReceipt, type CustodyMovement } from '../../lib/queries/custody';
+import { addCustodyExpense, getActiveCars, updateCustodyExpense, uploadCustodyReceipt, type CustodyMovement } from '../../lib/queries/custody';
 import { prepareReceipt, receiptRejection } from '../../lib/receiptImage';
 import { addDays } from '../../lib/taskGroups';
 import Button from '../Button';
 import CarPicker from '../booking/CarPicker';
 import { usePageAccess } from '../../contexts/PageAccessContext';
 import type { SupplierOption } from '../../lib/suppliers';
+import { ReceiptLightbox } from '../../pages/AccountingPage';
 import ConfirmDialog from './ConfirmDialog';
 import ReceiptField from './ReceiptField';
 import SupplierPicker from './SupplierPicker';
@@ -52,15 +53,49 @@ const Choice: React.FC<ChoiceProps> = ({ name, checked, disabled, onChange, chil
   </label>
 );
 
+interface FormValues {
+  amount: string;
+  scope: ExpenseScope;
+  carId: number | null;
+  category: string | null;
+  supplier: SupplierOption | null;
+  description: string;
+  dateMode: DateMode;
+  otherDate: string;
+}
+
+const BLANK: FormValues = { amount: '', scope: 'car', carId: null, category: null, supplier: null, description: '', dateMode: 'today', otherDate: '' };
+
+/** What the form opens with: nothing, or the expense being edited. */
+function startingValues(expense: CustodyMovement | undefined, today: string): FormValues {
+  if (!expense) return BLANK;
+  const scope: ExpenseScope = expense.expense_scope ?? (expense.car_id !== null ? 'car' : 'company');
+  const date = expense.transaction_date;
+  const dateMode: DateMode = date === today ? 'today' : date === addDays(today, -1) ? 'yesterday' : 'other';
+  return {
+    amount: amountInput(expense.amount),
+    scope,
+    carId: scope === 'car' ? expense.car_id : null,
+    // A category from before these lists matches no choice, so it is picked again.
+    category: EXPENSE_CATEGORIES[scope].some(option => option.value === expense.category) ? expense.category : null,
+    supplier: expense.supplier_id != null && expense.supplier ? { id: expense.supplier_id, ...expense.supplier } : null,
+    description: expense.description ?? '',
+    dateMode,
+    otherDate: dateMode === 'other' ? date : '',
+  };
+}
+
 interface AddExpenseSheetProps {
   userId: string;
   balance: number;
   rows: CustodyMovement[];
+  /** Edits this expense instead of adding one. */
+  expense?: CustodyMovement;
   onClose: () => void;
   onSaved: (row: CustodyMovement) => void;
 }
 
-const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows, onClose, onSaved }) => {
+const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows, expense, onClose, onSaved }) => {
   const { t } = useTranslation('custody');
   const { t: tc } = useTranslation('common');
   const { t: tf } = useTranslation('finance');
@@ -72,14 +107,16 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
   // A retry after the save failed must not upload the same file twice.
   const uploaded = useRef<{ file: File; url: string } | null>(null);
 
-  const [amount, setAmount] = useState('');
-  const [scope, setScope] = useState<ExpenseScope>('car');
-  const [carId, setCarId] = useState<number | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
-  const [supplier, setSupplier] = useState<SupplierOption | null>(null);
-  const [description, setDescription] = useState('');
-  const [dateMode, setDateMode] = useState<DateMode>('today');
-  const [otherDate, setOtherDate] = useState('');
+  const today = useMemo(() => istanbulDate(), []);
+  const [start] = useState(() => startingValues(expense, today));
+  const [amount, setAmount] = useState(start.amount);
+  const [scope, setScope] = useState<ExpenseScope>(start.scope);
+  const [carId, setCarId] = useState<number | null>(start.carId);
+  const [category, setCategory] = useState<string | null>(start.category);
+  const [supplier, setSupplier] = useState<SupplierOption | null>(start.supplier);
+  const [description, setDescription] = useState(start.description);
+  const [dateMode, setDateMode] = useState<DateMode>(start.dateMode);
+  const [otherDate, setOtherDate] = useState(start.otherDate);
   const [file, setFile] = useState<File | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -93,17 +130,23 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const busy = stage !== 'idle';
-  const today = useMemo(() => istanbulDate(), []);
-  const date = dateMode === 'today' ? today : dateMode === 'yesterday' ? addDays(today, -1) : otherDate;
+  const dateFor = (mode: DateMode, other: string) => (mode === 'today' ? today : mode === 'yesterday' ? addDays(today, -1) : other);
+  const date = dateFor(dateMode, otherDate);
   const parsed = parseAmount(amount);
-  const after = parsed === null ? null : balance - parsed;
+  // Editing takes the old amount out of the balance before the new one goes in.
+  const after = parsed === null ? null : balance + (expense?.amount ?? 0) - parsed;
   const recent = useMemo(() => recentCars(rows, cars ?? []), [rows, cars]);
 
-  const problems = expenseProblems({ amount, scope, carId, category, description, date, hasReceipt: !!file }, today);
-  const ready = problems.length === 0 && !preparing;
-  const dirty = !!amount || scope !== 'car' || carId !== null || !!category || !!supplier || !!description || dateMode !== 'today' || !!file;
+  const problems = expenseProblems({ amount, scope, carId, category, date, hasReceipt: !!file || !!expense?.receipt_url }, today);
+  const dirty = !!file || amount !== start.amount || scope !== start.scope || carId !== start.carId || category !== start.category
+    || (supplier?.id ?? null) !== (start.supplier?.id ?? null) || description.trim() !== start.description.trim()
+    || date !== dateFor(start.dateMode, start.otherDate);
+  // Saving an edit sends it back for review, so an unchanged one isn't saved.
+  const unchanged = !!expense && !dirty;
+  const ready = problems.length === 0 && !preparing && !unchanged;
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +170,8 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
   }, [busy, dirty, onClose]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    // The receipt viewer on top closes itself.
+    if (viewing) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       requestClose();
@@ -172,45 +217,62 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || parsed === null || !file || !category || submitting.current) return;
+    if (!ready || parsed === null || !category || (!file && !expense) || submitting.current) return;
     submitting.current = true;
     setError(null);
 
     let step: 'upload' | 'save' = 'upload';
     try {
-      let receiptUrl = uploaded.current?.file === file ? uploaded.current.url : null;
-      if (!receiptUrl) {
-        setStage('uploading');
-        setProgress(0);
-        receiptUrl = await uploadCustodyReceipt(userId, file, setProgress);
-        uploaded.current = { file, url: receiptUrl };
+      // Only a new file is uploaded; an edit that keeps its receipt sends none.
+      let receiptUrl: string | null = null;
+      if (file) {
+        receiptUrl = uploaded.current?.file === file ? uploaded.current.url : null;
+        if (!receiptUrl) {
+          setStage('uploading');
+          setProgress(0);
+          receiptUrl = await uploadCustodyReceipt(userId, file, setProgress);
+          uploaded.current = { file, url: receiptUrl };
+        }
       }
 
       step = 'save';
       setStage('saving');
       setProgress(null);
-      const trimmed = description.trim();
-      const id = await addCustodyExpense({ amount: parsed, category, description: trimmed, date, scope, carId, receiptUrl, supplierId: supplier?.id ?? null });
+      const note = description.trim() || null;
+      const supplierId = supplier?.id ?? null;
+      const changes = { amount: parsed, category, description: note, date, scope, carId, supplierId };
       const car = scope === 'car' ? cars?.find(c => c.id === carId) : undefined;
-      onSaved({
-        id,
+      const shown = {
         transaction_date: date,
-        direction: 'OUT',
         category,
         amount: parsed,
-        description: trimmed,
+        description: note,
+        expense_scope: scope,
+        car_id: scope === 'car' ? carId : null,
+        supplier_id: supplierId,
+        review_status: 'pending' as const,
+        reviewed_at: null,
+        car: car ? { plate_number: car.plate_number } : scope === 'car' && carId === expense?.car_id ? expense.car : null,
+        supplier: supplier ? { name: supplier.name, category: supplier.category } : null,
+      };
+
+      if (expense) {
+        await updateCustodyExpense(expense.id, { ...changes, receiptUrl });
+        onSaved({ ...expense, ...shown, receipt_url: receiptUrl ?? expense.receipt_url });
+        return;
+      }
+      if (!receiptUrl) throw new Error('Receipt photo required');
+      const id = await addCustodyExpense({ ...changes, receiptUrl });
+      onSaved({
+        ...shown,
+        id,
+        direction: 'OUT',
         receipt_url: receiptUrl,
         created_at: new Date().toISOString(),
         created_by: userId,
-        expense_scope: scope,
-        car_id: car?.id ?? null,
         posted_car_tx_id: null,
         posted_company_expense_id: null,
-        review_status: 'pending',
-        reviewed_at: null,
         review_note: null,
-        car: car ? { plate_number: car.plate_number } : null,
-        supplier: supplier ? { name: supplier.name } : null,
       });
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : (failure as { message?: string })?.message;
@@ -223,7 +285,6 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
 
   const labels = { amount: `${baseId}-amount`, scope: `${baseId}-scope`, car: `${baseId}-car`, category: `${baseId}-category`, supplier: `${baseId}-supplier`, description: `${baseId}-description`, date: `${baseId}-date`, receipt: `${baseId}-receipt`, title: `${baseId}-title` };
   const amountInvalid = !!amount && parsed === null;
-  const descriptionInvalid = touched.description && !description.trim();
   const dateInvalid = dateMode === 'other' && touched.date && problems.includes('date');
 
   return ReactDOM.createPortal(
@@ -239,7 +300,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
         className="hc-expense-sheet surface-depth surface-float"
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-3">
-          <h2 id={labels.title} className="text-[17px] font-semibold text-[#0f1117]">{t('expense.title')}</h2>
+          <h2 id={labels.title} className="text-[17px] font-semibold text-[#0f1117]">{t(expense ? 'expense.editTitle' : 'expense.title')}</h2>
           <button type="button" onClick={requestClose} disabled={busy} aria-label={t('expense.close')} className="flex size-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-black/[0.04] disabled:opacity-50">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -248,6 +309,12 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-5 py-5">
+          {expense && (
+            <div role="note" className="hc-expense-review-note">
+              <p>{t('expense.editNote')}</p>
+              {expense.review_status === 'rejected' && expense.review_note && <p className="mt-1 font-normal" dir="auto">{t('expense.rejectedBecause', { note: expense.review_note })}</p>}
+            </div>
+          )}
           <div>
             <label id={labels.amount} htmlFor={`${baseId}-amount-input`} className="sr-only">{t('expense.amount.label')}</label>
             <div dir="ltr" className="flex items-baseline justify-center gap-1 text-[#0f1117]">
@@ -325,12 +392,9 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
               value={description}
               disabled={busy}
               placeholder={t('expense.description.placeholder')}
-              aria-invalid={descriptionInvalid}
               onChange={e => setDescription(e.target.value)}
-              onBlur={() => setTouched(prev => ({ ...prev, description: true }))}
               className={textInput}
             />
-            {descriptionInvalid && <p className={fieldError}>{t('expense.description.invalid')}</p>}
           </div>
 
           <Field id={labels.date} label={t('expense.date.label')}>
@@ -366,6 +430,8 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
               disabled={busy}
               onPick={pickReceipt}
               onRemove={removeReceipt}
+              current={expense?.receipt_url ?? null}
+              onView={setViewing}
             />
             {receiptError && <p role="alert" className={fieldError}>{receiptError}</p>}
           </Field>
@@ -374,10 +440,12 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
         <footer className="shrink-0 border-t border-[var(--border-subtle)] px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
           {error ? (
             <p role="alert" className="mb-2 text-[13px] text-red-600">{error}</p>
-          ) : problems.length > 0 && (
+          ) : problems.length > 0 ? (
             <p className="mb-2 text-xs text-gray-500">
               {t('expense.missing.title')} {problems.map(problem => t(`expense.missing.${problem}`)).join(' · ')}
             </p>
+          ) : unchanged && (
+            <p className="mb-2 text-xs text-gray-500">{t('expense.noChanges')}</p>
           )}
           <div className="grid grid-cols-[1fr_2fr] gap-2 sm:flex sm:justify-end">
             <Button variant="secondary" onClick={requestClose} disabled={busy} className="hc-expense-action">{tc('actions.cancel')}</Button>
@@ -387,7 +455,7 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
                   <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56" />
                 </svg>
               )}
-              {stage === 'uploading' ? t('expense.uploadingShort', { percent: progress ?? 0 }) : stage === 'saving' ? t('expense.saving') : t('expense.save')}
+              {stage === 'uploading' ? t('expense.uploadingShort', { percent: progress ?? 0 }) : stage === 'saving' ? t('expense.saving') : t(expense ? 'expense.saveChanges' : 'expense.save')}
             </Button>
           </div>
         </footer>
@@ -395,14 +463,16 @@ const AddExpenseSheet: React.FC<AddExpenseSheetProps> = ({ userId, balance, rows
 
       {confirmingDiscard && (
         <ConfirmDialog
-          title={t('expense.discard.title')}
-          body={t('expense.discard.body')}
+          title={t(expense ? 'expense.discardEdit.title' : 'expense.discard.title')}
+          body={t(expense ? 'expense.discardEdit.body' : 'expense.discard.body')}
           confirmLabel={t('expense.discard.confirm')}
           cancelLabel={t('expense.discard.keep')}
           onConfirm={onClose}
           onCancel={() => setConfirmingDiscard(false)}
         />
       )}
+
+      {viewing && <ReceiptLightbox url={viewing} onClose={() => setViewing(null)} zIndex={9500} />}
     </div>,
     document.body,
   );

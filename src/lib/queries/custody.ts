@@ -2,6 +2,7 @@ import { supabase } from '../supabase';
 import { istanbulDate } from '../istanbulTime';
 import type { ExpenseCar, ExpenseScope } from '../custodyExpense';
 import type { ReviewStatus } from '../expenseReview';
+import type { SupplierOption } from '../suppliers';
 
 /**
  * The signed-in employee's custody: company money they hold, not money they earned.
@@ -24,6 +25,7 @@ export interface CustodyMovement {
   created_by: string | null;
   expense_scope: ExpenseScope | null;
   car_id: number | null;
+  supplier_id: number | null;
   posted_car_tx_id: number | null;
   posted_company_expense_id: number | null;
   review_status: ReviewStatus;
@@ -31,7 +33,7 @@ export interface CustodyMovement {
   review_note: string | null;
   /** Kept for the row even once the car has left the fleet. */
   car: { plate_number: string } | null;
-  supplier: { name: string } | null;
+  supplier: Pick<SupplierOption, 'name' | 'category'> | null;
 }
 
 export interface CustodyMovementWithBalance extends CustodyMovement {
@@ -48,7 +50,7 @@ export interface CustodyTotals {
 export async function getMyCustodyMovements(userId: string): Promise<CustodyMovement[]> {
   const { data, error } = await supabase
     .from('employee_wallets')
-    .select('id, transaction_date, direction, category, amount, description, receipt_url, created_at, created_by, expense_scope, car_id, posted_car_tx_id, posted_company_expense_id, review_status, reviewed_at, review_note, car:car_id(plate_number), supplier:supplier_id(name)')
+    .select('id, transaction_date, direction, category, amount, description, receipt_url, created_at, created_by, expense_scope, car_id, supplier_id, posted_car_tx_id, posted_company_expense_id, review_status, reviewed_at, review_note, car:car_id(plate_number), supplier:supplier_id(name, category)')
     .eq('employee_id', userId)
     .order('transaction_date')
     .order('created_at')
@@ -105,7 +107,8 @@ export async function uploadCustodyReceipt(userId: string, file: File, onProgres
 export interface NewCustodyExpense {
   amount: number;
   category: string;
-  description: string;
+  /** Optional: `null` when they wrote nothing. */
+  description: string | null;
   date: string;
   scope: ExpenseScope;
   carId: number | null;
@@ -126,6 +129,27 @@ export async function addCustodyExpense(expense: NewCustodyExpense): Promise<num
   });
   if (error) throw error;
   return Number(data);
+}
+
+export interface CustodyExpenseChanges extends Omit<NewCustodyExpense, 'receiptUrl'> {
+  /** `null` keeps the receipt already on it. */
+  receiptUrl: string | null;
+}
+
+/** Their own, while pending or rejected. Saving sends it back for review and drops finance's signatures. */
+export async function updateCustodyExpense(id: number, expense: CustodyExpenseChanges): Promise<void> {
+  const { error } = await supabase.rpc('staff_update_custody_expense', {
+    p_id: id,
+    p_amount: expense.amount,
+    p_category: expense.category,
+    p_description: expense.description,
+    p_date: expense.date,
+    p_scope: expense.scope,
+    p_car_id: expense.scope === 'car' ? expense.carId : null,
+    p_receipt_url: expense.receiptUrl,
+    p_supplier_id: expense.supplierId,
+  });
+  if (error) throw error;
 }
 
 export async function deleteCustodyExpense(id: number): Promise<void> {

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isPdfFile } from '../../lib/receiptImage';
+import { isPdfUrl } from '../../pages/AccountingPage';
 
 interface ReceiptFieldProps {
   labelId: string;
@@ -11,7 +12,17 @@ interface ReceiptFieldProps {
   disabled: boolean;
   onPick: (file: File) => void;
   onRemove: () => void;
+  /** The receipt already saved, when editing. A picked file replaces it; removing that brings it back. */
+  current?: string | null;
+  /** Opens a saved image. A PDF opens in the browser's own viewer instead. */
+  onView?: (url: string) => void;
 }
+
+/** `…/u1/2026-11/3f2a….pdf` → `3f2a….pdf` */
+const fileName = (url: string) => {
+  const last = url.split('?')[0].split('/').pop() ?? '';
+  try { return decodeURIComponent(last); } catch { return last; }
+};
 
 const formatSize = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`);
 
@@ -36,7 +47,7 @@ const sourceButton = 'flex min-h-12 cursor-pointer items-center justify-center g
  * Two inputs on purpose. `capture` opens the camera directly and removes the gallery
  * from the sheet, so the gallery input must not have it.
  */
-const ReceiptField: React.FC<ReceiptFieldProps> = ({ labelId, file, preparing, progress, disabled, onPick, onRemove }) => {
+const ReceiptField: React.FC<ReceiptFieldProps> = ({ labelId, file, preparing, progress, disabled, onPick, onRemove, current = null, onView }) => {
   const { t } = useTranslation('custody');
   const gallery = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
@@ -81,8 +92,35 @@ const ReceiptField: React.FC<ReceiptFieldProps> = ({ labelId, file, preparing, p
                 {t('expense.receipt.replace')}
               </button>
               <button type="button" disabled={disabled} onClick={onRemove} className="min-h-9 cursor-pointer text-[13px] font-semibold text-red-600 disabled:opacity-60">
-                {t('expense.receipt.remove')}
+                {t(current ? 'expense.receipt.keepCurrent' : 'expense.receipt.remove')}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : current ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] p-3">
+          {isPdfUrl(current) ? (
+            <span aria-label={t('expense.receipt.pdf')} className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xs font-bold text-red-700">{'PDF'}</span>
+          ) : (
+            <img src={current} alt={t('expense.receipt.currentAlt')} className="size-16 shrink-0 rounded-lg border border-[var(--border-subtle)] object-cover" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-[#0f1117]">{t('expense.receipt.current')}</div>
+            {isPdfUrl(current) && <div className="truncate text-xs text-gray-500" dir="ltr">{fileName(current)}</div>}
+            <div className="mt-1 flex flex-wrap gap-x-4">
+              <button type="button" disabled={disabled} onClick={() => gallery.current?.click()} className="min-h-11 cursor-pointer text-[13px] font-semibold text-[var(--accent-strong)] disabled:opacity-60 md:min-h-9">
+                {t('expense.receipt.replaceCurrent')}
+              </button>
+              <button type="button" disabled={disabled} onClick={() => camera.current?.click()} className="min-h-11 cursor-pointer text-[13px] font-semibold text-[var(--accent-strong)] disabled:opacity-60 md:hidden">
+                {t('expense.receipt.camera')}
+              </button>
+              {isPdfUrl(current) ? (
+                <a href={current} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-gray-700 no-underline md:min-h-9">{t('expense.receipt.view')}</a>
+              ) : (
+                <button type="button" onClick={() => onView?.(current)} className="min-h-11 cursor-pointer text-[13px] font-semibold text-gray-700 md:min-h-9">
+                  {t('expense.receipt.view')}
+                </button>
+              )}
             </div>
           </div>
         </div>

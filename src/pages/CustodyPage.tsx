@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { formatTRY } from '../lib/CurrencyContext';
 import { isLegacyApproval } from '../lib/expenseReview';
 import { istanbulDate } from '../lib/istanbulTime';
-import { canDeleteExpense, expenseErrorKey, formatPlate } from '../lib/custodyExpense';
+import { canDeleteExpense, canEditExpense, expenseErrorKey, formatPlate } from '../lib/custodyExpense';
 import {
   custodyBalance, custodyTotals, deleteCustodyExpense, getMyCustodyMovements, withRunningCustody,
   type CustodyMovement, type CustodyMovementWithBalance,
@@ -87,6 +87,23 @@ const DeleteButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   );
 };
 
+const EditButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const { t } = useTranslation('custody');
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t('editExpense')}
+      aria-label={t('editExpense')}
+      className="hc-expense-edit flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)] sm:size-9"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 20h4L18.5 9.5a2.1 2.1 0 00-4-4L4 16v4zM13.5 6.5l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+};
+
 const CustodyPage: React.FC = () => {
   const { t } = useTranslation('custody');
   const { t: tc } = useTranslation('common');
@@ -103,6 +120,7 @@ const CustodyPage: React.FC = () => {
   const [target, setTarget] = useState<TargetFilter>('all');
   const [receipt, setReceipt] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<CustodyMovement | null>(null);
   const [freshId, setFreshId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<CustodyMovement | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -142,20 +160,22 @@ const CustodyPage: React.FC = () => {
   }, [userId]);
 
   const closeReceipt = useCallback(() => setReceipt(null), []);
-  const closeSheet = useCallback(() => setAdding(false), []);
+  const closeSheet = useCallback(() => { setAdding(false); setEditing(null); }, []);
 
   const onExpenseSaved = useCallback((row: CustodyMovement) => {
+    const edited = editing !== null;
     setAdding(false);
-    setRows(prev => [...(prev ?? []), row]);
+    setEditing(null);
+    setRows(prev => (edited ? (prev ?? []).map(r => (r.id === row.id ? row : r)) : [...(prev ?? []), row]));
     // It has to be seen arriving, whatever the list was filtered to.
     setMonth('all');
     setDirection('all');
     setCategory('all');
     setTarget('all');
     setFreshId(row.id);
-    showToast(t('toastSaved'));
+    showToast(t(edited ? 'toastUpdated' : 'toastSaved'));
     refresh();
-  }, [refresh, showToast, t]);
+  }, [editing, refresh, showToast, t]);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -353,7 +373,7 @@ const CustodyPage: React.FC = () => {
                     <th scope="col" className="px-3 py-3 text-start font-medium">{t('table.status')}</th>
                     <th scope="col" className="px-3 py-3 text-center font-medium">{t('table.receipt')}</th>
                     <th scope="col" className="px-3 py-3 text-end font-medium">{t('table.running')}</th>
-                    <th scope="col" className="w-12 px-3 py-3"><span className="sr-only">{t('table.actions')}</span></th>
+                    <th scope="col" className="w-24 px-3 py-3"><span className="sr-only">{t('table.actions')}</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -370,7 +390,12 @@ const CustodyPage: React.FC = () => {
                       <td className="whitespace-nowrap px-3 py-3">{row.direction === 'OUT' && <ReviewPill status={row.review_status} note={row.review_note} legacy={isLegacyApproval(row)} />}</td>
                       <td className="px-3 py-2"><div className="flex justify-center"><ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} /></div></td>
                       <td className="whitespace-nowrap px-3 py-3 text-end"><Running value={row.running} /></td>
-                      <td className="px-3 py-1">{canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}</td>
+                      <td className="px-3 py-1">
+                        <div className="flex justify-end gap-1">
+                          {canEditExpense(row, userId) && <EditButton onClick={() => setEditing(row)} />}
+                          {canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -379,7 +404,7 @@ const CustodyPage: React.FC = () => {
 
             <ul className="xl:hidden">
               {visible.map(row => (
-                <li key={row.id} data-entry={row.id} className={`flex items-start gap-3 border-b border-[var(--border-subtle)] p-4 last:border-b-0 ${highlightClass(row.id)}`}>
+                <li key={row.id} data-entry={row.id} className={`flex flex-wrap items-start gap-3 border-b border-[var(--border-subtle)] p-4 last:border-b-0 ${highlightClass(row.id)}`}>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-[#0f1117]">{labelFor(row.category)}</div>
                     {row.direction === 'OUT' && (row.car || row.expense_scope === 'company') && <div className="mt-1 text-[13px]"><Target movement={row} /></div>}
@@ -394,7 +419,13 @@ const CustodyPage: React.FC = () => {
                     <div className="mt-1 text-xs"><Running value={row.running} /></div>
                   </div>
                   {row.receipt_url && <ReceiptThumb url={row.receipt_url} label={t('viewReceipt')} onOpen={setReceipt} />}
-                  {canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}
+                  {/* On a line of their own, so a narrow phone keeps its width for the text. */}
+                  {(canEditExpense(row, userId) || canDeleteExpense(row, userId)) && (
+                    <div className="-mb-2 -mt-1 flex w-full justify-end gap-1">
+                      {canEditExpense(row, userId) && <EditButton onClick={() => setEditing(row)} />}
+                      {canDeleteExpense(row, userId) && <DeleteButton onClick={() => setDeleting(row)} />}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -412,8 +443,8 @@ const CustodyPage: React.FC = () => {
 
       {receipt && <ReceiptLightbox url={receipt} onClose={closeReceipt} />}
 
-      {adding && userId && rows && (
-        <AddExpenseSheet userId={userId} balance={balance} rows={rows} onClose={closeSheet} onSaved={onExpenseSaved} />
+      {(adding || editing) && userId && rows && (
+        <AddExpenseSheet key={editing?.id ?? 'new'} userId={userId} balance={balance} rows={rows} expense={editing ?? undefined} onClose={closeSheet} onSaved={onExpenseSaved} />
       )}
 
       {deleting && (

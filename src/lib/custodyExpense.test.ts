@@ -1,5 +1,5 @@
 import {
-  EXPENSE_CATEGORIES, canDeleteExpense, expenseErrorKey, expenseProblems, filterCars, formatPlate, groupCars,
+  EXPENSE_CATEGORIES, amountInput, canDeleteExpense, canEditExpense, expenseErrorKey, expenseProblems, filterCars, formatPlate, groupCars,
   latinDigits, parseAmount, recentCars, type ExpenseCar, type ExpenseDraft,
 } from './custodyExpense';
 import { fittedSize, isPdfFile, receiptRejection } from './receiptImage';
@@ -53,14 +53,14 @@ test('recent cars are newest first, unique, and only ones still in the fleet', (
   expect(recentCars(rows, CARS, 1).map(c => c.id)).toEqual([3]);
 });
 
-const DRAFT: ExpenseDraft = { amount: '50', scope: 'car', carId: 1, category: 'Wash', description: 'x', date: '2026-10-31', hasReceipt: true };
+const DRAFT: ExpenseDraft = { amount: '50', scope: 'car', carId: 1, category: 'Wash', date: '2026-10-31', hasReceipt: true };
 
 describe('expenseProblems', () => {
   test('a complete expense has none', () => expect(expenseProblems(DRAFT, '2026-10-31')).toEqual([]));
   test('company needs no car', () => expect(expenseProblems({ ...DRAFT, scope: 'company', carId: null }, '2026-10-31')).toEqual([]));
   test('they come back in form order', () => {
-    expect(expenseProblems({ amount: '', scope: 'car', carId: null, category: null, description: '  ', date: '', hasReceipt: false }, '2026-10-31'))
-      .toEqual(['amount', 'car', 'category', 'description', 'date', 'receipt']);
+    expect(expenseProblems({ amount: '', scope: 'car', carId: null, category: null, date: '', hasReceipt: false }, '2026-10-31'))
+      .toEqual(['amount', 'car', 'category', 'date', 'receipt']);
   });
   test('tomorrow is refused', () => expect(expenseProblems({ ...DRAFT, date: '2026-11-01' }, '2026-10-31')).toEqual(['date']));
 });
@@ -87,6 +87,8 @@ test('each server refusal maps to a message', () => {
   expect(expenseErrorKey('Receipt photo required')).toBe('receipt');
   expect(expenseErrorKey('Choose a car')).toBe('car');
   expect(expenseErrorKey('Can only delete your own expense within 24 hours')).toBe('tooLate');
+  expect(expenseErrorKey('Approved expenses cannot be edited')).toBe('locked');
+  expect(expenseErrorKey('Expense not found')).toBe('notFound');
   expect(expenseErrorKey('something else')).toBe('generic');
   expect(expenseErrorKey(undefined)).toBe('generic');
 });
@@ -108,4 +110,21 @@ test('uploads land in the user\'s own folder, under the month', () => {
   expect(receiptPath('u1', { name: 'x.heic', type: 'image/jpeg' }, 'abc', '2026-10-31')).toBe('u1/2026-10/abc.jpg');
   expect(receiptPath('u1', { name: 'x.pdf', type: 'application/pdf' }, 'abc', '2026-10-31')).toBe('u1/2026-10/abc.pdf');
   expect(receiptPath('u1', { name: 'x.png', type: '' }, 'abc', '2026-10-31')).toBe('u1/2026-10/abc.png');
+});
+
+describe('canEditExpense', () => {
+  const row = { direction: 'OUT' as const, created_by: 'me', review_status: 'pending' };
+  test('own and pending', () => expect(canEditExpense(row, 'me')).toBe(true));
+  test('own and rejected, however old', () => expect(canEditExpense({ ...row, review_status: 'rejected' }, 'me')).toBe(true));
+  test('never once approved', () => expect(canEditExpense({ ...row, review_status: 'approved' }, 'me')).toBe(false));
+  test('not money in', () => expect(canEditExpense({ ...row, direction: 'IN' }, 'me')).toBe(false));
+  test('not one someone else recorded', () => expect(canEditExpense({ ...row, created_by: 'finance' }, 'me')).toBe(false));
+  test('not signed out', () => expect(canEditExpense(row, null)).toBe(false));
+});
+
+test('a stored amount fills the field the way it is typed, and reads back the same', () => {
+  expect(amountInput(1250.5)).toBe('1250,50');
+  expect(amountInput(75)).toBe('75');
+  expect(amountInput(0.3)).toBe('0,30');
+  for (const amount of [1250.5, 75, 0.3, 1.25, 1000, 99999.99]) expect(parseAmount(amountInput(amount))).toBe(amount);
 });
