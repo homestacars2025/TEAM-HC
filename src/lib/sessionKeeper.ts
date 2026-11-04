@@ -73,8 +73,12 @@ const isExpired = (session: Pick<Session, 'expires_at'>, now = Date.now()): bool
 export function isRefreshTokenDead(error: unknown): boolean {
   if (isAuthRetryableFetchError(error)) return false;
   if (!isAuthApiError(error)) return (error as { name?: string } | null)?.name === 'AuthSessionMissingError';
-  return error.status >= 400 && error.status < 500;
+  // Too many requests or a timeout says nothing about the token.
+  return error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429;
 }
+
+/** The library retries a failing network for up to 30s before answering; the banner doesn't wait that long. */
+export const BANNER_AFTER_MS = 2500;
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let retryingSince: number | null = null;
@@ -95,7 +99,23 @@ function retrySoon() {
 }
 
 async function check(): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const slow = setTimeout(() => { if (status === 'ok') setStatus('reconnecting'); }, BANNER_AFTER_MS);
+  try {
+    await checkNow();
+  } finally {
+    clearTimeout(slow);
+  }
+}
+
+async function checkNow(): Promise<void> {
+  // An expired token that can't be refreshed for now (offline, a phone waking up)
+  // comes back as no session plus the network error, not as a sign-out.
+  const { data: { session }, error: loadError } = await supabase.auth.getSession();
+  if (!session && loadError && !isRefreshTokenDead(loadError)) {
+    setStatus('reconnecting');
+    retrySoon();
+    return;
+  }
   // Signed out on purpose, or never signed in: the route guard takes it from here.
   if (!session) return;
   lastEmail = session.user?.email ?? lastEmail;

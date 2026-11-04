@@ -17,7 +17,7 @@ jest.mock('./supabase', () => ({
 }));
 
 // eslint-disable-next-line import/first
-import { ensureFreshSession, getSessionStatus, installSessionKeeper, isRefreshTokenDead, needsRefresh, resetSessionKeeperForTests, sessionRestored, signOutOnPurpose, signedOutOnPurpose, RETRY_EVERY_MS, RETRY_FOR_MS } from './sessionKeeper';
+import { BANNER_AFTER_MS, ensureFreshSession, getSessionStatus, installSessionKeeper, isRefreshTokenDead, needsRefresh, resetSessionKeeperForTests, sessionRestored, signOutOnPurpose, signedOutOnPurpose, RETRY_EVERY_MS, RETRY_FOR_MS } from './sessionKeeper';
 // eslint-disable-next-line import/first
 import { isWriteRequest } from './isWriteRequest';
 
@@ -159,6 +159,38 @@ describe('sessionKeeper', () => {
     const init = await mockHook!('https://x.supabase.co/rest/v1/rpc/my_allowed_pages', { method: 'POST', headers: { Authorization: 'Bearer old-token' } });
     expect(getSessionStatus()).toBe('expired');
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer old-token');
+  });
+
+  test('an expired token while offline (a phone waking up) is retried, not taken for a sign-out', async () => {
+    jest.useFakeTimers();
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: new AuthRetryableFetchError('Load failed', 0) });
+    await ensureFreshSession();
+    expect(getSessionStatus()).toBe('reconnecting');
+    mockAuth.getSession.mockResolvedValue({ data: { session: session(60, 'new-token') }, error: null });
+    jest.advanceTimersByTime(RETRY_EVERY_MS); await flush();
+    expect(getSessionStatus()).toBe('ok');
+    expect(mockAuth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('a rate limit or timeout is not a refused token', () => {
+    expect(isRefreshTokenDead(new AuthApiError('Too many requests', 429, 'over_request_rate_limit'))).toBe(false);
+    expect(isRefreshTokenDead(new AuthApiError('Timeout', 408, undefined))).toBe(false);
+  });
+
+  test('the banner shows once a refresh has taken 2.5 seconds', async () => {
+    jest.useFakeTimers();
+    mockAuth.getSession.mockResolvedValue({ data: { session: session(2) } });
+    let answer: (value: unknown) => void = () => {};
+    mockAuth.refreshSession.mockReturnValue(new Promise(resolve => { answer = resolve; }));
+    const pending = ensureFreshSession();
+    await flush();
+    jest.advanceTimersByTime(BANNER_AFTER_MS - 100);
+    expect(getSessionStatus()).toBe('ok');
+    jest.advanceTimersByTime(200);
+    expect(getSessionStatus()).toBe('reconnecting');
+    answer({ data: { session: session(60, 'new-token') }, error: null });
+    await pending;
+    expect(getSessionStatus()).toBe('ok');
   });
 
   test('reads and sign-in calls are not held up', () => {

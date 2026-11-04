@@ -10,9 +10,18 @@ type BeforeWrite = (input: RequestInfo | URL, init: RequestInit) => Promise<Requ
 let beforeWrite: BeforeWrite | null = null;
 export const setBeforeWrite = (hook: BeforeWrite | null) => { beforeWrite = hook; };
 
-const sessionFetch: typeof fetch = async (input, init = {}) => {
+const isRefreshCall = (input: RequestInfo | URL) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  return url.includes('/auth/v1/token') && url.includes('grant_type=refresh_token');
+};
+
+export const sessionFetch: typeof fetch = async (input, init = {}) => {
   if (beforeWrite && isWriteRequest(input, init)) init = await beforeWrite(input, init);
-  return fetch(input, init);
+  const response = await fetch(input, init);
+  // Supabase deletes the session on any refresh answer it doesn't call retryable,
+  // and a rate limit or timeout is one of those. As a network failure it's retried.
+  if ((response.status === 429 || response.status === 408) && isRefreshCall(input)) throw new TypeError(`Refresh deferred (${response.status})`);
+  return response;
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
