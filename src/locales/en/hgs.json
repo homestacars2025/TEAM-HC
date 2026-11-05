@@ -73,5 +73,21 @@
   "emptyUsed": "No car passed a toll in this period.",
   "failed": "Couldn't load HGS.",
   "retry": "Try again",
-  "refreshFailed": "Couldn't refresh. This is what was loaded before."
+  "refreshFailed": "Couldn't refresh. This is what was loaded before.",
+  "upload": {
+    "button": "Upload HGS file",
+    "busy": "Uploading…",
+    "done": "Added: {{inserted}} transits · Skipped {{skipped}} duplicates · Total: {{total}}",
+    "noCar": "Car not matched — check the plate",
+    "undated_one": "{{count}} row had a date that couldn't be read.",
+    "undated_other": "{{count}} rows had a date that couldn't be read.",
+    "dismiss": "Dismiss",
+    "errors": {
+      "type": "Choose the .xlsx file exported from the HGS portal.",
+      "read": "Couldn't read this file. Export it again from the HGS portal.",
+      "notPortal": "This isn't an HGS portal export: it has neither \"Karayolları Geçişleri\" nor \"Özel Otoyol Geçişleri\".",
+      "empty": "The file has no transits with an amount.",
+      "failed": "Couldn't upload the file. Try again."
+    }
+  }
 }

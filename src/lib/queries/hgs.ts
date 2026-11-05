@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { ALL_MONTHS } from '../pendingInvoices';
 import { monthRange, type HgsCar, type HgsTransit } from '../hgs';
+import type { PortalRow } from '../hgsPortal';
 
 /**
  * HGS reads. An n8n workflow writes `hgs_transactions`; this page only reads it,
@@ -89,4 +90,33 @@ export async function saveHgsBarcode(carId: number, barcode: string): Promise<'s
   // Nothing changed means the write was quietly refused.
   if (!data || data.length === 0) throw new Error('Not saved');
   return 'saved';
+}
+
+// ─── The official portal file ─────────────────────────────────────────────────
+
+export interface PortalImportResult {
+  plate: string;
+  car_id: number | null;
+  car_matched: boolean;
+  inserted: number;
+  skipped_duplicates: number;
+  total_amount: number;
+}
+
+/**
+ * Sends one car's rows to `import_hgs_portal_file`, which writes `hgs_portal_transits`
+ * only and skips any row whose `uniq_key` is already there, so the same file can be sent
+ * twice. The Kuveyt sync and `hgs_transactions` are never touched.
+ */
+export async function importHgsPortalFile(plate: string, rows: PortalRow[], fileName: string): Promise<PortalImportResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase.rpc('import_hgs_portal_file', {
+    p_plate: plate,
+    p_rows: rows,
+    p_source_file: fileName,
+    p_uploaded_by: session?.user?.id ?? null,
+  });
+  if (error) throw error;
+  const result = data as PortalImportResult;
+  return { ...result, inserted: Number(result.inserted) || 0, skipped_duplicates: Number(result.skipped_duplicates) || 0, total_amount: Number(result.total_amount) || 0 };
 }

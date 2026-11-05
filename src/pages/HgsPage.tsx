@@ -19,7 +19,8 @@ import {
   type HgsCar, type HgsRow, type HgsSort, type HgsTransit,
 } from '../lib/hgs';
 import { ALL_MONTHS, currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
-import { getHgsCarTransits, getHgsCars, getHgsLastSync, getHgsTransits, saveHgsBarcode, type HgsCarTransit } from '../lib/queries/hgs';
+import { getHgsCarTransits, getHgsCars, getHgsLastSync, getHgsTransits, importHgsPortalFile, saveHgsBarcode, type HgsCarTransit, type PortalImportResult } from '../lib/queries/hgs';
+import { isPortalFile, readPortalFile } from '../lib/hgsPortal';
 import { useTimeFormat } from '../lib/relative-time';
 import { formatDateDisplay, useDateLocale } from './AccountingPage';
 
@@ -113,15 +114,94 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; bookingsRo
   );
 };
 
+// ─── The portal file ──────────────────────────────────────────────────────────
+
+/** What the last upload on a car came to, or why it didn't go. */
+type UploadState =
+  | { kind: 'busy' }
+  | { kind: 'done'; result: PortalImportResult; undated: number }
+  | { kind: 'error'; message: string };
+
+const UploadIcon: React.FC = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 15v3.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+
+/** One .xlsx exported from hgsmusteri.ptt.gov.tr for this car, sent to `import_hgs_portal_file`. */
+const PortalUpload: React.FC<{ plate: string; state: UploadState | undefined; onState: (next: UploadState | undefined) => void }> = ({ plate, state, onState }) => {
+  const { t } = useTranslation('hgs');
+  const input = useRef<HTMLInputElement>(null);
+  const busy = state?.kind === 'busy';
+
+  const send = async (file: File) => {
+    if (!isPortalFile(file)) { onState({ kind: 'error', message: t('upload.errors.type') }); return; }
+    onState({ kind: 'busy' });
+    let parsed;
+    try {
+      parsed = await readPortalFile(file, plate);
+    } catch {
+      onState({ kind: 'error', message: t('upload.errors.read') });
+      return;
+    }
+    if (parsed.sheets.length === 0) { onState({ kind: 'error', message: t('upload.errors.notPortal') }); return; }
+    if (parsed.rows.length === 0) { onState({ kind: 'error', message: t('upload.errors.empty') }); return; }
+    try {
+      onState({ kind: 'done', result: await importHgsPortalFile(plate, parsed.rows, file.name), undated: parsed.undated });
+    } catch {
+      onState({ kind: 'error', message: t('upload.errors.failed') });
+    }
+  };
+
+  return (
+    <>
+      <button type="button" className="hc-hgs-upload" onClick={() => input.current?.click()} disabled={busy} aria-busy={busy} aria-label={`${t('upload.button')} · ${formatPlate(plate)}`} title={t('upload.button')}>
+        {busy ? <span className="hc-hgs-upload-spin" aria-hidden="true" /> : <UploadIcon />}
+        <span className="hc-hgs-upload-label">{busy ? t('upload.busy') : t('upload.button')}</span>
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        hidden
+        onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void send(file); }}
+      />
+    </>
+  );
+};
+
+const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({ state, onDismiss }) => {
+  const { t } = useTranslation('hgs');
+  if (state.kind === 'busy') return null;
+  return (
+    <div className={`hc-hgs-result ${state.kind === 'error' || !state.result.car_matched ? 'is-bad' : 'is-good'}`} role={state.kind === 'error' ? 'alert' : 'status'}>
+      <div className="min-w-0">
+        {state.kind === 'error' ? <p>{state.message}</p> : (
+          <>
+            <p>{t('upload.done', { inserted: formatCount(state.result.inserted), skipped: formatCount(state.result.skipped_duplicates), total: LTR(formatTRY(state.result.total_amount)) })}</p>
+            {!state.result.car_matched && <p className="hc-hgs-result-warn">{t('upload.noCar')}</p>}
+            {state.undated > 0 && <p className="hc-hgs-result-note">{t('upload.undated', { count: state.undated })}</p>}
+          </>
+        )}
+      </div>
+      <button type="button" className="hc-hgs-result-close" onClick={onDismiss} aria-label={t('upload.dismiss')}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+      </button>
+    </div>
+  );
+};
+
 // ─── One car ──────────────────────────────────────────────────────────────────
 
-const CarCard: React.FC<{ row: HgsRow; month: string; open: boolean; onToggle: () => void; bookingsRoute: string | null }> = ({ row, month, open, onToggle, bookingsRoute }) => {
+const CarCard: React.FC<{
+  row: HgsRow; month: string; open: boolean; onToggle: () => void; bookingsRoute: string | null;
+  upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void;
+}> = ({ row, month, open, onToggle, bookingsRoute, upload, onUpload }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const panelId = useId();
   const share = percent(row.share);
   return (
     <li className={`hc-hgs-card surface-depth ${open ? 'is-open' : ''}`} data-car={row.key}>
+      <div className="hc-hgs-line">
       <button type="button" className="hc-hgs-row" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
         <span className="hc-hgs-car">
           <StatusArt name="total" className="hc-hgs-car-art" />
@@ -143,6 +223,9 @@ const CarCard: React.FC<{ row: HgsRow; month: string; open: boolean; onToggle: (
         </span>
         <Chevron />
       </button>
+      <PortalUpload plate={row.plate} state={upload} onState={onUpload} />
+      </div>
+      {upload && <UploadResult state={upload} onDismiss={() => onUpload(undefined)} />}
       {open && <CarTransits id={panelId} row={row} month={month} bookingsRoute={bookingsRoute} />}
     </li>
   );
@@ -231,6 +314,8 @@ const HgsPage: React.FC = () => {
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const [fixing, setFixing] = useState<HgsCar | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** The last portal upload on each car, by row key. */
+  const [uploads, setUploads] = useState<Record<string, UploadState | undefined>>({});
   const [, setTick] = useState(0);
   const loadId = useRef(0);
   const toastTimer = useRef(0);
@@ -393,7 +478,18 @@ const HgsPage: React.FC = () => {
         <>
           <p className="hc-bk-count">{t('count', { shown: formatCount(shown.length), total: formatCount(rows.length) })}</p>
           <ul className="hc-hgs-list">
-            {shown.map(row => <CarCard key={row.key} row={row} month={month} open={open.has(row.key)} onToggle={() => toggle(row.key)} bookingsRoute={bookingsRoute} />)}
+            {shown.map(row => (
+              <CarCard
+                key={row.key}
+                row={row}
+                month={month}
+                open={open.has(row.key)}
+                onToggle={() => toggle(row.key)}
+                bookingsRoute={bookingsRoute}
+                upload={uploads[row.key]}
+                onUpload={next => setUploads(current => ({ ...current, [row.key]: next }))}
+              />
+            ))}
           </ul>
         </>
       )}
