@@ -2,8 +2,8 @@
   "title": "Customer Wallets",
   "loading": "Loading…",
   "loadError": "Could not load the ledger",
-  "search": "Search customer or plate…",
-  "searchAria": "Search by customer name or plate",
+  "search": "Search name, phone or plate…",
+  "searchAria": "Search by customer name, phone or any plate",
   "unknownCustomer": "Unknown customer",
   "empty": {
     "noEntries": "No customer ledger entries yet.",

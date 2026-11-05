@@ -5287,6 +5287,8 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-cw-row-text { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
 .hc-cw-row-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #0f1117; font-size: 15px; font-weight: 600; }
 .hc-cw-row-name bdi { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.hc-cw-row-plates { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.hc-cw-more-plates { color: #6b7280; font-size: 12px; font-weight: 650; }
 .hc-cw-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; color: #6b7280; font-size: 12.5px; }
 
 .hc-cw-chip {

@@ -21,24 +21,12 @@ import { StatTile } from '../components/WalletParts';
 import { useTileFilter } from '../hooks/useTileFilter';
 import CustomerWalletSheet from '../components/wallet/CustomerWalletSheet';
 import { BalanceChip } from '../components/wallet/WalletParts';
-import { balanceTone, formatLira, round2, type BalanceTone } from '../lib/bookingWallet';
+import { balanceTone, formatLira, type BalanceTone } from '../lib/bookingWallet';
+import { matchesCustomer, summarizeCustomers, type BookingLabelRow, type CustomerSummary } from '../lib/customerWallets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ToastState = { message: string; type: 'success' | 'error' } | null;
-
-/** One customer in the list: the sum of all their bookings, never split by car. */
-interface CustomerSummary {
-  customerId: string;
-  name: string;
-  banned: boolean;
-  banReason: string | null;
-  balance: number;
-  bookings: number;
-  /** The car on their newest booking, as a label only. */
-  plate: string | null;
-  onRent: boolean;
-}
 
 /** A line the edit form can change: anything not tied to an envelope or a transfer. */
 type EditableLine = Pick<LedgerRow, 'id' | 'type' | 'direction' | 'description' | 'amount' | 'exchange_rate_at_entry'>;
@@ -582,55 +570,7 @@ const EditTransactionModal: React.FC<{
 // ─── Customer list ────────────────────────────────────────────────────────────
 
 const FILTERS = ['owes', 'credit', 'settled'] as const;
-
-interface BookingLabelRow {
-  id: number;
-  customer_id: string | null;
-  start_date: string;
-  is_currently_active: boolean | null;
-  cars: { plate_number: string | null } | { plate_number: string | null }[] | null;
-}
-
-/** Per booking rounded to the kuruş, then summed: the same total the wallet shows. */
-export function summarizeCustomers(rows: LedgerRow[], bookings: BookingLabelRow[], unknown: string): CustomerSummary[] {
-  const perBooking = new Map<string, number>();
-  const people = new Map<string, { row: LedgerRow; bookings: Set<number> }>();
-  for (const row of rows) {
-    const key = `${row.customer_id}:${row.booking_id ?? 'none'}`;
-    perBooking.set(key, (perBooking.get(key) ?? 0) + (row.direction === 'IN' ? Number(row.amount) : -Number(row.amount)));
-    const person = people.get(row.customer_id) ?? { row, bookings: new Set<number>() };
-    if (row.booking_id != null) person.bookings.add(row.booking_id);
-    people.set(row.customer_id, person);
-  }
-  const balances = new Map<string, number>();
-  perBooking.forEach((sum, key) => {
-    const customerId = key.slice(0, key.lastIndexOf(':'));
-    balances.set(customerId, (balances.get(customerId) ?? 0) + round2(sum));
-  });
-  const newest = new Map<string, BookingLabelRow>();
-  const onRent = new Set<string>();
-  for (const booking of bookings) {
-    if (!booking.customer_id) continue;
-    if (booking.is_currently_active) onRent.add(booking.customer_id);
-    // The label comes from a booking with money on it, never an empty or cancelled one.
-    if (!people.get(booking.customer_id)?.bookings.has(booking.id)) continue;
-    const seen = newest.get(booking.customer_id);
-    if (!seen || booking.start_date > seen.start_date) newest.set(booking.customer_id, booking);
-  }
-  return Array.from(people.entries()).map(([customerId, { row, bookings: ids }]) => {
-    const person = firstOf(row.customers);
-    return {
-      customerId,
-      name: [person?.first_name, person?.last_name].filter(Boolean).join(' ').trim() || unknown,
-      banned: person?.is_banned === true,
-      banReason: person?.ban_reason ?? null,
-      balance: round2(balances.get(customerId) ?? 0),
-      bookings: ids.size,
-      plate: firstOf(newest.get(customerId)?.cars)?.plate_number ?? null,
-      onRent: onRent.has(customerId),
-    };
-  });
-}
+const SHOWN_PLATES = 3;
 
 const TONE_ORDER: Record<BalanceTone, number> = { owes: 0, credit: 1, settled: 2 };
 
@@ -646,9 +586,14 @@ const CustomerRow: React.FC<{ entry: CustomerSummary; onOpen: () => void }> = ({
         </span>
         <span className="hc-cw-row-meta">
           <span>{t('bookingCount', { count: entry.bookings })}</span>
-          {entry.plate && <PlateChip plate={entry.plate} />}
           {entry.onRent && <span className="hc-cw-pill is-live">{t('wallet.onRent')}</span>}
         </span>
+        {entry.plates.length > 0 && (
+          <span className="hc-cw-row-plates">
+            {entry.plates.slice(0, SHOWN_PLATES).map(plate => <PlateChip key={plate} plate={plate} />)}
+            {entry.plates.length > SHOWN_PLATES && <span className="hc-cw-more-plates">+{entry.plates.length - SHOWN_PLATES}</span>}
+          </span>
+        )}
       </span>
       <BalanceChip balance={entry.balance} />
     </button>
@@ -691,7 +636,7 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     try {
       const [ledger, labels] = await Promise.all([
         getLedgerRows(),
-        supabase.from('bookings').select('id, customer_id, start_date, is_currently_active, cars(plate_number)'),
+        supabase.from('bookings').select('id, customer_id, start_date, status, is_currently_active, cars(plate_number)'),
       ]);
       if (labels.error) throw labels.error;
       setRows(ledger);
@@ -735,7 +680,7 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     const query = search.trim().toLowerCase();
     return customers.filter(entry => {
       if (filter !== 'all' && balanceTone(entry.balance) !== filter) return false;
-      return !query || entry.name.toLowerCase().includes(query) || (entry.plate ?? '').toLowerCase().includes(query);
+      return matchesCustomer(entry, query);
     });
   }, [customers, filter, search]);
 

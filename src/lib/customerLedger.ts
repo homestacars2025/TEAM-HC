@@ -8,6 +8,7 @@ export interface LedgerCustomer {
   last_name: string | null;
   is_banned: boolean | null;
   ban_reason: string | null;
+  phone?: string | null;
 }
 
 export interface LedgerRow {
@@ -29,7 +30,7 @@ export interface LedgerRow {
 
 interface RateRow { currency: string; rate_to_try: number; }
 
-const LEDGER_COLUMNS = 'id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, pay_method, customers(first_name, last_name, is_banned, ban_reason), cars(plate_number)';
+const LEDGER_COLUMNS = 'id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, pay_method, customers(first_name, last_name, is_banned, ban_reason, phone), cars(plate_number)';
 const PAGE_ROWS = 1000;
 
 /**
