@@ -179,7 +179,7 @@
       "file": "ملف",
       "tapUpload": "اضغط للرفع",
       "dropUpload": "ارفع ملفاً أو اسحبه هنا",
-      "uploadedToast": "رُفع {{name}}",
+      "uploadedToast": "تم حفظ {{name}}",
       "removedToast": "أُزيل {{name}}"
     },
     "photos": {
@@ -203,7 +203,8 @@
       "uploading": "{{percent}}%",
       "moved": "نُقلت الصورة إلى الموضع {{position}}",
       "failed": "فشل الرفع",
-      "dismiss": "إغلاق"
+      "dismiss": "إغلاق",
+      "savedToast": "تم حفظ الصورة"
     },
     "discard": {
       "title": "تجاهل التغييرات؟",
@@ -214,13 +215,16 @@
     "save": "حفظ",
     "saved": "حُفظت السيارة",
     "editButton": "تعديل",
-    "filesHint": "تُحفظ الملفات والصور فور إضافتها.",
+    "filesHint": "تُحفظ الصور والملفات تلقائيًا",
     "unsaved_zero": "لا تغييرات غير محفوظة",
     "unsaved_one": "تغيير واحد غير محفوظ",
     "unsaved_two": "تغييران غير محفوظين",
     "unsaved_few": "{{count}} تغييرات غير محفوظة",
     "unsaved_many": "{{count}} تغييراً غير محفوظ",
-    "unsaved_other": "{{count}} تغيير غير محفوظ"
+    "unsaved_other": "{{count}} تغيير غير محفوظ",
+    "done": "تم",
+    "savingFiles": "جارٍ حفظ الملفات…",
+    "savedBadge": "تم الحفظ"
   },
   "spareKey": {
     "label": "المفتاح الاحتياطي",
