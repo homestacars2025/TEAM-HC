@@ -85,28 +85,33 @@ export interface LegacyPhoto { url: string; name?: string; uploaded_at?: string 
 export const isDeadPhoto = (url: string) => url.includes('/storage/v1/object/public/car_photos/');
 
 /**
- * The table first. A car whose table holds nothing usable shows its JSON photos too,
- * after any dead rows, so nothing it had disappears before the first change copies
- * them over.
+ * Usable rows in their order, then the JSON photos when the table holds nothing usable
+ * (so nothing a car had disappears before the first change copies them over), then
+ * the dead rows.
  */
 export function mergePhotos(rows: PhotoRow[], legacy: LegacyPhoto[] | null): CarPhoto[] {
   const fromRows = [...rows]
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)
-    .map<CarPhoto>(row => ({ id: row.id, url: row.file_path, primary: !!row.is_primary, dead: isDeadPhoto(row.file_path), uploadedAt: row.created_at ?? undefined }));
-  if (fromRows.some(photo => !photo.dead)) return fromRows;
+    .map<CarPhoto>(row => ({ id: row.id, url: row.file_path, primary: false, dead: isDeadPhoto(row.file_path), uploadedAt: row.created_at ?? undefined }));
+  const usable = fromRows.filter(photo => !photo.dead);
+  const dead = fromRows.filter(photo => photo.dead);
   const seen = new Set(fromRows.map(photo => photo.url));
-  const seeded = (legacy ?? [])
+  const seeded = usable.length ? [] : (legacy ?? [])
     .filter(entry => entry?.url && !seen.has(entry.url))
-    .map<CarPhoto>((entry, index) => ({ id: null, url: entry.url, primary: index === 0, dead: false, name: entry.name, uploadedAt: entry.uploaded_at }));
-  if (seeded.length) fromRows.forEach(photo => { photo.primary = false; });
-  return [...fromRows, ...seeded];
+    .map<CarPhoto>(entry => ({ id: null, url: entry.url, primary: false, dead: false, name: entry.name, uploadedAt: entry.uploaded_at }));
+  return withPrimary([...usable, ...seeded, ...dead]);
 }
 
-/** Exactly one usable primary whenever there is a usable photo; a dead one never is. */
-export function withPrimary(photos: CarPhoto[], primaryUrl?: string): CarPhoto[] {
-  const usable = photos.filter(photo => !photo.dead);
-  const wanted = primaryUrl ?? usable.find(photo => photo.primary)?.url ?? usable[0]?.url;
-  return photos.map(photo => ({ ...photo, primary: !photo.dead && photo.url === wanted }));
+/** The first usable photo is the car's main one, in both apps. A dead one never is. */
+export function withPrimary(photos: CarPhoto[]): CarPhoto[] {
+  const first = photos.find(photo => !photo.dead)?.url;
+  return photos.map(photo => ({ ...photo, primary: photo.url === first }));
+}
+
+/** Starring a photo makes it the first one. */
+export function toFront(photos: CarPhoto[], url: string): CarPhoto[] {
+  const index = photos.findIndex(photo => photo.url === url);
+  return withPrimary(index > 0 ? movePhoto(photos, index, 0) : photos);
 }
 
 export function movePhoto<T>(list: T[], from: number, to: number): T[] {
@@ -119,7 +124,7 @@ export function movePhoto<T>(list: T[], from: number, to: number): T[] {
 
 /** What `cars.car_photo_urls` keeps for older readers: usable photos, the primary first. */
 export function mirrorOf(photos: CarPhoto[]): LegacyPhoto[] {
-  const usable = photos.filter(photo => !photo.dead);
+  const usable = withPrimary(photos).filter(photo => !photo.dead);
   return [...usable.filter(photo => photo.primary), ...usable.filter(photo => !photo.primary)].map(photo => ({
     url: photo.url,
     name: photo.name ?? decodeURIComponent(photo.url.split('/').pop()?.split('?')[0] ?? '').replace(/^\d+_/, ''),
@@ -140,7 +145,7 @@ export function fitWithin(width: number, height: number, max: number = MAX_IMAGE
 /** GIFs would lose their motion and SVGs their sharpness, so only photos are redrawn. */
 export const shouldCompress = (file: Pick<File, 'type'>) => /^image\//.test(file.type) && !/gif|svg/.test(file.type);
 
-/** A JPEG at most 1600px on its longer side. Anything that can't be decoded goes as it is. */
+/** A JPEG at most 1600px on its longer side, even from a small file. Anything that can't be decoded goes as it is. */
 export async function compressImage(file: File): Promise<File> {
   if (!shouldCompress(file)) return file;
   try {
@@ -156,7 +161,7 @@ export async function compressImage(file: File): Promise<File> {
     context.drawImage(bitmap, 0, 0, size.width, size.height);
     bitmap.close?.();
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-    if (!blob || (blob.size >= file.size && file.type === 'image/jpeg')) return file;
+    if (!blob) return file;
     return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
   } catch {
     return file;

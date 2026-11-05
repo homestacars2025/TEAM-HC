@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   DOCS, daysUntil, docPath, expiryTone, fitWithin, isDeadPhoto, mergePhotos, mirrorOf, movePhoto, photoPath,
-  shouldCompress, storagePath, versioned, withPrimary, type CarPhoto,
+  shouldCompress, storagePath, toFront, versioned, withPrimary, type CarPhoto,
 } from './carEditor';
 
 const BASE = 'https://x.supabase.co/storage/v1/object/public';
@@ -60,12 +60,17 @@ describe('photos', () => {
     expect(isDeadPhoto(live('a'))).toBe(false);
   });
 
-  it('shows the JSON photos beside dead rows, the first JSON one starred', () => {
+  it('shows the JSON photos first and the dead rows last, the first JSON one starred', () => {
     const merged = mergePhotos(
       [{ id: 2, file_path: dead('b'), is_primary: true, sort_order: 1 }, { id: 1, file_path: dead('a'), is_primary: false, sort_order: 0 }],
       [{ url: live('x') }, { url: live('y') }],
     );
-    expect(merged.map(photo => [photo.id, photo.dead, photo.primary])).toEqual([[1, true, false], [2, true, false], [null, false, true], [null, false, false]]);
+    expect(merged.map(photo => [photo.id, photo.dead, photo.primary])).toEqual([[null, false, true], [null, false, false], [1, true, false], [2, true, false]]);
+  });
+
+  it('stars the first usable row, whatever the table says', () => {
+    const merged = mergePhotos([{ id: 1, file_path: live('a'), is_primary: false, sort_order: 0 }, { id: 2, file_path: live('b'), is_primary: true, sort_order: 1 }], null);
+    expect(merged.map(photo => photo.primary)).toEqual([true, false]);
   });
 
   it('ignores the JSON once the table holds a usable photo', () => {
@@ -73,14 +78,14 @@ describe('photos', () => {
     expect(merged.map(photo => photo.url)).toEqual([live('a')]);
   });
 
-  it('keeps exactly one usable primary', () => {
+  it('makes the first usable photo the primary, and starring moves a photo to the front', () => {
     const list: CarPhoto[] = [
       { id: 1, url: dead('a'), primary: true, dead: true },
       { id: 2, url: live('b'), primary: false, dead: false },
       { id: 3, url: live('c'), primary: false, dead: false },
     ];
     expect(withPrimary(list).map(photo => photo.primary)).toEqual([false, true, false]);
-    expect(withPrimary(list, live('c')).map(photo => photo.primary)).toEqual([false, false, true]);
+    expect(toFront(list, live('c')).map(photo => [photo.url, photo.primary])).toEqual([[live('c'), true], [dead('a'), false], [live('b'), false]]);
     expect(withPrimary([list[0]]).map(photo => photo.primary)).toEqual([false]);
   });
 
@@ -88,9 +93,9 @@ describe('photos', () => {
     const list: CarPhoto[] = [
       { id: 1, url: live('a'), primary: false, dead: false, name: 'a.jpg', uploadedAt: 't1' },
       { id: 2, url: dead('b'), primary: false, dead: true },
-      { id: 3, url: live('c'), primary: true, dead: false, name: 'c.jpg', uploadedAt: 't3' },
+      { id: 3, url: live('c'), primary: false, dead: false, name: 'c.jpg', uploadedAt: 't3' },
     ];
-    expect(mirrorOf(list)).toEqual([{ url: live('c'), name: 'c.jpg', uploaded_at: 't3' }, { url: live('a'), name: 'a.jpg', uploaded_at: 't1' }]);
+    expect(mirrorOf(list)).toEqual([{ url: live('a'), name: 'a.jpg', uploaded_at: 't1' }, { url: live('c'), name: 'c.jpg', uploaded_at: 't3' }]);
   });
 
   it('moves one photo and leaves the rest in order', () => {

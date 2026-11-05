@@ -187,7 +187,11 @@
       "removeTitle": "Remove {{name}}?",
       "removeBody": "The file is deleted right away.",
       "pdf": "PDF",
-      "file": "File"
+      "file": "File",
+      "tapUpload": "Tap to upload",
+      "dropUpload": "Upload or drop a file",
+      "uploadedToast": "{{name}} uploaded",
+      "removedToast": "{{name}} removed"
     },
     "photos": {
       "count_one": "{{count}} photo",
@@ -204,7 +208,9 @@
       "unavailable": "Image unavailable",
       "empty": "No photos yet",
       "uploading": "{{percent}}%",
-      "moved": "Photo moved to position {{position}}"
+      "moved": "Photo moved to position {{position}}",
+      "failed": "Upload failed",
+      "dismiss": "Dismiss"
     },
     "discard": {
       "title": "Discard changes?",
@@ -214,6 +220,10 @@
     },
     "save": "Save",
     "saved": "Car saved",
-    "editButton": "Edit"
+    "editButton": "Edit",
+    "filesHint": "Files and photos save as you add them.",
+    "unsaved_one": "{{count}} unsaved change",
+    "unsaved_other": "{{count}} unsaved changes",
+    "investorLine": "Investor · {{name}}"
   }
 }

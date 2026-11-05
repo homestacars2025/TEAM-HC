@@ -199,7 +199,11 @@
       "removeTitle": "إزالة {{name}}؟",
       "removeBody": "يُحذف الملف فوراً.",
       "pdf": "PDF",
-      "file": "ملف"
+      "file": "ملف",
+      "tapUpload": "اضغط للرفع",
+      "dropUpload": "ارفع ملفاً أو اسحبه هنا",
+      "uploadedToast": "رُفع {{name}}",
+      "removedToast": "أُزيل {{name}}"
     },
     "photos": {
       "count_zero": "لا صور",
@@ -220,7 +224,9 @@
       "unavailable": "الصورة غير متاحة",
       "empty": "لا توجد صور بعد",
       "uploading": "{{percent}}%",
-      "moved": "نُقلت الصورة إلى الموضع {{position}}"
+      "moved": "نُقلت الصورة إلى الموضع {{position}}",
+      "failed": "فشل الرفع",
+      "dismiss": "إغلاق"
     },
     "discard": {
       "title": "تجاهل التغييرات؟",
@@ -230,6 +236,14 @@
     },
     "save": "حفظ",
     "saved": "حُفظت السيارة",
-    "editButton": "تعديل"
+    "editButton": "تعديل",
+    "filesHint": "تُحفظ الملفات والصور فور إضافتها.",
+    "unsaved_zero": "لا تغييرات غير محفوظة",
+    "unsaved_one": "تغيير واحد غير محفوظ",
+    "unsaved_two": "تغييران غير محفوظين",
+    "unsaved_few": "{{count}} تغييرات غير محفوظة",
+    "unsaved_many": "{{count}} تغييراً غير محفوظ",
+    "unsaved_other": "{{count}} تغيير غير محفوظ",
+    "investorLine": "المستثمر · {{name}}"
   }
 }

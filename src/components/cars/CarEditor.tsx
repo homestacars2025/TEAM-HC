@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBlockedPage } from '../../hooks/useBlockedPage';
 import { istanbulDate } from '../../lib/istanbulTime';
 import {
-  DOC_ACCEPT, DOCS, expiryTone, isImageUrl, isPdfUrl, movePhoto, PHOTO_ACCEPT, withPrimary,
+  DOC_ACCEPT, DOCS, expiryTone, isImageUrl, isPdfUrl, movePhoto, PHOTO_ACCEPT, toFront, withPrimary,
   type CarPhoto, type DocKey, type DocSpec,
 } from '../../lib/carEditor';
 import {
@@ -31,31 +31,26 @@ const MAX_YEAR = new Date().getFullYear() + 1;
 
 // ─── Small parts ────────────────────────────────────────────────────────────────
 
-const GLYPHS: Record<SectionKey, React.ReactNode> = {
-  info: <path d="M5 16.5V12l1.8-4.6A2 2 0 018.7 6h6.6a2 2 0 011.9 1.4L19 12v4.5M5 16.5h14M5 16.5V18a1 1 0 001 1h1.5a1 1 0 001-1v-1.5m7 0V18a1 1 0 001 1H18a1 1 0 001-1v-1.5M5 12h14M8 14.2h.01M16 14.2h.01" />,
-  registration: <path d="M7 3.5h7.5L19 8v11.5a1 1 0 01-1 1H7a1 1 0 01-1-1v-15a1 1 0 011-1zM14 3.5V8h5M9 12.5h6M9 16h4" />,
-  expiry: <path d="M7 3v3m10-3v3M4.5 9h15M5.5 5h13a1 1 0 011 1v13a1 1 0 01-1 1h-13a1 1 0 01-1-1V6a1 1 0 011-1zM12 12v3l2 1.4" />,
-  documents: <path d="M8 7V5a1 1 0 011-1h6l4 4v10a1 1 0 01-1 1h-2M5 8h7l3 3v8a1 1 0 01-1 1H5a1 1 0 01-1-1V9a1 1 0 011-1zM11.5 8v3.5H15" />,
-  photos: <path d="M4 7.5A1.5 1.5 0 015.5 6h2l1.4-2h6.2l1.4 2h2A1.5 1.5 0 0120 7.5v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 17.5v-10zM12 16a3.3 3.3 0 100-6.6 3.3 3.3 0 000 6.6z" />,
-};
+const ICON_DIR = `${process.env.PUBLIC_URL ?? ''}/icons/3d/cars`;
 
-/** A lit, raised tile: the same light as `surface-depth`, so the sections read as one set. */
+/** The same 3D renders as Admin. Always beside the section title, so decorative. */
 const SectionIcon: React.FC<{ name: SectionKey }> = ({ name }) => (
-  <span className={`hc-ce-icon is-${name}`} aria-hidden="true">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{GLYPHS[name]}</svg>
-  </span>
+  <img className="hc-ce-icon" src={`${ICON_DIR}/${name}.png`} alt="" width={40} height={40} decoding="async" />
 );
 
 const LockIcon: React.FC = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2" stroke="currentColor" strokeWidth="2" /><path d="M8 10.5V7.5a4 4 0 018 0v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
 );
 
-const Section: React.FC<{ name: SectionKey; title: string; aside?: React.ReactNode; children: React.ReactNode }> = ({ name, title, aside, children }) => (
+const Section: React.FC<{ name: SectionKey; title: string; aside?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }> = ({ name, title, aside, action, children }) => (
   <section className="hc-ce-section surface-depth" aria-labelledby={`hc-ce-${name}`}>
     <header className="hc-ce-section-head">
       <SectionIcon name={name} />
-      <h3 id={`hc-ce-${name}`}>{title}</h3>
-      {aside && <span className="hc-ce-section-aside">{aside}</span>}
+      <div className="hc-ce-section-title">
+        <h3 id={`hc-ce-${name}`}>{title}</h3>
+        {aside && <span className="hc-ce-section-aside">{aside}</span>}
+      </div>
+      {action}
     </header>
     {children}
   </section>
@@ -127,8 +122,11 @@ interface DocCardProps {
   onRemove: () => void;
 }
 
+const coarsePointer = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+
 const DocCard: React.FC<DocCardProps> = ({ spec, url, editable, progress, error, onFile, onRemove }) => {
   const { t } = useTranslation('cars');
+  const [touch] = useState(coarsePointer);
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const kind = useDocKind(url);
@@ -164,7 +162,7 @@ const DocCard: React.FC<DocCardProps> = ({ spec, url, editable, progress, error,
       ) : (
         <button type="button" className="hc-ce-doc-drop" onClick={pick} disabled={!editable || busy}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 15v3.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <span>{editable ? (over ? t('editor.docs.dropHere') : t('editor.docs.drop')) : t('editor.locked')}</span>
+          <span>{editable ? (over ? t('editor.docs.dropHere') : touch ? t('editor.docs.tapUpload') : t('editor.docs.dropUpload')) : t('editor.locked')}</span>
           {editable && <small>{t('editor.docs.types')}</small>}
         </button>
       )}
@@ -193,7 +191,7 @@ const DocCard: React.FC<DocCardProps> = ({ spec, url, editable, progress, error,
 
 // ─── Photos ─────────────────────────────────────────────────────────────────────
 
-interface Upload { key: string; name: string; preview: string; progress: number }
+interface Upload { key: string; name: string; preview: string; progress: number; failed?: boolean }
 
 interface PhotoGridProps {
   photos: CarPhoto[];
@@ -202,15 +200,19 @@ interface PhotoGridProps {
   onPrimary: (url: string) => void;
   onDelete: (url: string) => void;
   onReorder: (from: number, to: number) => void;
+  onDismiss: (key: string) => void;
+  /** Opens the picker from the section header. */
+  pickerRef: React.RefObject<HTMLInputElement | null>;
 }
 
-const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, uploads, onAdd, onPrimary, onDelete, onReorder }) => {
+const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, uploads, onAdd, onPrimary, onDelete, onReorder, onDismiss, pickerRef }) => {
   const { t, i18n } = useTranslation('cars');
-  const input = useRef<HTMLInputElement>(null);
+  const input = pickerRef;
   const grid = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
   const [over, setOver] = useState(false);
   const [announce, setAnnounce] = useState('');
+  const [broken, setBroken] = useState<Set<string>>(() => new Set());
   const rtl = i18n.dir() === 'rtl';
   const stopDrag = useRef<(() => void) | null>(null);
   useEffect(() => () => stopDrag.current?.(), []);
@@ -280,18 +282,18 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, uploads, onAdd, onPrimary
           const target = drag && drag.over === index && drag.from !== index ? (drag.over > drag.from ? 'is-target-after' : 'is-target-before') : '';
           return (
             <figure key={photo.url} data-photo-index={index} className={`hc-ce-photo ${photo.primary ? 'is-primary' : ''} ${dragging ? 'is-dragging' : ''} ${target} ${photo.dead ? 'is-dead' : ''}`}>
-              {photo.dead
+              {photo.dead || broken.has(photo.url)
                 ? <span className="hc-ce-photo-dead">{t('editor.photos.unavailable')}</span>
-                : <img src={photo.url} alt="" loading="lazy" decoding="async" draggable={false} />}
+                : <img src={photo.url} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(current => new Set(current).add(photo.url))} />}
               {photo.primary && <span className="hc-ce-photo-badge">{t('editor.photos.primary')}</span>}
+              <button type="button" className="hc-ce-grip" aria-label={t('editor.photos.reorder')} title={t('editor.photos.reorder')} {...handle(index)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
+              </button>
               <div className="hc-ce-photo-tools">
-                <button type="button" className="hc-ce-grip" aria-label={t('editor.photos.reorder')} title={t('editor.photos.reorder')} {...handle(index)}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
-                </button>
                 <span className="hc-ce-photo-spacer" />
-                {!photo.dead && (
-                  <button type="button" aria-pressed={photo.primary} className={`hc-ce-star ${photo.primary ? 'is-on' : ''}`} aria-label={t('editor.photos.setPrimary')} title={photo.primary ? t('editor.photos.primary') : t('editor.photos.setPrimary')} onClick={() => !photo.primary && onPrimary(photo.url)}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5z" fill={photo.primary ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+                {!photo.dead && !photo.primary && (
+                  <button type="button" className="hc-ce-star" aria-label={t('editor.photos.setPrimary')} title={t('editor.photos.setPrimary')} onClick={() => onPrimary(photo.url)}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
                   </button>
                 )}
                 <button type="button" className="hc-ce-trash" aria-label={t('editor.photos.delete')} title={t('editor.photos.delete')} onClick={() => onDelete(photo.url)}>
@@ -302,18 +304,29 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, uploads, onAdd, onPrimary
           );
         })}
         {uploads.map(upload => (
-          <figure key={upload.key} className="hc-ce-photo is-uploading">
+          <figure key={upload.key} className={`hc-ce-photo is-uploading ${upload.failed ? 'is-failed' : ''}`}>
             <img src={upload.preview} alt="" />
-            <div className="hc-ce-progress is-overlay" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={upload.progress} aria-label={upload.name}>
-              <span style={{ width: `${upload.progress}%` }} />
-              <small>{t('editor.photos.uploading', { percent: upload.progress })}</small>
-            </div>
+            {upload.failed ? (
+              <>
+                <span role="alert" className="hc-ce-photo-failed">{t('editor.photos.failed')}</span>
+                <button type="button" className="hc-ce-photo-dismiss" aria-label={t('editor.photos.dismiss')} onClick={() => onDismiss(upload.key)}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+                </button>
+              </>
+            ) : (
+              <div className="hc-ce-progress is-overlay" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={upload.progress} aria-label={upload.name}>
+                <span style={{ width: `${upload.progress}%` }} />
+                <small>{t('editor.photos.uploading', { percent: upload.progress })}</small>
+              </div>
+            )}
           </figure>
         ))}
-        <button type="button" className="hc-ce-photo-add" onClick={() => input.current?.click()}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-          <span>{photos.length || uploads.length ? t('editor.photos.add') : t('editor.photos.drop')}</span>
-        </button>
+        {!photos.length && !uploads.length && (
+          <button type="button" className="hc-ce-photo-add" onClick={() => input.current?.click()}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            <span>{t('editor.photos.drop')}</span>
+          </button>
+        )}
       </div>
       {photos.length > 1 && <p className="hc-ce-hint">{t('editor.photos.hint')}</p>}
       <span className="sr-only" aria-live="polite">{announce}</span>
@@ -385,6 +398,8 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [plateError, setPlateError] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const photoPicker = useRef<HTMLInputElement>(null);
   const filesChanged = useRef(false);
   const photosRef = useRef<CarPhoto[]>([]);
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -408,8 +423,17 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
 
   useEffect(() => { sheet.current?.focus(); }, []);
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   const change = useMemo(() => (data && fields ? changeOf(data, fields, isAdmin) : null), [data, fields, isAdmin]);
-  const dirty = !!change && (Object.keys(change.car ?? {}).length > 0 || Object.keys(change.registration ?? {}).length > 0);
+  const unsaved = change ? Object.keys(change.car ?? {}).length + Object.keys(change.registration ?? {}).length : 0;
+  const dirty = unsaved > 0;
+  // A file on its way up would be lost with the sheet, so the sheet waits for it.
+  const uploading = uploads.some(upload => !upload.failed) || Object.values(docProgress).some(value => value !== undefined);
   const yearInvalid = !!fields?.year.trim() && !(/^\d{4}$/.test(fields.year.trim()) && Number(fields.year) >= 1980 && Number(fields.year) <= MAX_YEAR);
 
   const set = <K extends keyof Fields>(key: K) => (value: Fields[K]) => {
@@ -419,10 +443,10 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
   };
 
   const requestClose = useCallback(() => {
-    if (saving) return;
+    if (saving || uploading) return;
     if (dirty) setConfirm({ kind: 'discard' });
     else onClose(filesChanged.current);
-  }, [dirty, saving, onClose]);
+  }, [dirty, saving, uploading, onClose]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'Escape') return;
@@ -455,6 +479,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
       const url = await uploadCarDoc(carId, spec, plateForFiles, file, percent => setDocProgress(current => ({ ...current, [spec.key]: percent })));
       setDocs(current => ({ ...current, [spec.key]: url }));
       filesChanged.current = true;
+      setToast(t('editor.docs.uploadedToast', { name: t(`editor.docs.${spec.key}`) }));
     } catch {
       setDocErrors(current => ({ ...current, [spec.key]: t('editor.errors.upload') }));
     } finally {
@@ -472,6 +497,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
     try {
       await removeCarDoc(carId, spec, url);
       filesChanged.current = true;
+      setToast(t('editor.docs.removedToast', { name: t(`editor.docs.${key}`) }));
     } catch {
       setDocs(current => ({ ...current, [key]: url }));
       setDocErrors(current => ({ ...current, [key]: t('editor.errors.remove') }));
@@ -498,30 +524,37 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
     const pending = files.map((file, index) => ({ file, upload: { key: `${Date.now()}-${index}-${file.name}`, name: file.name, preview: URL.createObjectURL(file), progress: 0 } }));
     setUploads(current => [...current, ...pending.map(item => item.upload)]);
     pending.forEach(({ file, upload }) => enqueue(async () => {
+      let added: CarPhoto;
       try {
-        const added = await uploadCarPhoto(carId, file, photosRef.current.length, percent => setUploads(current => current.map(item => (item.key === upload.key ? { ...item, progress: percent } : item))));
-        const next = withPrimary([...photosRef.current, added]);
-        showPhotos(next);
-        filesChanged.current = true;
-        showPhotos(await syncCarPhotos(carId, next));
-      } finally {
-        setUploads(current => current.filter(item => item.key !== upload.key));
-        URL.revokeObjectURL(upload.preview);
+        added = await uploadCarPhoto(carId, file, photosRef.current.length, percent => setUploads(current => current.map(item => (item.key === upload.key ? { ...item, progress: percent } : item))));
+      } catch {
+        // Stays on the grid with its error until dismissed, so it's clear which one failed.
+        setUploads(current => current.map(item => (item.key === upload.key ? { ...item, failed: true } : item)));
+        return;
       }
+      setUploads(current => current.filter(item => item.key !== upload.key));
+      URL.revokeObjectURL(upload.preview);
+      // Usable photos come before dead ones.
+      const firstDead = photosRef.current.findIndex(photo => photo.dead);
+      const list = [...photosRef.current];
+      list.splice(firstDead === -1 ? list.length : firstDead, 0, added);
+      const next = withPrimary(list);
+      showPhotos(next);
+      filesChanged.current = true;
+      showPhotos(await syncCarPhotos(carId, next));
     }));
   };
 
   const setPrimary = (url: string) => {
     setPhotoError(null);
-    const next = withPrimary(photosRef.current, url);
-    showPhotos(next);
+    showPhotos(toFront(photosRef.current, url));
     filesChanged.current = true;
     enqueue(async () => { showPhotos(await syncCarPhotos(carId, photosRef.current)); });
   };
 
   const reorder = (from: number, to: number) => {
     setPhotoError(null);
-    showPhotos(movePhoto(photosRef.current, from, to));
+    showPhotos(withPrimary(movePhoto(photosRef.current, from, to)));
     filesChanged.current = true;
     enqueue(async () => { showPhotos(await syncCarPhotos(carId, photosRef.current)); });
   };
@@ -535,6 +568,12 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
     filesChanged.current = true;
     enqueue(async () => { showPhotos(await deleteCarPhoto(carId, photo, photosRef.current)); });
   };
+
+  const dismissUpload = (key: string) => setUploads(current => {
+    const gone = current.find(item => item.key === key);
+    if (gone) URL.revokeObjectURL(gone.preview);
+    return current.filter(item => item.key !== key);
+  });
 
   // ── Drawing ──
   const modelName = data?.modelGroups.find(group => String(group.id) === fields?.modelGroupId)?.name;
@@ -568,19 +607,16 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
 
   return ReactDOM.createPortal(
     <div className="hc-ce-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) requestClose(); }}>
-      <div ref={sheet} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} className="hc-ce surface-float" onKeyDown={onKeyDown}>
+      <div ref={sheet} tabIndex={-1} role="dialog" aria-modal="true" aria-label={data ? t('editor.editCar', { plate: data.plate }) : t('editor.title')} className="hc-ce surface-float" onKeyDown={onKeyDown}>
         <header className="hc-ce-head">
           <div className="hc-ce-head-text">
-            <h2 id={titleId}>{t('editor.title')}</h2>
-            {data && (
-              <div className="hc-ce-head-meta">
-                <PlateChip plate={data.plate} />
-                {modelName && <span dir="auto" className="hc-ce-head-model">{modelName}</span>}
-                {investorName && <span dir="auto" className="hc-ce-head-investor">{investorName}</span>}
-              </div>
-            )}
+            <div className="hc-ce-head-title">
+              <h2 id={titleId} dir="auto">{data ? modelName ?? t('editor.title') : t('editor.title')}</h2>
+              {data && <PlateChip plate={data.plate} />}
+            </div>
+            {investorName && <p dir="auto" className="hc-ce-head-investor">{t('editor.investorLine', { name: investorName })}</p>}
           </div>
-          <button type="button" className="hc-ce-close" aria-label={tc('actions.close')} onClick={requestClose}>
+          <button type="button" className="hc-ce-close" aria-label={tc('actions.close')} onClick={requestClose} disabled={uploading || saving}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
           </button>
         </header>
@@ -626,7 +662,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
               </Section>
 
               <Section name="registration" title={t('editor.sections.registration')}>
-                <div className="hc-ce-grid">
+                <div className="hc-ce-grid is-three">
                   <label className="hc-ce-field">
                     <span className="hc-field-label">{t('editor.fields.year')}</span>
                     <input dir="ltr" inputMode="numeric" maxLength={4} className={`hc-input ${yearInvalid ? 'is-invalid' : ''}`} placeholder={t('editor.fields.yearPlaceholder')} value={fields.year} onChange={e => set('year')(e.target.value.replace(/\D/g, ''))} aria-invalid={yearInvalid} />
@@ -637,7 +673,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                     <input dir="auto" className="hc-input" placeholder={t('editor.fields.packagePlaceholder')} value={fields.carPackage} onChange={e => set('carPackage')(e.target.value)} />
                   </label>
                   {isAdmin ? (
-                    <div className="hc-ce-field hc-field-wide" role="group" aria-label={t('editor.fields.purchaseDate')}>
+                    <div className="hc-ce-field" role="group" aria-label={t('editor.fields.purchaseDate')}>
                       <span className="hc-field-label">{t('editor.fields.purchaseDate')}</span>
                       <DateParts label={t('editor.fields.purchaseDate')} locale={locale} value={fields.purchaseDate} onChange={set('purchaseDate')} />
                     </div>
@@ -676,7 +712,17 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                 </div>
               </Section>
 
-              <Section name="photos" title={t('editor.sections.photos')} aside={t('editor.photos.count', { count: photos.filter(photo => !photo.dead).length })}>
+              <Section
+                name="photos"
+                title={t('editor.sections.photos')}
+                aside={t('editor.photos.count', { count: photos.filter(photo => !photo.dead).length })}
+                action={(
+                  <button type="button" className="hc-ce-add-photos" onClick={() => photoPicker.current?.click()}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+                    {t('editor.photos.add')}
+                  </button>
+                )}
+              >
                 {photoError && <p role="alert" className="hc-ce-doc-error mb-2">{photoError}</p>}
                 <PhotoGrid
                   photos={photos}
@@ -685,15 +731,21 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                   onPrimary={setPrimary}
                   onDelete={url => setConfirm({ kind: 'photo', url })}
                   onReorder={reorder}
+                  onDismiss={dismissUpload}
+                  pickerRef={photoPicker}
                 />
               </Section>
             </>
           )}
         </div>
 
+        {toast && <div role="status" className="hc-ce-toast hc-toast-in">{toast}</div>}
+
         <footer className="hc-ce-foot">
-          {saveError && <p role="alert" className="hc-ce-save-error">{saveError}</p>}
-          <Button variant="secondary" disabled={saving} onClick={requestClose}>{tc('actions.cancel')}</Button>
+          {saveError
+            ? <p role="alert" className="hc-ce-save-error">{saveError}</p>
+            : <p className={`hc-ce-foot-hint ${dirty ? 'is-dirty' : ''}`}>{dirty ? t('editor.unsaved', { count: unsaved }) : t('editor.filesHint')}</p>}
+          <Button variant="secondary" disabled={saving || uploading} onClick={requestClose}>{tc('actions.cancel')}</Button>
           <Button onClick={save} disabled={saving || !dirty || yearInvalid} aria-busy={saving}>{saving ? tc('actions.saving') : t('editor.save')}</Button>
         </footer>
 

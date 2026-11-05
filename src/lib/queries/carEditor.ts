@@ -107,9 +107,9 @@ export async function uploadCarPhoto(carId: number, file: File, sortOrder: numbe
 }
 
 /**
- * Writes `photos` as they stand: copies over any still only in the JSON, moves the star,
- * rewrites `sort_order` 0..n-1 and mirrors the usable ones into `cars.car_photo_urls`.
- * Only one row may be primary, so the old star comes off before the new one goes on.
+ * Writes `photos` as they stand: copies over any still only in the JSON, stars the first
+ * usable one, rewrites `sort_order` 0..n-1 and mirrors the usable ones into
+ * `cars.car_photo_urls`. Only one row may be primary, so the old star comes off first.
  */
 export async function syncCarPhotos(carId: number, photos: CarPhoto[]): Promise<CarPhoto[]> {
   let list = withPrimary(photos);
