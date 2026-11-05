@@ -1,3 +1,4 @@
+import { ensureFreshSession } from '../sessionKeeper';
 import { supabase } from '../supabase';
 
 /** A plain request rather than the Supabase client, which reports no upload progress. */
@@ -8,6 +9,8 @@ export async function uploadWithProgress(
   onProgress?: (percent: number) => void,
   upsert = true,
 ): Promise<string> {
+  // A plain request skips the client's own token check, so it's done here.
+  await ensureFreshSession().catch(() => undefined);
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not signed in');
 

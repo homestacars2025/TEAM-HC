@@ -9,9 +9,11 @@ import type { CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
 import Button from '../components/Button';
 import CarDatesSheet from '../components/cars/CarDatesSheet';
+import CarEditor from '../components/cars/CarEditor';
 import StatusArt from '../components/cars/StatusArt';
 import { ComplianceBanner, ComplianceCard, ComplianceFailed, ComplianceModal, ComplianceTriangle } from '../components/cars/Compliance';
 import { useCarCompliance } from '../hooks/useCarCompliance';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
 import type { CarCompliance, ComplianceField } from '../lib/carCompliance';
 
 // ─── Car Table Types ──────────────────────────────────────────────────────────
@@ -435,6 +437,15 @@ const CarsPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const linkedCar = params.get('car');
   const [highlighted, setHighlighted] = useState<number | null>(null);
+  const isAdmin = useCurrentUser().profile?.role === 'admin';
+  const [editing, setEditing] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   // A notification points at one car. The warning below comes first on any visit, so the
   // row waits for it: highlighted behind the dialog, nobody would see it.
@@ -833,13 +844,16 @@ const CarsPage: React.FC = () => {
                       </th>
                     );
                   })}
+                  <th className="hc-car-edit-cell" style={{ padding: '9px 14px', background: '#fff', borderBottom: '1.5px solid #f0f0f0' }}>
+                    <span className="sr-only">{t('columns.actions')}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {carsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 10 }).map((__, j) => (
+                      {Array.from({ length: 11 }).map((__, j) => (
                         <td key={j} style={{ padding: '12px 14px' }}>
                           <div style={{ height: 14, borderRadius: 6, background: '#f3f4f6', animation: 'pulse 1.5s ease-in-out infinite', width: j === 0 ? '80px' : j >= 7 ? '20px' : '60%', margin: j >= 7 ? '0 auto' : undefined }} />
                         </td>
@@ -875,7 +889,7 @@ const CarsPage: React.FC = () => {
                   if (filtered.length === 0) {
                     return (
                       <tr>
-                        <td colSpan={11} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
+                        <td colSpan={12} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
                           {carFilter !== 'all' && !tableSearch && !onlyIssues ? (
                             <div className="hc-car-empty">
                               <StatusArt name={carFilter} />
@@ -940,6 +954,12 @@ const CarsPage: React.FC = () => {
                           )}
                         </td>
                       ))}
+                      <td className="hc-car-edit-cell" style={{ padding: '8px 14px', textAlign: 'end' }}>
+                        <button type="button" className="hc-car-edit" aria-label={t('editor.editCar', { plate: car.plate_number })} onClick={() => setEditing(car.id)}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 00-3-3L5 17v3z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" /><path d="M13.5 8.5l3 3" stroke="currentColor" strokeWidth="1.9" /></svg>
+                          {t('editor.editButton')}
+                        </button>
+                      </td>
                     </tr>
                     );
                   });
@@ -978,6 +998,27 @@ const CarsPage: React.FC = () => {
 
       {complianceOpen && summary.severity && (
         <ComplianceModal summary={summary} onFix={setFixing} onClose={() => setComplianceOpen(false)} covered={!!fixing} />
+      )}
+      {editing !== null && (
+        <CarEditor
+          carId={editing}
+          isAdmin={isAdmin}
+          locale={numberLocale}
+          onClose={changed => {
+            setEditing(null);
+            if (changed) setRefreshKey(k => k + 1);
+          }}
+          onSaved={() => {
+            setEditing(null);
+            setToast(t('editor.saved'));
+            setRefreshKey(k => k + 1);
+            compliance.refresh();
+          }}
+        />
+      )}
+      {toast && ReactDOM.createPortal(
+        <div role="status" className="hc-toast-in fixed inset-x-3 bottom-6 z-[9400] mx-auto max-w-sm rounded-2xl bg-[#0f1117] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{toast}</div>,
+        document.body,
       )}
       {fixing && (
         <CarDatesSheet

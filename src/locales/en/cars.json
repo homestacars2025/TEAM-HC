@@ -61,7 +61,8 @@
     "ruhsat": "Ruhsat",
     "kasko": "Kasko",
     "insuranceExpiry": "Insurance expiry",
-    "inspectionExpiry": "Inspection expiry"
+    "inspectionExpiry": "Inspection expiry",
+    "actions": "Actions"
   },
   "modal": {
     "title": "Add New Car",
@@ -121,5 +122,98 @@
       "inspection": "Inspection expiry"
     },
     "saveFailed": "Couldn't save the date. Check your connection and try again."
+  },
+  "editor": {
+    "title": "Edit car",
+    "editCar": "Edit {{plate}}",
+    "loading": "Loading the car…",
+    "loadFailed": "This car couldn't be loaded.",
+    "locked": "Admin only",
+    "lockedHint": "Only an admin can change this.",
+    "sections": {
+      "info": "Car info",
+      "registration": "Registration",
+      "expiry": "Expiry dates",
+      "documents": "Documents",
+      "photos": "Photos"
+    },
+    "fields": {
+      "plate": "Plate number",
+      "model": "Model group",
+      "investor": "Investor",
+      "noInvestor": "No investor",
+      "selectModel": "Select a model group",
+      "year": "Manufacture year",
+      "yearPlaceholder": "e.g. 2023",
+      "package": "Car package",
+      "packagePlaceholder": "e.g. Premium",
+      "purchaseDate": "Purchase date",
+      "insurance": "Insurance",
+      "inspection": "Inspection",
+      "notSet": "Not set"
+    },
+    "errors": {
+      "plate": "Enter the plate number.",
+      "year": "Enter a year between 1980 and {{max}}.",
+      "save": "The changes weren't saved. Try again.",
+      "upload": "The upload failed. Try again.",
+      "remove": "The file wasn't removed. Try again.",
+      "photo": "That photo change didn't save. The list has been reloaded."
+    },
+    "expiry": {
+      "left_one": "{{count}} day left",
+      "left_other": "{{count}} days left",
+      "today": "Expires today",
+      "expired": "Expired",
+      "expiredAgo_one": "Expired {{count}} day ago",
+      "expiredAgo_other": "Expired {{count}} days ago",
+      "unset": "Not set"
+    },
+    "docs": {
+      "ruhsat": "Ruhsat",
+      "kasko": "Kasko",
+      "insurance": "Insurance file",
+      "contract": "Purchase contract",
+      "invoice": "Purchase invoice",
+      "uploaded": "Uploaded",
+      "missing": "Missing",
+      "view": "View",
+      "replace": "Replace",
+      "remove": "Remove",
+      "drop": "Drop a file or tap to upload",
+      "dropHere": "Drop to upload",
+      "types": "PDF or image",
+      "uploading": "Uploading… {{percent}}%",
+      "removeTitle": "Remove {{name}}?",
+      "removeBody": "The file is deleted right away.",
+      "pdf": "PDF",
+      "file": "File"
+    },
+    "photos": {
+      "count_one": "{{count}} photo",
+      "count_other": "{{count}} photos",
+      "add": "Add photos",
+      "drop": "Drop photos here or tap to add",
+      "hint": "Drag to reorder. The starred photo is the car's main photo.",
+      "primary": "Main photo",
+      "setPrimary": "Set as main photo",
+      "delete": "Delete photo",
+      "deleteTitle": "Delete this photo?",
+      "deleteBody": "It's removed from the car right away.",
+      "reorder": "Drag to reorder, or use the arrow keys",
+      "unavailable": "Image unavailable",
+      "empty": "No photos yet",
+      "uploading": "{{percent}}%",
+      "moved": "Photo moved to position {{position}}"
+    },
+    "discard": {
+      "title": "Discard changes?",
+      "body": "Your edits to this car haven't been saved.",
+      "keep": "Keep editing",
+      "discard": "Discard"
+    },
+    "save": "Save",
+    "saved": "Car saved",
+    "editButton": "Edit"
   }
 }

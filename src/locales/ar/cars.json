@@ -61,7 +61,8 @@
     "ruhsat": "الرخصة",
     "kasko": "كاسكو",
     "insuranceExpiry": "انتهاء التأمين",
-    "inspectionExpiry": "انتهاء الفحص"
+    "inspectionExpiry": "انتهاء الفحص",
+    "actions": "إجراءات"
   },
   "modal": {
     "title": "إضافة سيارة",
@@ -125,5 +126,110 @@
       "inspection": "انتهاء الفحص الدوري"
     },
     "saveFailed": "تعذّر حفظ التاريخ. تحقق من الاتصال وحاول مجدداً."
+  },
+  "editor": {
+    "title": "تعديل السيارة",
+    "editCar": "تعديل ⁦{{plate}}⁩",
+    "loading": "جارٍ تحميل السيارة…",
+    "loadFailed": "تعذّر تحميل هذه السيارة.",
+    "locked": "للمدير فقط",
+    "lockedHint": "لا يغيّر هذا إلا المدير.",
+    "sections": {
+      "info": "معلومات السيارة",
+      "registration": "التسجيل",
+      "expiry": "تواريخ الانتهاء",
+      "documents": "المستندات",
+      "photos": "الصور"
+    },
+    "fields": {
+      "plate": "رقم اللوحة",
+      "model": "مجموعة الموديل",
+      "investor": "المستثمر",
+      "noInvestor": "بدون مستثمر",
+      "selectModel": "اختر مجموعة الموديل",
+      "year": "سنة الصنع",
+      "yearPlaceholder": "مثلاً 2023",
+      "package": "فئة السيارة",
+      "packagePlaceholder": "مثلاً Premium",
+      "purchaseDate": "تاريخ الشراء",
+      "insurance": "التأمين",
+      "inspection": "الفحص",
+      "notSet": "غير محدد"
+    },
+    "errors": {
+      "plate": "أدخل رقم اللوحة.",
+      "year": "أدخل سنة بين 1980 و{{max}}.",
+      "save": "لم تُحفظ التغييرات. حاول مجدداً.",
+      "upload": "فشل الرفع. حاول مجدداً.",
+      "remove": "لم يُحذف الملف. حاول مجدداً.",
+      "photo": "لم يُحفظ تغيير الصورة. أُعيد تحميل القائمة."
+    },
+    "expiry": {
+      "left_zero": "{{count}} يوم متبقٍ",
+      "left_one": "يوم واحد متبقٍ",
+      "left_two": "يومان متبقيان",
+      "left_few": "{{count}} أيام متبقية",
+      "left_many": "{{count}} يوماً متبقياً",
+      "left_other": "{{count}} يوم متبقٍ",
+      "today": "ينتهي اليوم",
+      "expired": "منتهي",
+      "expiredAgo_zero": "انتهى منذ {{count}} يوم",
+      "expiredAgo_one": "انتهى منذ يوم",
+      "expiredAgo_two": "انتهى منذ يومين",
+      "expiredAgo_few": "انتهى منذ {{count}} أيام",
+      "expiredAgo_many": "انتهى منذ {{count}} يوماً",
+      "expiredAgo_other": "انتهى منذ {{count}} يوم",
+      "unset": "غير محدد"
+    },
+    "docs": {
+      "ruhsat": "الرخصة (Ruhsat)",
+      "kasko": "كاسكو",
+      "insurance": "ملف التأمين",
+      "contract": "عقد الشراء",
+      "invoice": "فاتورة الشراء",
+      "uploaded": "مرفوع",
+      "missing": "ناقص",
+      "view": "عرض",
+      "replace": "استبدال",
+      "remove": "إزالة",
+      "drop": "اسحب ملفاً هنا أو اضغط للرفع",
+      "dropHere": "أفلت للرفع",
+      "types": "PDF أو صورة",
+      "uploading": "جارٍ الرفع… {{percent}}%",
+      "removeTitle": "إزالة {{name}}؟",
+      "removeBody": "يُحذف الملف فوراً.",
+      "pdf": "PDF",
+      "file": "ملف"
+    },
+    "photos": {
+      "count_zero": "لا صور",
+      "count_one": "صورة واحدة",
+      "count_two": "صورتان",
+      "count_few": "{{count}} صور",
+      "count_many": "{{count}} صورة",
+      "count_other": "{{count}} صورة",
+      "add": "أضف صوراً",
+      "drop": "اسحب الصور هنا أو اضغط للإضافة",
+      "hint": "اسحب لتغيير الترتيب. الصورة المميّزة بالنجمة هي الصورة الرئيسية.",
+      "primary": "الصورة الرئيسية",
+      "setPrimary": "اجعلها الصورة الرئيسية",
+      "delete": "احذف الصورة",
+      "deleteTitle": "حذف هذه الصورة؟",
+      "deleteBody": "تُزال من السيارة فوراً.",
+      "reorder": "اسحب لتغيير الترتيب أو استخدم الأسهم",
+      "unavailable": "الصورة غير متاحة",
+      "empty": "لا توجد صور بعد",
+      "uploading": "{{percent}}%",
+      "moved": "نُقلت الصورة إلى الموضع {{position}}"
+    },
+    "discard": {
+      "title": "تجاهل التغييرات؟",
+      "body": "لم تُحفظ تعديلاتك على هذه السيارة.",
+      "keep": "متابعة التعديل",
+      "discard": "تجاهل"
+    },
+    "save": "حفظ",
+    "saved": "حُفظت السيارة",
+    "editButton": "تعديل"
   }
 }
