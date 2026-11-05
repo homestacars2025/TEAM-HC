@@ -64,25 +64,6 @@
     "inspectionExpiry": "انتهاء الفحص",
     "actions": "إجراءات"
   },
-  "modal": {
-    "title": "إضافة سيارة",
-    "subtitle": "سجّل مركبة جديدة في الأسطول",
-    "modelGroup": "فئة السيارة",
-    "selectModelGroup": "اختر فئة السيارة",
-    "plateNumber": "رقم اللوحة",
-    "platePlaceholder": "34 ABC 123",
-    "investor": "المستثمر",
-    "selectInvestor": "اختر المستثمر",
-    "loading": "جارٍ التحميل…",
-    "cancel": "إلغاء",
-    "creating": "جارٍ الإضافة…",
-    "create": "إضافة السيارة",
-    "errors": {
-      "modelGroup": "اختر فئة السيارة.",
-      "plate": "رقم اللوحة مطلوب.",
-      "investor": "اختر المستثمر."
-    }
-  },
   "compliance": {
     "title": "تنبيه مهم: سيارات بدون تأمين أو فحص صالح",
     "explain": "يجب عدم تأجير هذه السيارات حتى تُصحَّح بياناتها.",
@@ -144,17 +125,13 @@
     "fields": {
       "plate": "رقم اللوحة",
       "model": "مجموعة الموديل",
-      "investor": "المستثمر",
-      "noInvestor": "بدون مستثمر",
       "selectModel": "اختر مجموعة الموديل",
       "year": "سنة الصنع",
       "yearPlaceholder": "مثلاً 2023",
       "package": "فئة السيارة",
       "packagePlaceholder": "مثلاً Premium",
-      "purchaseDate": "تاريخ الشراء",
       "insurance": "التأمين",
-      "inspection": "الفحص",
-      "notSet": "غير محدد"
+      "inspection": "الفحص"
     },
     "errors": {
       "plate": "أدخل رقم اللوحة.",
@@ -185,8 +162,6 @@
       "ruhsat": "الرخصة (Ruhsat)",
       "kasko": "كاسكو",
       "insurance": "ملف التأمين",
-      "contract": "عقد الشراء",
-      "invoice": "فاتورة الشراء",
       "uploaded": "مرفوع",
       "missing": "ناقص",
       "view": "عرض",
@@ -243,7 +218,6 @@
     "unsaved_two": "تغييران غير محفوظين",
     "unsaved_few": "{{count}} تغييرات غير محفوظة",
     "unsaved_many": "{{count}} تغييراً غير محفوظ",
-    "unsaved_other": "{{count}} تغيير غير محفوظ",
-    "investorLine": "المستثمر · {{name}}"
+    "unsaved_other": "{{count}} تغيير غير محفوظ"
   }
 }

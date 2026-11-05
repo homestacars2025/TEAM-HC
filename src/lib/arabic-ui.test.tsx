@@ -122,11 +122,11 @@ describe('every key the Cars page asks for exists in both languages', () => {
     'cards.maintenance.label', 'cards.maintenance.description',
     'cards.selling.label', 'cards.selling.description',
     'cards.replacement.label', 'cards.replacement.description',
-    // The dialog has no trigger in the UI yet, so nothing else would catch these.
-    'modal.title', 'modal.subtitle', 'modal.modelGroup', 'modal.selectModelGroup',
-    'modal.plateNumber', 'modal.platePlaceholder', 'modal.investor', 'modal.selectInvestor',
-    'modal.loading', 'modal.cancel', 'modal.creating', 'modal.create',
-    'modal.errors.modelGroup', 'modal.errors.plate', 'modal.errors.investor',
+    'editor.title', 'editor.save', 'editor.saved', 'editor.editButton', 'editor.locked',
+    'editor.sections.info', 'editor.sections.registration', 'editor.sections.expiry', 'editor.sections.documents', 'editor.sections.photos',
+    'editor.fields.plate', 'editor.fields.model', 'editor.fields.year', 'editor.fields.package', 'editor.fields.insurance', 'editor.fields.inspection',
+    'editor.docs.ruhsat', 'editor.docs.kasko', 'editor.docs.insurance', 'editor.docs.uploaded', 'editor.docs.missing',
+    'editor.discard.title', 'editor.discard.keep', 'editor.discard.discard',
   ];
 
   test.each(['en', 'ar'])('%s has every Cars key', async (lng) => {
@@ -138,8 +138,7 @@ describe('every key the Cars page asks for exists in both languages', () => {
   test('Arabic is actually Arabic, not an English fallback', async () => {
     await i18n.changeLanguage('ar');
     const arabic = /[؀-ۿ]/;
-    // The plate placeholder is a Latin plate format on purpose, so it is exempt.
-    const translated = KEYS.filter(k => k !== 'modal.platePlaceholder');
+    const translated = KEYS;
     const untranslated = translated.filter(k => !arabic.test(i18n.t(`cars:${k}`) as string));
     expect(untranslated).toEqual([]);
   });

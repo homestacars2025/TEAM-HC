@@ -4794,7 +4794,6 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-ce-head h2 { font-size: 18px; font-weight: 650; letter-spacing: -0.3px; color: #0f1117; }
 .hc-ce-head-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .hc-ce-head-title .hc-plate-number { font-size: 14px; }
-.hc-ce-head-investor { margin-top: 4px; color: #6b7280; font-size: 13px; font-weight: 500; }
 
 .hc-ce-close {
   display: flex;

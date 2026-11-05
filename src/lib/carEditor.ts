@@ -3,24 +3,24 @@
  * them: where each file lives, which photo is the car's face, how near an expiry is.
  */
 
-export type DocKey = 'ruhsat' | 'kasko' | 'insurance' | 'contract' | 'invoice';
+/**
+ * The papers a branch works with. The purchase contract and invoice belong to Admin
+ * alone: Team never reads them, so they aren't here at all.
+ */
+export type DocKey = 'ruhsat' | 'kasko' | 'insurance';
 
 export interface DocSpec {
   key: DocKey;
   /** The `cars_registration` column holding the public URL. */
-  column: 'ruhsat_url' | 'kasko' | 'insurance_file_url' | 'purchase_contract_url' | 'purchase_invoice_url';
+  column: 'ruhsat_url' | 'kasko' | 'insurance_file_url';
   /** The file name in the `doc` bucket is `<prefix>-<PLATE>`, as Admin has always written it. */
-  prefix: 'R' | 'K' | 'T' | 'S' | 'F';
-  /** Staff may change it in Team. The purchase papers stay with Admin. */
-  staffEditable: boolean;
+  prefix: 'R' | 'K' | 'T';
 }
 
 export const DOCS: readonly DocSpec[] = [
-  { key: 'ruhsat', column: 'ruhsat_url', prefix: 'R', staffEditable: true },
-  { key: 'kasko', column: 'kasko', prefix: 'K', staffEditable: true },
-  { key: 'insurance', column: 'insurance_file_url', prefix: 'T', staffEditable: true },
-  { key: 'contract', column: 'purchase_contract_url', prefix: 'S', staffEditable: false },
-  { key: 'invoice', column: 'purchase_invoice_url', prefix: 'F', staffEditable: false },
+  { key: 'ruhsat', column: 'ruhsat_url', prefix: 'R' },
+  { key: 'kasko', column: 'kasko', prefix: 'K' },
+  { key: 'insurance', column: 'insurance_file_url', prefix: 'T' },
 ];
 
 export const DOC_BUCKET = 'doc';

@@ -7,7 +7,6 @@ import { useTileFilter } from '../hooks/useTileFilter';
 import { useUrlSearch } from '../hooks/useUrlSearch';
 import type { CarStatus, CarStatusCounts } from '../types';
 import AlertSection from '../components/AlertSection';
-import Button from '../components/Button';
 import CarDatesSheet from '../components/cars/CarDatesSheet';
 import CarEditor from '../components/cars/CarEditor';
 import StatusArt from '../components/cars/StatusArt';
@@ -25,8 +24,6 @@ interface CarTableRow {
   current_km: number | string;
   year: number | string;
   status: string;
-  contract_url:  string | null;
-  invoice_url:   string | null;
   insurance_url: string | null;
   ruhsat_url:    string | null;
   kasko_url:     string | null;
@@ -192,217 +189,6 @@ const SkeletonCard: React.FC = () => (
   </div>
 );
 
-// ─── Add Car Modal ────────────────────────────────────────────────────────────
-
-interface ModelGroupOption { id: number; name: string; }
-interface InvestorOption   { id: number; full_name: string; }
-
-const AddCarModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ onClose, onAdded }) => {
-  const { t } = useTranslation('cars');
-  const [modelGroups, setModelGroups]   = useState<ModelGroupOption[]>([]);
-  const [investors,   setInvestors]     = useState<InvestorOption[]>([]);
-  const [loadingData, setLoadingData]   = useState(true);
-
-  const [modelGroupId, setModelGroupId] = useState('');
-  const [plate,        setPlate]        = useState('');
-  const [investorId,   setInvestorId]   = useState('');
-  const [saving,       setSaving]       = useState(false);
-  const [formError,    setFormError]    = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [mgRes, invRes] = await Promise.all([
-        supabase.from('model_group').select('id, name').order('name'),
-        supabase.from('investors').select('id, profiles!fk_investor_profile(full_name)'),
-      ]);
-      if (cancelled) return;
-      setModelGroups((mgRes.data ?? []) as ModelGroupOption[]);
-      const raw = (invRes.data ?? []) as unknown as { id: number; profiles: { full_name: string } | null }[];
-      setInvestors(raw.map(r => ({ id: r.id, full_name: r.profiles?.full_name ?? '—' })));
-      setLoadingData(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleSubmit = async () => {
-    setFormError(null);
-    if (!modelGroupId) { setFormError(t('modal.errors.modelGroup')); return; }
-    if (!plate.trim()) { setFormError(t('modal.errors.plate')); return; }
-    if (!investorId)   { setFormError(t('modal.errors.investor')); return; }
-
-    setSaving(true);
-    const { error } = await supabase.from('cars').insert({
-      plate_number:    plate.trim().toUpperCase(),
-      model_group_id:  Number(modelGroupId),
-      investor_id:     Number(investorId),
-    });
-    setSaving(false);
-
-    if (error) { setFormError(error.message); return; }
-    onAdded();
-    onClose();
-  };
-
-  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 12, fontWeight: 600,
-    color: '#374151', marginBottom: 5, letterSpacing: '0.1px',
-  };
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', fontSize: 14,
-    border: '1.5px solid #e5e7eb', borderRadius: 9, outline: 'none',
-    color: '#0f1117', background: '#fff', boxSizing: 'border-box',
-    fontFamily: 'inherit', appearance: 'none',
-  };
-  const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' };
-
-  return ReactDOM.createPortal(
-    <div
-      onClick={handleBackdrop}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15,17,23,0.45)', backdropFilter: 'blur(3px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-        animation: 'fadeIn 160ms ease',
-      }}
-    >
-      <div className="surface-depth surface-float" style={{
-        background: '#fff', borderRadius: 16, width: '100%', maxWidth: 460,
-        boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
-        animation: 'slideUp 200ms ease',
-        overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '22px 24px 18px',
-          borderBottom: '1px solid #f0f0f0',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f1117', letterSpacing: '-0.3px' }}>
-              {t('modal.title')}
-            </div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-              {t('modal.subtitle')}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 30, height: 30, borderRadius: 8, border: '1px solid #e5e7eb',
-              background: '#fff', cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Model Group */}
-          <div>
-            <label style={labelStyle}>{t('modal.modelGroup')} <span style={{ color: '#ef4444' }}>*</span></label>
-            <select
-              value={modelGroupId}
-              onChange={e => setModelGroupId(e.target.value)}
-              disabled={loadingData}
-              style={selectStyle}
-            >
-              <option value="">
-                {loadingData ? t('modal.loading') : t('modal.selectModelGroup')}
-              </option>
-              {modelGroups.map(mg => (
-                <option key={mg.id} value={String(mg.id)}>{mg.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Plate Number */}
-          <div>
-            <label style={labelStyle}>{t('modal.plateNumber')} <span style={{ color: '#ef4444' }}>*</span></label>
-            <input
-              type="text"
-              placeholder={t('modal.platePlaceholder')}
-              value={plate}
-              onChange={e => setPlate(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Investor */}
-          <div>
-            <label style={labelStyle}>{t('modal.investor')} <span style={{ color: '#ef4444' }}>*</span></label>
-            <select
-              value={investorId}
-              onChange={e => setInvestorId(e.target.value)}
-              disabled={loadingData}
-              style={selectStyle}
-            >
-              <option value="">
-                {loadingData ? t('modal.loading') : t('modal.selectInvestor')}
-              </option>
-              {investors.map(inv => (
-                <option key={inv.id} value={String(inv.id)}>{inv.full_name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Error */}
-          {formError && (
-            <div style={{
-              display: 'flex', alignItems: 'flex-start', gap: 8,
-              background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
-              borderRadius: 9, padding: '10px 12px',
-            }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
-                <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <span style={{ fontSize: 13, color: '#dc2626' }}>{formError}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid #f0f0f0',
-          display: 'flex', gap: 10, justifyContent: 'flex-end',
-        }}>
-          <Button variant="secondary"
-            onClick={onClose}
-          >
-            {t('modal.cancel')}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={saving || loadingData}
-          >
-            {saving && (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.6s linear infinite' }}>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="28 56" />
-              </svg>
-            )}
-            {saving ? t('modal.creating') : t('modal.create')}
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const CarsPage: React.FC = () => {
@@ -417,7 +203,6 @@ const CarsPage: React.FC = () => {
   const [counts, setCounts]         = useState<CarStatusCounts | null>(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [showAddCar, setShowAddCar] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [cars, setCars]             = useState<CarTableRow[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
@@ -546,7 +331,7 @@ const CarsPage: React.FC = () => {
       const [carsRes, trackingRes, registrationsRes, availabilityRes, modelGroupsRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true).order('id', { ascending: false }),
         supabase.from('car_tracking').select('car_id, current_km, updated_at').order('updated_at', { ascending: false }),
-        supabase.from('cars_registration').select('car_id, manufacture_year, purchase_contract_url, purchase_invoice_url, insurance_file_url, ruhsat_url, kasko'),
+        supabase.from('cars_registration').select('car_id, manufacture_year, insurance_file_url, ruhsat_url, kasko'),
         supabase.from('car_availability').select('id, status'),
         supabase.from('model_group').select('id, name'),
       ]);
@@ -554,7 +339,7 @@ const CarsPage: React.FC = () => {
 
       const rawCars        = (carsRes.data         ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
       const rawTracking    = (trackingRes.data      ?? []) as { car_id: number; current_km: number; updated_at: string }[];
-      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; purchase_contract_url: string | null; purchase_invoice_url: string | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null }[];
+      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null }[];
       const rawAvailability= (availabilityRes.data  ?? []) as { id: number; status: string }[];
       const rawModels      = (modelGroupsRes.data   ?? []) as { id: number; name: string }[];
 
@@ -575,8 +360,6 @@ const CarsPage: React.FC = () => {
           current_km:    latestTracking.find(t => t.car_id === car.id)?.current_km ?? '—',
           year:          reg?.manufacture_year ?? '—',
           status:        rawAvailability.find(a => a.id === car.id)?.status ?? '—',
-          contract_url:  reg?.purchase_contract_url ?? null,
-          invoice_url:   reg?.purchase_invoice_url ?? null,
           insurance_url: reg?.insurance_file_url ?? null,
           ruhsat_url:    reg?.ruhsat_url ?? null,
           kasko_url:     reg?.kasko ?? null,
@@ -988,13 +771,6 @@ const CarsPage: React.FC = () => {
           to { transform: rotate(360deg); }
         }
       `}</style>
-
-      {showAddCar && (
-        <AddCarModal
-          onClose={() => setShowAddCar(false)}
-          onAdded={() => { setRefreshKey(k => k + 1); compliance.refresh(); }}
-        />
-      )}
 
       {complianceOpen && summary.severity && (
         <ComplianceModal summary={summary} onFix={setFixing} onClose={() => setComplianceOpen(false)} covered={!!fixing} />

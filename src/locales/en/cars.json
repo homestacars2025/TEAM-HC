@@ -64,25 +64,6 @@
     "inspectionExpiry": "Inspection expiry",
     "actions": "Actions"
   },
-  "modal": {
-    "title": "Add New Car",
-    "subtitle": "Register a new vehicle in the fleet",
-    "modelGroup": "Model Group",
-    "selectModelGroup": "Select model group",
-    "plateNumber": "Plate Number",
-    "platePlaceholder": "34 ABC 123",
-    "investor": "Investor",
-    "selectInvestor": "Select investor",
-    "loading": "Loading…",
-    "cancel": "Cancel",
-    "creating": "Creating…",
-    "create": "Create Car",
-    "errors": {
-      "modelGroup": "Please select a model group.",
-      "plate": "Plate number is required.",
-      "investor": "Please select an investor."
-    }
-  },
   "compliance": {
     "title": "Critical: cars without valid insurance or inspection",
     "explain": "These cars must not be rented until this is fixed.",
@@ -140,17 +121,13 @@
     "fields": {
       "plate": "Plate number",
       "model": "Model group",
-      "investor": "Investor",
-      "noInvestor": "No investor",
       "selectModel": "Select a model group",
       "year": "Manufacture year",
       "yearPlaceholder": "e.g. 2023",
       "package": "Car package",
       "packagePlaceholder": "e.g. Premium",
-      "purchaseDate": "Purchase date",
       "insurance": "Insurance",
-      "inspection": "Inspection",
-      "notSet": "Not set"
+      "inspection": "Inspection"
     },
     "errors": {
       "plate": "Enter the plate number.",
@@ -173,8 +150,6 @@
       "ruhsat": "Ruhsat",
       "kasko": "Kasko",
       "insurance": "Insurance file",
-      "contract": "Purchase contract",
-      "invoice": "Purchase invoice",
       "uploaded": "Uploaded",
       "missing": "Missing",
       "view": "View",
@@ -223,7 +198,6 @@
     "editButton": "Edit",
     "filesHint": "Files and photos save as you add them.",
     "unsaved_one": "{{count}} unsaved change",
-    "unsaved_other": "{{count}} unsaved changes",
-    "investorLine": "Investor · {{name}}"
+    "unsaved_other": "{{count}} unsaved changes"
   }
 }

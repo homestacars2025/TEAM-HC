@@ -340,23 +340,19 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, uploads, onAdd, onPrimary
 interface Fields {
   plate: string;
   modelGroupId: string;
-  investorId: string;
   year: string;
   carPackage: string;
   insurance: string;
   inspection: string;
-  purchaseDate: string;
 }
 
 const fieldsOf = (data: CarEditorData): Fields => ({
   plate: data.plate,
   modelGroupId: data.modelGroupId != null ? String(data.modelGroupId) : '',
-  investorId: data.investorId != null ? String(data.investorId) : '',
   year: data.registration.manufacture_year != null ? String(data.registration.manufacture_year) : '',
   carPackage: data.registration.car_package ?? '',
   insurance: data.registration.insurance_expiry ?? '',
   inspection: data.registration.inspection_expiry ?? '',
-  purchaseDate: data.registration.purchase_date ?? '',
 });
 
 /** What Save would write. A date counts only once it's whole, so half a date never wipes one. */
@@ -368,8 +364,6 @@ export function changeOf(data: CarEditorData, fields: Fields, isAdmin: boolean):
     const plate = fields.plate.trim().toUpperCase();
     if (plate !== start.plate) car.plate_number = plate;
     if (fields.modelGroupId !== start.modelGroupId) car.model_group_id = fields.modelGroupId ? Number(fields.modelGroupId) : null;
-    if (fields.investorId !== start.investorId) car.investor_id = fields.investorId ? Number(fields.investorId) : null;
-    if (fields.purchaseDate && fields.purchaseDate !== start.purchaseDate) registration.purchase_date = fields.purchaseDate;
   }
   if (fields.year.trim() !== start.year) registration.manufacture_year = fields.year.trim() ? Number(fields.year.trim()) : null;
   if (fields.carPackage.trim() !== start.carPackage) registration.car_package = fields.carPackage.trim() || null;
@@ -388,7 +382,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [fields, setFields] = useState<Fields | null>(null);
-  const [docs, setDocs] = useState<Record<DocKey, string | null>>({ ruhsat: null, kasko: null, insurance: null, contract: null, invoice: null });
+  const [docs, setDocs] = useState<Record<DocKey, string | null>>({ ruhsat: null, kasko: null, insurance: null });
   const [docProgress, setDocProgress] = useState<Partial<Record<DocKey, number>>>({});
   const [docErrors, setDocErrors] = useState<Partial<Record<DocKey, string>>>({});
   const [photos, setPhotos] = useState<CarPhoto[]>([]);
@@ -408,7 +402,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
   useEffect(() => {
     let active = true;
     setLoadFailed(false);
-    getCarEditor(carId, isAdmin)
+    getCarEditor(carId)
       .then(found => {
         if (!active) return;
         setData(found);
@@ -419,7 +413,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
       })
       .catch(() => { if (active) setLoadFailed(true); });
     return () => { active = false; };
-  }, [carId, isAdmin, attempt]);
+  }, [carId, attempt]);
 
   useEffect(() => { sheet.current?.focus(); }, []);
 
@@ -508,7 +502,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
   const showPhotos = (next: CarPhoto[]) => { photosRef.current = next; setPhotos(next); };
 
   const reloadPhotos = async () => {
-    try { showPhotos((await getCarEditor(carId, isAdmin)).photos); } catch { /* keeps what's shown */ }
+    try { showPhotos((await getCarEditor(carId)).photos); } catch { /* keeps what's shown */ }
   };
 
   const enqueue = (work: () => Promise<void>) => {
@@ -577,7 +571,6 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
 
   // ── Drawing ──
   const modelName = data?.modelGroups.find(group => String(group.id) === fields?.modelGroupId)?.name;
-  const investorName = isAdmin ? data?.investors.find(investor => String(investor.id) === fields?.investorId)?.name : undefined;
   const confirmText = confirm?.kind === 'doc'
     ? { title: t('editor.docs.removeTitle', { name: t(`editor.docs.${confirm.key}`) }), body: t('editor.docs.removeBody'), keep: tc('actions.cancel'), go: t('editor.docs.remove') }
     : confirm?.kind === 'photo'
@@ -614,7 +607,6 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
               <h2 id={titleId} dir="auto">{data ? modelName ?? t('editor.title') : t('editor.title')}</h2>
               {data && <PlateChip plate={data.plate} />}
             </div>
-            {investorName && <p dir="auto" className="hc-ce-head-investor">{t('editor.investorLine', { name: investorName })}</p>}
           </div>
           <button type="button" className="hc-ce-close" aria-label={tc('actions.close')} onClick={requestClose} disabled={uploading || saving}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
@@ -649,20 +641,11 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                       </select>
                     </label>
                   ) : <LockedField label={t('editor.fields.model')} value={<span dir="auto">{modelName ?? '—'}</span>} />}
-                  {isAdmin && (
-                    <label className="hc-ce-field">
-                      <span className="hc-field-label">{t('editor.fields.investor')}</span>
-                      <select className="hc-input" value={fields.investorId} onChange={e => set('investorId')(e.target.value)}>
-                        <option value="">{t('editor.fields.noInvestor')}</option>
-                        {data.investors.map(investor => <option key={investor.id} value={String(investor.id)}>{investor.name}</option>)}
-                      </select>
-                    </label>
-                  )}
                 </div>
               </Section>
 
               <Section name="registration" title={t('editor.sections.registration')}>
-                <div className="hc-ce-grid is-three">
+                <div className="hc-ce-grid">
                   <label className="hc-ce-field">
                     <span className="hc-field-label">{t('editor.fields.year')}</span>
                     <input dir="ltr" inputMode="numeric" maxLength={4} className={`hc-input ${yearInvalid ? 'is-invalid' : ''}`} placeholder={t('editor.fields.yearPlaceholder')} value={fields.year} onChange={e => set('year')(e.target.value.replace(/\D/g, ''))} aria-invalid={yearInvalid} />
@@ -672,19 +655,6 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                     <span className="hc-field-label">{t('editor.fields.package')}</span>
                     <input dir="auto" className="hc-input" placeholder={t('editor.fields.packagePlaceholder')} value={fields.carPackage} onChange={e => set('carPackage')(e.target.value)} />
                   </label>
-                  {isAdmin ? (
-                    <div className="hc-ce-field" role="group" aria-label={t('editor.fields.purchaseDate')}>
-                      <span className="hc-field-label">{t('editor.fields.purchaseDate')}</span>
-                      <DateParts label={t('editor.fields.purchaseDate')} locale={locale} value={fields.purchaseDate} onChange={set('purchaseDate')} />
-                    </div>
-                  ) : (
-                    <LockedField
-                      label={t('editor.fields.purchaseDate')}
-                      value={data.registration.purchase_date
-                        ? new Date(`${data.registration.purchase_date}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-                        : t('editor.fields.notSet')}
-                    />
-                  )}
                 </div>
               </Section>
 
@@ -702,7 +672,7 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                       key={spec.key}
                       spec={spec}
                       url={docs[spec.key]}
-                      editable={isAdmin || spec.staffEditable}
+                      editable
                       progress={docProgress[spec.key] ?? null}
                       error={docErrors[spec.key] ?? null}
                       onFile={file => uploadDoc(spec, file)}

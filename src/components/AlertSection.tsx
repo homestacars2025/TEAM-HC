@@ -317,7 +317,8 @@ const AlertSection: React.FC<AlertSectionProps> = ({ viewName, title, icon, acce
       const { data: viewData, error: viewError } = await (
         viewName === 'upcoming_returns'
           ? baseQuery.select('car_id, plate_number, end_date, days_left').order('end_date', { ascending: true }).limit(100)
-          : baseQuery.select('*').limit(100)
+          // Named columns, so a view that later gains one never brings it here.
+          : baseQuery.select('car_id, plate_number, model_group_name, target_date, days_left').limit(100)
       );
 
       if (cancelled) return;

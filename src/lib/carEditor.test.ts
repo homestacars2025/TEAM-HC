@@ -30,16 +30,9 @@ describe('expiry chip', () => {
 });
 
 describe('documents', () => {
-  it('keeps the paths Admin has always used', () => {
-    expect(DOCS.map(doc => `${doc.key}:${doc.prefix}:${doc.column}`)).toEqual([
-      'ruhsat:R:ruhsat_url', 'kasko:K:kasko', 'insurance:T:insurance_file_url',
-      'contract:S:purchase_contract_url', 'invoice:F:purchase_invoice_url',
-    ]);
+  it('keeps the paths Admin has always used, and only the branch papers', () => {
+    expect(DOCS.map(doc => `${doc.key}:${doc.prefix}:${doc.column}`)).toEqual(['ruhsat:R:ruhsat_url', 'kasko:K:kasko', 'insurance:T:insurance_file_url']);
     expect(docPath(DOCS[0], ' 34abc123 ')).toBe('R-34ABC123');
-  });
-
-  it('lets staff change Ruhsat, Kasko and the insurance file, never the purchase papers', () => {
-    expect(DOCS.filter(doc => doc.staffEditable).map(doc => doc.key)).toEqual(['ruhsat', 'kasko', 'insurance']);
   });
 
   it('finds the object behind a versioned, encoded URL', () => {
@@ -114,11 +107,23 @@ describe('photos', () => {
   });
 });
 
-describe('staff privacy', () => {
-  const source = readFileSync(join(__dirname, 'queries/carEditor.ts'), 'utf8');
+describe('no investors or purchase papers in Team', () => {
+  const read = (file: string) => readFileSync(join(__dirname, file), 'utf8');
+  const sources = ['queries/carEditor.ts', '../pages/CarsPage.tsx', '../components/cars/CarEditor.tsx', '../components/AlertSection.tsx', 'queries/carCompliance.ts']
+    .map(file => [file, read(file)] as const);
 
-  it('reads the investor only for admins', () => {
-    expect(source).toMatch(/isAdmin \? 'id, plate_number, model_group_id, investor_id, car_photo_urls' : 'id, plate_number, model_group_id, car_photo_urls'/);
-    expect(source).toMatch(/isAdmin \? supabase\.from\('investors'\)/);
+  it.each(sources)('%s never names them', (_file, source) => {
+    expect(source).not.toMatch(/investor|purchase_contract_url|purchase_invoice_url|purchase_date|purchaseDate/i);
+  });
+
+  it('reads the car and its registration by named columns only', () => {
+    const source = read('queries/carEditor.ts');
+    expect(source).toMatch(/CAR_COLUMNS = 'id, plate_number, model_group_id, car_photo_urls'/);
+    expect(source).toMatch(/REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, ruhsat_url, kasko, insurance_file_url'/);
+    expect(source).not.toMatch(/select\('\*'\)/);
+  });
+
+  it('never selects everything from a Cars page view', () => {
+    expect(read('../components/AlertSection.tsx')).not.toMatch(/select\('\*'\)/);
   });
 });

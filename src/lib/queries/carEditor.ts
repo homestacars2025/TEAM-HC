@@ -2,67 +2,61 @@ import { supabase } from '../supabase';
 import { compressImage, DOC_BUCKET, docPath, mirrorOf, PHOTO_BUCKET, photoPath, storagePath, versioned, withPrimary, type CarPhoto, type DocSpec, type LegacyPhoto, type PhotoRow, mergePhotos } from '../carEditor';
 import { uploadWithProgress } from './storageUpload';
 
+/**
+ * Everything Team reads about a car, by name. Who owns a car and what it was bought
+ * for stay in Admin, so none of those columns are selected here, for staff or admins.
+ */
 export interface CarRegistration {
   manufacture_year: number | null;
   car_package: string | null;
   insurance_expiry: string | null;
   inspection_expiry: string | null;
-  purchase_date: string | null;
   ruhsat_url: string | null;
   kasko: string | null;
   insurance_file_url: string | null;
-  purchase_contract_url: string | null;
-  purchase_invoice_url: string | null;
 }
 
 export interface CarEditorData {
   id: number;
   plate: string;
   modelGroupId: number | null;
-  /** Only read for admins. Staff never learn who owns a car. */
-  investorId: number | null;
   registration: CarRegistration;
   photos: CarPhoto[];
   modelGroups: { id: number; name: string }[];
-  investors: { id: number; name: string }[];
 }
 
-const REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, purchase_date, ruhsat_url, kasko, insurance_file_url, purchase_contract_url, purchase_invoice_url';
+export const CAR_COLUMNS = 'id, plate_number, model_group_id, car_photo_urls';
+export const REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, ruhsat_url, kasko, insurance_file_url';
 
 const EMPTY_REGISTRATION: CarRegistration = {
-  manufacture_year: null, car_package: null, insurance_expiry: null, inspection_expiry: null, purchase_date: null,
-  ruhsat_url: null, kasko: null, insurance_file_url: null, purchase_contract_url: null, purchase_invoice_url: null,
+  manufacture_year: null, car_package: null, insurance_expiry: null, inspection_expiry: null,
+  ruhsat_url: null, kasko: null, insurance_file_url: null,
 };
 
-export async function getCarEditor(carId: number, isAdmin: boolean): Promise<CarEditorData> {
-  const [car, registration, photos, groups, investors] = await Promise.all([
-    supabase.from('cars').select(isAdmin ? 'id, plate_number, model_group_id, investor_id, car_photo_urls' : 'id, plate_number, model_group_id, car_photo_urls').eq('id', carId).single(),
+export async function getCarEditor(carId: number): Promise<CarEditorData> {
+  const [car, registration, photos, groups] = await Promise.all([
+    supabase.from('cars').select(CAR_COLUMNS).eq('id', carId).single(),
     supabase.from('cars_registration').select(REGISTRATION_COLUMNS).eq('car_id', carId).maybeSingle(),
     supabase.from('car_photos').select('id, file_path, is_primary, sort_order, created_at').eq('car_id', carId),
     supabase.from('model_group').select('id, name').order('name'),
-    isAdmin ? supabase.from('investors').select('id, profiles!fk_investor_profile(full_name)') : Promise.resolve({ data: [], error: null }),
   ]);
-  const failure = car.error ?? registration.error ?? photos.error ?? groups.error ?? investors.error;
+  const failure = car.error ?? registration.error ?? photos.error ?? groups.error;
   if (failure) throw failure;
 
-  const row = car.data as unknown as { id: number; plate_number: string; model_group_id: number | null; investor_id?: number | null; car_photo_urls: LegacyPhoto[] | null };
+  const row = car.data as unknown as { id: number; plate_number: string; model_group_id: number | null; car_photo_urls: LegacyPhoto[] | null };
   return {
     id: row.id,
     plate: row.plate_number ?? '',
     modelGroupId: row.model_group_id,
-    investorId: isAdmin ? row.investor_id ?? null : null,
     registration: { ...EMPTY_REGISTRATION, ...(registration.data as Partial<CarRegistration> | null) },
     photos: mergePhotos((photos.data ?? []) as PhotoRow[], Array.isArray(row.car_photo_urls) ? row.car_photo_urls : null),
     modelGroups: ((groups.data ?? []) as { id: number; name: string }[]).map(group => ({ id: group.id, name: group.name.replace(/\s+/g, ' ').trim() })),
-    investors: ((investors.data ?? []) as unknown as { id: number; profiles: { full_name: string | null } | null }[])
-      .map(investor => ({ id: investor.id, name: investor.profiles?.full_name ?? '—' }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
 
 export interface CarFieldsChange {
-  car?: { plate_number?: string; model_group_id?: number | null; investor_id?: number | null };
-  registration?: Partial<Pick<CarRegistration, 'manufacture_year' | 'car_package' | 'insurance_expiry' | 'inspection_expiry' | 'purchase_date'>>;
+  car?: { plate_number?: string; model_group_id?: number | null };
+  registration?: Partial<Pick<CarRegistration, 'manufacture_year' | 'car_package' | 'insurance_expiry' | 'inspection_expiry'>>;
 }
 
 /** Only what changed is sent, so a field this person can't edit is never written. */
