@@ -40,11 +40,6 @@ export const inPeriod = (row: Pick<HgsTransit, 'transit_datetime'>, month: strin
 
 const byPlate = (a: { plate: string }, b: { plate: string }) => a.plate.localeCompare(b.plate, 'en', { numeric: true });
 
-/** Active cars with no tag: their tolls reach nobody. */
-export function missingHgs(cars: readonly HgsCar[]): HgsCar[] {
-  return cars.filter(car => !hasBarcode(car.barcode)).sort(byPlate);
-}
-
 /** Ten digits, as every barcode on the fleet is. */
 export function barcodeProblem(value: string): 'empty' | 'format' | null {
   const text = value.replace(/\s/g, '');
@@ -64,19 +59,20 @@ export interface HgsRow {
   last: string | null;
   /** Of the period's spend, 0 to 1. */
   share: number;
+  /** One of today's active cars, as opposed to one that only shows up through its transits. */
+  active: boolean;
 }
 
 /**
- * Every car on HGS, idle ones too, and any car with transits in the period that
- * isn't one (sold since, or its tag taken off), so the rows add up to the total.
- * `transits` is already narrowed to the period.
+ * Every active car, idle ones and ones with no barcode too, and any car with transits in
+ * the period that isn't active any more, so the rows add up to the total. `transits` is
+ * already narrowed to the period.
  */
 export function hgsRows(cars: readonly HgsCar[], transits: readonly HgsTransit[]): HgsRow[] {
   const rows = new Map<string, HgsRow>();
   const keyFor = (carId: number | null, plate: string | null) => (carId !== null ? `car:${carId}` : `plate:${(plate ?? '').replace(/\s/g, '')}`);
   for (const car of cars) {
-    if (!hasBarcode(car.barcode)) continue;
-    rows.set(keyFor(car.id, null), { key: keyFor(car.id, null), carId: car.id, plate: car.plate, model: car.model, barcode: car.barcode?.trim() ?? null, transits: 0, amount: 0, last: null, share: 0 });
+    rows.set(keyFor(car.id, null), { key: keyFor(car.id, null), carId: car.id, plate: car.plate, model: car.model, barcode: hasBarcode(car.barcode) ? car.barcode!.trim() : null, transits: 0, amount: 0, last: null, share: 0, active: true });
   }
   let total = 0;
   for (const transit of transits) {
@@ -84,7 +80,7 @@ export function hgsRows(cars: readonly HgsCar[], transits: readonly HgsTransit[]
     let row = rows.get(key);
     if (!row) {
       const car = cars.find(c => c.id === transit.car_id);
-      row = { key, carId: transit.car_id, plate: car?.plate ?? transit.plate_number ?? '—', model: car?.model ?? null, barcode: car && hasBarcode(car.barcode) ? car.barcode!.trim() : null, transits: 0, amount: 0, last: null, share: 0 };
+      row = { key, carId: transit.car_id, plate: car?.plate ?? transit.plate_number ?? '—', model: car?.model ?? null, barcode: car && hasBarcode(car.barcode) ? car.barcode!.trim() : null, transits: 0, amount: 0, last: null, share: 0, active: false };
       rows.set(key, row);
     }
     row.transits += 1;
@@ -95,13 +91,19 @@ export function hgsRows(cars: readonly HgsCar[], transits: readonly HgsTransit[]
   return Array.from(rows.values()).map(row => ({ ...row, amount: Math.round(row.amount * 100) / 100, share: total > 0 ? row.amount / total : 0 }));
 }
 
+/** Active cars with no transit at all in the period: the banner, and the "without transits" tile. */
+export function idleRows(rows: readonly HgsRow[]): HgsRow[] {
+  return rows.filter(row => row.active && row.transits === 0).sort(byPlate);
+}
+
 export interface HgsTiles {
   spend: number;
   transits: number;
   /** Cars that passed a toll in the period. */
   used: number;
+  /** Active cars, with a barcode or not. */
   carsOnHgs: number;
-  /** On HGS, with no transit in the period. */
+  /** Active cars with no transit in the period, as `idleRows`. */
   idle: number;
   thisMonth: number;
   lastMonth: number;
@@ -113,22 +115,21 @@ export function hgsTiles(cars: readonly HgsCar[], transits: readonly HgsTransit[
   const period = transits.filter(row => inPeriod(row, month));
   const sum = (rows: readonly HgsTransit[]) => Math.round(rows.reduce((total, row) => total + row.amount, 0) * 100) / 100;
   const usedCars = new Set(period.map(row => (row.car_id !== null ? `car:${row.car_id}` : `plate:${row.plate_number}`)));
-  const onHgs = cars.filter(car => hasBarcode(car.barcode));
   const thisMonth = sum(transits.filter(row => transitMonth(row.transit_datetime) === now));
   const lastMonth = sum(transits.filter(row => transitMonth(row.transit_datetime) === shiftMonth(now, -1)));
   return {
     spend: sum(period),
     transits: period.length,
     used: usedCars.size,
-    carsOnHgs: onHgs.length,
-    idle: onHgs.filter(car => !usedCars.has(`car:${car.id}`)).length,
+    carsOnHgs: cars.length,
+    idle: cars.filter(car => !usedCars.has(`car:${car.id}`)).length,
     thisMonth,
     lastMonth,
     delta: lastMonth > 0 ? (thisMonth - lastMonth) / lastMonth : null,
   };
 }
 
-export const HGS_FILTERS = ['used'] as const;
+export const HGS_FILTERS = ['used', 'idle'] as const;
 export type HgsFilter = typeof HGS_FILTERS[number] | 'all';
 
 export const HGS_SORTS = ['amount', 'transits', 'last'] as const;

@@ -11,11 +11,12 @@ import StatusArt from '../components/cars/StatusArt';
 import { ComplianceTriangle } from '../components/cars/Compliance';
 import { StatTile } from '../components/WalletParts';
 import { usePageAccess } from '../contexts/PageAccessContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTileFilter } from '../hooks/useTileFilter';
 import { formatTRY } from '../lib/CurrencyContext';
 import { formatPlate } from '../lib/custodyExpense';
 import {
-  HGS_FILTERS, HGS_SORTS, barcodeProblem, formatCount, hgsRowMatches, hgsRows, hgsTiles, inPeriod, missingHgs, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
+  HGS_FILTERS, HGS_SORTS, barcodeProblem, formatCount, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
   type HgsCar, type HgsRow, type HgsSort, type HgsTransit,
 } from '../lib/hgs';
 import { ALL_MONTHS, currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
@@ -37,6 +38,8 @@ interface HgsData {
 }
 
 const TOAST_MS = 3200;
+/** Chips in the banner before "+N more", which shows the rest in the list. A phone fits one per line. */
+const BANNER_CHIPS = { wide: 12, narrow: 5 };
 const LTR = (text: string) => `⁦${text}⁩`;
 
 const RefreshIcon: React.FC<{ spinning: boolean }> = ({ spinning }) => (
@@ -55,7 +58,7 @@ const percent = (share: number) => (share > 0 && share < 0.005 ? '<1%' : `${Math
 
 // ─── Transits of one car ──────────────────────────────────────────────────────
 
-const CarTransits: React.FC<{ id: string; row: HgsRow; month: string }> = ({ id, row, month }) => {
+const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; onAddBarcode: (() => void) | null }> = ({ id, row, month, onAddBarcode }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const [items, setItems] = useState<HgsCarTransit[] | null>(null);
@@ -74,6 +77,12 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; month: string }> = ({ id,
 
   return (
     <div id={id} className="hc-hgs-panel">
+      {onAddBarcode && (
+        <div className="hc-hgs-panel-bar">
+          <span>{t('transits.noBarcode')}</span>
+          <Button variant="secondary" onClick={onAddBarcode}>{t('transits.addBarcode')}</Button>
+        </div>
+      )}
       {failed ? (
         <div role="alert" className="hc-hgs-panel-note">
           {t('transits.failed')}
@@ -191,9 +200,9 @@ const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({
 // ─── One car ──────────────────────────────────────────────────────────────────
 
 const CarCard: React.FC<{
-  row: HgsRow; month: string; open: boolean; onToggle: () => void;
+  row: HgsRow; month: string; open: boolean; onToggle: () => void; onAddBarcode: (() => void) | null;
   upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void;
-}> = ({ row, month, open, onToggle, upload, onUpload }) => {
+}> = ({ row, month, open, onToggle, onAddBarcode, upload, onUpload }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const panelId = useId();
@@ -224,7 +233,7 @@ const CarCard: React.FC<{
       <PortalUpload plate={row.plate} state={upload} onState={onUpload} />
       </div>
       {upload && <UploadResult state={upload} onDismiss={() => onUpload(undefined)} />}
-      {open && <CarTransits id={panelId} row={row} month={month} />}
+      {open && <CarTransits id={panelId} row={row} month={month} onAddBarcode={onAddBarcode} />}
     </li>
   );
 };
@@ -357,13 +366,33 @@ const HgsPage: React.FC = () => {
 
   const cars = useMemo(() => data?.cars ?? [], [data]);
   const transits = useMemo(() => data?.transits ?? [], [data]);
-  const missing = useMemo(() => missingHgs(cars), [cars]);
   const tiles = useMemo(() => hgsTiles(cars, transits, month), [cars, transits, month]);
   const rows = useMemo(() => hgsRows(cars, transits.filter(row => inPeriod(row, month))), [cars, transits, month]);
+  /** The banner and the "without transits" tile: one list, so they always agree. */
+  const idle = useMemo(() => idleRows(rows), [rows]);
+  const idleKeys = useMemo(() => new Set(idle.map(row => row.key)), [idle]);
+  const chipCount = useMediaQuery('(min-width: 640px)') ? BANNER_CHIPS.wide : BANNER_CHIPS.narrow;
   const shown = useMemo(
-    () => sortHgsRows(rows.filter(row => hgsRowMatches(row, search) && (filter !== 'used' || row.transits > 0)), sort),
-    [rows, search, filter, sort],
+    () => sortHgsRows(rows.filter(row => hgsRowMatches(row, search) && (filter === 'used' ? row.transits > 0 : filter === 'idle' ? idleKeys.has(row.key) : true)), sort),
+    [rows, search, filter, sort, idleKeys],
   );
+
+  // A banner chip opens its car in the list below and brings it into view.
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const showCar = (key: string) => {
+    setSearch('');
+    if (filter === 'used') setFilter('all');
+    setOpen(current => new Set(current).add(key));
+    setFocusKey(key);
+  };
+  useEffect(() => {
+    if (!focusKey) return;
+    const card = Array.from(document.querySelectorAll<HTMLElement>('.hc-hgs-card[data-car]')).find(el => el.dataset.car === focusKey);
+    if (!card) return;
+    card.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    card.querySelector<HTMLElement>('.hc-hgs-row')?.focus({ preventScroll: true });
+    setFocusKey(null);
+  }, [focusKey, shown]);
 
   const monthName = (value: string) => new Date(`${value}-01T12:00:00Z`).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const loading = data === null;
@@ -418,20 +447,34 @@ const HgsPage: React.FC = () => {
       </header>
       {failed && data && <p role="alert" className="hc-hgs-warn">{t('refreshFailed')}</p>}
 
-      {missing.length > 0 && (
+      {!loading && idle.length > 0 && (
         <section className="hc-hgs-banner" aria-labelledby="hgs-banner-title">
           <ComplianceTriangle severity="expired" size={48} className="hc-hgs-banner-art" />
           <div className="min-w-0">
-            <h2 id="hgs-banner-title">{t('banner.title', { count: missing.length })}</h2>
+            <h2 id="hgs-banner-title">
+              {allMonths
+                ? t('banner.ever', { count: idle.length })
+                : month === currentMonth()
+                  ? t('banner.thisMonth', { count: idle.length })
+                  : t('banner.month', { count: idle.length, month: monthName(month) })}
+            </h2>
             <ul className="hc-hgs-chips">
-              {missing.map(car => (
-                <li key={car.id}>
-                  <button type="button" className="hc-hgs-chip" title={t('banner.fix', { plate: formatPlate(car.plate) })} onClick={() => setFixing(car)}>
-                    <PlateChip plate={car.plate} />
-                    <bdi dir="auto">{car.model ?? t('row.noModel')}</bdi>
+              {idle.slice(0, chipCount).map(row => (
+                <li key={row.key}>
+                  <button type="button" className="hc-hgs-chip" title={t('banner.open', { plate: formatPlate(row.plate) })} onClick={() => showCar(row.key)}>
+                    <PlateChip plate={row.plate} />
+                    <bdi dir="auto">{row.model ?? t('row.noModel')}</bdi>
+                    {!row.barcode && <span className="hc-hgs-chip-tag">{t('banner.noBarcode')}</span>}
                   </button>
                 </li>
               ))}
+              {idle.length > chipCount && (
+                <li>
+                  <button type="button" className="hc-hgs-chip hc-hgs-chip-more" onClick={() => { setSearch(''); if (filter !== 'idle') setFilter('idle'); }}>
+                    {t('banner.more', { n: formatCount(idle.length - chipCount) })}
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
         </section>
@@ -452,7 +495,7 @@ const HgsPage: React.FC = () => {
       <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-hgs-tiles">
         <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.spend')} sub={allMonths ? t('month.all') : monthName(month)} value={value(formatTRY(tiles.spend))} pressed={filter === 'all'} onPress={() => setFilter('all')} />
         <StatTile tone="received" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.transits')} sub={t('tiles.transitsSub', { count: tiles.used })} value={value(formatCount(tiles.transits))} pressed={filter === 'used'} onPress={() => setFilter('used')} />
-        <StatTile tone="paid" art={<StatusArt name="total" className="hc-tile-art" />} label={t('tiles.cars')} sub={t('tiles.carsSub', { n: formatCount(tiles.idle) })} value={value(formatCount(tiles.carsOnHgs))} />
+        <StatTile tone="paid" art={<StatusArt name="total" className="hc-tile-art" />} label={t('tiles.cars')} sub={t('tiles.carsSub', { n: formatCount(idle.length) })} value={value(formatCount(tiles.carsOnHgs))} pressed={filter === 'idle'} onPress={() => setFilter('idle')} />
         <StatTile tone="warn" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.thisMonth')} sub={delta} value={value(formatTRY(tiles.thisMonth))} />
       </div>
 
@@ -470,7 +513,7 @@ const HgsPage: React.FC = () => {
           {[0, 1, 2, 3].map(i => <li key={i} className="hc-hgs-card hc-hgs-skeleton surface-depth"><span className="hc-bk-bone" /><span className="hc-bk-bone" /></li>)}
         </ul>
       ) : shown.length === 0 ? (
-        <p className="hc-bk-state surface-depth">{filter === 'used' && !search.trim() ? t('emptyUsed') : t('empty')}</p>
+        <p className="hc-bk-state surface-depth">{filter === 'used' && !search.trim() ? t('emptyUsed') : filter === 'idle' && !search.trim() ? t('emptyIdle') : t('empty')}</p>
       ) : (
         <>
           <p className="hc-bk-count">{t('count', { shown: formatCount(shown.length), total: formatCount(rows.length) })}</p>
@@ -482,6 +525,7 @@ const HgsPage: React.FC = () => {
                 month={month}
                 open={open.has(row.key)}
                 onToggle={() => toggle(row.key)}
+                onAddBarcode={row.active && !row.barcode && row.carId !== null ? () => { const car = cars.find(c => c.id === row.carId); if (car) setFixing(car); } : null}
                 upload={uploads[row.key]}
                 onUpload={next => setUploads(current => ({ ...current, [row.key]: next }))}
               />

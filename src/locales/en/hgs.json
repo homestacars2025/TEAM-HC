@@ -13,15 +13,21 @@
     "all": "All time"
   },
   "banner": {
-    "title_one": "{{count}} car has no HGS barcode — its tolls are not tracked",
-    "title_other": "{{count}} cars have no HGS barcode — tolls for these cars are not tracked",
-    "fix": "Add the HGS barcode for {{plate}}"
+    "thisMonth_one": "{{count}} car has no HGS transits this month — check its HGS",
+    "thisMonth_other": "{{count}} cars have no HGS transits this month — check their HGS",
+    "month_one": "{{count}} car has no HGS transits in {{month}} — check its HGS",
+    "month_other": "{{count}} cars have no HGS transits in {{month}} — check their HGS",
+    "ever_one": "{{count}} car has no HGS transits yet — check its HGS",
+    "ever_other": "{{count}} cars have no HGS transits yet — check their HGS",
+    "noBarcode": "No barcode",
+    "open": "Open {{plate}}",
+    "more": "+{{n}} more"
   },
   "tiles": {
     "spend": "Total spend",
     "transits": "Transits",
     "cars": "Cars on HGS",
-    "carsSub": "{{n}} had no transit",
+    "carsSub": "Without transits: {{n}}",
     "thisMonth": "This month",
     "delta": "{{pct}} vs {{month}}",
     "noLastMonth": "Nothing in {{month}}",
@@ -49,7 +55,9 @@
     "retry": "Try again",
     "empty": "No transits in this period.",
     "road_public": "Public road",
-    "road_private": "Private road"
+    "road_private": "Private road",
+    "noBarcode": "This car has no HGS barcode.",
+    "addBarcode": "Add barcode"
   },
   "fix": {
     "title": "HGS barcode",
@@ -69,6 +77,7 @@
   "count": "{{shown}} of {{total}} cars",
   "empty": "No car matches.",
   "emptyUsed": "No car passed a toll in this period.",
+  "emptyIdle": "Every active car has transits in this period.",
   "failed": "Couldn't load HGS.",
   "retry": "Try again",
   "refreshFailed": "Couldn't refresh. This is what was loaded before.",

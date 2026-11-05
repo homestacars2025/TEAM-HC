@@ -4632,6 +4632,10 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-hgs-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-block: 4px; padding-inline: 6px 12px; border: 1px solid #fecaca; border-radius: 999px; background: #fff; color: #374151; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease; }
 .hc-hgs-chip:hover { border-color: #f87171; box-shadow: 0 2px 8px -4px rgba(153, 27, 27, 0.35); }
 .hc-hgs-chip:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+.hc-hgs-chip-tag { padding: 1px 7px; border-radius: 999px; background: #f3f4f6; color: #6b7280; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.hc-hgs-chip-more { padding-inline: 14px; color: #991b1b; }
+.hc-hgs-panel-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 8px 0; padding: 8px 12px; border-radius: 12px; background: #fef3c7; color: #92400e; font-size: 13px; font-weight: 600; }
+.hc-hgs-card { scroll-margin-top: 84px; }
 
 @media (max-width: 1279px) {
   .hc-tiles-filter.hc-hgs-tiles > .hc-tile:nth-child(1), .hc-tiles-filter.hc-hgs-tiles > .hc-tile:nth-child(4) { grid-column: 1 / -1; }
