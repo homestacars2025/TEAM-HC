@@ -27,6 +27,7 @@ interface CarTableRow {
   insurance_url: string | null;
   ruhsat_url:    string | null;
   kasko_url:     string | null;
+  spare_key:     boolean;
 }
 
 type CarTableStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
@@ -220,6 +221,12 @@ const CarsPage: React.FC = () => {
   const [carFilter, setCarFilter] = useTileFilter(CAR_FILTERS);
   const warned = useRef(false);
   const [params, setParams] = useSearchParams();
+  // Two values, so a dropdown beside the search rather than more tiles.
+  const spareKey = params.get('spare_key') === 'yes' ? 'yes' : params.get('spare_key') === 'no' ? 'no' : 'all';
+  const setSpareKey = (value: string) => setParams(current => {
+    if (value === 'yes' || value === 'no') current.set('spare_key', value); else current.delete('spare_key');
+    return current;
+  }, { replace: true });
   const linkedCar = params.get('car');
   const [highlighted, setHighlighted] = useState<number | null>(null);
   const isAdmin = useCurrentUser().profile?.role === 'admin';
@@ -331,7 +338,7 @@ const CarsPage: React.FC = () => {
       const [carsRes, trackingRes, registrationsRes, availabilityRes, modelGroupsRes] = await Promise.all([
         supabase.from('cars').select('id, plate_number, model_group_id').eq('is_active', true).order('id', { ascending: false }),
         supabase.from('car_tracking').select('car_id, current_km, updated_at').order('updated_at', { ascending: false }),
-        supabase.from('cars_registration').select('car_id, manufacture_year, insurance_file_url, ruhsat_url, kasko'),
+        supabase.from('cars_registration').select('car_id, manufacture_year, insurance_file_url, ruhsat_url, kasko, has_spare_key'),
         supabase.from('car_availability').select('id, status'),
         supabase.from('model_group').select('id, name'),
       ]);
@@ -339,7 +346,7 @@ const CarsPage: React.FC = () => {
 
       const rawCars        = (carsRes.data         ?? []) as { id: number; plate_number: string; model_group_id: number | null }[];
       const rawTracking    = (trackingRes.data      ?? []) as { car_id: number; current_km: number; updated_at: string }[];
-      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null }[];
+      const rawRegs        = (registrationsRes.data ?? []) as { car_id: number; manufacture_year: number | null; insurance_file_url: string | null; ruhsat_url: string | null; kasko: string | null; has_spare_key: boolean | null }[];
       const rawAvailability= (availabilityRes.data  ?? []) as { id: number; status: string }[];
       const rawModels      = (modelGroupsRes.data   ?? []) as { id: number; name: string }[];
 
@@ -362,6 +369,7 @@ const CarsPage: React.FC = () => {
           status:        rawAvailability.find(a => a.id === car.id)?.status ?? '—',
           insurance_url: reg?.insurance_file_url ?? null,
           ruhsat_url:    reg?.ruhsat_url ?? null,
+          spare_key:     !!reg?.has_spare_key,
           kasko_url:     reg?.kasko ?? null,
         };
       });
@@ -522,6 +530,11 @@ const CarsPage: React.FC = () => {
               <span>{summary.count}</span>
             </button>
           )}
+          <select aria-label={t('spareKey.label')} className="hc-input hc-spare-filter" value={spareKey} onChange={e => setSpareKey(e.target.value)}>
+            <option value="all">{t('spareKey.all')}</option>
+            <option value="yes">{t('spareKey.yes')}</option>
+            <option value="no">{t('spareKey.no')}</option>
+          </select>
           {/* Search */}
           <div style={{ position: 'relative' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
@@ -648,6 +661,7 @@ const CarsPage: React.FC = () => {
                   const filtered = cars.filter(car => {
                     if (onlyIssues && !compliance.byId.get(car.id)?.severity) return false;
                     if (carFilter !== 'all' && car.status.toLowerCase() !== carFilter) return false;
+                    if (spareKey !== 'all' && car.spare_key !== (spareKey === 'yes')) return false;
                     if (!q) return true;
                     return car.plate_number.toLowerCase().includes(q) || car.model.toLowerCase().includes(q);
                   });
@@ -673,12 +687,13 @@ const CarsPage: React.FC = () => {
                     return (
                       <tr>
                         <td colSpan={12} style={{ padding: '36px 14px', textAlign: 'center', fontSize: 13, color: '#9ca3af' }}>
-                          {carFilter !== 'all' && !tableSearch && !onlyIssues ? (
+                          {carFilter !== 'all' && !tableSearch && !onlyIssues && spareKey === 'all' ? (
                             <div className="hc-car-empty">
                               <StatusArt name={carFilter} />
                               {t('table.noStatus')}
                             </div>
-                          ) : tableSearch || onlyIssues || carFilter !== 'all' ? t('table.noMatch') : t('table.none')}
+                          ) : spareKey !== 'all' && !tableSearch && !onlyIssues && carFilter === 'all' ? t(`spareKey.empty.${spareKey}`)
+                            : tableSearch || onlyIssues || carFilter !== 'all' || spareKey !== 'all' ? t('table.noMatch') : t('table.none')}
                         </td>
                       </tr>
                     );
@@ -697,6 +712,11 @@ const CarsPage: React.FC = () => {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#0f1117', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.3px' }}>
                           {checked?.severity && <ComplianceTriangle severity={checked.severity} size={18} />}
                           <span className="hc-num">{car.plate_number}</span>
+                          {car.spare_key && (
+                            <span className="hc-spare-key" role="img" aria-label={t('spareKey.has')} title={t('spareKey.has')}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="8" cy="15" r="4.2" stroke="currentColor" strokeWidth="2" /><path d="M11 12l8.5-8.5M16 7l2.5 2.5M14 9l2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151' }}>

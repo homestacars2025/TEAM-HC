@@ -5186,3 +5186,63 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 }
 .hc-ce-photo.is-target-before::after { inset-inline-start: -7px; }
 .hc-ce-photo.is-target-after::after { inset-inline-end: -7px; }
+
+/* ─── Spare key ─────────────────────────────────────────────────────────────────
+   The iOS switch: 51×31, a 27px thumb, green #34C759 on. The thumb runs the reading
+   way, so in Arabic "off" sits on the right.                                       */
+
+.hc-ce-key-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: #fcfcfd;
+  text-align: start;
+  cursor: pointer;
+}
+.hc-ce-key-row:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.hc-ce-key-icon { flex: none; width: 40px; height: 40px; object-fit: contain; }
+.hc-ce-key-text { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 2px; }
+.hc-ce-key-label { color: #0f1117; font-size: 14px; font-weight: 600; }
+.hc-ce-key-caption { color: #6b7280; font-size: 12.5px; }
+
+.hc-ios-switch {
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: 999px;
+  background: #e9e9eb;
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hc-ios-switch.is-on { background: #34c759; }
+.hc-ios-switch-thumb {
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hc-ios-switch.is-on .hc-ios-switch-thumb { transform: translateX(20px); }
+[dir="rtl"] .hc-ios-switch.is-on .hc-ios-switch-thumb { transform: translateX(-20px); }
+
+.hc-spare-key { display: inline-flex; color: #b58300; }
+
+.hc-spare-filter {
+  width: auto;
+  min-height: 38px;
+  font-size: 13px;
+}
+@media (pointer: coarse) { .hc-spare-filter { min-height: 44px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-ios-switch, .hc-ios-switch-thumb { transition: none; }
+}

@@ -127,7 +127,9 @@
       "package": "Car package",
       "packagePlaceholder": "e.g. Premium",
       "insurance": "Insurance",
-      "inspection": "Inspection"
+      "inspection": "Inspection",
+      "spareKey": "Spare key",
+      "spareKeyCaption": "Is there a spare key for this car?"
     },
     "errors": {
       "plate": "Enter the plate number.",
@@ -199,5 +201,16 @@
     "filesHint": "Files and photos save as you add them.",
     "unsaved_one": "{{count}} unsaved change",
     "unsaved_other": "{{count}} unsaved changes"
+  },
+  "spareKey": {
+    "label": "Spare key",
+    "all": "Spare key: All",
+    "yes": "Spare key: Yes",
+    "no": "Spare key: No",
+    "has": "Spare key",
+    "empty": {
+      "yes": "No cars with a spare key here.",
+      "no": "No cars without a spare key here."
+    }
   }
 }

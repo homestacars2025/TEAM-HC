@@ -9,13 +9,13 @@ const data: CarEditorData = {
   modelGroupId: 2,
   registration: {
     manufacture_year: 2022, car_package: 'Premium', insurance_expiry: '2026-12-01', inspection_expiry: null,
-    ruhsat_url: null, kasko: null, insurance_file_url: null,
+    ruhsat_url: null, kasko: null, insurance_file_url: null, has_spare_key: false,
   },
   photos: [],
   modelGroups: [],
 };
 
-const fields = { plate: '34ABC123', modelGroupId: '2', year: '2022', carPackage: 'Premium', insurance: '2026-12-01', inspection: '' };
+const fields = { plate: '34ABC123', modelGroupId: '2', year: '2022', carPackage: 'Premium', insurance: '2026-12-01', inspection: '', spareKey: false };
 
 describe('what Save writes', () => {
   it('writes nothing when nothing changed', () => {
@@ -31,6 +31,13 @@ describe('what Save writes', () => {
   it('writes them for admins, and nothing about investors or purchases', () => {
     const change = changeOf(data, { ...fields, plate: ' 34xyz9 ', modelGroupId: '3' }, true);
     expect(change).toEqual({ car: { plate_number: '34XYZ9', model_group_id: 3 }, registration: {} });
+  });
+
+  it('lets staff turn the spare key on and off, saved with the form', () => {
+    expect(changeOf(data, { ...fields, spareKey: true }, false)).toEqual({ car: {}, registration: { has_spare_key: true } });
+    const keyed = { ...data, registration: { ...data.registration, has_spare_key: true } };
+    expect(changeOf(keyed, { ...fields, spareKey: false }, false)).toEqual({ car: {}, registration: { has_spare_key: false } });
+    expect(changeOf(keyed, { ...fields, spareKey: true }, false)).toEqual({ car: {}, registration: {} });
   });
 
   it('never clears a date from half-typed input, but does clear the year and package', () => {

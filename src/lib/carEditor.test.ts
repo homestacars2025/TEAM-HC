@@ -119,7 +119,7 @@ describe('no investors or purchase papers in Team', () => {
   it('reads the car and its registration by named columns only', () => {
     const source = read('queries/carEditor.ts');
     expect(source).toMatch(/CAR_COLUMNS = 'id, plate_number, model_group_id, car_photo_urls'/);
-    expect(source).toMatch(/REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, ruhsat_url, kasko, insurance_file_url'/);
+    expect(source).toMatch(/REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, ruhsat_url, kasko, insurance_file_url, has_spare_key'/);
     expect(source).not.toMatch(/select\('\*'\)/);
   });
 

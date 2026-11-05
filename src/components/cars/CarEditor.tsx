@@ -67,6 +67,25 @@ const LockedField: React.FC<{ label: string; value: React.ReactNode }> = ({ labe
   );
 };
 
+/**
+ * The iOS switch: green when on, grey when off. The whole row is the control, so the
+ * label and caption are what a screen reader hears, and the thumb runs the reading way.
+ */
+const SpareKeyRow: React.FC<{ on: boolean; onChange: (on: boolean) => void }> = ({ on, onChange }) => {
+  const { t } = useTranslation('cars');
+  const labelId = useId();
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-labelledby={labelId} aria-describedby={`${labelId}-caption`} className="hc-ce-key-row" onClick={() => onChange(!on)}>
+      <img className="hc-ce-key-icon" src={`${ICON_DIR}/key.png`} alt="" width={40} height={40} decoding="async" />
+      <span className="hc-ce-key-text">
+        <span id={labelId} className="hc-ce-key-label">{t('editor.fields.spareKey')}</span>
+        <span id={`${labelId}-caption`} className="hc-ce-key-caption">{t('editor.fields.spareKeyCaption')}</span>
+      </span>
+      <span className={`hc-ios-switch ${on ? 'is-on' : ''}`} aria-hidden="true"><span className="hc-ios-switch-thumb" /></span>
+    </button>
+  );
+};
+
 const ExpiryChip: React.FC<{ date: string | null }> = ({ date }) => {
   const { t } = useTranslation('cars');
   const { tone, days } = expiryTone(date, istanbulDate());
@@ -344,6 +363,7 @@ interface Fields {
   carPackage: string;
   insurance: string;
   inspection: string;
+  spareKey: boolean;
 }
 
 const fieldsOf = (data: CarEditorData): Fields => ({
@@ -353,6 +373,7 @@ const fieldsOf = (data: CarEditorData): Fields => ({
   carPackage: data.registration.car_package ?? '',
   insurance: data.registration.insurance_expiry ?? '',
   inspection: data.registration.inspection_expiry ?? '',
+  spareKey: data.registration.has_spare_key,
 });
 
 /** What Save would write. A date counts only once it's whole, so half a date never wipes one. */
@@ -369,6 +390,7 @@ export function changeOf(data: CarEditorData, fields: Fields, isAdmin: boolean):
   if (fields.carPackage.trim() !== start.carPackage) registration.car_package = fields.carPackage.trim() || null;
   if (fields.insurance && fields.insurance !== start.insurance) registration.insurance_expiry = fields.insurance;
   if (fields.inspection && fields.inspection !== start.inspection) registration.inspection_expiry = fields.inspection;
+  if (fields.spareKey !== start.spareKey) registration.has_spare_key = fields.spareKey;
   return { car, registration };
 }
 
@@ -655,6 +677,9 @@ const CarEditor: React.FC<CarEditorProps> = ({ carId, isAdmin, locale, onClose, 
                     <span className="hc-field-label">{t('editor.fields.package')}</span>
                     <input dir="auto" className="hc-input" placeholder={t('editor.fields.packagePlaceholder')} value={fields.carPackage} onChange={e => set('carPackage')(e.target.value)} />
                   </label>
+                  <div className="hc-field-wide">
+                    <SpareKeyRow on={fields.spareKey} onChange={set('spareKey')} />
+                  </div>
                 </div>
               </Section>
 

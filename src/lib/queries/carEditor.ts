@@ -14,6 +14,7 @@ export interface CarRegistration {
   ruhsat_url: string | null;
   kasko: string | null;
   insurance_file_url: string | null;
+  has_spare_key: boolean;
 }
 
 export interface CarEditorData {
@@ -26,11 +27,11 @@ export interface CarEditorData {
 }
 
 export const CAR_COLUMNS = 'id, plate_number, model_group_id, car_photo_urls';
-export const REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, ruhsat_url, kasko, insurance_file_url';
+export const REGISTRATION_COLUMNS = 'manufacture_year, car_package, insurance_expiry, inspection_expiry, ruhsat_url, kasko, insurance_file_url, has_spare_key';
 
 const EMPTY_REGISTRATION: CarRegistration = {
   manufacture_year: null, car_package: null, insurance_expiry: null, inspection_expiry: null,
-  ruhsat_url: null, kasko: null, insurance_file_url: null,
+  ruhsat_url: null, kasko: null, insurance_file_url: null, has_spare_key: false,
 };
 
 export async function getCarEditor(carId: number): Promise<CarEditorData> {
@@ -48,7 +49,7 @@ export async function getCarEditor(carId: number): Promise<CarEditorData> {
     id: row.id,
     plate: row.plate_number ?? '',
     modelGroupId: row.model_group_id,
-    registration: { ...EMPTY_REGISTRATION, ...(registration.data as Partial<CarRegistration> | null) },
+    registration: { ...EMPTY_REGISTRATION, ...(registration.data as Partial<CarRegistration> | null), has_spare_key: !!(registration.data as Partial<CarRegistration> | null)?.has_spare_key },
     photos: mergePhotos((photos.data ?? []) as PhotoRow[], Array.isArray(row.car_photo_urls) ? row.car_photo_urls : null),
     modelGroups: ((groups.data ?? []) as { id: number; name: string }[]).map(group => ({ id: group.id, name: group.name.replace(/\s+/g, ' ').trim() })),
   };
@@ -56,7 +57,7 @@ export async function getCarEditor(carId: number): Promise<CarEditorData> {
 
 export interface CarFieldsChange {
   car?: { plate_number?: string; model_group_id?: number | null };
-  registration?: Partial<Pick<CarRegistration, 'manufacture_year' | 'car_package' | 'insurance_expiry' | 'inspection_expiry'>>;
+  registration?: Partial<Pick<CarRegistration, 'manufacture_year' | 'car_package' | 'insurance_expiry' | 'inspection_expiry' | 'has_spare_key'>>;
 }
 
 /** Only what changed is sent, so a field this person can't edit is never written. */
