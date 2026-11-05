@@ -47,10 +47,15 @@ export function accountsForMethod(accounts: PaymentAccount[], method: PayMethod 
 
 export type PaymentProblem = 'amount' | 'method' | 'account';
 
-/** An empty or zero amount has nothing wrong with it: not paying yet is allowed. */
-export function paymentProblem(draft: PaymentDraft): PaymentProblem | null {
+/**
+ * An empty or zero amount has nothing wrong with it: not paying yet is allowed.
+ * `routeOptional` is for finance (admins and the Accounting page): they may record the
+ * amount alone, and `record_customer_payment` accepts no method and no account from them.
+ */
+export function paymentProblem(draft: PaymentDraft, routeOptional = false): PaymentProblem | null {
   if (/^[\s0٠۰.,٫٬₺]*$/.test(draft.amount)) return null;
   if (parseAmount(draft.amount) === null) return 'amount';
+  if (routeOptional) return null;
   if (!draft.method) return 'method';
   if (draft.accountId === null) return 'account';
   return null;

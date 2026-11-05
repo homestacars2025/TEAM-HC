@@ -4106,6 +4106,7 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-pay-amount .hc-seg button { min-width: 44px; min-height: 40px; font-size: 15px; }
 .hc-pay-rate { color: #6b7280; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .hc-pay-hint { color: #6b7280; font-size: 12px; }
+.hc-pay-optional { margin-top: -2px; margin-bottom: 6px; color: #9ca3af; font-size: 12px; }
 .hc-pay-methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 
 .hc-pay-methods button {

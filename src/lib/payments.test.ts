@@ -35,6 +35,22 @@ describe('a payment before it is sent', () => {
     expect(paymentProblem(draft({ amount: '100', method: 'cash', accountId: 2 }))).toBeNull();
   });
 
+  it('lets finance record the amount alone, but still needs a real amount', () => {
+    expect(paymentProblem(draft({ amount: '100' }), true)).toBeNull();
+    expect(paymentProblem(draft({ amount: '100', method: 'cash' }), true)).toBeNull();
+    expect(paymentProblem(draft({ amount: 'abc' }), true)).toBe('amount');
+    expect(paymentProblem(draft({ amount: '100' }), false)).toBe('method');
+  });
+
+  it('only finance gets the optional route, and only in the wallet Add form', () => {
+    const wallet = fs.readFileSync(path.join(__dirname, '..', 'pages/CustomerWalletsPage.tsx'), 'utf8');
+    expect(wallet).toMatch(/const isFinance = profile\?\.role === 'admin' \|\| canAccessPage\('accounting'\);/);
+    expect(wallet).toContain('routeOptional={isFinance}');
+    for (const file of ['pages/BookingsPage.tsx', 'pages/OperationsPage.tsx']) {
+      expect(fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).not.toContain('routeOptional');
+    }
+  });
+
   it('only offers accounts the money could really be in', () => {
     const accounts = [{ id: 1, name: 'POS', kind: 'pos' }, { id: 2, name: 'Bank', kind: 'bank' }, { id: 3, name: 'Gate', kind: 'gateway' }, { id: 4, name: 'Safe', kind: 'safe' }, { id: 5, name: 'Admin', kind: 'custody' }];
     expect(accountsForMethod(accounts, 'card').map(a => a.id)).toEqual([1]);

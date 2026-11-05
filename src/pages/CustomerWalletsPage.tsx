@@ -13,6 +13,8 @@ import { fetchCurrentUsdRate } from '../lib/exchangeRate';
 import { useTranslation } from 'react-i18next';
 import Button from '../components/Button';
 import BannedBadge from '../components/customers/BannedBadge';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
+import { usePageAccess } from '../contexts/PageAccessContext';
 import CustomerAvatar from '../components/CustomerAvatar';
 import PlateChip from '../components/booking/PlateChip';
 import { StatTile } from '../components/WalletParts';
@@ -314,6 +316,10 @@ const AddTransactionModal: React.FC<{
   const [payment, setPayment] = useState<PaymentDraft>(emptyPayment);
   const paymentAccounts = usePaymentAccounts();
   const isPayment = type === 'payment' || type === 'deposit';
+  // Admins and the Accounting page (`is_finance` on the server) may record the amount alone.
+  const { profile } = useCurrentUser();
+  const { canAccessPage } = usePageAccess();
+  const isFinance = profile?.role === 'admin' || canAccessPage('accounting');
 
   // Customer picker is only needed for the global "Add transaction".
   useEffect(() => {
@@ -362,7 +368,7 @@ const AddTransactionModal: React.FC<{
 
   const selectedBooking = useMemo(() => bookings.find(b => b.id === bookingId) ?? null, [bookings, bookingId]);
   const canSave = !!customerId && !!selectedBooking && !!type
-    && (isPayment ? hasPayment(payment) && !paymentProblem(payment) : Number(amount) > 0);
+    && (isPayment ? hasPayment(payment) && !paymentProblem(payment, isFinance) : Number(amount) > 0);
 
   const handleTypeChange = (t: string) => {
     setType(t);
@@ -453,7 +459,7 @@ const AddTransactionModal: React.FC<{
         {isPayment ? (
           <>
             <TypeSelect value={type} onChange={handleTypeChange} />
-            <PaymentFields label={tf('cash.table.amount')} required value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
+            <PaymentFields label={tf('cash.table.amount')} required routeOptional={isFinance} value={payment} onChange={setPayment} accounts={paymentAccounts} disabled={saving} />
           </>
         ) : (
           <>

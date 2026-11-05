@@ -319,7 +319,8 @@
     },
     "copyField": "Copy {{field}}",
     "copyAll": "Copy all",
-    "wroteIt": "I wrote it on the envelope ✓"
+    "wroteIt": "I wrote it on the envelope ✓",
+    "optionalRoute": "Optional — leave empty to record the amount only"
   },
   "envelopes": {
     "title": "My envelopes",

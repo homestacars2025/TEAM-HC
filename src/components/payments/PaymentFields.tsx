@@ -17,22 +17,26 @@ interface PaymentFieldsProps {
   disabled?: boolean;
   /** For a form that only exists to record money, where "not paid yet" means nothing. */
   required?: boolean;
+  /** Finance may leave out how it came and where it went, and record the amount alone. */
+  routeOptional?: boolean;
 }
 
 /**
  * One payment: how much, in what, how it reached us and where it went. Method and account
  * stay out of the way until there is an amount, because most bookings leave one of these two empty.
  */
-const PaymentFields: React.FC<PaymentFieldsProps> = ({ label, value, onChange, accounts, disabled = false, required = false }) => {
+const PaymentFields: React.FC<PaymentFieldsProps> = ({ label, value, onChange, accounts, disabled = false, required = false, routeOptional = false }) => {
   const { t } = useTranslation('finance');
   const { rates } = useCurrency();
   const id = useId();
   const usable = useMemo(() => accountsForMethod(accounts.rows ?? [], value.method), [accounts.rows, value.method]);
   const rate = rateOf(value.currency, rates);
   const entered = hasPayment(value);
-  const problem = paymentProblem(value);
+  const problem = paymentProblem(value, routeOptional);
 
   const pickMethod = (method: PayMethod) => {
+    // When it may be left out, pressing the chosen method again takes it back out.
+    if (routeOptional && value.method === method) { onChange({ ...value, method: null, accountId: null }); return; }
     const options = accountsForMethod(accounts.rows ?? [], method);
     // With one place it can go there is nothing to ask.
     onChange({ ...value, method, accountId: options.length === 1 ? options[0].id : null });
@@ -58,8 +62,9 @@ const PaymentFields: React.FC<PaymentFieldsProps> = ({ label, value, onChange, a
 
       {entered && (
         <>
-          <p id={`${id}-method`} className="hc-field-label">{t('payment.method')}<Required /></p>
-          <div role="radiogroup" aria-labelledby={`${id}-method`} aria-required="true" className="hc-pay-methods">
+          <p id={`${id}-method`} className="hc-field-label">{t('payment.method')}{!routeOptional && <Required />}</p>
+          {routeOptional && <p id={`${id}-optional`} className="hc-pay-optional">{t('payment.optionalRoute')}</p>}
+          <div role="radiogroup" aria-labelledby={`${id}-method`} aria-describedby={routeOptional ? `${id}-optional` : undefined} aria-required={!routeOptional} className="hc-pay-methods">
             {PAY_METHODS.map(method => (
               <button key={method} type="button" role="radio" aria-checked={value.method === method} disabled={disabled} onClick={() => pickMethod(method)}>
                 <span aria-hidden="true">{METHOD_MARK[method]}</span>
@@ -75,8 +80,8 @@ const PaymentFields: React.FC<PaymentFieldsProps> = ({ label, value, onChange, a
             <p role="alert" className="hc-pay-missing">{t('payment.noAccount')}</p>
           ) : (
             <label className="hc-pay-account">
-              <span className="hc-field-label">{t('payment.account')}<Required /></span>
-              <select className="hc-input !mt-0" aria-required="true" value={value.accountId ?? ''} disabled={disabled || accounts.rows === null} onChange={e => onChange({ ...value, accountId: e.target.value ? Number(e.target.value) : null })}>
+              <span className="hc-field-label">{t('payment.account')}{!routeOptional && <Required />}</span>
+              <select className="hc-input !mt-0" aria-required={!routeOptional} value={value.accountId ?? ''} disabled={disabled || accounts.rows === null} onChange={e => onChange({ ...value, accountId: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">{accounts.rows === null ? t('payment.loadingAccounts') : t('payment.chooseAccount')}</option>
                 {usable.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
               </select>
