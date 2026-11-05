@@ -62,6 +62,8 @@ import { readMonth, shiftMonth } from '../lib/pendingInvoices';
 import { formatMoney as formatLira } from '../lib/suppliers';
 import CustomerSearch, { initialsOf } from '../components/customers/CustomerSearch';
 import { useIssueText } from '../components/cars/Compliance';
+import CustomerWalletSheet from '../components/wallet/CustomerWalletSheet';
+import CarryOverPrompt from '../components/wallet/CarryOverPrompt';
 import ConfirmDialog from '../components/custody/ConfirmDialog';
 import { useCarCompliance } from '../hooks/useCarCompliance';
 import {
@@ -335,12 +337,13 @@ interface RowProps {
   onSelect: () => void;
   onEdit: () => void;
   onPrint: () => void;
+  onWallet: () => void;
   /** Absent when the signed-in user may not extend — the button is not rendered. */
   onExtend?: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, today, onSelect, onEdit, onPrint, onExtend,
+  booking, isSelected, today, onSelect, onEdit, onPrint, onWallet, onExtend,
 }) => {
   const { t } = useTranslation('bookings');
   const dateLocale = useDateLocale();
@@ -384,6 +387,12 @@ const BookingTableRow: React.FC<RowProps> = ({
           </svg>
         </ActionBtn>
       )}
+      <ActionBtn onClick={onWallet} title={t('table.wallet')} hoverColor="#0f766e">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="3" y="6" width="18" height="13" rx="3" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M16 12.5h2M3 10h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      </ActionBtn>
       <ActionBtn onClick={onPrint} title={t('table.printContract')} hoverColor="#8b5cf6">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
           <path d="M6 9V2h12v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -957,7 +966,8 @@ interface FormModalProps {
   editId?: number;
   editCustomerId?: number;
   onClose: () => void;
-  onSaved: () => void;
+  /** A new booking says which it is and whose, so an old balance can be offered to it. */
+  onSaved: (created?: { bookingId: number; customerId: string }) => void;
   /** After the booking is saved: the envelopes to number, and whether a payment failed. */
   onPaid: (receipts: PaymentReceipt[], failure: string | null) => void;
   onRentalFailed: () => void;
@@ -1585,6 +1595,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
 
   const save = async () => {
     setSaving(true);
+    let created: { bookingId: number; customerId: string } | undefined;
 
     if (mode === 'add') {
       const savedCustomer = await saveChosenCustomer();
@@ -1630,6 +1641,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       if (rentalError) onRentalFailed();
 
       await recordPayments(bookingId);
+      created = { bookingId, customerId: String(savedCustomer) };
       setSaving(false);
     } else {
       // Edit: the customer first, so a refused ID leaves the booking as it was
@@ -1738,7 +1750,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
     }
 
     rememberCar(Number(form.car_id));
-    onSaved();
+    onSaved(created);
     onClose();
   };
 
@@ -3285,6 +3297,10 @@ const BookingsPage: React.FC = () => {
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking; atFinance?: boolean }>(null);
   const [extendTarget, setExtendTarget]    = useState<Booking | null>(null);
+  /** The wallet open over the list, scrolled to the booking it was opened from. */
+  const [walletFor, setWalletFor]          = useState<{ customerId: string; bookingId: number } | null>(null);
+  /** A booking just made or extended, offered any balance left on the customer's other bookings. */
+  const [carryOver, setCarryOver]          = useState<{ customerId: string; bookingId: number } | null>(null);
   const [editingSheet, setEditingSheet]    = useState<ReplacementSheetRecord | null>(null);
 
   const [replacementOpen, setReplacementOpen] = useState(false);
@@ -3546,6 +3562,16 @@ const BookingsPage: React.FC = () => {
         </div>
       </header>
 
+      {carryOver && (
+        <CarryOverPrompt
+          key={`${carryOver.bookingId}`}
+          bookingId={carryOver.bookingId}
+          customerId={carryOver.customerId}
+          onDismiss={() => setCarryOver(null)}
+          onMoved={message => showToast(message, 'success')}
+        />
+      )}
+
       <div className="hc-bk-bar">
         <BookingTabsBar
           tab={tab}
@@ -3631,6 +3657,7 @@ const BookingsPage: React.FC = () => {
                     onSelect={() => toggleSelectRow(booking.id)}
                     onEdit={() => setModal({ mode: 'edit', booking })}
                     onPrint={() => printBookingContract(booking)}
+                    onWallet={() => setWalletFor({ customerId: String(booking.customer_id), bookingId: booking.id })}
                     onExtend={() => setExtendTarget(booking)}
                   />
                 ))}
@@ -3675,6 +3702,7 @@ const BookingsPage: React.FC = () => {
           booking={extendTarget}
           onClose={() => setExtendTarget(null)}
           onExtended={(newEndDate, newBalance, noteSaved, receipts, paymentFailure) => {
+            setCarryOver({ customerId: String(extendTarget.customer_id), bookingId: extendTarget.id });
             setExtendTarget(null);
             afterPayment(receipts, paymentFailure);
             const done = newBalance == null
@@ -3724,8 +3752,9 @@ const BookingsPage: React.FC = () => {
           onClose={() => setModal(null)}
           onPaid={afterPayment}
           onRentalFailed={afterRentalFailure}
-          onSaved={() => {
+          onSaved={created => {
             showToast(t('toast.added'), 'success');
+            if (created) setCarryOver(created);
             refreshAfterChange();
           }}
         />
@@ -3744,6 +3773,13 @@ const BookingsPage: React.FC = () => {
             showToast(t('toast.updated'), 'success');
             refreshAfterChange();
           }}
+        />
+      )}
+      {walletFor && (
+        <CustomerWalletSheet
+          customerId={walletFor.customerId}
+          focusBookingId={walletFor.bookingId}
+          onClose={() => setWalletFor(null)}
         />
       )}
       {toast && <Toast {...toast} />}

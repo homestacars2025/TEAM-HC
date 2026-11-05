@@ -30,7 +30,8 @@
     "selectAll": "تحديد الكل",
     "progress": "تقدّم الرحلة",
     "showing": "عرض {{shown}} من {{total}}",
-    "selected": "{{n}} محدد"
+    "selected": "{{n}} محدد",
+    "wallet": "المحفظة"
   },
   "form": {
     "newTitle": "حجز جديد",

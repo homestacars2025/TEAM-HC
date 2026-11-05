@@ -1,34 +1,21 @@
 {
   "title": "Customer Wallets",
-  "owedToUs": "Owed to us",
-  "inCredit": "In credit",
   "loading": "Loading…",
   "loadError": "Could not load the ledger",
-  "emptyHint": "Transactions you add will appear here, grouped by car.",
-  "search": "Search plate, model or customer…",
-  "searchAria": "Search by plate, model group or customer name",
-  "rentalStatus": "Rental status",
-  "currentRentals": "Current rentals",
-  "endedRentals": "Ended rentals",
+  "search": "Search customer or plate…",
+  "searchAria": "Search by customer name or plate",
   "unknownCustomer": "Unknown customer",
-  "noModelGroup": "No model group",
-  "unlinked": "Unlinked to a car",
-  "live": "Live",
-  "onRent": "On rent",
-  "available": "Available",
-  "carBalance": "Car balance",
-  "view": "View",
   "empty": {
     "noEntries": "No customer ledger entries yet.",
-    "noCurrent": "No cars with current rentals.",
-    "noEnded": "No cars with ended rentals.",
-    "noMatch": "No cars match this search."
+    "noMatch": "No customers match this search.",
+    "owes": "No customer owes us right now.",
+    "credit": "No customer is in credit.",
+    "settled": "No settled customers."
   },
   "balance": {
     "owes": "Owes us",
     "credit": "In credit",
-    "settled": "Settled",
-    "approx": "Approximate — converted at today's rate rather than the rate stored on the entry."
+    "settled": "Settled"
   },
   "types": {
     "payment": "Payment",
@@ -39,7 +26,12 @@
     "fine": "Fine",
     "accident": "Accident",
     "refund": "Refund",
-    "other": "Other"
+    "other": "Other",
+    "car_wash": "Car wash",
+    "fuel": "Fuel",
+    "extra_km": "Extra km",
+    "delivery": "Delivery",
+    "repair": "Repair"
   },
   "direction": {
     "IN": "IN",
@@ -80,8 +72,6 @@
     "rateLabel": "Exchange rate at entry (USD → ₺)",
     "ratePlaceholder": "Not recorded",
     "rateWarning": "You are overwriting the rate captured when this entry was created.",
-    "addForCar": "Add a transaction for this customer on this car",
-    "printInvoice": "Print an invoice for this customer on this car",
     "preparing": "Preparing…",
     "print": "Print invoice",
     "directionAuto": "Set automatically from the type — change it only if this entry is an exception.",
@@ -98,7 +88,9 @@
   "confirm": {
     "deleteTitle": "Delete transaction?",
     "confirm": "Confirm",
-    "deleting": "Deleting…"
+    "deleting": "Deleting…",
+    "deleteBody": "This line will be removed for good and the balance worked out again.",
+    "delete": "Delete"
   },
   "toast": {
     "added": "Transaction added",
@@ -106,15 +98,83 @@
     "deleted": "Transaction deleted"
   },
   "addTransactionShort": "Add transaction",
-  "viewLabel": "View",
-  "netPosition": "Net position",
   "noBookingsWarn": "This customer has no bookings — a transaction must be linked to one.",
-  "subtitle": "Balances per car and customer — charges owed against payments and deposits received.",
+  "subtitle": "Every customer's balance across all their bookings. Tap a customer to see each booking and move money between them.",
   "all": "All",
-  "balanceCount_one": "{{count}} balance",
-  "balanceCount_other": "{{count}} balances",
-  "carCount_one": "{{count}} car",
-  "carCount_other": "{{count}} cars",
   "customerCount_one": "{{count}} customer",
-  "customerCount_other": "{{count}} customers"
+  "customerCount_other": "{{count}} customers",
+  "bookingCount_one": "{{count}} booking",
+  "bookingCount_other": "{{count}} bookings",
+  "tiles": {
+    "all": "All",
+    "owes": "Owe us",
+    "credit": "In credit",
+    "settled": "Settled"
+  },
+  "wallet": {
+    "title": "{{name}}'s wallet",
+    "loading": "Loading wallet…",
+    "retry": "Try again",
+    "total": "Total balance",
+    "credit": "Credit",
+    "owes": "Owes",
+    "settled": "Settled",
+    "across_one": "Across {{count}} booking",
+    "across_other": "Across {{count}} bookings",
+    "onRent": "On rent",
+    "cancelled": "Cancelled",
+    "noLines": "No lines on this booking yet.",
+    "noBookings": "No bookings yet.",
+    "showAll": "Show all {{count}} lines",
+    "showLess": "Show fewer lines"
+  },
+  "kinds": {
+    "rental": "Rental",
+    "deposit": "Deposit",
+    "depositReturned": "Deposit returned",
+    "payment": "Payment",
+    "hgs": "HGS",
+    "movedIn": "Balance moved in",
+    "movedOut": "Balance moved out",
+    "refund": "Refund"
+  },
+  "notes": {
+    "carChanged": "Car changed",
+    "replacement": "Replacement car"
+  },
+  "move": {
+    "action": "Move balance",
+    "title": "Move balance",
+    "from": "From",
+    "balance": "Balance",
+    "to": "Move to",
+    "pickBooking": "Choose a booking",
+    "amount": "Amount (₺)",
+    "hint": {
+      "credit": "Up to {{max}} of credit.",
+      "owes": "Up to {{max}} owed."
+    },
+    "problems": {
+      "empty": "Enter an amount.",
+      "zero": "Enter an amount above 0.",
+      "tooMuch": "At most {{max}}."
+    },
+    "note": "Note (optional)",
+    "notePlaceholder": "Why it's moving",
+    "submit": "Move",
+    "submitAmount": "Move {{amount}}",
+    "moving": "Moving…",
+    "after": "{{number}} after the move:",
+    "done": "Moved {{amount}} to {{number}}",
+    "errors": {
+      "forbidden": "Your account can't move balances.",
+      "failed": "Couldn't move the balance. Try again."
+    }
+  },
+  "carry": {
+    "credit": "{{from}} still has a credit of {{amount}} — move it to {{to}}?",
+    "owes": "{{from}} still owes {{amount}} — move it to {{to}}?",
+    "move": "Move",
+    "later": "Later"
+  }
 }

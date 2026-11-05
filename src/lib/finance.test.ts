@@ -167,10 +167,14 @@ const ledgerRow = (o: Partial<LedgerRow> = {}): LedgerRow => ({
 });
 
 describe('customer balances', () => {
-  it('counts a customer once per car, like the wallets screen', () => {
-    const balances = customerBalances([ledgerRow({ amount: 100 }), ledgerRow({ amount: 30, direction: 'IN' }), ledgerRow({ car_id: 2, cars: { plate_number: '06X' }, amount: 50, direction: 'IN' })], 'TRY', [], null);
-    expect(balances).toHaveLength(2);
-    expect(balances[0]).toMatchObject({ name: 'Ali Kaya', plate: '34ABC123', balance: -70 });
+  it('counts a customer once across all their bookings and cars, labelled with the newest car', () => {
+    const balances = customerBalances([
+      ledgerRow({ amount: 100, created_at: '2026-10-01T10:00:00Z' }),
+      ledgerRow({ amount: 30, direction: 'IN', created_at: '2026-10-02T10:00:00Z' }),
+      ledgerRow({ car_id: 2, cars: { plate_number: '06X' }, amount: 50, direction: 'IN', created_at: '2026-11-01T10:00:00Z' }),
+    ], 'TRY', [], null);
+    expect(balances).toHaveLength(1);
+    expect(balances[0]).toMatchObject({ name: 'Ali Kaya', plate: '06X', balance: -20 });
   });
 
   it('adds up who owes and who is in credit, biggest debt first', () => {

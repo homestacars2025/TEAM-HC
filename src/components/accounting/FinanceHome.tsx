@@ -93,8 +93,8 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
           <StatTile tone="warn" label={t('home.tiles.pending')} value={sum(custody?.pending.total, formatTRY)} sub={count('review.tiles.expenses', custody?.pending.count)} onPress={go(`${ACCOUNTING}?tab=custody&filter=pending`)} art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} />
           <StatTile tone="balance" label={t('home.tiles.unsigned')} value={custody ? String(custody.unsigned.count) : null} sub={custody ? formatTRY(custody.unsigned.total) : ''} onPress={go(`${ACCOUNTING}?tab=custody&filter=unsigned`)} />
           <StatTile tone="total" label={t('home.tiles.held')} value={sum(held, n => `${n < 0 ? '−' : ''}${formatTRY(n)}`)} sub={t('home.tiles.heldSub')} onPress={go(`${ACCOUNTING}?tab=custody`)} />
-          <StatTile tone="negative" label={t('home.tiles.owed')} value={sum(customers?.owed, fmt)} sub={count('home.customers', customers?.debtors.length)} onPress={go(`${ACCOUNTING}?tab=customers`)} />
-          <StatTile tone="received" label={t('home.tiles.credit')} value={sum(customers?.credit, fmt)} sub={count('home.customers', customers?.inCredit)} onPress={go(`${ACCOUNTING}?tab=customers`)} />
+          <StatTile tone="negative" label={t('home.tiles.owed')} value={sum(customers?.owed, fmt)} sub={count('home.customers', customers?.debtors.length)} onPress={go(`${ACCOUNTING}?tab=customers&filter=owes`)} />
+          <StatTile tone="received" label={t('home.tiles.credit')} value={sum(customers?.credit, fmt)} sub={count('home.customers', customers?.inCredit)} onPress={go(`${ACCOUNTING}?tab=customers&filter=credit`)} />
           <StatTile tone="spent" label={t('home.tiles.fines')} value={sum(data?.fines?.total, fmt)} sub={count('home.fines', data?.fines?.count)} onPress={canAccessPage('fines') ? go('/dashboard/fines?filter=unpaid') : undefined} />
           <StatTile tone="warn" label={t('home.tiles.suppliers')} value={ready && owedSuppliers ? (owedSuppliers[0] ? formatMoney(owedSuppliers[0].total, owedSuppliers[0].currency) : formatMoney(0, 'TRY')) : null} sub={owedSuppliers && owedSuppliers.length > 1 ? owedSuppliers.slice(1).map(row => formatMoney(row.total, row.currency)).join(' · ') : count('home.suppliers', data?.suppliers ? supplierCount : undefined)} onPress={go(`${ACCOUNTING}?tab=suppliers&filter=owed`)} />
           <StatTile tone="paid" label={t('home.tiles.sheets')} value={sum(data?.sheetExpenses, fmt)} sub={t('home.tiles.thisMonth')} onPress={go(`${ACCOUNTING}?tab=car_sheets`)} />
@@ -135,8 +135,8 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
           {!ready ? <div className="hc-fin-skeleton" /> : !customers || customers.debtors.length === 0 ? <p className="hc-fin-empty">{t('home.noDebtors')}</p> : (
             <ul className="hc-fin-list">
               {customers.debtors.slice(0, 5).map(entry => (
-                <li key={`${entry.customerId}:${entry.plate}`}>
-                  <Link to={`${ACCOUNTING}?tab=customers&q=${encodeURIComponent(entry.name)}`}>
+                <li key={entry.customerId}>
+                  <Link to={`${ACCOUNTING}?tab=customers&customer=${encodeURIComponent(entry.customerId)}`}>
                     <span className="min-w-0 flex-1">
                       <strong dir="auto">{entry.name || '—'}</strong>
                       {entry.plate && <small><PlateChip plate={entry.plate} /></small>}

@@ -78,27 +78,28 @@ const firstOf = <T,>(value: T | T[] | null | undefined): T | null => (Array.isAr
 export interface CustomerBalance {
   customerId: string;
   name: string;
+  /** The car on their newest line, as a label only. */
   plate: string | null;
   balance: number;
 }
 
-/** Balances belong to a customer on one car, the way the wallets screen counts them. */
+/** One balance per customer, the sum of all their bookings, never split by car. */
 export function customerBalances(rows: LedgerRow[], currency: Currency, rates: RateRow[], fallbackUsdRate: number | null): CustomerBalance[] {
-  const byPair = new Map<string, CustomerBalance>();
+  const byCustomer = new Map<string, CustomerBalance & { at: number }>();
   for (const row of rows) {
-    const plate = firstOf(row.cars)?.plate_number ?? null;
-    const linked = row.car_id != null && !!plate;
-    const key = `${linked ? row.car_id : 'none'}:${row.customer_id}`;
-    let entry = byPair.get(key);
+    let entry = byCustomer.get(row.customer_id);
     if (!entry) {
       const person = firstOf(row.customers);
-      entry = { customerId: row.customer_id, name: [person?.first_name, person?.last_name].filter(Boolean).join(' '), plate: linked ? plate : null, balance: 0 };
-      byPair.set(key, entry);
+      entry = { customerId: row.customer_id, name: [person?.first_name, person?.last_name].filter(Boolean).join(' '), plate: null, balance: 0, at: -Infinity };
+      byCustomer.set(row.customer_id, entry);
     }
+    const at = row.created_at ? Date.parse(row.created_at) || 0 : 0;
+    const plate = firstOf(row.cars)?.plate_number ?? null;
+    if (plate && at >= entry.at) { entry.plate = plate; entry.at = at; }
     const { value } = convertEntry(row, currency, rates, fallbackUsdRate);
     entry.balance += row.direction === 'IN' ? value : -value;
   }
-  return Array.from(byPair.values());
+  return Array.from(byCustomer.values()).map(({ at, ...entry }) => entry);
 }
 
 export function ledgerTotals(balances: CustomerBalance[]) {

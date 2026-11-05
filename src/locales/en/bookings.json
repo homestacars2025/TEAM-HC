@@ -30,7 +30,8 @@
     "selectAll": "Select all",
     "progress": "Trip progress",
     "showing": "Showing {{shown}} of {{total}}",
-    "selected": "{{n}} selected"
+    "selected": "{{n}} selected",
+    "wallet": "Wallet"
   },
   "form": {
     "newTitle": "New Booking",

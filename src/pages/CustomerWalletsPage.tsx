@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useUrlSearch } from '../hooks/useUrlSearch';
 import PaymentFields from '../components/payments/PaymentFields';
@@ -7,63 +8,38 @@ import PaymentReceipts from '../components/payments/PaymentReceipts';
 import { usePaymentAccounts } from '../hooks/usePaymentAccounts';
 import { emptyPayment, hasPayment, paymentErrorKey, paymentProblem, type PaymentDraft, type PaymentReceipt, type PaymentType } from '../lib/payments';
 import { recordPayment } from '../lib/queries/payments';
-import { convertEntry, getLedgerRows, type Direction, type LedgerCustomer, type LedgerRow } from '../lib/customerLedger';
+import { getLedgerRows, type Direction, type LedgerRow } from '../lib/customerLedger';
 import { fetchCurrentUsdRate } from '../lib/exchangeRate';
-import { printCustomerInvoice } from '../lib/printCustomerInvoice';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
-import { useCurrency, CURRENCY_SYMBOLS, type Currency } from '../lib/CurrencyContext';
 import Button from '../components/Button';
 import BannedBadge from '../components/customers/BannedBadge';
+import CustomerAvatar from '../components/CustomerAvatar';
+import PlateChip from '../components/booking/PlateChip';
+import { StatTile } from '../components/WalletParts';
+import { useTileFilter } from '../hooks/useTileFilter';
+import CustomerWalletSheet from '../components/wallet/CustomerWalletSheet';
+import { BalanceChip } from '../components/wallet/WalletParts';
+import { balanceTone, formatLira, round2, type BalanceTone } from '../lib/bookingWallet';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Which car cards the top tabs show. */
-type RentalTab = 'all' | 'current' | 'ended';
-
-/** Minimal shape of the exchange-rate list handed over by the currency context. */
-interface RateRow { currency: string; rate_to_try: number; }
-
 type ToastState = { message: string; type: 'success' | 'error' } | null;
 
-/** Level 2 — one customer's ledger on ONE car. Balances are scoped to that car only. */
-interface CustomerOnCar {
+/** One customer in the list: the sum of all their bookings, never split by car. */
+interface CustomerSummary {
   customerId: string;
   name: string;
   banned: boolean;
   banReason: string | null;
-  /** This customer's entries on this car, newest first (the order printCustomerInvoice expects). */
-  rows: LedgerRow[];
-  totalIn: number;
-  totalOut: number;
   balance: number;
-  /** True when at least one entry could not be converted at its own stored rate. */
-  approx: boolean;
-  /** True when this customer holds a currently-active booking on THIS car. */
-  live: boolean;
+  bookings: number;
+  /** The car on their newest booking, as a label only. */
+  plate: string | null;
+  onRent: boolean;
 }
 
-/** Level 1 — one car plate and every customer who has ledger entries against it. */
-interface CarGroup {
-  key: string;
-  carId: number | null;
-  plate: string;
-  customers: CustomerOnCar[];
-  totalIn: number;
-  totalOut: number;
-  balance: number;
-  approx: boolean;
-  hasLive: boolean;
-  /** Display + ordering only, resolved from `model_group`. Never affects money. */
-  modelName: string | null;
-}
-
-const UNLINKED_KEY = '__unlinked__';
-
-/** Read-only presentation data for a car, keyed by car id. */
-interface CarMeta {
-  modelName: string | null;
-}
+/** A line the edit form can change: anything not tied to an envelope or a transfer. */
+type EditableLine = Pick<LedgerRow, 'id' | 'type' | 'direction' | 'description' | 'amount' | 'exchange_rate_at_entry'>;
 
 interface CustomerOption { id: string; name: string; banned: boolean; }
 
@@ -129,50 +105,13 @@ function typeLabel(t: string): string {
   return TYPE_LABELS[t] ?? (t ? t.charAt(0).toUpperCase() + t.slice(1) : '—');
 }
 
-// ─── Money & dates ────────────────────────────────────────────────────────────
-
-/**
- * Thousands separators, never a raw float. Decimals follow the app-wide convention
- * in CurrencyContext: 3 for LYD, 2 everywhere else.
- */
-function formatMoney(value: number, currency: Currency): string {
-  const locale   = currency === 'TRY' ? 'tr-TR' : 'en-US';
-  const decimals = currency === 'LYD' ? 3 : 2;
-  const abs = Math.abs(value).toLocaleString(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-  return (CURRENCY_SYMBOLS[currency] ?? '₺') + abs;
-}
-
-/** Signed figure using a true minus sign, matching the Accounting page. */
-function formatSigned(value: number, currency: Currency): string {
-  const sign = value < -0.005 ? '−' : value > 0.005 ? '+' : '';
-  return sign + formatMoney(value, currency);
-}
-
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+// ─── Dates ────────────────────────────────────────────────────────────────────
 
 function formatDateDisplay(s: string | null): string {
   if (!s) return '—';
   const d = new Date(s);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/**
- * Converts one TRY-stored entry into the app's selected currency.
- *
- * USD uses the entry's OWN `exchange_rate_at_entry`, so historical rows keep the value they
- * had when recorded; a missing rate falls back to today's and is flagged approximate.
- * EUR/LYD have no per-entry rate stored, so they convert at today's rate — always approximate.
- */
-const firstCustomer = (row: LedgerRow): LedgerCustomer | null =>
-  (Array.isArray(row.customers) ? row.customers[0] : row.customers) ?? null;
-
-function customerNameOf(row: LedgerRow, t: TFunction): string {
-  const c = firstOf(row.customers);
-  return [c?.first_name, c?.last_name].filter(Boolean).join(' ').trim() || t('unknownCustomer');
 }
 
 function bookingLabel(b: BookingOption): string {
@@ -204,7 +143,7 @@ const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
   if (!toast) return null;
   return ReactDOM.createPortal(
     <div style={{
-      position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 2000,
+      position: 'fixed', bottom: 28, insetInlineEnd: 28, zIndex: 8500,
       display: 'flex', alignItems: 'center', gap: 10,
       background: toast.type === 'success' ? '#0f1117' : '#ef4444',
       color: '#fff', borderRadius: 12, padding: '12px 20px',
@@ -220,7 +159,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
   ({ title, onClose, children, maxWidth = 520 }) =>
     ReactDOM.createPortal(
       <div onClick={onClose} style={{
-        position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,17,23,0.45)',
+        position: 'fixed', inset: 0, zIndex: 8400, background: 'rgba(15,17,23,0.45)',
         backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
         justifyContent: 'center', padding: 20,
       }}>
@@ -351,14 +290,14 @@ const AddTransactionModal: React.FC<{
   userId: string | null;
   presetCustomerId: string | null;
   presetName: string | null;
-  /** When adding from inside a car card, the booking for that car is preselected. */
-  presetCarId: number | null;
+  /** When adding from a booking card, that booking is preselected. */
+  presetBookingId: number | null;
   fallbackUsdRate: number | null;
   onClose: () => void;
   /** With the envelope to number, when the money was cash. */
   onSaved: (receipt: PaymentReceipt | null) => void;
   onError: (message: string) => void;
-}> = ({ userId, presetCustomerId, presetName, presetCarId, fallbackUsdRate, onClose, onSaved, onError }) => {
+}> = ({ userId, presetCustomerId, presetName, presetBookingId, fallbackUsdRate, onClose, onSaved, onError }) => {
   const { t } = useTranslation('wallets');
   const { t: tc } = useTranslation('common');
   const { t: tf } = useTranslation('finance');
@@ -413,13 +352,13 @@ const AddTransactionModal: React.FC<{
         plate_number: firstOf(b.cars)?.plate_number ?? null,
       }));
       setBookings(opts);
-      // Prefer this customer's booking on the car the card belongs to; otherwise the only one.
-      const onPresetCar = presetCarId != null ? opts.find(o => o.car_id === presetCarId) : undefined;
-      setBookingId(onPresetCar ? onPresetCar.id : opts.length === 1 ? opts[0].id : '');
+      // The booking the card belongs to; otherwise the only one.
+      const preset = presetBookingId != null ? opts.find(o => o.id === presetBookingId) : undefined;
+      setBookingId(preset ? preset.id : opts.length === 1 ? opts[0].id : '');
       setLoadingBookings(false);
     })();
     return () => { active = false; };
-  }, [customerId, presetCarId]);
+  }, [customerId, presetBookingId]);
 
   const selectedBooking = useMemo(() => bookings.find(b => b.id === bookingId) ?? null, [bookings, bookingId]);
   const canSave = !!customerId && !!selectedBooking && !!type
@@ -548,7 +487,7 @@ const AddTransactionModal: React.FC<{
 // ─── Edit transaction ─────────────────────────────────────────────────────────
 
 const EditTransactionModal: React.FC<{
-  row: LedgerRow;
+  row: EditableLine;
   onClose: () => void;
   onSaved: () => void;
   onError: (message: string) => void;
@@ -634,590 +573,79 @@ const EditTransactionModal: React.FC<{
   );
 };
 
-// ─── Visual layer ─────────────────────────────────────────────────────────────
-//
-// Hover, focus-visible, media queries and reduced-motion cannot be expressed with the
-// inline-style approach used elsewhere in the app, so this page scopes its own stylesheet
-// (the same technique Layout.tsx uses for its keyframes). The token block is shared by the
-// page root and the modal overlay, since the modal is portalled outside `.cw-page`.
+// ─── Customer list ────────────────────────────────────────────────────────────
 
-const CW_STYLES = `
-.cw-page, .cw-overlay {
-  --cw-bg:var(--surface); --cw-card:var(--surface);
-  --cw-ink:#0B0F19; --cw-muted:#667085;
-  --cw-pos:#12B76A; --cw-pos-bg:#ECFDF3;
-  --cw-neg:#F04438; --cw-neg-bg:#FEF3F2;
-  --cw-neu:#667085; --cw-neu-bg:#F2F4F7;
-  --cw-accent:#3A74C2; --cw-accent-bg:var(--accent-soft);
-  --cw-border:var(--border-subtle);
-  --cw-shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
-  --cw-shadow-lift:0 2px 4px rgba(16,24,40,.05), 0 14px 34px rgba(16,24,40,.09);
-}
-.cw-page { background:var(--cw-bg); min-height:100%; padding:30px 32px 56px; color:var(--cw-ink); }
-.cw-page.is-embedded { min-height:0; padding:0; }
-.cw-locked { color:#9ca3af; font-size:11.5px; font-weight:600; white-space:nowrap; }
-.cw-page *:focus-visible, .cw-overlay *:focus-visible { outline:2px solid var(--cw-accent); outline-offset:2px; border-radius:6px; }
-.cw-num { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
+const FILTERS = ['owes', 'credit', 'settled'] as const;
 
-/* ── Header ── */
-.cw-head { margin-bottom:22px; }
-.cw-h1 { margin:0; font-size:28px; font-weight:500; letter-spacing:-.8px; color:var(--cw-ink); }
-.cw-sub { margin:5px 0 0; font-size:14px; color:var(--cw-muted); }
+interface BookingLabelRow {
+  id: number;
+  customer_id: string | null;
+  start_date: string;
+  is_currently_active: boolean | null;
+  cars: { plate_number: string | null } | { plate_number: string | null }[] | null;
+}
 
-/* ── Stat cards ── */
-.cw-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
-.cw-stat { background:var(--cw-card); border:1px solid var(--cw-border); border-radius:20px; padding:20px 22px;  }
-.cw-stat-label { font-size:11px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--cw-muted); }
-.cw-stat-value { margin-top:8px; font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1.1; }
-.cw-stat-hint { margin-top:4px; font-size:12.5px; color:var(--cw-muted); }
-
-/* ── Toolbar ── */
-.cw-toolbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
-.cw-seg { display:inline-flex; background:var(--cw-neu-bg); border-radius:999px; padding:4px; gap:2px; }
-.cw-seg-btn {
-  appearance:none; border:none; background:none; cursor:pointer; font-family:inherit;
-  min-height:36px; padding:0 16px; border-radius:999px; font-size:13.5px; font-weight:600;
-  color:var(--cw-muted); transition:background 160ms ease, color 160ms ease, box-shadow 160ms ease;
-}
-.cw-seg-btn:hover { color:var(--cw-ink); }
-.cw-seg-btn.is-on { background:var(--cw-card); color:var(--cw-ink); box-shadow:0 1px 3px rgba(16,24,40,.10); }
-.cw-search { position:relative; flex:1; min-width:200px; max-width:340px; }
-.cw-search svg { position:absolute; top:50%; left:14px; transform:translateY(-50%); color:var(--cw-muted); pointer-events:none; }
-.cw-search input {
-  width:100%; min-height:44px; padding:0 16px 0 40px; border-radius:999px;
-  border:1px solid var(--cw-border); background:var(--cw-card); color:var(--cw-ink);
-  font-size:14px; font-family:inherit; outline:none;
-  box-shadow:inset 0 1px 2px rgba(16,24,40,.04); transition:border-color 160ms ease, box-shadow 160ms ease;
-}
-.cw-search input::placeholder { color:var(--cw-muted); }
-.cw-search input:focus { border-color:var(--cw-accent); box-shadow:0 0 0 4px var(--cw-accent-bg); }
-/* ── Car grid ── */
-.cw-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:18px; }
-.cw-tile {
-  appearance:none; border:1px solid var(--cw-border); text-align:left; font-family:inherit; color:inherit; cursor:pointer;
-  background:var(--cw-card); border-radius:20px; padding:18px;
-  display:flex; flex-direction:column; gap:12px;
-  transition:box-shadow 160ms ease, transform 160ms ease;
-}
-.cw-tile:hover { box-shadow:var(--cw-shadow-lift); transform:translateY(-2px); }
-.cw-tile:active { transform:translateY(0); }
-/* Plate is the first hero — the photo is a small supporting accent beside it. */
-/* Centred so the tall thumb and the single-line plate share a visual axis. */
-.cw-tile-top { display:flex; align-items:center; justify-content:space-between; gap:14px; }
-.cw-tile-plate {
-  font-size:23px; font-weight:800; letter-spacing:-.7px; line-height:1.15; color:var(--cw-ink);
-  font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; min-width:0; word-break:break-word;
-}
-.cw-tile-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.cw-rule { display:block; height:1px; background:var(--cw-border); }
-/* Balance is the second hero — it visually rivals the plate. */
-.cw-tile-bal { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
-.cw-tile-bal-value {
-  display:block; margin-top:3px; font-size:21px; font-weight:700; letter-spacing:-.5px; line-height:1.15;
-}
-.cw-view { display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:600; color:var(--cw-accent); }
-.cw-tile:hover .cw-view svg { transform:translateX(2px); }
-.cw-view svg { transition:transform 160ms ease; }
-
-/* ── Shared identity bits ── */
-.cw-plate-line { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-.cw-plate { font-size:18px; font-weight:750; letter-spacing:-.3px; color:var(--cw-ink); }
-.cw-caption { margin-top:3px; font-size:12.5px; color:var(--cw-muted); }
-.cw-pill {
-  display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:3px 10px;
-  font-size:11px; font-weight:700; letter-spacing:.3px;
-}
-.cw-pill i { width:6px; height:6px; border-radius:50%; background:currentColor; display:block; }
-.cw-pill--live { color:var(--cw-pos); background:var(--cw-pos-bg); }
-.cw-pill--idle { color:var(--cw-neu); background:var(--cw-neu-bg); }
-.cw-bal-block { text-align:right; flex-shrink:0; }
-.cw-bal-label { font-size:11px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--cw-muted); }
-.cw-bal-lg { margin-top:3px; font-size:22px; font-weight:750; letter-spacing:-.6px; line-height:1.15; }
-.cw-bal-md { font-size:18px; font-weight:700; letter-spacing:-.4px; }
-
-/* ── Modal ── */
-.cw-overlay {
-  position:fixed; inset:0; z-index:1200; background:rgba(11,15,25,.5); backdrop-filter:blur(5px);
-  display:flex; align-items:center; justify-content:center; padding:24px; animation:cwFade 160ms ease;
-}
-.cw-modal {
-  background:var(--cw-card); border-radius:22px; width:100%; max-width:820px; max-height:88vh;
-  display:flex; flex-direction:column; box-shadow:0 28px 90px rgba(11,15,25,.28);
-  animation:cwRise 200ms cubic-bezier(.22,1,.36,1); color:var(--cw-ink);
-}
-.cw-modal-head { display:flex; align-items:center; gap:14px; padding:18px 20px; border-bottom:1px solid var(--cw-border); flex-shrink:0; }
-.cw-modal-close {
-  appearance:none; width:36px; height:36px; border-radius:10px; border:1px solid var(--cw-border);
-  background:var(--cw-card); color:var(--cw-muted); cursor:pointer; flex-shrink:0;
-  display:inline-flex; align-items:center; justify-content:center; transition:color 160ms ease, border-color 160ms ease;
-}
-.cw-modal-close:hover { color:var(--cw-ink); border-color:#DDE1E8; }
-.cw-modal-body { padding:16px 20px 20px; overflow-y:auto; }
-@keyframes cwFade { from { opacity:0 } to { opacity:1 } }
-@keyframes cwRise { from { opacity:0; transform:translateY(14px) scale(.985) } to { opacity:1; transform:none } }
-
-/* ── Customer row ── */
-.cw-rows { display:flex; flex-direction:column; gap:10px; }
-.cw-crow { border:1px solid var(--cw-border); background:var(--cw-card); border-radius:14px; overflow:hidden; transition:border-color 160ms ease; }
-.cw-crow:hover { border-color:#DDE1E8; }
-.cw-crow-head { display:flex; align-items:center; gap:14px; padding:14px 16px; flex-wrap:wrap; }
-.cw-disclose {
-  appearance:none; border:none; background:none; cursor:pointer; font-family:inherit; text-align:left;
-  display:flex; align-items:center; gap:11px; flex:1; min-width:180px; min-height:44px; padding:0; color:inherit;
-}
-.cw-chev { color:var(--cw-muted); flex-shrink:0; transition:transform 200ms ease; }
-.cw-crow.is-open .cw-chev { transform:rotate(90deg); }
-.cw-cust-name { font-size:15px; font-weight:600; color:var(--cw-ink); }
-.cw-row-actions { display:inline-flex; gap:8px; flex-shrink:0; }
-.cw-btn-soft, .cw-btn-ghost {
-  appearance:none; cursor:pointer; font-family:inherit; min-height:40px; padding:0 13px;
-  border-radius:10px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;
-  transition:transform 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
-}
-.cw-btn-soft { border:1px solid transparent; background:var(--cw-accent-bg); color:var(--cw-accent); }
-.cw-btn-soft:hover { background:#E4ECFF; }
-.cw-btn-ghost { border:1px solid var(--cw-border); background:var(--cw-card); color:var(--cw-muted); }
-.cw-btn-ghost:hover { border-color:#DDE1E8; color:var(--cw-ink); }
-.cw-btn-soft:active, .cw-btn-ghost:active { transform:scale(.98); }
-.cw-btn-ghost[disabled] { opacity:.6; cursor:wait; }
-
-/* ── Transaction sheet (animated disclosure) ── */
-.cw-sheet { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows 200ms ease, opacity 200ms ease; }
-.cw-crow.is-open .cw-sheet { grid-template-rows:1fr; opacity:1; }
-.cw-sheet-inner { overflow:hidden; min-height:0; visibility:hidden; transition:visibility 0s 200ms; }
-.cw-crow.is-open .cw-sheet-inner { visibility:visible; transition:visibility 0s 0s; }
-.cw-sheet-scroll { overflow-x:auto; border-top:1px solid var(--cw-border); background:var(--cw-card); padding-top:6px; }
-.cw-tx { width:100%; border-collapse:collapse; min-width:620px; }
-.cw-tx th {
-  padding:12px 16px 10px; font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase;
-  color:var(--cw-muted); text-align:left; white-space:nowrap; border-bottom:1px solid var(--cw-border);
-}
-.cw-tx th.r, .cw-tx td.r { text-align:right; }
-.cw-tx td { padding:12px 16px; font-size:13.5px; color:var(--cw-ink); border-bottom:1px solid #F4F5F7; white-space:nowrap; }
-.cw-tx tr:last-child td { border-bottom:none; }
-.cw-tx tbody tr { transition:background 160ms ease; }
-.cw-tx tbody tr:hover { background:#FAFBFC; }
-.cw-tx .cw-date { color:var(--cw-muted); }
-.cw-tx .cw-desc { white-space:normal; color:var(--cw-muted); max-width:260px; }
-.cw-chip {
-  display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px;
-  background:var(--cw-neu-bg); color:#475467; font-size:12px; font-weight:600;
-}
-.cw-chip i { width:6px; height:6px; border-radius:50%; display:block; }
-.cw-tx-actions { display:inline-flex; gap:6px; opacity:0; transition:opacity 160ms ease; }
-.cw-tx tbody tr:hover .cw-tx-actions, .cw-tx tbody tr:focus-within .cw-tx-actions { opacity:1; }
-.cw-icon-btn {
-  appearance:none; width:36px; height:36px; border-radius:9px; border:1px solid var(--cw-border);
-  background:var(--cw-card); color:var(--cw-muted); cursor:pointer;
-  display:inline-flex; align-items:center; justify-content:center; transition:color 160ms ease, border-color 160ms ease;
-}
-.cw-icon-btn:hover { color:var(--cw-ink); border-color:#DDE1E8; }
-.cw-icon-btn.danger:hover { color:var(--cw-neg); border-color:#FDA29B; }
-
-/* ── Misc ── */
-.cw-approx {
-  display:inline-block; font-size:10px; font-weight:700; color:var(--cw-muted);
-  background:var(--cw-neu-bg); border-radius:999px; padding:1px 5px; margin-right:5px;
-  vertical-align:2px; cursor:help;
-}
-.cw-empty { background:var(--cw-card); border:1px solid var(--cw-border); border-radius:20px; box-shadow:var(--cw-shadow); padding:64px 24px; text-align:center; }
-.cw-empty-title { font-size:15px; font-weight:650; color:var(--cw-ink); }
-.cw-empty-sub { margin-top:6px; font-size:13.5px; color:var(--cw-muted); }
-.cw-pos { color:var(--cw-pos); } .cw-neg { color:var(--cw-neg); } .cw-neu { color:var(--cw-neu); }
-
-/* ── Mobile ── */
-@media (max-width:760px) {
-  .cw-page { padding:22px 16px 44px; }
-  .cw-page.is-embedded { padding:0; }
-  .cw-h1 { font-size:24px; }
-  .cw-stats { grid-template-columns:1fr; gap:12px; }
-  .cw-stat { padding:16px 18px; }
-  .cw-stat-value { font-size:26px; }
-  .cw-search { max-width:none; flex-basis:100%; }
-  .cw-add { width:100%; }
-  .cw-grid { grid-template-columns:1fr; gap:14px; }
-  .cw-overlay { padding:0; align-items:flex-end; }
-  .cw-modal { max-width:none; max-height:100vh; height:100vh; border-radius:0; }
-  .cw-modal-head { padding:16px; }
-    .cw-modal-body { padding:14px 14px 20px; }
-  .cw-crow-head { flex-direction:column; align-items:stretch; gap:12px; }
-  .cw-row-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .cw-btn-soft, .cw-btn-ghost { justify-content:center; min-height:44px; }
-}
-@media (min-width:761px) and (max-width:1100px) {
-  .cw-grid { grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); }
-}
-@media (pointer:coarse) {
-  .cw-icon-btn { width:44px; height:44px; }
-  .cw-tx-actions { opacity:1; }
-}
-@media (prefers-reduced-motion:reduce) {
-  .cw-page *, .cw-page *::before, .cw-page *::after,
-  .cw-overlay *, .cw-overlay *::before, .cw-overlay *::after {
-    transition-duration:.01ms !important; animation-duration:.01ms !important;
+/** Per booking rounded to the kuruş, then summed: the same total the wallet shows. */
+export function summarizeCustomers(rows: LedgerRow[], bookings: BookingLabelRow[], unknown: string): CustomerSummary[] {
+  const perBooking = new Map<string, number>();
+  const people = new Map<string, { row: LedgerRow; bookings: Set<number> }>();
+  for (const row of rows) {
+    const key = `${row.customer_id}:${row.booking_id ?? 'none'}`;
+    perBooking.set(key, (perBooking.get(key) ?? 0) + (row.direction === 'IN' ? Number(row.amount) : -Number(row.amount)));
+    const person = people.get(row.customer_id) ?? { row, bookings: new Set<number>() };
+    if (row.booking_id != null) person.bookings.add(row.booking_id);
+    people.set(row.customer_id, person);
   }
-  .cw-tile:hover { transform:none; }
-  .cw-btn-soft:active, .cw-btn-ghost:active { transform:none; }
+  const balances = new Map<string, number>();
+  perBooking.forEach((sum, key) => {
+    const customerId = key.slice(0, key.lastIndexOf(':'));
+    balances.set(customerId, (balances.get(customerId) ?? 0) + round2(sum));
+  });
+  const newest = new Map<string, BookingLabelRow>();
+  const onRent = new Set<string>();
+  for (const booking of bookings) {
+    if (!booking.customer_id) continue;
+    if (booking.is_currently_active) onRent.add(booking.customer_id);
+    // The label comes from a booking with money on it, never an empty or cancelled one.
+    if (!people.get(booking.customer_id)?.bookings.has(booking.id)) continue;
+    const seen = newest.get(booking.customer_id);
+    if (!seen || booking.start_date > seen.start_date) newest.set(booking.customer_id, booking);
+  }
+  return Array.from(people.entries()).map(([customerId, { row, bookings: ids }]) => {
+    const person = firstOf(row.customers);
+    return {
+      customerId,
+      name: [person?.first_name, person?.last_name].filter(Boolean).join(' ').trim() || unknown,
+      banned: person?.is_banned === true,
+      banReason: person?.ban_reason ?? null,
+      balance: round2(balances.get(customerId) ?? 0),
+      bookings: ids.size,
+      plate: firstOf(newest.get(customerId)?.cars)?.plate_number ?? null,
+      onRent: onRent.has(customerId),
+    };
+  });
 }
-`;
 
-/** Balance tone as a class, so colour and the text caption always agree. */
-function toneClass(balance: number): string {
-  if (balance < -0.005) return 'cw-neg';
-  if (balance > 0.005) return 'cw-pos';
-  return 'cw-neu';
-}
+const TONE_ORDER: Record<BalanceTone, number> = { owes: 0, credit: 1, settled: 2 };
 
-function balanceCaption(balance: number, t: TFunction): string {
-  if (balance < -0.005) return t('balance.owes');
-  if (balance > 0.005) return t('balance.credit');
-  return t('balance.settled');
-}
-
-const Approx: React.FC = () => {
+const CustomerRow: React.FC<{ entry: CustomerSummary; onOpen: () => void }> = ({ entry, onOpen }) => {
   const { t } = useTranslation('wallets');
   return (
-  <span className="cw-approx" title={t('balance.approx')}>≈</span>
-  );
-};
-
-// ─── Level 3 — one customer's transaction sheet for one car ───────────────────
-
-const TransactionSheet: React.FC<{
-  entry: CustomerOnCar;
-  currency: Currency;
-  rates: RateRow[];
-  fallbackUsdRate: number | null;
-  onEdit: (row: LedgerRow) => void;
-  onDelete: (row: LedgerRow) => void;
-}> = ({ entry, currency, rates, fallbackUsdRate, onEdit, onDelete }) => {
-  const { t } = useTranslation('wallets');
-  // Oldest first so the running balance reads top-to-bottom.
-  const chronological = useMemo(() => {
-    const sorted = [...entry.rows].sort((a, b) => {
-      const ta = a.created_at ? Date.parse(a.created_at) : 0;
-      const tb = b.created_at ? Date.parse(b.created_at) : 0;
-      return ta - tb;
-    });
-    let running = 0;
-    return sorted.map(row => {
-      const { value, approx } = convertEntry(row, currency, rates, fallbackUsdRate);
-      running += row.direction === 'IN' ? value : -value;
-      return { row, value, approx, running };
-    });
-  }, [entry.rows, currency, rates, fallbackUsdRate]);
-
-  return (
-    <div className="cw-sheet-scroll">
-      <table className="cw-tx">
-        <thead>
-          <tr>
-            <th>{t('table.date')}</th>
-            <th>{t('table.type')}</th>
-            <th>{t('table.description')}</th>
-            <th className="r">{t('table.amount')}</th>
-            <th className="r">{t('table.balance')}</th>
-            <th className="r"><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{t('table.actions')}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {chronological.map(({ row, value, approx, running }) => {
-            const isIn = row.direction === 'IN';
-            return (
-              <tr key={row.id}>
-                <td className="cw-date">{formatDateDisplay(row.created_at)}</td>
-                <td>
-                  {/* The dot carries direction; the signed, coloured amount repeats it. */}
-                  <span className="cw-chip" title={isIn ? t('direction.moneyIn') : t('direction.moneyOut')}>
-                    <i style={{ background: isIn ? 'var(--cw-pos)' : 'var(--cw-neg)' }} />
-                    {typeLabel(row.type)}
-                  </span>
-                </td>
-                <td className="cw-desc">{row.description || '—'}</td>
-                <td className={`r cw-num ${isIn ? 'cw-pos' : 'cw-neg'}`} style={{ fontWeight: 650 }}>
-                  {approx && <Approx />}
-                  {isIn ? '+' : '−'}{formatMoney(value, currency)}
-                </td>
-                <td className="r cw-num cw-neu">{formatSigned(running, currency)}</td>
-                <td className="r">
-                  <span className="cw-tx-actions">
-                    {/* Tied to an envelope and a movement, so it can't change on its own. */}
-                    {row.pay_method ? <span className="cw-locked" title={t('table.locked')}>{t('table.locked')}</span> : (
-                      <>
-                    <button type="button" className="cw-icon-btn" onClick={() => onEdit(row)} title={t('table.edit')} aria-label={t('table.edit')}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                    <button type="button" className="cw-icon-btn danger" onClick={() => onDelete(row)} title={t('table.delete')} aria-label={t('table.delete')}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                      </>
-                    )}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-// ─── Level 2 — a customer row inside the car modal ────────────────────────────
-
-const CustomerRow: React.FC<{
-  entry: CustomerOnCar;
-  currency: Currency;
-  rates: RateRow[];
-  fallbackUsdRate: number | null;
-  open: boolean;
-  onToggle: () => void;
-  onAdd: () => void;
-  onEdit: (row: LedgerRow) => void;
-  onDelete: (row: LedgerRow) => void;
-  onError: (message: string) => void;
-}> = ({ entry, currency, rates, fallbackUsdRate, open, onToggle, onAdd, onEdit, onDelete, onError }) => {
-  const { t } = useTranslation('wallets');
-  const [printing, setPrinting] = useState(false);
-
-  /**
-   * The invoice lib resolves customer and vehicle itself and applies its own ADMIN-matching
-   * sign convention. It expects entries newest-first, which is how `entry.rows` is built —
-   * and because those rows are already scoped to this car, the invoice covers this car only.
-   */
-  const handlePrintInvoice = async () => {
-    if (printing) return;
-    setPrinting(true);
-    await printCustomerInvoice(
-      entry.customerId,
-      entry.rows.map(row => ({
-        created_at:  row.created_at,
-        type:        row.type,
-        description: row.description,
-        direction:   row.direction,
-        amount:      row.amount,
-        car_id:      row.car_id,
-      })),
-      { onError },
-    );
-    setPrinting(false);
-  };
-
-  return (
-    <div className={`cw-crow${open ? ' is-open' : ''}`}>
-      <div className="cw-crow-head">
-        <button type="button" className="cw-disclose" onClick={onToggle} aria-expanded={open}>
-          <svg className="cw-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span style={{ minWidth: 0 }}>
-            <span className="cw-plate-line">
-              {/* Pill trails the name so names stay left-aligned down the card. */}
-              <span className="cw-cust-name">{entry.name}</span>
-              {entry.banned && <BannedBadge reason={entry.banReason} showReason />}
-              {entry.live && <span className="cw-pill cw-pill--live"><i />{t('live')}</span>}
-            </span>
-            <span className="cw-caption" style={{ display: 'block' }}>
-              {entry.rows.length} {entry.rows.length === 1 ? 'entry' : 'entries'}
-              {' · '}In <span className="cw-num">{formatMoney(entry.totalIn, currency)}</span>
-              {' · '}Out <span className="cw-num">{formatMoney(entry.totalOut, currency)}</span>
-            </span>
-          </span>
-        </button>
-
-        <div className="cw-bal-block">
-          <div className={`cw-bal-md cw-num ${toneClass(entry.balance)}`}>
-            {entry.approx && <Approx />}
-            {formatSigned(entry.balance, currency)}
-          </div>
-          <div className="cw-caption" style={{ marginTop: 1 }}>{balanceCaption(entry.balance, t)}</div>
-        </div>
-
-        <div className="cw-row-actions">
-          <button type="button" className="cw-btn-soft" onClick={onAdd} title={t('form.addForCar')}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-            {t('addTransactionShort')}
-          </button>
-          <button type="button" className="cw-btn-ghost" onClick={handlePrintInvoice} disabled={printing} title={t('form.printInvoice')}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {printing ? t('form.preparing') : t('form.print')}
-          </button>
-        </div>
-      </div>
-
-      <div className="cw-sheet">
-        <div className="cw-sheet-inner">
-          <TransactionSheet
-            entry={entry}
-            currency={currency}
-            rates={rates}
-            fallbackUsdRate={fallbackUsdRate}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Level 1 — a car tile in the grid ─────────────────────────────────────────
-
-const CarTile: React.FC<{
-  car: CarGroup;
-  currency: Currency;
-  onOpen: (trigger: HTMLButtonElement) => void;
-}> = ({ car, currency, onOpen }) => {
-  const { t } = useTranslation('wallets');
-  return (
-  <button
-    type="button"
-    className="cw-tile surface-depth"
-    onClick={e => onOpen(e.currentTarget)}
-    aria-label={`${car.plate} — open customers and transactions`}
-  >
-    <span className="cw-tile-top">
-      <span className="cw-tile-plate">{car.plate}</span>
-    </span>
-
-    <span className="cw-tile-meta">
-      <span className="cw-caption" style={{ marginTop: 0 }}>{car.modelName ?? t('noModelGroup')}</span>
-      {car.hasLive
-        ? <span className="cw-pill cw-pill--live"><i />{t('onRent')}</span>
-        : <span className="cw-pill cw-pill--idle"><i />{t('available')}</span>}
-      <span className="cw-caption" style={{ marginTop: 0 }}>
-        · {t('customerCount', { count: car.customers.length })}
-      </span>
-    </span>
-
-    <span className="cw-rule" />
-
-    <span className="cw-tile-bal">
-      <span style={{ minWidth: 0 }}>
-        <span className="cw-bal-label" style={{ display: 'block' }}>{t('carBalance')}</span>
-        <span className={`cw-tile-bal-value cw-num ${toneClass(car.balance)}`}>
-          {car.approx && <Approx />}
-          {formatSigned(car.balance, currency)}
+    <button type="button" className="hc-cw-row surface-depth" onClick={onOpen}>
+      <CustomerAvatar size={40} />
+      <span className="hc-cw-row-text">
+        <span className="hc-cw-row-name">
+          <bdi dir="auto">{entry.name}</bdi>
+          {entry.banned && <BannedBadge reason={entry.banReason} />}
+        </span>
+        <span className="hc-cw-row-meta">
+          <span>{t('bookingCount', { count: entry.bookings })}</span>
+          {entry.plate && <PlateChip plate={entry.plate} />}
+          {entry.onRent && <span className="hc-cw-pill is-live">{t('wallet.onRent')}</span>}
         </span>
       </span>
-      <span className="cw-view">
-        {t('viewLabel')}
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    </span>
-  </button>
-  );
-};
-
-// ─── Levels 2 + 3 — the car modal ─────────────────────────────────────────────
-
-const CarModal: React.FC<{
-  car: CarGroup;
-  currency: Currency;
-  rates: RateRow[];
-  fallbackUsdRate: number | null;
-  expanded: Record<string, boolean>;
-  onToggle: (customerId: string) => void;
-  onAdd: (customer: CustomerOnCar) => void;
-  onEdit: (row: LedgerRow) => void;
-  onDelete: (row: LedgerRow) => void;
-  onError: (message: string) => void;
-  onClose: () => void;
-}> = ({ car, currency, rates, fallbackUsdRate, expanded, onToggle, onAdd, onEdit, onDelete, onError, onClose }) => {
-  const { t } = useTranslation('wallets');
-  const { t: tc } = useTranslation('common');
-  const boxRef = useRef<HTMLDivElement>(null);
-  const titleId = `cw-modal-${car.key}`;
-
-  // Lock background scrolling for as long as the modal is mounted.
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
-  }, []);
-
-  // Escape closes; Tab cycles inside the dialog. Controls in a collapsed sheet are skipped,
-  // since they are visibility:hidden and must stay out of the tab order.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
-      if (e.key !== 'Tab' || !boxRef.current) return;
-      const focusable = Array.from(
-        boxRef.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
-      ).filter(el => !el.hasAttribute('disabled') && !el.closest('.cw-crow:not(.is-open) .cw-sheet'));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  useEffect(() => { boxRef.current?.querySelector<HTMLElement>('button')?.focus(); }, []);
-
-  return ReactDOM.createPortal(
-    <div className="cw-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="cw-modal" ref={boxRef} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <div className="cw-modal-head">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="cw-plate-line">
-              <span className="cw-plate" id={titleId}>{car.plate}</span>
-              {car.hasLive
-                ? <span className="cw-pill cw-pill--live"><i />{t('onRent')}</span>
-                : <span className="cw-pill cw-pill--idle"><i />{t('available')}</span>}
-            </div>
-            <div className="cw-caption">
-              {car.modelName ?? t('noModelGroup')} · {t('customerCount', { count: car.customers.length })}
-            </div>
-          </div>
-          <div className="cw-bal-block" style={{ marginRight: 4 }}>
-            <div className="cw-bal-label">{t('carBalance')}</div>
-            <div className={`cw-bal-lg cw-num ${toneClass(car.balance)}`}>
-              {car.approx && <Approx />}
-              {formatSigned(car.balance, currency)}
-            </div>
-          </div>
-          <button type="button" className="cw-modal-close" onClick={onClose} aria-label={tc('actions.close')}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="cw-modal-body">
-          <div className="cw-rows">
-            {car.customers.map(entry => (
-              <CustomerRow
-                key={entry.customerId}
-                entry={entry}
-                currency={currency}
-                rates={rates}
-                fallbackUsdRate={fallbackUsdRate}
-                open={!!expanded[`${car.key}:${entry.customerId}`]}
-                onToggle={() => onToggle(entry.customerId)}
-                onAdd={() => onAdd(entry)}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onError={onError}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+      <BalanceChip balance={entry.balance} />
+    </button>
   );
 };
 
@@ -1226,42 +654,42 @@ const CarModal: React.FC<{
 /** `embedded` sits inside a tab of Accounting, which has its own title and padding. */
 const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation('wallets');
-  const { t: tc } = useTranslation('common');
-  const { currency, rates } = useCurrency();
+  const [params, setParams] = useSearchParams();
+  const [filter, setFilter] = useTileFilter(FILTERS);
+  const openId = params.get('customer');
 
   const [rows, setRows] = useState<LedgerRow[]>([]);
+  const [bookings, setBookings] = useState<BookingLabelRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  /** `${car_id}:${customer_id}` for every currently-active booking. */
-  const [liveKeys, setLiveKeys] = useState<Set<string>>(new Set());
-  /** car id → model group name, for display and ordering only. */
-  const [carMeta, setCarMeta] = useState<Map<number, CarMeta>>(new Map());
-
-  const [tab, setTab] = useState<RentalTab>('all');
   const [search, setSearch] = useState('');
   useUrlSearch(setSearch);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [openCarKey, setOpenCarKey] = useState<string | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const [addFor, setAddFor] = useState<{ customerId: string | null; name: string | null; carId: number | null } | null>(null);
-  const [editRow, setEditRow] = useState<LedgerRow | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<LedgerRow | null>(null);
+  const [addFor, setAddFor] = useState<{ customerId: string | null; name: string | null; bookingId: number | null } | null>(null);
+  const [editRow, setEditRow] = useState<EditableLine | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EditableLine | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [receipts, setReceipts] = useState<PaymentReceipt[]>([]);
+  /** Bumped after a line changes, so an open wallet reads itself again. */
+  const [walletVersion, setWalletVersion] = useState(0);
 
-  const notify = useCallback((t: ToastState) => {
-    setToast(t);
-    if (t) window.setTimeout(() => setToast(null), 2600);
+  const notify = useCallback((next: ToastState) => {
+    setToast(next);
+    if (next) window.setTimeout(() => setToast(null), 2600);
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      setRows(await getLedgerRows());
+      const [ledger, labels] = await Promise.all([
+        getLedgerRows(),
+        supabase.from('bookings').select('id, customer_id, start_date, is_currently_active, cars(plate_number)'),
+      ]);
+      if (labels.error) throw labels.error;
+      setRows(ledger);
+      setBookings((labels.data ?? []) as unknown as BookingLabelRow[]);
       setLoadError(null);
     } catch (failure) {
       setLoadError((failure as { message?: string })?.message ?? '');
@@ -1269,168 +697,52 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
     let active = true;
     fetchCurrentUsdRate().then(rate => { if (active) setUsdRate(rate); });
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
     supabase.auth.getUser().then(({ data }) => { if (active) setUserId(data.user?.id ?? null); });
     return () => { active = false; };
   }, []);
 
-  // Model group per car — presentation and ordering only. Fetched separately (the pattern
-  // CarsPage uses) so the ledger query stays untouched; a failure here degrades to a
-  // placeholder glyph and never affects balances.
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const [carsRes, groupsRes] = await Promise.all([
-        supabase.from('cars').select('id, plate_number, model_group_id'),
-        supabase.from('model_group').select('id, name, brand, model'),
-      ]);
-      if (!active) return;
-      const groups = new Map<number, { name: string | null; brand: string | null; model: string | null }>();
-      for (const g of (groupsRes.data ?? []) as { id: number; name: string | null; brand: string | null; model: string | null }[]) {
-        groups.set(g.id, g);
-      }
-      const meta = new Map<number, CarMeta>();
-      for (const c of (carsRes.data ?? []) as { id: number; model_group_id: number | null }[]) {
-        const g = c.model_group_id != null ? groups.get(c.model_group_id) : undefined;
-        const label = g ? (g.name ?? ([g.brand, g.model].filter(Boolean).join(' ') || null)) : null;
-        meta.set(c.id, { modelName: label });
-      }
-      setCarMeta(meta);
-    })();
-    return () => { active = false; };
-  }, []);
+  const customers = useMemo(() => summarizeCustomers(rows, bookings, t('unknownCustomer'))
+    .sort((a, b) => {
+      const ta = balanceTone(a.balance);
+      const tb = balanceTone(b.balance);
+      return TONE_ORDER[ta] - TONE_ORDER[tb] || Math.abs(b.balance) - Math.abs(a.balance) || a.name.localeCompare(b.name);
+    }), [rows, bookings, t]);
 
-  // A rental is live when a confirmed booking spans today — matched on car AND customer,
-  // so a customer is only "live" on the specific car they currently hold.
-  useEffect(() => {
-    let active = true;
-    const today = todayStr();
-    supabase
-      .from('bookings')
-      .select('car_id, customer_id')
-      .eq('status', 'confirmed')
-      .lte('start_date', today)
-      .gte('end_date', today)
-      .then(({ data }) => {
-        if (!active || !data) return;
-        const keys = new Set<string>();
-        for (const b of data as { car_id: number | null; customer_id: string | null }[]) {
-          if (b.car_id != null && b.customer_id) keys.add(`${b.car_id}:${b.customer_id}`);
-        }
-        setLiveKeys(keys);
-      });
-    return () => { active = false; };
-  }, []);
-
-  // Group: car → customer → entries. Balances are scoped to the (car, customer) pair.
-  const cars = useMemo<CarGroup[]>(() => {
-    const byCar = new Map<string, CarGroup>();
-
-    for (const row of rows) {
-      const plate = firstOf(row.cars)?.plate_number ?? null;
-      const linked = row.car_id != null && !!plate;
-      const key = linked ? String(row.car_id) : UNLINKED_KEY;
-
-      let car = byCar.get(key);
-      if (!car) {
-        const meta = linked ? carMeta.get(row.car_id as number) : undefined;
-        car = {
-          key,
-          carId: linked ? row.car_id : null,
-          plate: linked ? plate! : t('unlinked'),
-          customers: [], totalIn: 0, totalOut: 0, balance: 0, approx: false, hasLive: false,
-          modelName: meta?.modelName ?? null,
-        };
-        byCar.set(key, car);
-      }
-
-      let entry = car.customers.find(c => c.customerId === row.customer_id);
-      if (!entry) {
-        entry = {
-          customerId: row.customer_id,
-          name: customerNameOf(row, t),
-          banned: firstCustomer(row)?.is_banned === true,
-          banReason: firstCustomer(row)?.ban_reason ?? null,
-          rows: [], totalIn: 0, totalOut: 0, balance: 0, approx: false,
-          live: linked && liveKeys.has(`${row.car_id}:${row.customer_id}`),
-        };
-        car.customers.push(entry);
-      }
-
-      entry.rows.push(row);
-      const { value, approx } = convertEntry(row, currency, rates, usdRate);
-      if (row.direction === 'IN') entry.totalIn += value; else entry.totalOut += value;
-      if (approx) entry.approx = true;
-    }
-
-    const list = Array.from(byCar.values());
-    for (const car of list) {
-      for (const entry of car.customers) {
-        entry.balance = entry.totalIn - entry.totalOut;
-        car.totalIn += entry.totalIn;
-        car.totalOut += entry.totalOut;
-        if (entry.approx) car.approx = true;
-        if (entry.live) car.hasLive = true;
-      }
-      car.balance = car.totalIn - car.totalOut;
-      // Live customers first, then biggest debtor.
-      car.customers.sort((a, b) => Number(b.live) - Number(a.live) || a.balance - b.balance || a.name.localeCompare(b.name));
-    }
-
-    // Same model group sits consecutively: group name A→Z, then plate. Cars without a model
-    // group fall to the end, and the unlinked bucket is always last of all.
-    return list.sort((a, b) => {
-      if (a.key === UNLINKED_KEY) return 1;
-      if (b.key === UNLINKED_KEY) return -1;
-      if (!a.modelName !== !b.modelName) return a.modelName ? -1 : 1;
-      const byModel = (a.modelName ?? '').localeCompare(b.modelName ?? '');
-      return byModel !== 0 ? byModel : a.plate.localeCompare(b.plate);
-    });
-  }, [rows, currency, rates, usdRate, liveKeys, carMeta]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return cars.filter(car => {
-      if (tab === 'current' && !car.hasLive) return false;
-      if (tab === 'ended' && car.hasLive) return false;
-      if (!q) return true;
-      return car.plate.toLowerCase().includes(q)
-        || (car.modelName ?? '').toLowerCase().includes(q)
-        || car.customers.some(c => c.name.toLowerCase().includes(q));
-    });
-  }, [cars, search, tab]);
-
-  // Pills reflect what is on screen, and count per (customer, car) since that is the balance unit.
   const totals = useMemo(() => {
-    let owed = 0, credit = 0, debtors = 0, inCredit = 0;
-    for (const car of filtered) {
-      for (const entry of car.customers) {
-        if (entry.balance < -0.005) { owed += -entry.balance; debtors++; }
-        else if (entry.balance > 0.005) { credit += entry.balance; inCredit++; }
-      }
-    }
-    return { owed, credit, debtors, inCredit, net: credit - owed };
-  }, [filtered]);
+    const owes = customers.filter(entry => balanceTone(entry.balance) === 'owes');
+    const credit = customers.filter(entry => balanceTone(entry.balance) === 'credit');
+    return {
+      owes: owes.length,
+      owed: owes.reduce((sum, entry) => sum - entry.balance, 0),
+      credit: credit.length,
+      held: credit.reduce((sum, entry) => sum + entry.balance, 0),
+      settled: customers.length - owes.length - credit.length,
+    };
+  }, [customers]);
 
-  /** The open car, re-read from the live list so it stays fresh after any mutation. */
-  const openCar = useMemo(
-    () => (openCarKey ? cars.find(c => c.key === openCarKey) ?? null : null),
-    [cars, openCarKey],
-  );
+  const shown = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return customers.filter(entry => {
+      if (filter !== 'all' && balanceTone(entry.balance) !== filter) return false;
+      return !query || entry.name.toLowerCase().includes(query) || (entry.plate ?? '').toLowerCase().includes(query);
+    });
+  }, [customers, filter, search]);
 
-  const closeCar = useCallback(() => {
-    setOpenCarKey(null);
-    triggerRef.current?.focus();
-  }, []);
+  const openWallet = (customerId: string | null) => setParams(current => {
+    const next = new URLSearchParams(current);
+    if (customerId) next.set('customer', customerId); else next.delete('customer');
+    return next;
+  }, { replace: true });
+
+  const changed = useCallback(async () => {
+    setWalletVersion(value => value + 1);
+    await load();
+  }, [load]);
 
   const handleDelete = async () => {
     if (!deleteTarget || deleting) return;
@@ -1440,80 +752,37 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
     setDeleteTarget(null);
     if (error) { notify({ message: t('errors.delete'), type: 'error' }); return; }
     notify({ message: t('toast.deleted'), type: 'success' });
-    await load();
+    await changed();
   };
 
-  const TABS: { key: RentalTab; label: string }[] = [
-    { key: 'all',     label: t('all') },
-    { key: 'current', label: t('currentRentals') },
-    { key: 'ended',   label: t('endedRentals') },
-  ];
-
-  const emptyTitle = cars.length === 0
-    ? t('empty.noEntries')
-    : tab === 'current' ? t('empty.noCurrent')
-    : tab === 'ended'   ? t('empty.noEnded')
-    : t('empty.noMatch');
+  const ready = !loading && !loadError;
+  const emptyTitle = customers.length === 0 ? t('empty.noEntries') : search.trim() ? t('empty.noMatch') : t(`empty.${filter}`);
 
   return (
-    <div className={`cw-page${embedded ? ' is-embedded' : ''}`}>
-      <style>{CW_STYLES}</style>
-
+    <div className={`hc-cw-page${embedded ? ' is-embedded' : ''}`}>
       {!embedded && (
-        <header className="cw-head">
-          <h1 className="cw-h1">{t('title')}</h1>
-          <p className="cw-sub">{t('subtitle')}</p>
+        <header className="hc-cw-page-head">
+          <h1>{t('title')}</h1>
+          <p>{t('subtitle')}</p>
         </header>
       )}
 
-      {/* Summary */}
-      <div className="cw-stats">
-        <div className="cw-stat surface-depth">
-          <div className="cw-stat-label">{t('owedToUs')}</div>
-          <div className="cw-stat-value cw-num cw-neg">{formatMoney(totals.owed, currency)}</div>
-          <div className="cw-stat-hint">{t('balanceCount', { count: totals.debtors })}</div>
-        </div>
-        <div className="cw-stat surface-depth">
-          <div className="cw-stat-label">{t('inCredit')}</div>
-          <div className="cw-stat-value cw-num cw-pos">{formatMoney(totals.credit, currency)}</div>
-          <div className="cw-stat-hint">{t('balanceCount', { count: totals.inCredit })}</div>
-        </div>
-        <div className="cw-stat surface-depth">
-          <div className="cw-stat-label">{t('netPosition')}</div>
-          <div className={`cw-stat-value cw-num ${toneClass(totals.net)}`}>{formatSigned(totals.net, currency)}</div>
-          <div className="cw-stat-hint">{t('carCount', { count: filtered.length })}</div>
-        </div>
+      <div className="hc-tiles hc-tiles-filter hc-cw-tiles">
+        <StatTile tone="total" label={t('tiles.all')} value={ready ? String(customers.length) : null} sub={t('customerCount', { count: customers.length })} onPress={() => setFilter('all')} pressed={filter === 'all'} />
+        <StatTile tone="negative" label={t('tiles.owes')} value={ready ? formatLira(totals.owed) : null} sub={t('customerCount', { count: totals.owes })} onPress={() => setFilter('owes')} pressed={filter === 'owes'} />
+        <StatTile tone="received" label={t('tiles.credit')} value={ready ? formatLira(totals.held) : null} sub={t('customerCount', { count: totals.credit })} onPress={() => setFilter('credit')} pressed={filter === 'credit'} />
+        <StatTile tone="balance" label={t('tiles.settled')} value={ready ? String(totals.settled) : null} sub={t('customerCount', { count: totals.settled })} onPress={() => setFilter('settled')} pressed={filter === 'settled'} />
       </div>
 
-      {/* Tabs + search + add */}
-      <div className="cw-toolbar">
-        <div className="cw-seg" role="tablist" aria-label={t('rentalStatus')}>
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`cw-seg-btn${tab === t.key ? ' is-on' : ''}`}
-              onClick={() => setTab(t.key)}
-            >{t.label}</button>
-          ))}
-        </div>
-
-        <div className="cw-search">
+      <div className="hc-cw-toolbar">
+        <label className="hc-cw-search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
             <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={t('search')}
-            aria-label={t('searchAria')}
-          />
-        </div>
-
-        <Button className="cw-add" onClick={() => setAddFor({ customerId: null, name: null, carId: null })}>
+          <input className="hc-input" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('search')} aria-label={t('searchAria')} />
+        </label>
+        <Button onClick={() => setAddFor({ customerId: null, name: null, bookingId: null })}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
@@ -1522,48 +791,30 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
       </div>
 
       {loadError ? (
-        <div className="cw-empty">
-          <div className="cw-empty-title cw-neg">{t('loadError')}</div>
-          <div className="cw-empty-sub">{loadError}</div>
+        <div className="hc-cw-state surface-depth" role="alert">
+          <p>{t('loadError')}</p>
+          <small>{loadError}</small>
         </div>
       ) : loading ? (
-        <div className="cw-empty">
-          <div className="cw-empty-title">{t('loading')}</div>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="cw-empty">
-          <div className="cw-empty-title">{emptyTitle}</div>
-          <div className="cw-empty-sub">{t('emptyHint')}</div>
-        </div>
+        <div className="hc-cw-state surface-depth" role="status"><span className="hc-cw-spinner" aria-hidden="true" />{t('loading')}</div>
+      ) : shown.length === 0 ? (
+        <div className="hc-cw-state surface-depth"><p>{emptyTitle}</p></div>
       ) : (
-        <div className="cw-grid">
-          {filtered.map(car => (
-            <CarTile
-              key={car.key}
-              car={car}
-              currency={currency}
-              onOpen={trigger => { triggerRef.current = trigger; setOpenCarKey(car.key); }}
-            />
-          ))}
+        <div className="hc-cw-list">
+          {shown.map(entry => <CustomerRow key={entry.customerId} entry={entry} onOpen={() => openWallet(entry.customerId)} />)}
         </div>
       )}
 
-      {openCar && (
-        <CarModal
-          car={openCar}
-          currency={currency}
-          rates={rates}
-          fallbackUsdRate={usdRate}
-          expanded={expanded}
-          onToggle={customerId => setExpanded(prev => ({
-            ...prev,
-            [`${openCar.key}:${customerId}`]: !prev[`${openCar.key}:${customerId}`],
-          }))}
-          onAdd={entry => setAddFor({ customerId: entry.customerId, name: entry.name, carId: openCar.carId })}
-          onEdit={setEditRow}
-          onDelete={setDeleteTarget}
-          onError={message => notify({ message, type: 'error' })}
-          onClose={closeCar}
+      {openId && (
+        <CustomerWalletSheet
+          customerId={openId}
+          version={walletVersion}
+          covered={!!(addFor || editRow || deleteTarget || receipts.length)}
+          onClose={() => openWallet(null)}
+          onChanged={() => void load()}
+          onAdd={(bookingId, name) => setAddFor({ customerId: openId, name, bookingId })}
+          onEdit={line => setEditRow(line)}
+          onDelete={line => setDeleteTarget(line)}
         />
       )}
 
@@ -1574,10 +825,10 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
           userId={userId}
           presetCustomerId={addFor.customerId}
           presetName={addFor.name}
-          presetCarId={addFor.carId}
+          presetBookingId={addFor.bookingId}
           fallbackUsdRate={usdRate}
           onClose={() => setAddFor(null)}
-          onSaved={async receipt => { setAddFor(null); notify({ message: t('toast.added'), type: 'success' }); if (receipt) setReceipts([receipt]); await load(); }}
+          onSaved={async receipt => { setAddFor(null); notify({ message: t('toast.added'), type: 'success' }); if (receipt) setReceipts([receipt]); await changed(); }}
           onError={message => notify({ message, type: 'error' })}
         />
       )}
@@ -1586,7 +837,7 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
         <EditTransactionModal
           row={editRow}
           onClose={() => setEditRow(null)}
-          onSaved={async () => { setEditRow(null); notify({ message: t('toast.updated'), type: 'success' }); await load(); }}
+          onSaved={async () => { setEditRow(null); notify({ message: t('toast.updated'), type: 'success' }); await changed(); }}
           onError={message => notify({ message, type: 'error' })}
         />
       )}
@@ -1594,8 +845,8 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
       {deleteTarget && (
         <ConfirmDialog
           title={t('confirm.deleteTitle')}
-          message="This ledger entry will be permanently removed and the balance will be recalculated. This cannot be undone."
-          confirmLabel="Delete"
+          message={t('confirm.deleteBody')}
+          confirmLabel={t('confirm.delete')}
           busy={deleting}
           onConfirm={handleDelete}
           onClose={() => setDeleteTarget(null)}
