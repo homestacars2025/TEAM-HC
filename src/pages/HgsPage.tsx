@@ -15,7 +15,7 @@ import { useTileFilter } from '../hooks/useTileFilter';
 import { formatTRY } from '../lib/CurrencyContext';
 import { formatPlate } from '../lib/custodyExpense';
 import {
-  HGS_FILTERS, HGS_SORTS, barcodeProblem, formatCount, hgsRowMatches, hgsRows, hgsTiles, inPeriod, missingHgs, readSort, sortHgsRows, transitDate,
+  HGS_FILTERS, HGS_SORTS, barcodeProblem, formatCount, hgsRowMatches, hgsRows, hgsTiles, inPeriod, missingHgs, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
   type HgsCar, type HgsRow, type HgsSort, type HgsTransit,
 } from '../lib/hgs';
 import { ALL_MONTHS, currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
@@ -55,7 +55,7 @@ const percent = (share: number) => (share > 0 && share < 0.005 ? '<1%' : `${Math
 
 // ─── Transits of one car ──────────────────────────────────────────────────────
 
-const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; bookingsRoute: string | null }> = ({ id, row, month, bookingsRoute }) => {
+const CarTransits: React.FC<{ id: string; row: HgsRow; month: string }> = ({ id, row, month }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const [items, setItems] = useState<HgsCarTransit[] | null>(null);
@@ -88,21 +88,20 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; bookingsRo
       ) : (
         <ol className="hc-hgs-transits">
           {items.map(item => {
-            const route = item.entry_location && item.exit_location && item.entry_location !== item.exit_location
-              ? `${item.entry_location} → ${item.exit_location}`
-              : item.exit_location ?? item.toll_location ?? item.entry_location ?? '—';
-            const customer = [item.customer?.first_name, item.customer?.last_name].filter(Boolean).join(' ');
+            const place = transitPlace(item);
+            const road = item.otoyol?.trim();
             return (
               <li key={item.id}>
-                <span className="hc-hgs-t-date">{formatDateDisplay(transitDate(item.transit_datetime), locale)}</span>
-                <span className="hc-hgs-t-route"><bdi dir="ltr">{route}</bdi>{item.record_type === 'pending' && <span className="hc-pill is-amber">{t('transits.pending')}</span>}</span>
+                <span className="hc-hgs-t-date">
+                  {formatDateDisplay(transitDate(item.transit_datetime), locale)}
+                  <small dir="ltr" className="hc-num">{transitTime(item.transit_datetime)}</small>
+                </span>
+                <span className="hc-hgs-t-route" title={item.description ?? undefined}><bdi dir="ltr">{place}</bdi></span>
                 <span className="hc-hgs-t-who">
-                  {item.booking_id && item.booking ? (
-                    bookingsRoute
-                      ? <Link to={`${bookingsRoute}?edit=${item.booking_id}`} className="hc-hgs-link">{t('transits.booking', { number: item.booking.booking_number })}</Link>
-                      : <span>{t('transits.booking', { number: item.booking.booking_number })}</span>
-                  ) : <span className="hc-hgs-muted">{t('transits.noBooking')}</span>}
-                  {customer && <small><bdi dir="auto">{customer}</bdi></small>}
+                  {item.road_type === 'private' || item.road_type === 'public'
+                    ? <span className={`hc-pill ${item.road_type === 'private' ? 'is-blue' : 'is-old'}`}>{t(`transits.road_${item.road_type}`)}</span>
+                    : null}
+                  {road && road !== place && <small><bdi dir="ltr">{road}</bdi></small>}
                 </span>
                 <b className="hc-hgs-t-amount"><bdi dir="ltr">{formatTRY(item.amount)}</bdi></b>
               </li>
@@ -192,9 +191,9 @@ const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({
 // ─── One car ──────────────────────────────────────────────────────────────────
 
 const CarCard: React.FC<{
-  row: HgsRow; month: string; open: boolean; onToggle: () => void; bookingsRoute: string | null;
+  row: HgsRow; month: string; open: boolean; onToggle: () => void;
   upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void;
-}> = ({ row, month, open, onToggle, bookingsRoute, upload, onUpload }) => {
+}> = ({ row, month, open, onToggle, upload, onUpload }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const panelId = useId();
@@ -208,7 +207,6 @@ const CarCard: React.FC<{
           <span className="hc-hgs-car-text">
             <PlateChip plate={row.plate} />
             <span className="hc-hgs-model"><bdi dir="auto">{row.model ?? t('row.noModel')}</bdi></span>
-            {row.pending > 0 && <span className="hc-pill is-amber">{t('row.pending', { n: row.pending })}</span>}
           </span>
         </span>
         <span className="hc-hgs-barcode">{row.barcode ? <bdi dir="ltr">{row.barcode}</bdi> : t('row.noBarcode')}</span>
@@ -226,7 +224,7 @@ const CarCard: React.FC<{
       <PortalUpload plate={row.plate} state={upload} onState={onUpload} />
       </div>
       {upload && <UploadResult state={upload} onDismiss={() => onUpload(undefined)} />}
-      {open && <CarTransits id={panelId} row={row} month={month} bookingsRoute={bookingsRoute} />}
+      {open && <CarTransits id={panelId} row={row} month={month} />}
     </li>
   );
 };
@@ -322,7 +320,6 @@ const HgsPage: React.FC = () => {
 
   const routeOf = (key: string) => (canAccessPage(key) ? pages.find(p => p.key === key)?.route ?? null : null);
   const carsRoute = routeOf('cars');
-  const bookingsRoute = routeOf('bookings');
 
   const load = useCallback(async () => {
     const id = ++loadId.current;
@@ -485,7 +482,6 @@ const HgsPage: React.FC = () => {
                 month={month}
                 open={open.has(row.key)}
                 onToggle={() => toggle(row.key)}
-                bookingsRoute={bookingsRoute}
                 upload={uploads[row.key]}
                 onUpload={next => setUploads(current => ({ ...current, [row.key]: next }))}
               />

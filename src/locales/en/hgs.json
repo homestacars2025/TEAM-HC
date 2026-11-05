@@ -1,9 +1,9 @@
 {
   "title": "HGS",
-  "subtitle": "Motorway tolls from each car's HGS tag",
+  "subtitle": "Motorway and bridge tolls from the official HGS portal, per car",
   "sync": {
-    "last": "Last sync: {{when}}",
-    "never": "Not synced yet",
+    "last": "Last upload: {{when}}",
+    "never": "No file uploaded yet",
     "refresh": "Refresh",
     "refreshing": "Refreshing…"
   },
@@ -41,17 +41,15 @@
     "last": "Last transit",
     "noModel": "No model",
     "noBarcode": "No barcode",
-    "share": "{{pct}} of the spend",
-    "pending": "{{n}} pending"
+    "share": "{{pct}} of the spend"
   },
   "transits": {
     "loading": "Loading transits…",
     "failed": "Couldn't load the transits.",
     "retry": "Try again",
     "empty": "No transits in this period.",
-    "pending": "Pending",
-    "booking": "Booking {{number}}",
-    "noBooking": "No booking linked"
+    "road_public": "Public road",
+    "road_private": "Private road"
   },
   "fix": {
     "title": "HGS barcode",

@@ -4674,6 +4674,7 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-hgs-transits li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "date route amount" "date who amount"; gap: 2px 12px; align-items: start; padding: 9px 0; border-bottom: 1px solid #f0f0f0; }
 .hc-hgs-transits li:last-child { border-bottom: 0; }
 .hc-hgs-t-date { grid-area: date; min-width: 84px; color: #6b7280; font-size: 12.5px; white-space: nowrap; }
+.hc-hgs-t-date small { display: block; margin-top: 1px; color: #9ca3af; font-size: 11.5px; }
 .hc-hgs-t-route { grid-area: route; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: #0f1117; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .hc-hgs-t-who { grid-area: who; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; min-width: 0; color: #374151; font-size: 12.5px; }
 .hc-hgs-t-who small { color: #6b7280; font-size: 12px; }

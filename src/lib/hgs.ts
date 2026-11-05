@@ -1,11 +1,11 @@
-import { istanbulDate } from './istanbulTime';
+import { BUSINESS_TIME_ZONE, istanbulDate } from './istanbulTime';
 import { ALL_MONTHS, shiftMonth } from './pendingInvoices';
 
 /**
  * The HGS (motorway toll tag) page, worked out here so it can be tested. The same
  * rules run on the Admin page: a car is on HGS when its barcode isn't blank, and a
- * transit belongs to the Istanbul month of its date. Pending rows count like
- * settled ones, as in `hgs_dashboard()`.
+ * transit belongs to the Istanbul month of its time. The rows come from
+ * `hgs_portal_transits`, the official portal files finance uploads per car.
  */
 
 export interface HgsCar {
@@ -22,13 +22,17 @@ export interface HgsTransit {
   plate_number: string | null;
   transit_datetime: string;
   amount: number;
-  record_type: string | null;
+  /** `private` is a bridge or private motorway (özel geçiş). */
+  road_type: string | null;
 }
 
 export const hasBarcode = (barcode: string | null | undefined): boolean => !!barcode?.trim();
 
-/** Every transit arrives stamped 00:00 UTC, which is the same date in Istanbul. */
+/** The Istanbul date of a transit. The portal gives the real time of day, so late-night ones keep their own date. */
 export const transitDate = (iso: string): string => istanbulDate(new Date(iso));
+/** `14:05`, Istanbul time. */
+export const transitTime = (iso: string): string =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: BUSINESS_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
 export const transitMonth = (iso: string): string => transitDate(iso).slice(0, 7);
 
 export const inPeriod = (row: Pick<HgsTransit, 'transit_datetime'>, month: string): boolean =>
@@ -60,8 +64,6 @@ export interface HgsRow {
   last: string | null;
   /** Of the period's spend, 0 to 1. */
   share: number;
-  /** Transits the bank hasn't settled yet. */
-  pending: number;
 }
 
 /**
@@ -74,7 +76,7 @@ export function hgsRows(cars: readonly HgsCar[], transits: readonly HgsTransit[]
   const keyFor = (carId: number | null, plate: string | null) => (carId !== null ? `car:${carId}` : `plate:${(plate ?? '').replace(/\s/g, '')}`);
   for (const car of cars) {
     if (!hasBarcode(car.barcode)) continue;
-    rows.set(keyFor(car.id, null), { key: keyFor(car.id, null), carId: car.id, plate: car.plate, model: car.model, barcode: car.barcode?.trim() ?? null, transits: 0, amount: 0, last: null, share: 0, pending: 0 });
+    rows.set(keyFor(car.id, null), { key: keyFor(car.id, null), carId: car.id, plate: car.plate, model: car.model, barcode: car.barcode?.trim() ?? null, transits: 0, amount: 0, last: null, share: 0 });
   }
   let total = 0;
   for (const transit of transits) {
@@ -82,12 +84,11 @@ export function hgsRows(cars: readonly HgsCar[], transits: readonly HgsTransit[]
     let row = rows.get(key);
     if (!row) {
       const car = cars.find(c => c.id === transit.car_id);
-      row = { key, carId: transit.car_id, plate: car?.plate ?? transit.plate_number ?? '—', model: car?.model ?? null, barcode: car && hasBarcode(car.barcode) ? car.barcode!.trim() : null, transits: 0, amount: 0, last: null, share: 0, pending: 0 };
+      row = { key, carId: transit.car_id, plate: car?.plate ?? transit.plate_number ?? '—', model: car?.model ?? null, barcode: car && hasBarcode(car.barcode) ? car.barcode!.trim() : null, transits: 0, amount: 0, last: null, share: 0 };
       rows.set(key, row);
     }
     row.transits += 1;
     row.amount += transit.amount;
-    if (transit.record_type === 'pending') row.pending += 1;
     if (!row.last || transit.transit_datetime > row.last) row.last = transit.transit_datetime;
     total += transit.amount;
   }
@@ -156,4 +157,18 @@ export function hgsRowMatches(row: Pick<HgsRow, 'plate' | 'barcode' | 'model'>, 
 /** The first and last instants of an Istanbul month, for a query on `transit_datetime`. */
 export function monthRange(month: string): { from: string; to: string } {
   return { from: `${month}-01T00:00:00+03:00`, to: `${shiftMonth(month, 1)}-01T00:00:00+03:00` };
+}
+
+/** The portal writes `*` for a station it doesn't know. */
+const station = (value: string | null | undefined): string | null => {
+  const text = value?.trim();
+  return text && text !== '*' ? text : null;
+};
+
+/** `Entry → Exit` when both are known and differ, else the exit, the entry or the road. */
+export function transitPlace(row: { entry_location: string | null; exit_location: string | null; otoyol: string | null }): string {
+  const entry = station(row.entry_location);
+  const exit = station(row.exit_location);
+  if (entry && exit && entry !== exit) return `${entry} → ${exit}`;
+  return exit ?? entry ?? station(row.otoyol) ?? '—';
 }

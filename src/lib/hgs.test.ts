@@ -1,11 +1,11 @@
-import { barcodeProblem, formatCount, hasBarcode, readSort, hgsRowMatches, hgsRows, hgsTiles, inPeriod, missingHgs, monthRange, sortHgsRows, transitMonth, type HgsCar, type HgsTransit } from './hgs';
+import { barcodeProblem, formatCount, hasBarcode, readSort, hgsRowMatches, hgsRows, hgsTiles, inPeriod, missingHgs, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
 
 const car = (id: number, plate: string, barcode: string | null, model: string | null = 'Fiat Egea'): HgsCar => ({ id, plate, barcode, model });
 const CARS = [car(1, '34ABC100', '1129193640'), car(2, '34MDJ129', null, 'Renault Taliant'), car(3, '34MSR195', '  ', 'Citroen C4 X'), car(4, '06FHN975', '1131524991', 'Toyota Corolla'), car(5, '34ZZZ900', '1131498796')];
 let next = 1;
-const transit = (carId: number | null, date: string, amount: number, plate = 'X', record = 'settled'): HgsTransit => ({ id: next++, car_id: carId, plate_number: plate, transit_datetime: `${date}T00:00:00+00:00`, amount, record_type: record });
+const transit = (carId: number | null, date: string, amount: number, plate = 'X', road = 'public'): HgsTransit => ({ id: next++, car_id: carId, plate_number: plate, transit_datetime: `${date}T00:00:00+00:00`, amount, road_type: road });
 const TRANSITS = [
-  transit(1, '2026-10-02', 59), transit(1, '2026-11-03', 40, 'X', 'pending'), transit(4, '2026-11-01', 100), transit(4, '2026-11-04', 49.5),
+  transit(1, '2026-10-02', 59), transit(1, '2026-11-03', 40, 'X', 'private'), transit(4, '2026-11-01', 100), transit(4, '2026-11-04', 49.5),
   transit(null, '2026-11-02', 12, '34 OLD 01'), transit(99, '2026-11-02', 8, '34GONE1'),
 ];
 
@@ -28,6 +28,24 @@ test('a transit belongs to its Istanbul month', () => {
   expect(inPeriod({ transit_datetime: '2026-10-02T00:00:00+00:00' }, 'all')).toBe(true);
 });
 
+test('a portal transit keeps its Istanbul date and time of day', () => {
+  // 23:40 in Istanbul is still the 31st there, though UTC is already past 20:00.
+  expect(transitDate('2026-10-31T20:40:12+00:00')).toBe('2026-10-31');
+  expect(transitTime('2026-10-31T20:40:12+00:00')).toBe('23:40');
+  expect(transitDate('2026-10-31T21:05:00+00:00')).toBe('2026-11-01');
+  expect(transitTime('2026-10-31T21:05:00+00:00')).toBe('00:05');
+});
+
+test('the place is entry → exit, and a "*" station is unknown', () => {
+  const place = (entry: string | null, exit: string | null, otoyol: string | null = 'O-7') => transitPlace({ entry_location: entry, exit_location: exit, otoyol });
+  expect(place('MAHMUTBEY', 'KINALI')).toBe('MAHMUTBEY → KINALI');
+  expect(place('*', 'YAVUZ SULTAN SELİM KÖPRÜSÜ')).toBe('YAVUZ SULTAN SELİM KÖPRÜSÜ');
+  expect(place('MAHMUTBEY', 'MAHMUTBEY')).toBe('MAHMUTBEY');
+  expect(place('MAHMUTBEY', null)).toBe('MAHMUTBEY');
+  expect(place('*', null)).toBe('O-7');
+  expect(place(null, ' ', null)).toBe('—');
+});
+
 describe('rows', () => {
   const november = TRANSITS.filter(t => inPeriod(t, '2026-11'));
   const rows = hgsRows(CARS, november);
@@ -39,9 +57,8 @@ describe('rows', () => {
     expect(byPlate['34MSR195']).toBeUndefined();
   });
 
-  test('pending counts like settled, and the latest date is kept', () => {
-    expect(byPlate['34ABC100']).toMatchObject({ transits: 1, amount: 40, pending: 1 });
-    expect(byPlate['06FHN975'].pending).toBe(0);
+  test('private roads count like public ones, and the latest transit is kept', () => {
+    expect(byPlate['34ABC100']).toMatchObject({ transits: 1, amount: 40 });
     expect(byPlate['06FHN975']).toMatchObject({ transits: 2, amount: 149.5, last: '2026-11-04T00:00:00+00:00', barcode: '1131524991', model: 'Toyota Corolla' });
   });
 
