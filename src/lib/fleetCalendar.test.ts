@@ -1,6 +1,6 @@
 import {
-  barSpan, bookingBarStatus, daysBetween, eventTime, flaggedBookings, historySummary, inHistoryFilter, laneBars, monthBounds,
-  parseStamp, readCarStatus, rentalDays, rowMatches, sortConflicts, sortHistory, statusCounts,
+  barSpan, bookingBarStatus, daysBetween, eventTime, flaggedBookings, fleetUtilization, historySummary, inHistoryFilter, laneBars, monthBounds,
+  parseStamp, readCarStatus, readUtilSort, rentalDays, rowMatches, sortByUtilization, sortConflicts, sortHistory, statusCounts, utilTone,
   type Conflict, type FleetBar, type FleetCar, type HistoryEvent,
 } from './fleetCalendar';
 
@@ -95,5 +95,27 @@ describe('car history', () => {
   it('sums up: bookings not cancelled, days rented this year, latest km', () => {
     // 16 Sept → 16 Nov is 61 days, and the booking from last year adds 1 → 3 Jan.
     expect(historySummary(events, 2026)).toEqual({ bookings: 2, daysThisYear: 61 + 2, km: 44467 });
+  });
+});
+
+describe('utilization', () => {
+  it('green from 80%, amber from 50%, red below', () => {
+    expect([100, 80, 79, 50, 49, 0].map(utilTone)).toEqual(['high', 'high', 'mid', 'mid', 'low', 'low']);
+  });
+
+  it('the fleet figure pools the days rather than averaging the rates', () => {
+    // 30/30 and 1/31: rates 100% and 3% average 51.6, but 31 of 61 days is 51%.
+    expect(fleetUtilization([{ days: 30, rented: 30 }, { days: 31, rented: 1 }])).toBe(51);
+    expect(fleetUtilization([])).toBeNull();
+  });
+
+  it('sorts high → low or low → high; ties keep the model order; no figure goes last', () => {
+    const cars = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+    const util = new Map([[1, { rate: 40 }], [2, { rate: 90 }], [4, { rate: 40 }]]);
+    expect(sortByUtilization(cars, 'util_desc', util).map(c => c.id)).toEqual([2, 1, 4, 3]);
+    expect(sortByUtilization(cars, 'util_asc', util).map(c => c.id)).toEqual([1, 4, 2, 3]);
+    expect(sortByUtilization(cars, 'model', util).map(c => c.id)).toEqual([1, 2, 3, 4]);
+    expect(sortByUtilization(cars, 'util_desc', null).map(c => c.id)).toEqual([1, 2, 3, 4]);
+    expect([readUtilSort('util_asc'), readUtilSort('nope'), readUtilSort(null)]).toEqual(['util_asc', 'model', 'model']);
   });
 });

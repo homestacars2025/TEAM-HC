@@ -49,30 +49,6 @@
   "retry": "حاول مجدداً",
   "noVehicles": "لا توجد سيارة مطابقة.",
   "noVehiclesHint": "جرّب بحثاً آخر، أو اضغط البطاقة النشطة لإلغائها.",
-  "conflicts": {
-    "title_zero": "لا مشاكل هذا الشهر",
-    "title_one": "مشكلة واحدة هذا الشهر",
-    "title_two": "مشكلتان هذا الشهر",
-    "title_few": "{{count}} مشاكل هذا الشهر",
-    "title_many": "{{count}} مشكلة هذا الشهر",
-    "title_other": "{{count}} مشكلة هذا الشهر",
-    "show": "عرض",
-    "hide": "إخفاء",
-    "failed": "تعذّر فحص هذا الشهر.",
-    "severity": {
-      "high": "عالية",
-      "medium": "متوسطة",
-      "low": "منخفضة"
-    },
-    "kinds": {
-      "double_booking": "حجزان متداخلان: {{number}} و{{other}}",
-      "blocked_period": "{{number}} يتداخل مع حجب {{block}}",
-      "missing_delivery": "بدأ {{number}} ولم يُسجَّل تسليم",
-      "missing_pickup": "انتهى {{number}} ولم يُسجَّل استلام",
-      "not_closed": "انتهى {{number}} وما زال مؤكداً"
-    },
-    "jump": "اعرض {{plate}} في التقويم"
-  },
   "bar": {
     "customer": "العميل",
     "booking": "الحجز",
@@ -89,7 +65,8 @@
     "carHistory": "سجل السيارة",
     "close": "إغلاق",
     "conflict": "فيه تعارض",
-    "label": "{{status}} · {{who}} · {{from}} ← {{to}}"
+    "label": "{{status}} · {{who}} · {{from}} ← {{to}}",
+    "length": "المدة"
   },
   "popup": {
     "editBlock": "تعديل الحجب",
@@ -165,5 +142,18 @@
       "resolved": "محلول"
     },
     "openBooking": "فتح الحجز"
+  },
+  "util": {
+    "label": "الاستخدام {{pct}}: {{tip}}",
+    "tooltip": "{{rented}} / {{days}} يوم",
+    "none": "لا رقم لهذا الشهر",
+    "fleet": "استخدام الأسطول {{pct}}",
+    "fleetHint": "كل أيام التأجير على كل الأيام، للأسطول النشط"
+  },
+  "sort": {
+    "label": "ترتيب",
+    "model": "الموديل",
+    "util_desc": "الاستخدام ↓",
+    "util_asc": "الاستخدام ↑"
   }
 }

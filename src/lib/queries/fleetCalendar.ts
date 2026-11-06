@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import {
   BLOCK_TYPES, bookingBarStatus, isBlockType, monthBounds, readCarStatus, sortConflicts, sortHistory,
-  type Conflict, type FleetBar, type FleetCar, type HistoryEvent,
+  type Conflict, type FleetBar, type FleetCar, type HistoryEvent, type Utilization,
 } from '../fleetCalendar';
 
 /**
@@ -74,6 +74,14 @@ export async function getCalendarConflicts(month: string): Promise<Conflict[]> {
   const { data, error } = await supabase.rpc('calendar_conflicts', { p_month: `${month}-01` });
   if (error) throw error;
   return sortConflicts((data ?? []) as Conflict[]);
+}
+
+/** `car_utilization` for the month: one row per active car. */
+export async function getCarUtilization(month: string): Promise<Utilization[]> {
+  const { data, error } = await supabase.rpc('car_utilization', { p_month: `${month}-01` });
+  if (error) throw error;
+  type Row = { car_id: number; days_in_month: number; rented_days: number; rate: number | string };
+  return ((data ?? []) as Row[]).map(row => ({ carId: Number(row.car_id), days: Number(row.days_in_month) || 0, rented: Number(row.rented_days) || 0, rate: Math.round(Number(row.rate) || 0) }));
 }
 
 /** Everything that happened to one car, newest first. */

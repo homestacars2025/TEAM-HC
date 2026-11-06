@@ -9,7 +9,6 @@ import StatusArt from '../components/cars/StatusArt';
 import Icon3D from '../components/Icon3D';
 import { StatTile, type TileTone } from '../components/WalletParts';
 import CarHistoryDrawer from '../components/calendar/CarHistoryDrawer';
-import ConflictsPanel from '../components/calendar/ConflictsPanel';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { formatDay, useDateLocale } from '../hooks/useDateLocale';
@@ -17,11 +16,11 @@ import { useTileFilter } from '../hooks/useTileFilter';
 import { istanbulDate } from '../lib/istanbulTime';
 import { currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
 import {
-  BLOCK_TYPES, CAR_STATUSES, LEGEND, barSpan, carStatusTone, daysBetween, flaggedBookings, isWeekend, laneBars, monthBounds,
-  rentalDays, rowMatches, statusCounts,
-  type BlockType, type CarStatus, type Conflict, type FleetBar, type FleetCar,
+  BLOCK_TYPES, CAR_STATUSES, LEGEND, UTIL_SORTS, barSpan, carStatusTone, daysBetween, flaggedBookings, fleetUtilization, isWeekend, laneBars,
+  monthBounds, readUtilSort, rentalDays, rowMatches, sortByUtilization, statusCounts, utilTone,
+  type BlockType, type CarStatus, type Conflict, type FleetBar, type FleetCar, type Utilization, type UtilSort,
 } from '../lib/fleetCalendar';
-import { addBlock, deleteBlock, getCalendarConflicts, getFleetMonth, updateBlock, type FleetMonth } from '../lib/queries/fleetCalendar';
+import { addBlock, deleteBlock, getCalendarConflicts, getCarUtilization, getFleetMonth, updateBlock, type FleetMonth } from '../lib/queries/fleetCalendar';
 
 /**
  * Fleet Calendar: one row per active car, one bar per booking or block, the month's
@@ -29,7 +28,6 @@ import { addBlock, deleteBlock, getCalendarConflicts, getFleetMonth, updateBlock
  * to add a booking or a block, and a block can be edited or deleted from its bar.
  */
 
-const PULSE_MS = 2400;
 const TOAST_MS = 3200;
 
 const TILE_ART: Record<CarStatus | 'all', React.ReactNode> = {
@@ -72,6 +70,25 @@ const Floating: React.FC<{ anchor: Anchor; width: number; className?: string; la
       {children}
     </div>,
     document.body,
+  );
+};
+
+// ─── Utilization ──────────────────────────────────────────────────────────────
+
+/** A small ring and the month's %: `undefined` while loading, `null` when the car has no figure. */
+const UtilMeter: React.FC<{ value: Utilization | null | undefined }> = ({ value }) => {
+  const { t } = useTranslation('calendar');
+  if (value === undefined) return <span className="hc-fc-util is-wait" aria-hidden="true" />;
+  if (value === null) return <span className="hc-fc-util is-none" title={t('util.none')}>—</span>;
+  const tip = t('util.tooltip', { rented: value.rented, days: value.days });
+  return (
+    <span className={`hc-fc-util hc-ut-${utilTone(value.rate)}`} title={tip} role="img" aria-label={t('util.label', { pct: `${value.rate}%`, tip })}>
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="8" pathLength={100} className="hc-fc-util-track" />
+        <circle cx="10" cy="10" r="8" pathLength={100} className="hc-fc-util-arc" strokeDasharray={`${value.rate} 100`} />
+      </svg>
+      <b className="hc-num">{value.rate}%</b>
+    </span>
   );
 };
 
@@ -145,7 +162,7 @@ const BarCard: React.FC<{
             {bar.bookingNumber && <div><dt>{t('bar.booking')}</dt><dd><bdi dir="ltr" className="hc-num">{bar.bookingNumber}</bdi></dd></div>}
             <div><dt>{t('bar.from')}</dt><dd>{formatDay(bar.start, locale)}</dd></div>
             <div><dt>{t('bar.to')}</dt><dd>{formatDay(bar.end, locale)}</dd></div>
-            <div><dt>{t('bar.status')}</dt><dd>{t('bar.days', { count: rentalDays(bar.start, bar.end) })}</dd></div>
+            <div><dt>{t('bar.length')}</dt><dd>{t('bar.days', { count: rentalDays(bar.start, bar.end) })}</dd></div>
             {bar.note && <div className="is-wide"><dd><bdi dir="auto">{bar.note}</bdi></dd></div>}
           </dl>
           {mode === 'delete' ? (
@@ -185,15 +202,21 @@ const CalendarPage: React.FC = () => {
   const month = read === 'all' ? currentMonth() : read;
   const [filter, setFilter] = useTileFilter(CAR_STATUSES);
   const [search, setSearch] = useState('');
+  const sort = readUtilSort(params.get('sort'));
+  const setSort = (next: UtilSort) => setParams(current => {
+    const updated = new URLSearchParams(current);
+    if (next === 'model') updated.delete('sort');
+    else updated.set('sort', next);
+    return updated;
+  }, { replace: true });
 
   const [data, setData] = useState<FleetMonth | null>(null);
   const [failed, setFailed] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
-  const [conflictsFailed, setConflictsFailed] = useState(false);
+  const [utilization, setUtilization] = useState<Map<number, Utilization> | null>(null);
   const [popover, setPopover] = useState<Popover | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [historyCar, setHistoryCar] = useState<FleetCar | null>(null);
-  const [pulse, setPulse] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
   const [inserting, setInserting] = useState(false);
   const [reload, setReload] = useState(0);
@@ -221,28 +244,23 @@ const CalendarPage: React.FC = () => {
     return () => { loadId.current += 1; };
   }, [month, reload]);
 
-  // Live: asked again for the month, after a change here, and whenever the tab comes back.
-  const loadConflicts = useCallback(() => {
+  // Live: the month's conflicts (for the red outline) and utilization, asked again after
+  // a change here and whenever the tab comes back. A failure only leaves them out.
+  const loadLive = useCallback(() => {
     let active = true;
-    getCalendarConflicts(month)
-      .then(rows => { if (active) { setConflicts(rows); setConflictsFailed(false); } })
-      .catch(() => { if (active) setConflictsFailed(true); });
+    getCalendarConflicts(month).then(rows => { if (active) setConflicts(rows); }).catch(() => undefined);
+    getCarUtilization(month).then(rows => { if (active) setUtilization(new Map(rows.map(row => [row.carId, row]))); }).catch(() => undefined);
     return () => { active = false; };
   }, [month]);
-  useEffect(() => { setConflicts(null); return loadConflicts(); }, [loadConflicts, reload]);
+  useEffect(() => { setConflicts(null); setUtilization(null); return loadLive(); }, [loadLive, reload]);
   useEffect(() => {
     let cancel = () => {};
-    const onFocus = () => { cancel(); cancel = loadConflicts(); };
+    const onFocus = () => { cancel(); cancel = loadLive(); };
     window.addEventListener('focus', onFocus);
     return () => { window.removeEventListener('focus', onFocus); cancel(); };
-  }, [loadConflicts]);
+  }, [loadLive]);
 
   useEffect(() => () => { window.clearTimeout(hoverTimer.current); window.clearTimeout(toastTimer.current); }, []);
-  useEffect(() => {
-    if (!pulse) return;
-    const id = window.setTimeout(() => setPulse(null), PULSE_MS);
-    return () => window.clearTimeout(id);
-  }, [pulse]);
 
   const say = (text: string, bad = false) => {
     window.clearTimeout(toastTimer.current);
@@ -258,7 +276,11 @@ const CalendarPage: React.FC = () => {
     return map;
   }, [data]);
   const counts = useMemo(() => statusCounts(cars), [cars]);
-  const rows = useMemo(() => cars.filter(car => (filter === 'all' || car.status === filter) && rowMatches(car, barsByCar.get(car.id) ?? [], search)), [cars, filter, search, barsByCar]);
+  const rows = useMemo(
+    () => sortByUtilization(cars.filter(car => (filter === 'all' || car.status === filter) && rowMatches(car, barsByCar.get(car.id) ?? [], search)), sort, utilization),
+    [cars, filter, search, barsByCar, sort, utilization],
+  );
+  const fleetRate = useMemo(() => (utilization ? fleetUtilization(Array.from(utilization.values())) : null), [utilization]);
   const flagged = useMemo(() => flaggedBookings(conflicts ?? [], data?.bars ?? []), [conflicts, data]);
 
   const setMonth = (next: string) => setParams(current => {
@@ -321,23 +343,6 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  // ── Jump to a conflict ──
-  const jump = (conflict: Conflict) => {
-    const car = cars.find(c => c.id === conflict.car_id);
-    if (!car) return;
-    if (!rows.includes(car)) { setSearch(''); if (filter !== 'all') setFilter('all'); }
-    setPulse(conflict.booking_id != null ? `b:${conflict.booking_id}` : `car:${car.id}`);
-    // Two frames: one for the filters to let go of the row, one for it to be drawn.
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-      const row = board.current?.querySelector<HTMLElement>(`[data-car="${car.id}"]`);
-      if (!row) return;
-      const bar = conflict.booking_id != null ? row.querySelector<HTMLElement>(`[data-bar="b:${conflict.booking_id}"]`) : null;
-      const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      (bar ?? row).scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' });
-      (bar ?? row.querySelector<HTMLElement>('.hc-fc-car'))?.focus({ preventScroll: true });
-    }));
-  };
-
   const monthLabel = new Date(`${month}-01T12:00:00Z`).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const weekday = (date: string) => {
     const name = new Date(`${date}T12:00:00Z`).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' });
@@ -356,9 +361,6 @@ const CalendarPage: React.FC = () => {
         </div>
       </header>
 
-      {conflictsFailed && <p role="alert" className="hc-fc-warn">{t('conflicts.failed')}</p>}
-      {conflicts && conflicts.length > 0 && <ConflictsPanel key={month} conflicts={conflicts} onJump={jump} />}
-
       <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-fc-tiles">
         <StatTile tone="st-all" art={TILE_ART.all} label={t('tiles.all')} sub={t('tiles.allSub')} value={loading ? null : counts.all.toLocaleString('tr-TR')} pressed={filter === 'all'} onPress={() => setFilter('all')} />
         {CAR_STATUSES.map(status => (
@@ -375,8 +377,12 @@ const CalendarPage: React.FC = () => {
         <div className="hc-months">
           <MonthSwitcher label={monthLabel} prevLabel={t('month.prev')} nextLabel={t('month.next')} onPrev={() => setMonth(shiftMonth(month, -1))} onNext={() => setMonth(shiftMonth(month, 1))} />
           {month !== currentMonth() && <button type="button" className="hc-pi-all" onClick={() => setMonth(currentMonth())}>{t('today')}</button>}
+          {fleetRate != null && <span className={`hc-fc-util-chip hc-ut-${utilTone(fleetRate)}`} title={t('util.fleetHint')}>{t('util.fleet', { pct: `\u2066${fleetRate}%\u2069` })}</span>}
         </div>
         <input type="search" className="hc-input !mt-0" placeholder={t('search')} aria-label={t('search')} value={search} onChange={e => setSearch(e.target.value)} />
+        <div role="group" aria-label={t('sort.label')} className="hc-hgs-sort hc-fc-sort">
+          {UTIL_SORTS.map(option => <button key={option} type="button" aria-pressed={sort === option} onClick={() => setSort(option)}>{t(`sort.${option}`)}</button>)}
+        </div>
       </div>
 
       <p className="hc-fc-hint" aria-live="polite">
@@ -415,11 +421,14 @@ const CalendarPage: React.FC = () => {
               const tone = carStatusTone(car.status);
               const picking = selection?.carId === car.id ? selection : null;
               return (
-                <div key={car.id} className={`hc-fc-row${pulse === `car:${car.id}` ? ' is-pulse' : ''}`} data-car={car.id} style={{ '--lanes': lanes } as React.CSSProperties}>
+                <div key={car.id} className="hc-fc-row" data-car={car.id} style={{ '--lanes': lanes } as React.CSSProperties}>
                   <button type="button" className="hc-fc-car" onClick={() => setHistoryCar(car)} title={t('history.open', { plate: car.plate })}>
                     <PlateChip plate={car.plate} />
                     <span className="hc-fc-car-model"><bdi dir="auto">{car.model}</bdi></span>
-                    <span className={`hc-fc-chip hc-st-${tone}`}><i aria-hidden="true" />{t(`tiles.${car.status}`)}</span>
+                    <span className="hc-fc-car-foot">
+                      <span className={`hc-fc-chip hc-st-${tone}`}><i aria-hidden="true" />{t(`tiles.${car.status}`)}</span>
+                      <UtilMeter value={utilization ? utilization.get(car.id) ?? null : undefined} />
+                    </span>
                   </button>
                   <div className="hc-fc-track">
                     {dates.map((date, i) => {
@@ -440,7 +449,7 @@ const CalendarPage: React.FC = () => {
                           key={bar.key}
                           type="button"
                           data-bar={bar.key}
-                          className={`hc-fc-bar hc-st-${bar.status}${isFlagged ? ' is-flagged' : ''}${span.clippedStart ? ' is-cut-start' : ''}${span.clippedEnd ? ' is-cut-end' : ''}${pulse === bar.key ? ' is-pulse' : ''}${popover?.bar.key === bar.key ? ' is-active' : ''}`}
+                          className={`hc-fc-bar hc-st-${bar.status}${isFlagged ? ' is-flagged' : ''}${span.clippedStart ? ' is-cut-start' : ''}${span.clippedEnd ? ' is-cut-end' : ''}${popover?.bar.key === bar.key ? ' is-active' : ''}`}
                           style={{ '--from': span.from, '--to': span.to, '--lane': lane } as React.CSSProperties}
                           aria-label={t('bar.label', { status: t(`legend.${bar.status}`), who: bar.customer ?? bar.bookingNumber ?? label, from: formatDay(bar.start, locale), to: formatDay(bar.end, locale) })}
                           aria-haspopup="dialog"

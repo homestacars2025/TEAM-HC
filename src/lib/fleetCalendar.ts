@@ -267,3 +267,42 @@ export function historySummary(events: readonly HistoryEvent[], year: number): H
   const withKm = sortHistory(events.filter(event => event.kind === 'operation' && typeof event.km === 'number' && event.km > 0));
   return { bookings: bookings.length, daysThisYear: days, km: withKm[0]?.km ?? null };
 }
+
+// ─── Utilization ──────────────────────────────────────────────────────────────
+
+/** `car_utilization`: of the month's days, how many the car was out. `rate` is 0–100. */
+export interface Utilization {
+  carId: number;
+  days: number;
+  rented: number;
+  rate: number;
+}
+
+export type UtilTone = 'high' | 'mid' | 'low';
+export const utilTone = (rate: number): UtilTone => (rate >= 80 ? 'high' : rate >= 50 ? 'mid' : 'low');
+
+/** The whole active fleet, pooled: every rented day over every day, not an average of rates. */
+export function fleetUtilization(rows: readonly Pick<Utilization, 'days' | 'rented'>[]): number | null {
+  const days = rows.reduce((sum, row) => sum + row.days, 0);
+  return days > 0 ? Math.round((100 * rows.reduce((sum, row) => sum + row.rented, 0)) / days) : null;
+}
+
+export const UTIL_SORTS = ['model', 'util_desc', 'util_asc'] as const;
+export type UtilSort = typeof UTIL_SORTS[number];
+export const readUtilSort = (value: string | null): UtilSort => (UTIL_SORTS.includes(value as UtilSort) ? value as UtilSort : 'model');
+
+/**
+ * `model` keeps the order the cars came in. By utilization, a tie keeps that order too,
+ * and a car with no figure goes last either way.
+ */
+export function sortByUtilization<T extends { id: number }>(cars: readonly T[], sort: UtilSort, utilization: ReadonlyMap<number, Pick<Utilization, 'rate'>> | null): T[] {
+  if (sort === 'model' || !utilization) return [...cars];
+  const sign = sort === 'util_desc' ? -1 : 1;
+  return cars
+    .map((car, index) => ({ car, index, rate: utilization.get(car.id)?.rate ?? null }))
+    .sort((a, b) => {
+      if (a.rate === null || b.rate === null) return a.rate === b.rate ? a.index - b.index : a.rate === null ? 1 : -1;
+      return sign * (a.rate - b.rate) || a.index - b.index;
+    })
+    .map(entry => entry.car);
+}

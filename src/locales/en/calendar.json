@@ -41,26 +41,6 @@
   "retry": "Try again",
   "noVehicles": "No car matches.",
   "noVehiclesHint": "Try another search, or press the active tile to clear it.",
-  "conflicts": {
-    "title_one": "{{count}} issue this month",
-    "title_other": "{{count}} issues this month",
-    "show": "Show",
-    "hide": "Hide",
-    "failed": "Couldn't check this month for issues.",
-    "severity": {
-      "high": "High",
-      "medium": "Medium",
-      "low": "Low"
-    },
-    "kinds": {
-      "double_booking": "Two bookings overlap: {{number}} and {{other}}",
-      "blocked_period": "{{number}} overlaps a {{block}} block",
-      "missing_delivery": "{{number}} started, but no delivery is recorded",
-      "missing_pickup": "{{number}} ended, but no pickup is recorded",
-      "not_closed": "{{number}} ended, but is still confirmed"
-    },
-    "jump": "Show {{plate}} in the calendar"
-  },
   "bar": {
     "customer": "Customer",
     "booking": "Booking",
@@ -73,7 +53,8 @@
     "carHistory": "Car history",
     "close": "Close",
     "conflict": "Has a conflict",
-    "label": "{{status}} · {{who}} · {{from}} → {{to}}"
+    "label": "{{status}} · {{who}} · {{from}} → {{to}}",
+    "length": "Length"
   },
   "popup": {
     "editBlock": "Edit block",
@@ -149,5 +130,18 @@
       "resolved": "Resolved"
     },
     "openBooking": "Open booking"
+  },
+  "util": {
+    "label": "Utilization {{pct}}: {{tip}}",
+    "tooltip": "{{rented}} / {{days}} days",
+    "none": "No figure for this month",
+    "fleet": "Fleet utilization {{pct}}",
+    "fleetHint": "Every rented day over every day, across the active fleet"
+  },
+  "sort": {
+    "label": "Sort",
+    "model": "Model",
+    "util_desc": "Utilization ↓",
+    "util_asc": "Utilization ↑"
   }
 }

@@ -17,6 +17,7 @@
   --st-maintenance-from: #F4F0FE; --st-maintenance-to: #E6DDFC; --st-maintenance-ink: #5B21B6; --st-maintenance-chip: #8B5CF6;
   --st-selling-from: #FEFBE8;     --st-selling-to: #FDF2B3;     --st-selling-ink: #854D0E;     --st-selling-chip: #EAB308;
   --st-replacement-from: #FFF1EE; --st-replacement-to: #FFD9D0; --st-replacement-ink: #9A3412; --st-replacement-chip: #F97362;
+  --st-low-from: #FEF2F2;         --st-low-to: #FEE2E2;         --st-low-ink: #991B1B;         --st-low-chip: #DC2626;
   --st-all-from: #EAF3FD;         --st-all-to: #D6E7FA;         --st-all-ink: #1F4E8C;         --st-all-chip: #6EA4E7;
 }
 
@@ -43,3 +44,8 @@
 .hc-tile-st-selling     { --st-from: var(--st-selling-from);     --st-to: var(--st-selling-to);     --st-ink: var(--st-selling-ink);     --st-chip: var(--st-selling-chip); }
 .hc-tile-st-replacement { --st-from: var(--st-replacement-from); --st-to: var(--st-replacement-to); --st-ink: var(--st-replacement-ink); --st-chip: var(--st-replacement-chip); }
 .hc-tile-st-all         { --st-from: var(--st-all-from);         --st-to: var(--st-all-to);         --st-ink: var(--st-all-ink);         --st-chip: var(--st-all-chip); }
+
+/* Utilization: ≥ 80% green, 50–79% amber, below 50% red. */
+.hc-ut-high { --st-from: var(--st-booked-from);  --st-to: var(--st-booked-to);  --st-ink: var(--st-booked-ink);  --st-chip: var(--st-booked-chip); }
+.hc-ut-mid  { --st-from: var(--st-pending-from); --st-to: var(--st-pending-to); --st-ink: var(--st-pending-ink); --st-chip: var(--st-pending-chip); }
+.hc-ut-low  { --st-from: var(--st-low-from);     --st-to: var(--st-low-to);     --st-ink: var(--st-low-ink);     --st-chip: var(--st-low-chip); }

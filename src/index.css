@@ -5492,7 +5492,7 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
    Colours come from styles/statusTokens.css (`.hc-st-*`), shared with Bookings. */
 
 .hc-fc { --col: 40px; --left: 232px; --lane-h: 30px; --bar-h: 26px; }
-@media (max-width: 639.98px) { .hc-fc { --col: 36px; --left: 124px; } }
+@media (max-width: 639.98px) { .hc-fc { --col: 36px; --left: 136px; } }
 @media (pointer: coarse) { .hc-fc { --lane-h: 46px; --bar-h: 40px; } }
 
 .hc-fc-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 9px; border-radius: 999px; background: var(--st-to); color: var(--st-ink); font-size: 11.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
@@ -5506,7 +5506,6 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-fc-tools > .hc-input { flex: 1 1 260px; min-width: 0; }
 .hc-fc-hint { color: #6b7280; font-size: 12.5px; }
 .hc-fc-linkbtn { min-height: 32px; margin-inline-start: 6px; color: #3a74c2; font-weight: 600; text-decoration: underline; }
-.hc-fc-warn { padding: 10px 14px; border-radius: 12px; background: #fef3c7; color: #92400e; font-size: 13px; font-weight: 600; }
 
 /* The board scrolls both ways; the day header and the car column stay put. */
 .hc-fc-board { position: relative; max-height: calc(100dvh - 140px); min-height: 280px; overflow: auto; border-radius: 16px; background: #fff; overscroll-behavior: contain; }
@@ -5527,7 +5526,6 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-fc-car:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .hc-fc-car-model { max-width: 100%; overflow: hidden; color: #374151; font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .hc-fc-row.is-bone .hc-fc-car .hc-bk-bone { width: 80%; height: 14px; }
-.hc-fc-row.is-pulse .hc-fc-car { animation: hc-fc-pulse 1.2s ease 2; }
 
 .hc-fc-track { position: relative; display: grid; flex: none; grid-template-columns: repeat(var(--days), var(--col)); width: calc(var(--col) * var(--days)); }
 .hc-fc-cell { border-inline-start: 1px solid #f3f4f6; cursor: pointer; transition: background 120ms ease; }
@@ -5555,9 +5553,6 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-fc-bar.is-cut-start { border-start-start-radius: 0; border-end-start-radius: 0; border-inline-start-width: 0; }
 .hc-fc-bar.is-cut-end { border-start-end-radius: 0; border-end-end-radius: 0; border-inline-end-width: 0; }
 .hc-fc-bar.is-flagged { box-shadow: 0 0 0 2px #dc2626; }
-.hc-fc-bar.is-pulse { z-index: 3; animation: hc-fc-pulse 1.2s ease 2; }
-@keyframes hc-fc-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.45); } }
-@media (prefers-reduced-motion: reduce) { .hc-fc-bar.is-pulse, .hc-fc-row.is-pulse .hc-fc-car { animation: none; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.6); } }
 
 .hc-fc-empty { position: sticky; inset-inline-start: 0; display: flex; flex-direction: column; gap: 4px; width: min(100%, 100vw - 64px); padding: 40px 16px; color: #374151; font-weight: 600; text-align: center; }
 .hc-fc-empty small { color: #9ca3af; font-weight: 500; }
@@ -5591,29 +5586,17 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-fc-menu-item:disabled { opacity: 0.6; cursor: wait; }
 .hc-fc-menu-item i { width: 10px; height: 10px; border-radius: 999px; background: var(--st-chip); }
 
-/* This month's problems. */
-.hc-fc-issues { border: 1px solid #fde68a; border-radius: 16px; background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%); color: #92400e; }
-.hc-fc-issues.is-high { border-color: #fecaca; background: linear-gradient(145deg, #fef2f2 0%, #fde8e8 100%); color: #991b1b; }
-.hc-fc-issues-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: 100%; min-height: 52px; padding: 10px 14px; font: inherit; text-align: start; cursor: pointer; }
-.hc-fc-issues-head strong { font-size: 14.5px; font-weight: 650; }
-.hc-fc-issues-art { flex: none; }
-.hc-fc-issues-counts { display: flex; flex-wrap: wrap; gap: 6px; }
-.hc-fc-issues-toggle { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: auto; font-size: 13px; font-weight: 600; }
-.hc-fc-issues-chevron { transition: transform 160ms ease; }
-.hc-fc-issues-head[aria-expanded="true"] .hc-fc-issues-chevron { transform: rotate(180deg); }
-.hc-fc-issues-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; margin: 0; padding: 0 10px 10px; overflow: auto; list-style: none; }
-.hc-fc-issue { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.85); color: #0f1117; font: inherit; text-align: start; cursor: pointer; transition: background 140ms ease; }
-.hc-fc-issue:hover { background: #fff; }
-.hc-fc-issue:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.hc-fc-issue-text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.hc-fc-issue-text small { color: #6b7280; font-size: 12px; font-weight: 500; }
-.hc-fc-sev-dot { flex: none; width: 9px; height: 9px; border-radius: 999px; background: #9ca3af; }
-.hc-fc-issue.is-high .hc-fc-sev-dot { background: #dc2626; }
-.hc-fc-issue.is-medium .hc-fc-sev-dot { background: #d97706; }
-.hc-fc-sev { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #4b5563; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
-.hc-fc-sev.is-high { background: #fee2e2; color: #991b1b; }
-.hc-fc-sev.is-medium { background: #fef3c7; color: #92400e; }
-@media (max-width: 639.98px) { .hc-fc-issue > .hc-fc-sev { display: none; } }
+/* Utilization: a ring and its % beside the car's status, and the fleet's beside the month. */
+.hc-fc-car-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; max-width: 100%; }
+.hc-fc-util { display: inline-flex; align-items: center; gap: 4px; color: var(--st-ink, #9ca3af); font-size: 11.5px; font-weight: 650; }
+.hc-fc-util.is-none { color: #9ca3af; }
+.hc-fc-util.is-wait { width: 40px; height: 14px; border-radius: 999px; background: #f1f2f4; }
+.hc-fc-util svg { flex: none; transform: rotate(-90deg); }
+.hc-fc-util-track { fill: none; stroke: #e5e7eb; stroke-width: 3.2; }
+.hc-fc-util-arc { fill: none; stroke: var(--st-chip); stroke-width: 3.2; stroke-linecap: round; }
+.hc-fc-util-chip { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid var(--st-chip); border-radius: 999px; background: var(--st-to); color: var(--st-ink); font-size: 12.5px; font-weight: 650; white-space: nowrap; }
+.hc-fc-tools .hc-fc-sort { flex: none; }
+@media (max-width: 639.98px) { .hc-fc-tools .hc-fc-sort { width: 100%; } }
 
 /* Car history drawer. */
 @media (min-width: 768px) { .hc-ce.hc-fh { width: min(560px, 100%); } }
