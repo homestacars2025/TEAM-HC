@@ -217,3 +217,84 @@ export const leftoverBalance = (wallet: BookingWallet[], bookingId: number): Boo
 /** Only "forbidden" has its own words; anything else the server says is shown as it is. */
 export const transferFailure = (message: string | undefined): { key: 'forbidden' | 'failed'; message: string | null } =>
   (message ?? '').toLowerCase().includes('forbidden') ? { key: 'forbidden', message: null } : { key: 'failed', message: message?.trim() || null };
+
+// ─── HGS lines, grouped ───────────────────────────────────────────────────────
+
+/** `[AUTO-HGS] 06-10-2026 MAHMUTBEY → AVCILAR`, optionally with `14:05` after the date and ` · OTOYOL` at the end. */
+const AUTO_HGS = /^\[AUTO-HGS\]\s+(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s*(.*)$/;
+const UNKNOWN_STATION = new Set(['', '?', '*']);
+
+export interface HgsDetail {
+  /** `YYYY-MM-DD`: the transit's date for an automatic line, the Istanbul date it was recorded otherwise. */
+  date: string | null;
+  /** `HH:MM`, only when the line says so. */
+  time: string | null;
+  /** `ENTRY → EXIT`, or what was typed. Null means plain "HGS". */
+  route: string | null;
+  toll: string | null;
+  /** One transit, written by the toll feed. A line typed by hand may cover many. */
+  pass: boolean;
+}
+
+const istanbulDay = (iso: string | null) =>
+  iso ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)) : null;
+
+export function hgsDetail(line: Pick<WalletLineRow, 'description' | 'created_at'>): HgsDetail {
+  const text = line.description?.trim() ?? '';
+  const auto = text.match(AUTO_HGS);
+  if (!auto) return { date: istanbulDay(line.created_at), time: null, route: text && !/^hgs$/i.test(text) ? text : null, toll: null, pass: false };
+  const [, d, m, y, clock, rest] = auto;
+  const cut = rest.lastIndexOf(' · ');
+  const place = (cut >= 0 ? rest.slice(0, cut) : rest).trim();
+  const toll = cut >= 0 ? rest.slice(cut + 3).trim() || null : null;
+  const [entry, exit] = place.split(' → ').map(part => part?.trim() ?? '');
+  const route = exit === undefined
+    ? (UNKNOWN_STATION.has(entry) ? null : entry)
+    : UNKNOWN_STATION.has(entry) ? exit || null : exit && exit !== entry ? `${entry} → ${exit}` : entry;
+  return { date: `${y}-${m}-${d}`, time: clock ? clock.padStart(5, '0') : null, route, toll, pass: true };
+}
+
+export interface HgsGroup {
+  /** Newest first, as every list in the wallet. */
+  lines: WalletLine[];
+  /** IN minus OUT, so a charge is negative like any line. */
+  signed: number;
+  from: string | null;
+  to: string | null;
+  passes: number;
+  entries: number;
+}
+
+export type WalletItem = { kind: 'line'; line: WalletLine } | { kind: 'hgs'; group: HgsGroup };
+
+export function hgsGroup(lines: readonly WalletLine[]): HgsGroup {
+  const details = lines.map(hgsDetail);
+  const dates = details.map(detail => detail.date).filter((date): date is string => !!date).sort();
+  const passes = details.filter(detail => detail.pass).length;
+  return {
+    lines: [...lines],
+    signed: round2(lines.reduce((sum, line) => sum + line.signed, 0)),
+    from: dates[0] ?? null,
+    to: dates[dates.length - 1] ?? null,
+    passes,
+    entries: lines.length - passes,
+  };
+}
+
+/** A booking's lines with every HGS line folded into one, placed where the newest of them was. */
+export function walletItems(lines: readonly WalletLine[]): WalletItem[] {
+  const hgs = lines.filter(line => line.kind === 'hgs');
+  const items: WalletItem[] = [];
+  let placed = false;
+  for (const line of lines) {
+    if (line.kind !== 'hgs') items.push({ kind: 'line', line });
+    else if (!placed) { items.push({ kind: 'hgs', group: hgsGroup(hgs) }); placed = true; }
+  }
+  return items;
+}
+
+/** `28/09`, with the year only when the range crosses one. */
+export function hgsDay(date: string, withYear = false): string {
+  const [y, m, d] = date.split('-');
+  return withYear ? `${d}/${m}/${y}` : `${d}/${m}`;
+}

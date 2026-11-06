@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  balanceTone, bookingNotes, buildWallet, canMove, defaultTarget, formatLira, humanType, leftoverBalance, lineKind,
+  balanceTone, bookingNotes, buildWallet, canMove, defaultTarget, formatLira, hgsDay, hgsDetail, humanType, leftoverBalance, lineKind, walletItems,
   transferAmount, transferFailure, walletTotal, type WalletBookingRow, type WalletLineRow,
 } from './bookingWallet';
 
@@ -132,5 +132,56 @@ describe('the wallet never reads who owns a car', () => {
   const read = (file: string) => readFileSync(join(__dirname, file), 'utf8');
   it.each(['queries/bookingWallet.ts', '../components/wallet/CustomerWalletSheet.tsx', '../pages/CustomerWalletsPage.tsx'])('%s', file => {
     expect(read(file)).not.toMatch(/investor|commission/i);
+  });
+});
+
+describe('HGS lines, grouped', () => {
+  const hgs = (amount: number, description: string | null, created_at: string, direction: 'IN' | 'OUT' = 'OUT') => line(7, amount, direction, { type: 'hgs', description, created_at });
+
+  it('reads an automatic line: transit date, route, optional time and toll name', () => {
+    expect(hgsDetail({ description: '[AUTO-HGS] 06-10-2026 MAHMUTBEY → AVCILAR', created_at: '2026-10-07T10:20:53Z' }))
+      .toEqual({ date: '2026-10-06', time: null, route: 'MAHMUTBEY → AVCILAR', toll: null, pass: true });
+    expect(hgsDetail({ description: '[AUTO-HGS] 02-11-2026 9:05 HASDAL → HASDAL · KMO', created_at: null }))
+      .toEqual({ date: '2026-11-02', time: '09:05', route: 'HASDAL', toll: 'KMO', pass: true });
+    expect(hgsDetail({ description: '[AUTO-HGS] 02-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ', created_at: null }).route).toBe('15 TEMMUZ ŞEHİTLER KÖPRÜSÜ');
+    expect(hgsDetail({ description: '[AUTO-HGS] 02-10-2026 * → YSS KÖPRÜSÜ · KMO', created_at: null }).route).toBe('YSS KÖPRÜSÜ');
+    expect(hgsDetail({ description: '[AUTO-HGS] 02-10-2026 ÇAMLICA', created_at: null }).route).toBe('ÇAMLICA');
+  });
+
+  it('a line typed by hand keeps its text, dated by when it was recorded in Istanbul', () => {
+    expect(hgsDetail({ description: 'HGS TO 07/10/2026', created_at: '2026-10-07T22:30:00Z' })).toEqual({ date: '2026-10-08', time: null, route: 'HGS TO 07/10/2026', toll: null, pass: false });
+    expect(hgsDetail({ description: 'hgs', created_at: '2026-10-07T00:00:00Z' }).route).toBeNull();
+    expect(hgsDetail({ description: null, created_at: '2026-10-07T00:00:00Z' }).route).toBeNull();
+  });
+
+  it('folds every HGS line of a booking into one item, where the newest was, with the same net', () => {
+    const rows = [
+      line(7, 5000, 'OUT', { created_at: '2026-09-27T09:00:00Z' }),
+      hgs(49, '[AUTO-HGS] 28-09-2026 MAHMUTBEY → AVCILAR', '2026-09-29T08:00:00Z'),
+      line(7, 3000, 'IN', { type: 'payment', created_at: '2026-10-01T09:00:00Z' }),
+      hgs(1127, 'HGS TO 20/10/2026', '2026-10-20T00:00:00Z'),
+      hgs(41, '[AUTO-HGS] 22-10-2026 HASDAL → HASDAL', '2026-10-23T08:00:00Z'),
+      hgs(41, 'HGS refund', '2026-10-24T08:00:00Z', 'IN'),
+    ];
+    const [entry] = buildWallet(rows, [booking(7)]);
+    const items = walletItems(entry.lines);
+    expect(items.map(item => item.kind)).toEqual(['hgs', 'line', 'line']);
+    const group = items[0].kind === 'hgs' ? items[0].group : null;
+    expect(group).toMatchObject({ signed: -1176, from: '2026-09-28', to: '2026-10-24', passes: 2, entries: 2 });
+    expect(group!.lines.map(l => l.amount)).toEqual([41, 41, 1127, 49]);
+    // The booking's balance is what it was before grouping.
+    expect(entry.balance).toBe(-5000 + 3000 - 1176);
+  });
+
+  it('leaves a booking with no HGS line as it was, and groups even a single line', () => {
+    const [entry] = buildWallet([line(7, 100, 'OUT'), line(7, 100, 'IN', { type: 'payment' })], [booking(7)]);
+    expect(walletItems(entry.lines).every(item => item.kind === 'line')).toBe(true);
+    const [one] = buildWallet([hgs(59, null, '2026-10-02T09:00:00Z')], [booking(7)]);
+    expect(walletItems(one.lines)).toMatchObject([{ kind: 'hgs', group: { from: '2026-10-02', to: '2026-10-02', passes: 0, entries: 1 } }]);
+  });
+
+  it('days read DD/MM, with the year when a range crosses one', () => {
+    expect(hgsDay('2026-09-28')).toBe('28/09');
+    expect(hgsDay('2026-12-30', true)).toBe('30/12/2026');
   });
 });

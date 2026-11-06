@@ -188,5 +188,24 @@
     "owes": "لا يزال على {{from}} مبلغ {{amount}} — هل تنقله إلى {{to}}؟",
     "move": "نقل",
     "later": "لاحقًا"
+  },
+  "hgs": {
+    "range": "من {{from}} إلى {{to}}",
+    "on": "في {{date}}",
+    "passes_zero": "لا عبور",
+    "passes_one": "عبور واحد",
+    "passes_two": "عبوران",
+    "passes_few": "{{count}} عبور",
+    "passes_many": "{{count}} عبور",
+    "passes_other": "{{count}} عبور",
+    "entries_zero": "لا قيود",
+    "entries_one": "قيد واحد",
+    "entries_two": "قيدان",
+    "entries_few": "{{count}} قيود",
+    "entries_many": "{{count}} قيداً",
+    "entries_other": "{{count}} قيد",
+    "both": "{{passes}} + {{entries}}",
+    "show": "عرض سطور HGS ({{count}})",
+    "hide": "إخفاء سطور HGS"
   }
 }

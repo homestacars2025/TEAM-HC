@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
+import { hgsDay, hgsDetail, lineKind, round2 } from './bookingWallet';
 
 /* ────────────────────────────────────────────────────────────────────────────
    printCustomerInvoice — replicates the ADMIN dashboard customer invoice
@@ -29,7 +30,7 @@ const fmt = (n: number) =>
 export async function printCustomerInvoice(
   customerId: string,
   entries: InvoiceEntry[],
-  handlers: { onError: (message: string) => void },
+  handlers: { onError: (message: string) => void; hgsDetails?: boolean },
 ): Promise<void> {
   // ── Customer ──────────────────────────────────────────────────────────────
   const { data: custData, error: custErr } = await supabase
@@ -80,14 +81,55 @@ export async function printCustomerInvoice(
   const invNum = `HC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  const rows = entries.map(e => `
+  const badge = (isIn: boolean) => `<span class="${isIn ? 'badge-in' : 'badge-out'}">${isIn ? '↓ IN' : '↑ OUT'}</span>`;
+  const row = (e: InvoiceEntry) => `
   <tr>
     <td>${(e.created_at ?? '').slice(0, 10)}</td>
     <td>${e.type ?? '—'}</td>
     <td style="color:#6b7280;max-width:200px">${e.description ?? '—'}</td>
-    <td><span class="${e.direction?.toUpperCase() === 'IN' ? 'badge-in' : 'badge-out'}">${e.direction?.toUpperCase() === 'IN' ? '↓ IN' : '↑ OUT'}</span></td>
+    <td>${badge(e.direction?.toUpperCase() === 'IN')}</td>
+    <td>${fmt(e.amount)}</td>
+  </tr>`;
+
+  // Every HGS line folds into one row where the newest of them was, with the same net
+  // total, so the totals below don't move. The details sit underneath: printed when they
+  // were open in the wallet, and the page's checkbox (seen where the invoice replaces
+  // the page, on a phone) shows or hides them.
+  const hgs = entries.filter(e => lineKind(e.type ?? '') === 'hgs');
+  const hgsRows = () => {
+    const details = hgs.map(e => ({ e, d: hgsDetail(e) }));
+    const dates = details.map(x => x.d.date).filter((date): date is string => !!date).sort();
+    const from = dates[0] ?? null;
+    const to = dates[dates.length - 1] ?? null;
+    const year = !!from && !!to && from.slice(0, 4) !== to.slice(0, 4);
+    const when = !from || !to ? null : from === to ? `on ${hgsDay(from)}` : `from ${hgsDay(from, year)} to ${hgsDay(to, year)}`;
+    const passes = details.filter(x => x.d.pass).length;
+    const typed = hgs.length - passes;
+    const count = [passes ? `${passes} pass${passes !== 1 ? 'es' : ''}` : '', typed ? `${typed} entr${typed !== 1 ? 'ies' : 'y'}` : ''].filter(Boolean).join(' + ');
+    const net = round2(hgs.reduce((sum, e) => sum + (e.direction?.toUpperCase() === 'IN' ? e.amount : -e.amount), 0));
+    const summary = `
+  <tr class="hgs-sum">
+    <td>${from ?? '—'}</td>
+    <td>hgs</td>
+    <td style="color:#6b7280;max-width:200px">${['HGS', when, count].filter(Boolean).join(' · ')}</td>
+    <td>${badge(net > 0)}</td>
+    <td>${fmt(net)}</td>
+  </tr>`;
+    const lines = details.map(({ e, d }) => `
+  <tr class="hgs-detail"${handlers.hgsDetails ? '' : ' hidden'}>
+    <td>${d.date ?? '—'}${d.time ? ` ${d.time}` : ''}</td>
+    <td></td>
+    <td style="color:#6b7280;max-width:200px">${[d.route ?? 'HGS', d.toll].filter(Boolean).join(' · ')}</td>
+    <td>${badge(e.direction?.toUpperCase() === 'IN')}</td>
     <td>${fmt(e.amount)}</td>
   </tr>`).join('');
+    return summary + lines;
+  };
+  const firstHgs = hgs[0];
+  const rows = entries.map(e => (lineKind(e.type ?? '') !== 'hgs' ? row(e) : e === firstHgs ? hgsRows() : '')).join('');
+  const hgsToggle = hgs.length > 0
+    ? `<label class="hgs-toggle"><input type="checkbox"${handlers.hgsDetails ? ' checked' : ''} onchange="document.querySelectorAll('.hgs-detail').forEach(function(r){r.hidden=!this.checked}.bind(this))"> Show HGS details</label>`
+    : '';
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
@@ -126,6 +168,11 @@ ${printFontStyles()}
   th:last-child{text-align:right}
   td{padding:11px 12px;font-size:12px;color:#374151;border-bottom:1px solid #f9f9f9;vertical-align:middle}
   td:last-child{text-align:right;font-weight:600;color:#0f1117}
+  .hgs-sum td{font-weight:600;color:#0f1117}
+  .hgs-detail td{padding-top:7px;padding-bottom:7px;font-size:11px;background:#fbfcfd}
+  .hgs-detail td:first-child{padding-left:28px;color:#6b7280}
+  .hgs-toggle{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;background:#fff;box-shadow:0 0 0 1px #d1d5db;font-size:13px;font-weight:600;color:#0f1117;cursor:pointer}
+  .hgs-toggle input{width:16px;height:16px;accent-color:#4ba6ea}
   .badge-in{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:800;color:#16a34a;background:rgba(34,197,94,.1)}
   .badge-out{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:800;color:#dc2626;background:rgba(239,68,68,.1)}
   .totals{margin-top:28px;display:flex;justify-content:flex-end}
@@ -143,7 +190,7 @@ ${printFontStyles()}
 </style>
 </head>
 <body>
-<div class="print-bar"><button type="button" class="print-btn back-btn" onclick="history.back()">←&nbsp; Back</button><button type="button" class="print-btn" onclick="window.print()">🖨&nbsp; Print Invoice</button></div>
+<div class="print-bar"><button type="button" class="print-btn back-btn" onclick="history.back()">←&nbsp; Back</button><button type="button" class="print-btn" onclick="window.print()">🖨&nbsp; Print Invoice</button>${hgsToggle}</div>
 <div class="page">
   <div class="hdr">
     <div>

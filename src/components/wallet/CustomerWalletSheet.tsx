@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -8,7 +8,8 @@ import PlateChip from '../booking/PlateChip';
 import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
 import { printCustomerInvoice } from '../../lib/printCustomerInvoice';
 import {
-  balanceTone, buildWallet, canMove, formatLira, humanType, walletTotal, type BookingNote, type BookingWallet, type WalletLine,
+  balanceTone, buildWallet, canMove, formatLira, hgsDay, hgsDetail, humanType, walletItems, walletTotal,
+  type BookingNote, type BookingWallet, type HgsGroup, type WalletLine,
 } from '../../lib/bookingWallet';
 import { getCustomerWallet, type CustomerWalletData, type TransferResult } from '../../lib/queries/bookingWallet';
 import MoveBalanceSheet from './MoveBalanceSheet';
@@ -34,28 +35,42 @@ interface LineActions {
   onDelete?: (line: WalletLine) => void;
 }
 
-const LineRow: React.FC<LineActions & { line: WalletLine; onPartner: (bookingId: number) => void }> = ({ line, onPartner, onEdit, onDelete }) => {
+const LineRow: React.FC<LineActions & { line: WalletLine; onPartner: (bookingId: number) => void; inGroup?: boolean }> = ({ line, onPartner, onEdit, onDelete, inGroup = false }) => {
   const { t } = useTranslation('wallets');
   const locale = useDateLocale();
   const isIn = line.direction === 'IN';
   // A payment belongs to an envelope and a transfer to its other half, so neither changes alone.
   const editable = !line.pay_method && line.kind !== 'transfer';
   const detail = line.kind === 'transfer' ? line.note : line.description;
+  const hgs = inGroup ? hgsDetail(line) : null;
   return (
-    <li className={`hc-cw-line is-${line.kind}`}>
-      <LineGlyph kind={line.kind} />
-      <span className="hc-cw-line-text">
-        <span className="hc-cw-line-label">
-          {lineLabel(line, t)}
-          {line.partner && (line.partner.id != null
-            ? <button type="button" className="hc-cw-partner" onClick={() => onPartner(line.partner!.id as number)}><bdi dir="ltr">{line.partner.number}</bdi></button>
-            : <bdi dir="ltr" className="hc-cw-partner is-plain">{line.partner.number}</bdi>)}
+    <li className={`hc-cw-line is-${line.kind}${hgs ? ' is-detail' : ''}`}>
+      {!hgs && <LineGlyph kind={line.kind} />}
+      {hgs ? (
+        <span className="hc-cw-line-text">
+          <span className="hc-cw-line-label"><bdi dir={hgs.pass ? 'ltr' : 'auto'}>{hgs.route ?? t('kinds.hgs')}</bdi></span>
+          <span className="hc-cw-line-meta">
+            {hgs.toll && <bdi dir="ltr" className="hc-cw-line-desc">{hgs.toll}</bdi>}
+            <span className="hc-cw-line-date">
+              {hgs.date ? formatDay(hgs.date, locale) : '—'}
+              {hgs.time && <> · <span dir="ltr" className="hc-num">{hgs.time}</span></>}
+            </span>
+          </span>
         </span>
-        <span className="hc-cw-line-meta">
-          {detail && <bdi dir="auto" className="hc-cw-line-desc">{detail}</bdi>}
-          <span className="hc-cw-line-date">{shortStamp(line.created_at, locale)}</span>
+      ) : (
+        <span className="hc-cw-line-text">
+          <span className="hc-cw-line-label">
+            {lineLabel(line, t)}
+            {line.partner && (line.partner.id != null
+              ? <button type="button" className="hc-cw-partner" onClick={() => onPartner(line.partner!.id as number)}><bdi dir="ltr">{line.partner.number}</bdi></button>
+              : <bdi dir="ltr" className="hc-cw-partner is-plain">{line.partner.number}</bdi>)}
+          </span>
+          <span className="hc-cw-line-meta">
+            {detail && <bdi dir="auto" className="hc-cw-line-desc">{detail}</bdi>}
+            <span className="hc-cw-line-date">{shortStamp(line.created_at, locale)}</span>
+          </span>
         </span>
-      </span>
+      )}
       <span className={`hc-cw-line-amount hc-num ${isIn ? 'is-in' : 'is-out'}`}><bdi dir="ltr">{isIn ? '+' : '−'}{formatLira(line.amount)}</bdi></span>
       {(onEdit || onDelete) && (
         <span className="hc-cw-line-actions">
@@ -71,6 +86,46 @@ const LineRow: React.FC<LineActions & { line: WalletLine; onPartner: (bookingId:
           )}
           {!editable && <span className="hc-cw-locked">{t('table.locked')}</span>}
         </span>
+      )}
+    </li>
+  );
+};
+
+/** "from 28/09 to 22/10 · 42 passes". */
+export function hgsSummary(group: HgsGroup, t: TFunction): string {
+  const crossesYear = !!group.from && !!group.to && group.from.slice(0, 4) !== group.to.slice(0, 4);
+  const when = !group.from || !group.to
+    ? null
+    : group.from === group.to
+      ? t('hgs.on', { date: hgsDay(group.from) })
+      : t('hgs.range', { from: hgsDay(group.from, crossesYear), to: hgsDay(group.to, crossesYear) });
+  const passes = group.passes > 0 ? t('hgs.passes', { count: group.passes }) : null;
+  const entries = group.entries > 0 ? t('hgs.entries', { count: group.entries }) : null;
+  const count = passes && entries ? t('hgs.both', { passes, entries }) : passes ?? entries;
+  return [when, count].filter(Boolean).join(' · ');
+}
+
+/** Every HGS line of a booking as one row; the chevron opens them underneath. Open, they print too. */
+const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void; onPartner: (bookingId: number) => void }> = ({ group, open, onToggle, onPartner, onEdit, onDelete }) => {
+  const { t } = useTranslation('wallets');
+  const listId = useId();
+  const isIn = group.signed > 0;
+  return (
+    <li className={`hc-cw-hgs${open ? ' is-open' : ''}`}>
+      <button type="button" className="hc-cw-line is-hgs hc-cw-hgs-head" aria-expanded={open} aria-controls={listId} onClick={onToggle}>
+        <LineGlyph kind="hgs" />
+        <span className="hc-cw-line-text">
+          <span className="hc-cw-line-label">{t('kinds.hgs')}</span>
+          <span className="hc-cw-line-meta"><span className="hc-cw-line-date">{hgsSummary(group, t)}</span></span>
+        </span>
+        <span className={`hc-cw-line-amount hc-num ${isIn ? 'is-in' : 'is-out'}`}><bdi dir="ltr">{isIn ? '+' : group.signed < 0 ? '−' : ''}{formatLira(group.signed)}</bdi></span>
+        <svg className="hc-cw-hgs-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="sr-only">{t(open ? 'hgs.hide' : 'hgs.show', { count: group.lines.length })}</span>
+      </button>
+      {open && (
+        <ul id={listId} className="hc-cw-hgs-lines">
+          {group.lines.map(line => <LineRow key={line.id} line={line} inGroup onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />)}
+        </ul>
       )}
     </li>
   );
@@ -97,15 +152,18 @@ const BookingCard: React.FC<LineActions & {
   focused: boolean;
   onMove: () => void;
   onAdd?: () => void;
-  onPrint: () => void;
+  /** With the HGS lines one by one, when they're open on screen. */
+  onPrint: (hgsDetails: boolean) => void;
   printing: boolean;
   onPartner: (bookingId: number) => void;
 }> = ({ entry, movable, focused, onMove, onAdd, onPrint, printing, onPartner, onEdit, onDelete }) => {
   const { t } = useTranslation('wallets');
   const locale = useDateLocale();
   const [showAll, setShowAll] = useState(false);
+  const [hgsOpen, setHgsOpen] = useState(false);
   const { booking, lines } = entry;
-  const shown = showAll ? lines : lines.slice(0, SHOWN_LINES);
+  const items = useMemo(() => walletItems(lines), [lines]);
+  const shown = showAll ? items : items.slice(0, SHOWN_LINES);
   return (
     <article id={`wallet-booking-${booking.id}`} className={`hc-cw-booking surface-depth${focused ? ' is-focus' : ''}`} tabIndex={-1} aria-label={booking.booking_number ?? `#${booking.id}`}>
       <header className="hc-cw-booking-head">
@@ -128,12 +186,14 @@ const BookingCard: React.FC<LineActions & {
         ? <p className="hc-cw-empty-lines">{t('wallet.noLines')}</p>
         : (
           <ul className="hc-cw-lines">
-            {shown.map(line => <LineRow key={line.id} line={line} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />)}
+            {shown.map(item => item.kind === 'hgs'
+              ? <HgsGroupRow key="hgs" group={item.group} open={hgsOpen} onToggle={() => setHgsOpen(value => !value)} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />
+              : <LineRow key={item.line.id} line={item.line} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />)}
           </ul>
         )}
-      {lines.length > SHOWN_LINES && (
+      {items.length > SHOWN_LINES && (
         <button type="button" className="hc-cw-more" onClick={() => setShowAll(value => !value)}>
-          {showAll ? t('wallet.showLess') : t('wallet.showAll', { count: lines.length })}
+          {showAll ? t('wallet.showLess') : t('wallet.showAll', { count: items.length })}
         </button>
       )}
 
@@ -150,7 +210,7 @@ const BookingCard: React.FC<LineActions & {
           </button>
         )}
         {lines.length > 0 && (
-          <button type="button" className="hc-cw-soft" onClick={onPrint} disabled={printing}>
+          <button type="button" className="hc-cw-soft" onClick={() => onPrint(hgsOpen)} disabled={printing}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {printing ? t('form.preparing') : t('form.print')}
           </button>
@@ -237,13 +297,13 @@ const CustomerWalletSheet: React.FC<LineActions & {
     window.requestAnimationFrame(() => goTo(focusBookingId));
   }, [wallet, focusBookingId, goTo]);
 
-  const print = async (entry: BookingWallet) => {
+  const print = async (entry: BookingWallet, hgsDetails: boolean) => {
     if (printing != null || !data) return;
     setPrinting(entry.booking.id);
     // Newest first, the order the invoice expects, and only this booking's lines.
     await printCustomerInvoice(customerId, entry.lines.map(line => ({
       created_at: line.created_at, type: line.type, description: line.description, direction: line.direction, amount: line.amount, car_id: line.car_id,
-    })), { onError: message => setToast(message) });
+    })), { onError: message => setToast(message), hgsDetails });
     setPrinting(null);
   };
 
@@ -304,7 +364,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
                     focused={focused === entry.booking.id}
                     onMove={() => setMoving(entry.booking.id)}
                     onAdd={onAdd ? () => onAdd(entry.booking.id, name) : undefined}
-                    onPrint={() => void print(entry)}
+                    onPrint={hgsDetails => void print(entry, hgsDetails)}
                     printing={printing === entry.booking.id}
                     onPartner={goTo}
                     onEdit={onEdit}

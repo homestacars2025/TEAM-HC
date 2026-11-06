@@ -176,5 +176,16 @@
     "owes": "{{from}} still owes {{amount}} — move it to {{to}}?",
     "move": "Move",
     "later": "Later"
+  },
+  "hgs": {
+    "range": "from {{from}} to {{to}}",
+    "on": "on {{date}}",
+    "passes_one": "{{count}} pass",
+    "passes_other": "{{count}} passes",
+    "entries_one": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "both": "{{passes}} + {{entries}}",
+    "show": "Show the {{count}} HGS lines",
+    "hide": "Hide the HGS lines"
   }
 }
