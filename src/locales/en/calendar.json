@@ -141,7 +141,7 @@
   "sort": {
     "label": "Sort",
     "model": "Model",
-    "util_desc": "Utilization ↓",
-    "util_asc": "Utilization ↑"
+    "util_desc": "Highest use",
+    "util_asc": "Lowest use"
   }
 }

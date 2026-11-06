@@ -109,11 +109,11 @@ describe('utilization', () => {
     expect(fleetUtilization([])).toBeNull();
   });
 
-  it('sorts high → low or low → high; ties keep the model order; no figure goes last', () => {
-    const cars = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+  it('sorts high → low or low → high; ties go by plate; no figure goes last', () => {
+    const cars = [{ id: 1, plate: '34ZZ9' }, { id: 2, plate: '34BB2' }, { id: 3, plate: '34CC3' }, { id: 4, plate: '34AA1' }];
     const util = new Map([[1, { rate: 40 }], [2, { rate: 90 }], [4, { rate: 40 }]]);
-    expect(sortByUtilization(cars, 'util_desc', util).map(c => c.id)).toEqual([2, 1, 4, 3]);
-    expect(sortByUtilization(cars, 'util_asc', util).map(c => c.id)).toEqual([1, 4, 2, 3]);
+    expect(sortByUtilization(cars, 'util_desc', util).map(c => c.id)).toEqual([2, 4, 1, 3]);
+    expect(sortByUtilization(cars, 'util_asc', util).map(c => c.id)).toEqual([4, 1, 2, 3]);
     expect(sortByUtilization(cars, 'model', util).map(c => c.id)).toEqual([1, 2, 3, 4]);
     expect(sortByUtilization(cars, 'util_desc', null).map(c => c.id)).toEqual([1, 2, 3, 4]);
     expect([readUtilSort('util_asc'), readUtilSort('nope'), readUtilSort(null)]).toEqual(['util_asc', 'model', 'model']);

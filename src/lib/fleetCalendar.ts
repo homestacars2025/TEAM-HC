@@ -292,17 +292,18 @@ export type UtilSort = typeof UTIL_SORTS[number];
 export const readUtilSort = (value: string | null): UtilSort => (UTIL_SORTS.includes(value as UtilSort) ? value as UtilSort : 'model');
 
 /**
- * `model` keeps the order the cars came in. By utilization, a tie keeps that order too,
- * and a car with no figure goes last either way.
+ * `model` keeps the order the cars came in. By utilization, a tie goes by plate, and a
+ * car with no figure goes last either way. Admin sorts the same.
  */
-export function sortByUtilization<T extends { id: number }>(cars: readonly T[], sort: UtilSort, utilization: ReadonlyMap<number, Pick<Utilization, 'rate'>> | null): T[] {
+export function sortByUtilization<T extends { id: number; plate: string }>(cars: readonly T[], sort: UtilSort, utilization: ReadonlyMap<number, Pick<Utilization, 'rate'>> | null): T[] {
   if (sort === 'model' || !utilization) return [...cars];
   const sign = sort === 'util_desc' ? -1 : 1;
+  const byPlate = (a: T, b: T) => a.plate.localeCompare(b.plate, 'en', { numeric: true });
   return cars
-    .map((car, index) => ({ car, index, rate: utilization.get(car.id)?.rate ?? null }))
+    .map(car => ({ car, rate: utilization.get(car.id)?.rate ?? null }))
     .sort((a, b) => {
-      if (a.rate === null || b.rate === null) return a.rate === b.rate ? a.index - b.index : a.rate === null ? 1 : -1;
-      return sign * (a.rate - b.rate) || a.index - b.index;
+      if (a.rate === null || b.rate === null) return a.rate === b.rate ? byPlate(a.car, b.car) : a.rate === null ? 1 : -1;
+      return sign * (a.rate - b.rate) || byPlate(a.car, b.car);
     })
     .map(entry => entry.car);
 }
