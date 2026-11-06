@@ -3296,6 +3296,8 @@ const BookingsPage: React.FC = () => {
   const [sort, setSort]                   = useState<{ col: SortCol; dir: SortDir }>({ col: null, dir: 'asc' });
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
   const [modal, setModal]                 = useState<null | 'add' | { mode: 'edit'; booking: Booking; atFinance?: boolean }>(null);
+  /** What a new booking starts with: blank, or the car and days picked on the Fleet Calendar. */
+  const [addInitial, setAddInitial]       = useState<BookingFormData>(EMPTY_FORM);
   const [extendTarget, setExtendTarget]    = useState<Booking | null>(null);
   /** The wallet open over the list, scrolled to the booking it was opened from. */
   const [walletFor, setWalletFor]          = useState<{ customerId: string; bookingId: number } | null>(null);
@@ -3370,6 +3372,21 @@ const BookingsPage: React.FC = () => {
     if (readError || !data) { showToast(t('extensions.openFailed'), 'error'); return; }
     setModal({ mode: 'edit', booking: resolveBooking(data as unknown as BookingRow), atFinance });
   }, [bookings, showToast, t]);
+
+  // Sent from the Fleet Calendar with a car and two days: the new booking opens filled in.
+  const urlNew = urlParams.get('new');
+  useEffect(() => {
+    if (urlNew !== '1') return;
+    const day = (key: string) => { const value = urlParams.get(key) ?? ''; return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''; };
+    const car = urlParams.get('car_id') ?? '';
+    setAddInitial({ ...EMPTY_FORM, car_id: /^\d+$/.test(car) ? car : '', start_date: day('start_date'), end_date: day('end_date') });
+    setModal('add');
+    setUrlParams(current => {
+      const next = new URLSearchParams(current);
+      ['new', 'car_id', 'start_date', 'end_date'].forEach(key => next.delete(key));
+      return next;
+    }, { replace: true });
+  }, [urlNew, urlParams, setUrlParams]);
 
   // Sent here to fix a detail on a booking, as from Pending Invoices.
   const urlEdit = urlParams.get('edit');
@@ -3553,7 +3570,7 @@ const BookingsPage: React.FC = () => {
             </svg>
             {t('replacementCarButton')}
           </Button>
-          <Button onClick={() => setModal('add')}>
+          <Button onClick={() => { setAddInitial(EMPTY_FORM); setModal('add'); }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
             </svg>
@@ -3584,9 +3601,9 @@ const BookingsPage: React.FC = () => {
       {tab === 'bookings' && (
         <div className="hc-tiles hc-tiles-filter hc-bk-tiles">
           <StatTile tone="balance" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.total')} sub={t('tiles.totalSub')} value={num(loading, tiles.total)} pressed={tileFilter === 'all'} onPress={() => setTileFilter('all')} />
-          <StatTile tone="received" art={<Icon3D name="confirmed" className="hc-tile-art" />} label={t('tiles.confirmed')} sub={t('tiles.confirmedSub', { n: tiles.activeNow })} value={num(loading, tiles.confirmed)} pressed={tileFilter === 'confirmed'} onPress={() => setTileFilter('confirmed')} />
-          <StatTile tone="warn" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.pending')} sub={t('tiles.pendingSub')} value={num(loading, tiles.pending)} pressed={tileFilter === 'pending'} onPress={() => setTileFilter('pending')} />
-          <StatTile tone="paid" art={<Icon3D name="completed" className="hc-tile-art" />} label={t('tiles.completed')} sub={t('tiles.completedSub')} value={num(loading, tiles.completed)} pressed={tileFilter === 'completed'} onPress={() => setTileFilter('completed')} />
+          <StatTile tone="st-booked" art={<Icon3D name="confirmed" className="hc-tile-art" />} label={t('tiles.confirmed')} sub={t('tiles.confirmedSub', { n: tiles.activeNow })} value={num(loading, tiles.confirmed)} pressed={tileFilter === 'confirmed'} onPress={() => setTileFilter('confirmed')} />
+          <StatTile tone="st-pending" art={<Icon3D name="pending" className="hc-tile-art" />} label={t('tiles.pending')} sub={t('tiles.pendingSub')} value={num(loading, tiles.pending)} pressed={tileFilter === 'pending'} onPress={() => setTileFilter('pending')} />
+          <StatTile tone="st-completed" art={<Icon3D name="completed" className="hc-tile-art" />} label={t('tiles.completed')} sub={t('tiles.completedSub')} value={num(loading, tiles.completed)} pressed={tileFilter === 'completed'} onPress={() => setTileFilter('completed')} />
         </div>
       )}
       {tab === 'extensions' && (
@@ -3748,7 +3765,7 @@ const BookingsPage: React.FC = () => {
       {modal === 'add' && (
         <BookingFormModal
           mode="add"
-          initial={EMPTY_FORM}
+          initial={addInitial}
           onClose={() => setModal(null)}
           onPaid={afterPayment}
           onRentalFailed={afterRentalFailure}

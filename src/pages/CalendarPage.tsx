@@ -1,1465 +1,506 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
-import FilterBar from '../components/FilterBar';
-
-// ─── Types ─────────────────────────────────────────────────────────────────────
-
-type CalendarStatus = 'working' | 'parking' | 'maintenance' | 'selling' | 'replacement';
-type CellKind = CalendarStatus | 'booked';
-
-interface ModelGroupJoin { name: string; image_url: string | null; }
-interface CarRaw { id: number; plate_number: string; model_group: ModelGroupJoin | ModelGroupJoin[] | null; }
-interface AvailabilityRaw { id: number; status: CalendarStatus; }
-interface CarCalendarRaw { id: number; car_id: number; start_date: string; end_date: string; block_type: string; booking_id: number | null; }
-interface CustomerJoin { first_name: string; last_name: string; }
-interface BookingCustomerRaw { id: number; customers: CustomerJoin | CustomerJoin[] | null; }
-interface CalendarCar { id: number; plate_number: string; model_name: string; image_url: string | null; car_status: CalendarStatus; }
-interface CalendarEntry { id: number; car_id: number; start_date: string; end_date: string; block_type: string; booking_id: number | null; customer_name: string | null; }
-interface TooltipState { entry: CalendarEntry; x: number; y: number; }
-interface ToastInfo { message: string; isError?: boolean; }
-interface BlockPopupState { entry: CalendarEntry; car: CalendarCar; x: number; y: number; }
-
-// ─── Design tokens ─────────────────────────────────────────────────────────────
-
-const TODAY       = new Date();
-const AIRBNB_RED  = '#FF385C';
-const TEXT_DARK   = '#222222';
-const TEXT_MID    = '#717171';
-const TEXT_LIGHT  = '#aaaaaa';
-const BORDER_SOFT = '#f0f0f0';
-const FONT        = 'var(--font-sans)';
-
-const LEFT_W = 200;
-const COL_W  = 40;
-const ROW_H  = 64;
-
-const BADGE: Record<CellKind, { bg: string; color: string }> = {
-  working:     { bg: '#dcfce7', color: '#16a34a' },
-  parking:     { bg: '#fef2f2', color: '#dc2626' },
-  maintenance: { bg: '#f1f5f9', color: '#64748b' },
-  selling:     { bg: '#fefce8', color: '#ca8a04' },
-  replacement: { bg: '#fff7ed', color: '#ea580c' },
-  booked:      { bg: '#fef2f2', color: '#dc2626' },
-};
-
-const CELL_FILL: Record<CellKind, string> = {
-  working:     '#bbf7d0',
-  parking:     '#fecaca',
-  maintenance: '#e2e8f0',
-  selling:     '#fef08a',
-  replacement: '#fed7aa',
-  booked:      '#bbf7d0',
-};
-
-const CELL_TEXT_COLOR: Record<CellKind, string> = {
-  working:     '#15803d',
-  parking:     '#dc2626',
-  maintenance: '#475569',
-  selling:     '#a16207',
-  replacement: '#c2410c',
-  booked:      '#15803d',
-};
-
-const LEGEND_DOT: Record<CalendarStatus, string> = {
-  working:     '#22c55e',
-  parking:     '#fecaca',
-  maintenance: '#e2e8f0',
-  selling:     '#fef08a',
-  replacement: '#fed7aa',
-};
-
-/** Keys, not words. The five car statuses live in `common`; `booked` is ours. */
-const STATUS_LABEL_KEY: Record<CellKind, string> = {
-  working:     'common:carStatus.working',
-  parking:     'common:carStatus.parking',
-  maintenance: 'common:carStatus.maintenance',
-  selling:     'common:carStatus.selling',
-  replacement: 'common:carStatus.replacement',
-  booked:      'calendar:booked',
-};
-
-const STATUS_OPTIONS: Array<{ value: CalendarStatus | 'all'; labelKey: string }> = [
-  { value: 'all',         labelKey: 'calendar:allStatuses'          },
-  { value: 'working',     labelKey: 'common:carStatus.working'      },
-  { value: 'parking',     labelKey: 'common:carStatus.parking'      },
-  { value: 'maintenance', labelKey: 'common:carStatus.maintenance'  },
-  { value: 'selling',     labelKey: 'common:carStatus.selling'      },
-  { value: 'replacement', labelKey: 'common:carStatus.replacement'  },
-];
-
-const LEGEND_KINDS: CalendarStatus[] = ['working', 'parking', 'maintenance', 'selling', 'replacement'];
-
-const EDITABLE_BLOCK_TYPES = [
-  { value: 'maintenance', labelKey: 'common:carStatus.maintenance' },
-  { value: 'selling',     labelKey: 'common:carStatus.selling'     },
-  { value: 'replacement', labelKey: 'common:carStatus.replacement' },
-] as const;
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function formatMonthLabel(d: Date, locale: string): string {
-  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-}
-
-function addMonths(d: Date, n: number): Date {
-  return new Date(d.getFullYear(), d.getMonth() + n, 1);
-}
+import MonthSwitcher from '../components/MonthSwitcher';
+import PlateChip from '../components/booking/PlateChip';
+import StatusArt from '../components/cars/StatusArt';
+import Icon3D from '../components/Icon3D';
+import { StatTile, type TileTone } from '../components/WalletParts';
+import CarHistoryDrawer from '../components/calendar/CarHistoryDrawer';
+import ConflictsPanel from '../components/calendar/ConflictsPanel';
+import { usePageAccess } from '../contexts/PageAccessContext';
+import { useCurrentUser } from '../contexts/CurrentUserContext';
+import { formatDay, useDateLocale } from '../hooks/useDateLocale';
+import { useTileFilter } from '../hooks/useTileFilter';
+import { istanbulDate } from '../lib/istanbulTime';
+import { currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
+import {
+  BLOCK_TYPES, CAR_STATUSES, LEGEND, barSpan, carStatusTone, daysBetween, flaggedBookings, isWeekend, laneBars, monthBounds,
+  rentalDays, rowMatches, statusCounts,
+  type BlockType, type CarStatus, type Conflict, type FleetBar, type FleetCar,
+} from '../lib/fleetCalendar';
+import { addBlock, deleteBlock, getCalendarConflicts, getFleetMonth, updateBlock, type FleetMonth } from '../lib/queries/fleetCalendar';
 
 /**
- * Gregorian with Western digits in both languages. `ar-u-nu-latn` gives Arabic
- * month names ("أغسطس") without switching to Arabic-Indic numerals, which would
- * clash with the Latin plates in the frozen column beside them.
+ * Fleet Calendar: one row per active car, one bar per booking or block, the month's
+ * problems on top. A car's name opens its whole history. Free days can still be picked
+ * to add a booking or a block, and a block can be edited or deleted from its bar.
  */
-function useDateLocale(): string {
-  const { i18n } = useTranslation();
-  return i18n.resolvedLanguage?.startsWith('ar') ? 'ar-u-nu-latn' : 'en-GB';
-}
 
-function parseLocalDate(s: string): Date {
-  const [y, m, day] = s.split('-').map(Number);
-  return new Date(y, m - 1, day);
-}
+const PULSE_MS = 2400;
+const TOAST_MS = 3200;
 
-function formatDateShort(s: string, locale: string): string {
-  return parseLocalDate(s).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
-}
+const TILE_ART: Record<CarStatus | 'all', React.ReactNode> = {
+  all: <StatusArt name="total" className="hc-tile-art" />,
+  working: <StatusArt name="working" className="hc-tile-art" />,
+  pending: <Icon3D name="pending" className="hc-tile-art" />,
+  parking: <StatusArt name="parking" className="hc-tile-art" />,
+  maintenance: <StatusArt name="maintenance" className="hc-tile-art" />,
+  selling: <StatusArt name="selling" className="hc-tile-art" />,
+  replacement: <StatusArt name="replacement" className="hc-tile-art" />,
+};
 
-function resolveModelGroup(raw: ModelGroupJoin | ModelGroupJoin[] | null): ModelGroupJoin {
-  if (!raw) return { name: '—', image_url: null };
-  return Array.isArray(raw) ? (raw[0] ?? { name: '—', image_url: null }) : raw;
-}
+const pad = (n: number) => String(n).padStart(2, '0');
 
-function resolveCustomer(raw: CustomerJoin | CustomerJoin[] | null): CustomerJoin {
-  if (!raw) return { first_name: '—', last_name: '' };
-  return Array.isArray(raw) ? (raw[0] ?? { first_name: '—', last_name: '' }) : raw;
-}
+type Anchor = { x: number; y: number; bottom: number };
+type Popover = { bar: FleetBar; car: FleetCar; anchor: Anchor; pinned: boolean };
+type Selection = { carId: number; start: string; end: string | null; anchor: Anchor | null };
 
-function blockTypeToKind(blockType: string): CellKind {
-  switch (blockType) {
-    case 'selling':     return 'selling';
-    case 'maintenance': return 'maintenance';
-    case 'replacement': return 'replacement';
-    default:            return 'booked';
-  }
-}
+const anchorOf = (el: Element): Anchor => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top, bottom: r.bottom };
+};
 
-// ─── Tooltip ───────────────────────────────────────────────────────────────────
-
-const Tooltip: React.FC<{ state: TooltipState }> = ({ state }) => {
-  const { t } = useTranslation(['calendar', 'common']);
-  const dateLocale = useDateLocale();
-  const { entry, x, y } = state;
-  const flipLeft = x + 260 > window.innerWidth;
-  const kind = blockTypeToKind(entry.block_type);
-  return (
-    <div className="surface-depth surface-float" style={{
-      position: 'fixed',
-      left: flipLeft ? x - 248 : x + 14,
-      top: y - 16,
-      zIndex: 9997,
-      background: 'white',
-      borderRadius: 12,
-      padding: '14px 16px',
-      pointerEvents: 'none',
-      boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-      minWidth: 220,
-      fontFamily: FONT,
-      animation: 'ttFadeIn 0.15s ease',
-    }}>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        background: BADGE[kind].bg, borderRadius: 20,
-        padding: '3px 9px', marginBottom: 10,
-      }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
-          {t(STATUS_LABEL_KEY[kind])}
-        </span>
-      </div>
-
-      {entry.customer_name && (
-        <div style={{ fontSize: 14, fontWeight: 700, color: TEXT_DARK, marginBottom: 10, lineHeight: 1.3 }}>
-          {entry.customer_name}
-        </div>
-      )}
-
-      <div style={{ height: 1, background: BORDER_SOFT, marginBottom: 10 }} />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center' }}>
-          <span style={{ fontSize: 12.5, color: TEXT_MID }}>From</span>
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date, dateLocale)}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center' }}>
-          <span style={{ fontSize: 12.5, color: TEXT_MID }}>To</span>
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date, dateLocale)}</span>
-        </div>
-      </div>
-    </div>
+/** A small floating card beside its anchor, kept inside the window. */
+const Floating: React.FC<{ anchor: Anchor; width: number; className?: string; label: string; onMouseEnter?: () => void; onMouseLeave?: () => void; children: React.ReactNode }> = ({ anchor, width, className, label, onMouseEnter, onMouseLeave, children }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const height = ref.current?.offsetHeight ?? 200;
+    const w = Math.min(width, window.innerWidth - 24);
+    const left = Math.min(Math.max(anchor.x - w / 2, 12), window.innerWidth - w - 12);
+    const below = anchor.bottom + 8;
+    const top = below + height > window.innerHeight - 12 ? Math.max(anchor.y - height - 8, 12) : below;
+    setPos({ left, top });
+  }, [anchor, width]);
+  return ReactDOM.createPortal(
+    <div ref={ref} role="dialog" aria-label={label} className={`hc-fc-float surface-depth surface-float ${className ?? ''}`}
+      style={{ width: Math.min(width, window.innerWidth - 24), left: pos?.left ?? -9999, top: pos?.top ?? -9999 }}
+      onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onMouseDown={e => e.stopPropagation()}>
+      {children}
+    </div>,
+    document.body,
   );
 };
 
-// ─── BlockPopup ────────────────────────────────────────────────────────────────
+// ─── The bar's card ───────────────────────────────────────────────────────────
 
-const POPUP_W     = 284;
-const POPUP_MAX_H = 360;
-
-const BlockPopup: React.FC<{
-  state: BlockPopupState;
+const BarCard: React.FC<{
+  popover: Popover;
+  flagged: boolean;
+  bookingsRoute: string | null;
+  onHistory: () => void;
   onClose: () => void;
-  onSaved: () => void;
-  onDeleted: () => void;
-  onToast: (t: ToastInfo) => void;
-}> = ({ state, onClose, onSaved, onDeleted, onToast }) => {
+  onHoverKeep: () => void;
+  onHoverLeave: () => void;
+  onChanged: (message: string) => void;
+  onFailed: (message: string) => void;
+}> = ({ popover, flagged, bookingsRoute, onHistory, onClose, onHoverKeep, onHoverLeave, onChanged, onFailed }) => {
   const { t } = useTranslation(['calendar', 'common']);
-  const dateLocale = useDateLocale();
-  const { entry, car, x, y } = state;
-  const isBooked = entry.booking_id !== null;
-  const kind     = blockTypeToKind(entry.block_type);
+  const locale = useDateLocale();
+  const navigate = useNavigate();
+  const { bar } = popover;
+  const [mode, setMode] = useState<'view' | 'edit' | 'delete'>('view');
+  const [type, setType] = useState<BlockType>(bar.blockType ?? 'maintenance');
+  const [start, setStart] = useState(bar.start);
+  const [end, setEnd] = useState(bar.end);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  type PopupMode = 'view' | 'edit' | 'confirm-delete';
-  const [mode,       setMode]       = useState<PopupMode>('view');
-  const [editType,   setEditType]   = useState(entry.block_type);
-  const [editStart,  setEditStart]  = useState(entry.start_date);
-  const [editEnd,    setEditEnd]    = useState(entry.end_date);
-  const [editError,  setEditError]  = useState<string | null>(null);
-  const [saving,     setSaving]     = useState(false);
-  const [deleting,   setDeleting]   = useState(false);
-
-  const left = Math.min(x + 12, window.innerWidth - POPUP_W - 16);
-  const top  = y + 12 + POPUP_MAX_H > window.innerHeight ? y - POPUP_MAX_H - 8 : y + 12;
-
-  const handleSave = async () => {
-    if (editEnd <= editStart) {
-      setEditError(t('calendar:popup.dateOrder'));
-      return;
-    }
-    setEditError(null);
-    setSaving(true);
-    const { error } = await supabase
-      .from('car_calendar')
-      .update({ block_type: editType, start_date: editStart, end_date: editEnd })
-      .eq('id', entry.id);
-    setSaving(false);
-    if (error) {
-      onToast({ message: `Failed to update: ${error.message}`, isError: true });
-    } else {
-      onToast({ message: t('calendar:popup.updated') });
-      onSaved();
-    }
+  const save = async () => {
+    if (bar.blockId == null) return;
+    if (end <= start) { setProblem(t('popup.dateOrder')); return; }
+    setBusy(true);
+    try { await updateBlock(bar.blockId, type, start, end); onChanged(t('popup.updated')); } catch { onFailed(t('popup.saveFailed')); setBusy(false); }
+  };
+  const remove = async () => {
+    if (bar.blockId == null) return;
+    setBusy(true);
+    try { await deleteBlock(bar.blockId); onChanged(t('popup.deleted')); } catch { onFailed(t('popup.deleteFailed')); setBusy(false); }
   };
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    const { error } = await supabase.from('car_calendar').delete().eq('id', entry.id);
-    setDeleting(false);
-    if (error) {
-      onToast({ message: `Failed to delete: ${error.message}`, isError: true });
-    } else {
-      onToast({ message: t('calendar:popup.deleted') });
-      onDeleted();
-    }
-  };
-
-  // Shared input style
-  const inputStyle: React.CSSProperties = {
-    height: 36, padding: '0 10px',
-    borderRadius: 8, border: `1px solid ${BORDER_SOFT}`,
-    background: '#f7f7f7', fontSize: 13, color: TEXT_DARK,
-    outline: 'none', fontFamily: FONT,
-    width: '100%', boxSizing: 'border-box',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
-    letterSpacing: '0.5px', textTransform: 'uppercase' as const,
-  };
-
+  const statusLabel = t(`legend.${bar.status}`);
   return (
-    <div className="surface-depth surface-float"
-      onClick={e => e.stopPropagation()}
-      style={{
-        position: 'fixed',
-        left, top,
-        zIndex: 9999,
-        background: 'white',
-        borderRadius: 16,
-        boxShadow: '0 8px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.06)',
-        width: POPUP_W,
-        fontFamily: FONT,
-        animation: 'ttFadeIn 0.15s ease',
-        overflow: 'hidden',
-      }}
-    >
-      {/* ── Header ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 14px 0',
-      }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          background: BADGE[kind].bg, borderRadius: 20, padding: '3px 9px',
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: CELL_TEXT_COLOR[kind], flexShrink: 0 }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: BADGE[kind].color, letterSpacing: '0.2px' }}>
-            {mode === 'edit' ? t('calendar:popup.editBlock') : t(STATUS_LABEL_KEY[kind])}
-          </span>
-        </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: TEXT_LIGHT, padding: 4, borderRadius: 6,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'color 0.12s ease',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = TEXT_DARK; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = TEXT_LIGHT; }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
+    <Floating anchor={popover.anchor} width={300} label={bar.customer ?? statusLabel} className={`hc-st-${bar.status}`} onMouseEnter={onHoverKeep} onMouseLeave={onHoverLeave}>
+      <div className="hc-fc-card-head">
+        <span className={`hc-fc-chip hc-st-${bar.status}`}><i aria-hidden="true" />{mode === 'edit' ? t('popup.editBlock') : statusLabel}</span>
+        {flagged && <span className="hc-fc-chip is-alert">{t('bar.conflict')}</span>}
+        <button type="button" className="hc-fc-x" onClick={onClose} aria-label={t('bar.close')}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         </button>
       </div>
+      {bar.customer && <p className="hc-fc-card-who"><bdi dir="auto">{bar.customer}</bdi></p>}
+      <div className="hc-fc-card-car"><PlateChip plate={popover.car.plate} /><bdi dir="auto">{popover.car.model}</bdi></div>
 
-      {/* ── Car info ── */}
-      <div style={{ padding: '10px 14px 0' }}>
-        {entry.customer_name && (
-          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT_DARK, marginBottom: 2, lineHeight: 1.3 }}>
-            {entry.customer_name}
+      {mode === 'edit' ? (
+        <div className="hc-fc-card-form">
+          <label><span>{t('popup.blockType')}</span>
+            <select className="hc-input" value={type} onChange={e => setType(e.target.value as BlockType)} disabled={busy}>
+              {BLOCK_TYPES.map(value => <option key={value} value={value}>{t(`common:carStatus.${value}`)}</option>)}
+            </select>
+          </label>
+          <label><span>{t('popup.startDate')}</span><input type="date" className="hc-input" value={start} onChange={e => { setStart(e.target.value); setProblem(null); }} disabled={busy} /></label>
+          <label><span>{t('popup.endDate')}</span><input type="date" className="hc-input" value={end} onChange={e => { setEnd(e.target.value); setProblem(null); }} disabled={busy} /></label>
+          {problem && <p role="alert" className="hc-fc-card-problem">{problem}</p>}
+          <div className="hc-fc-card-actions">
+            <Button variant="secondary" onClick={() => setMode('view')} disabled={busy}>{t('popup.cancel')}</Button>
+            <Button onClick={() => void save()} disabled={busy} aria-busy={busy}>{busy ? t('popup.saving') : t('popup.save')}</Button>
           </div>
-        )}
-        <div style={{ fontSize: 12.5, color: TEXT_MID }}>
-          <span className="hc-num" style={{ fontWeight: 600, color: TEXT_DARK }}>{car.plate_number}</span>
-          {' · '}
-          {car.model_name}
         </div>
-      </div>
-
-      <div style={{ height: 1, background: BORDER_SOFT, margin: '12px 14px 0' }} />
-
-      {/* ── VIEW MODE ── */}
-      {mode === 'view' && (
+      ) : (
         <>
-          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12.5, color: TEXT_MID }}>From</span>
-              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.start_date, dateLocale)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12.5, color: TEXT_MID }}>To</span>
-              <span style={{ fontSize: 12.5, fontWeight: 500, color: TEXT_DARK }}>{formatDateShort(entry.end_date, dateLocale)}</span>
-            </div>
-          </div>
-
-          <div style={{ height: 1, background: BORDER_SOFT, margin: '0 14px' }} />
-
-          {isBooked ? (
-            <div style={{
-              padding: '11px 14px 13px',
-              display: 'flex', alignItems: 'center', gap: 7,
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, color: TEXT_LIGHT }}>
-                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
-                <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              <span style={{ fontSize: 12.5, color: TEXT_MID }}>Managed from the Bookings page</span>
+          <dl className="hc-fc-card-facts">
+            {bar.bookingNumber && <div><dt>{t('bar.booking')}</dt><dd><bdi dir="ltr" className="hc-num">{bar.bookingNumber}</bdi></dd></div>}
+            <div><dt>{t('bar.from')}</dt><dd>{formatDay(bar.start, locale)}</dd></div>
+            <div><dt>{t('bar.to')}</dt><dd>{formatDay(bar.end, locale)}</dd></div>
+            <div><dt>{t('bar.status')}</dt><dd>{t('bar.days', { count: rentalDays(bar.start, bar.end) })}</dd></div>
+            {bar.note && <div className="is-wide"><dd><bdi dir="auto">{bar.note}</bdi></dd></div>}
+          </dl>
+          {mode === 'delete' ? (
+            <div className="hc-fc-card-confirm">
+              <p>{t('popup.confirmDelete')}</p>
+              <div className="hc-fc-card-actions">
+                <Button variant="secondary" onClick={() => setMode('view')} disabled={busy}>{t('popup.cancel')}</Button>
+                <Button variant="destructive" onClick={() => void remove()} disabled={busy} aria-busy={busy}>{busy ? t('popup.deleting') : t('popup.delete')}</Button>
+              </div>
             </div>
           ) : (
-            <div style={{ padding: '10px 10px 10px', display: 'flex', gap: 6 }}>
-              <button
-                onClick={() => setMode('edit')}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  gap: 6, height: 36, borderRadius: 10,
-                  border: `1px solid ${BORDER_SOFT}`,
-                  background: 'white', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, color: TEXT_DARK,
-                  fontFamily: FONT, transition: 'background 0.12s ease',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white'; }}
-              >
-                <span style={{ fontSize: 14 }}>✏️</span> Edit
-              </button>
-              <button
-                onClick={() => setMode('confirm-delete')}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  gap: 6, height: 36, borderRadius: 10,
-                  border: '1px solid #fecdd3',
-                  background: '#fff5f5', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, color: '#dc2626',
-                  fontFamily: FONT, transition: 'background 0.12s ease',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fef2f2'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff5f5'; }}
-              >
-                <span style={{ fontSize: 14 }}>🗑️</span> Delete
-              </button>
+            <div className="hc-fc-card-actions">
+              {bar.bookingId != null && bookingsRoute && (
+                <Button onClick={() => navigate(`${bookingsRoute}?edit=${bar.bookingId}`)}>{t('bar.openBooking')}</Button>
+              )}
+              {bar.blockId != null && <Button variant="secondary" onClick={() => setMode('edit')}>{t('popup.edit')}</Button>}
+              {bar.blockId != null && <Button variant="secondary" className="hc-fc-danger" onClick={() => setMode('delete')}>{t('popup.delete')}</Button>}
+              <Button variant="secondary" onClick={onHistory}>{t('bar.carHistory')}</Button>
             </div>
           )}
         </>
       )}
-
-      {/* ── EDIT MODE ── */}
-      {mode === 'edit' && (
-        <div style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-
-          {/* Block type */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={labelStyle}>Block type</label>
-            <select
-              value={editType}
-              onChange={e => setEditType(e.target.value)}
-              style={{
-                ...inputStyle,
-                paddingInlineEnd: 28, cursor: 'pointer',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aaaaaa' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' fill='none'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
-              }}
-            >
-              {EDITABLE_BLOCK_TYPES.map(bt => (
-                <option key={bt.value} value={bt.value}>{t(bt.labelKey)}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Start date */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={labelStyle}>Start date</label>
-            <input
-              type="date"
-              value={editStart}
-              onChange={e => { setEditStart(e.target.value); setEditError(null); }}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* End date */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <label style={labelStyle}>End date</label>
-            <input
-              type="date"
-              value={editEnd}
-              onChange={e => { setEditEnd(e.target.value); setEditError(null); }}
-              style={inputStyle}
-            />
-          </div>
-
-          {editError && (
-            <div style={{ fontSize: 12, color: '#dc2626', marginTop: -4 }}>{editError}</div>
-          )}
-
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-            <Button variant="secondary"
-              onClick={() => { setMode('view'); setEditError(null); }}
-              disabled={saving}
-              style={{ flex: 1 }}
->
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              style={{ flex: 1 }}
->
-              {saving && (
-                <div style={{
-                  width: 12, height: 12, borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.35)',
-                  borderTop: '2px solid white',
-                  animation: 'calSpin 0.75s linear infinite',
-                }} />
-              )}
-              {saving ? t('calendar:popup.saving') : t('calendar:popup.save')}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ── CONFIRM DELETE ── */}
-      {mode === 'confirm-delete' && (
-        <div style={{ padding: '12px 14px 14px' }}>
-          <p style={{ fontSize: 13.5, color: TEXT_DARK, margin: '0 0 14px', lineHeight: 1.55 }}>
-            {t('calendar:confirmDelete')}
-          </p>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <Button variant="secondary"
-              onClick={() => setMode('view')}
-              disabled={deleting}
-              style={{ flex: 1 }}
->
-              {t('common:actions.cancel')}
-            </Button>
-            <Button variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-              style={{ flex: 1 }}
->
-              {deleting && (
-                <div style={{
-                  width: 12, height: 12, borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.35)',
-                  borderTop: '2px solid white',
-                  animation: 'calSpin 0.75s linear infinite',
-                }} />
-              )}
-              {deleting ? t('calendar:popup.deleting') : t('common:actions.delete')}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+    </Floating>
   );
 };
 
-// ─── ActionMenu ────────────────────────────────────────────────────────────────
-
-const MENU_W = 224;
-const MENU_H = 228;
-
-const ActionMenu: React.FC<{
-  pos: { x: number; y: number };
-  onAddBooking: () => void;
-  onInsert: (type: 'maintenance' | 'selling' | 'replacement') => void;
-  inserting: boolean;
-}> = ({ pos, onAddBooking, onInsert, inserting }) => {
-  const { t } = useTranslation(['calendar', 'common']);
-  const left = Math.min(pos.x + 12, window.innerWidth - MENU_W - 16);
-  const top  = pos.y + 12 + MENU_H > window.innerHeight ? pos.y - MENU_H - 8 : pos.y + 12;
-
-  const items: Array<{ icon: string; label: string; onClick: () => void }> = [
-    { icon: '📅', label: t('calendar:menu.addBooking'),  onClick: onAddBooking },
-    { icon: '🔧', label: t('common:carStatus.maintenance'),  onClick: () => onInsert('maintenance') },
-    { icon: '💰', label: t('common:carStatus.selling'),      onClick: () => onInsert('selling') },
-    { icon: '🔄', label: t('common:carStatus.replacement'),  onClick: () => onInsert('replacement') },
-  ];
-
-  return (
-    <div className="surface-depth surface-float" style={{
-      position: 'fixed',
-      left, top,
-      zIndex: 9999,
-      background: 'white',
-      borderRadius: 14,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
-      padding: '6px',
-      width: MENU_W,
-      fontFamily: FONT,
-      animation: 'ttFadeIn 0.15s ease',
-    }}>
-      <div style={{
-        padding: '6px 12px 8px',
-        borderBottom: `1px solid ${BORDER_SOFT}`,
-        marginBottom: 4,
-      }}>
-        <span style={{
-          fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
-          letterSpacing: '0.6px', textTransform: 'uppercase',
-        }}>
-          {t('calendar:actions')}
-        </span>
-      </div>
-
-      {items.map(item => (
-        <button
-          key={item.label}
-          onClick={item.onClick}
-          disabled={inserting}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            width: '100%',
-            padding: '10px 12px',
-            background: 'transparent',
-            border: 'none',
-            borderRadius: 8,
-            cursor: inserting ? 'not-allowed' : 'pointer',
-            fontSize: 13.5,
-            color: TEXT_DARK,
-            fontFamily: FONT,
-            textAlign: 'start',
-            transition: 'background 0.12s ease',
-            opacity: inserting ? 0.5 : 1,
-          }}
-          onMouseEnter={e => { if (!inserting) (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-        >
-          <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
-          <span style={{ fontWeight: 500 }}>{item.label}</span>
-          {inserting && item.label !== 'Add Booking' && (
-            <div style={{
-              marginInlineStart: 'auto',
-              width: 14, height: 14,
-              borderRadius: '50%',
-              border: '2px solid #e5e7eb',
-              borderTop: '2px solid #4ba6ea',
-              animation: 'calSpin 0.75s linear infinite',
-              flexShrink: 0,
-            }} />
-          )}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-// ─── Toast ─────────────────────────────────────────────────────────────────────
-
-const Toast: React.FC<{ info: ToastInfo }> = ({ info }) => (
-  <div style={{
-    position: 'fixed',
-    bottom: 24,
-    right: 24,
-    zIndex: 10000,
-    background: 'white',
-    borderRadius: 12,
-    padding: '13px 18px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-    border: `1px solid ${info.isError ? '#fecdd3' : '#bbf7d0'}`,
-    fontFamily: FONT,
-    animation: 'ttFadeIn 0.2s ease',
-    minWidth: 240,
-    maxWidth: 360,
-  }}>
-    <div style={{
-      width: 8, height: 8, borderRadius: '50%',
-      background: info.isError ? '#ef4444' : '#22c55e',
-      flexShrink: 0,
-    }} />
-    <span style={{
-      fontSize: 13.5,
-      fontWeight: 500,
-      color: info.isError ? '#b91c1c' : '#15803d',
-      lineHeight: 1.4,
-    }}>
-      {info.message}
-    </span>
-  </div>
-);
-
-// ─── CalendarPage ─────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const CalendarPage: React.FC = () => {
   const { t } = useTranslation(['calendar', 'common']);
-  const dateLocale = useDateLocale();
-
-  // ── State ───────────────────────────────────────────────────────────────
-  const [currentMonth, setCurrentMonth] = useState<Date>(
-    () => new Date(TODAY.getFullYear(), TODAY.getMonth(), 1)
-  );
-  const [allCars, setAllCars]           = useState<CalendarCar[]>([]);
-  const [calendarMap, setCalendarMap]   = useState<Map<number, CalendarEntry[]>>(new Map());
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState<string | null>(null);
-  const [search, setSearch]             = useState('');
-  const [statusFilter, setStatusFilter] = useState<CalendarStatus | 'all'>('all');
-  const [tooltip, setTooltip]           = useState<TooltipState | null>(null);
-
-  // ── Selection state ─────────────────────────────────────────────────────
-  const [selCarId,   setSelCarId]   = useState<number | null>(null);
-  const [selStart,   setSelStart]   = useState<string | null>(null);
-  const [selEnd,     setSelEnd]     = useState<string | null>(null);
-  const [menuPos,    setMenuPos]    = useState<{ x: number; y: number } | null>(null);
-  const [blockPopup, setBlockPopup] = useState<BlockPopupState | null>(null);
-  const [toast,      setToast]      = useState<ToastInfo | null>(null);
-  const [inserting,  setInserting]  = useState(false);
-
+  const locale = useDateLocale();
   const navigate = useNavigate();
+  const { pages, canAccessPage } = usePageAccess();
+  const { profile } = useCurrentUser();
+  const [params, setParams] = useSearchParams();
+  const read = readMonth(params.get('month'));
+  const month = read === 'all' ? currentMonth() : read;
+  const [filter, setFilter] = useTileFilter(CAR_STATUSES);
+  const [search, setSearch] = useState('');
 
-  const year        = currentMonth.getFullYear();
-  const month       = currentMonth.getMonth();
-  const daysInMonth = getDaysInMonth(year, month);
+  const [data, setData] = useState<FleetMonth | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
+  const [conflictsFailed, setConflictsFailed] = useState(false);
+  const [popover, setPopover] = useState<Popover | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [historyCar, setHistoryCar] = useState<FleetCar | null>(null);
+  const [pulse, setPulse] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [inserting, setInserting] = useState(false);
+  const [reload, setReload] = useState(0);
+  const loadId = useRef(0);
+  const board = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef(0);
+  const toastTimer = useRef(0);
 
-  const isCurrentMonth = TODAY.getFullYear() === year && TODAY.getMonth() === month;
-  const todayDay       = isCurrentMonth ? TODAY.getDate() : -1;
+  const routeOf = (key: string) => (canAccessPage(key) ? pages.find(p => p.key === key)?.route ?? null : null);
+  const bookingsRoute = routeOf('bookings');
+  const canSeeMoney = profile?.role === 'admin' || canAccessPage('accounting');
 
-  const dayMeta = useMemo(() =>
-    Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      const d   = new Date(year, month, day);
-      const dow = d.getDay();
-      return {
-        day,
-        isWeekend: dow === 0 || dow === 6,
-        // Arabic weekday abbreviations are already short; slicing them mangles
-        // the word, so only the Latin ones are trimmed to two letters.
-        abbr: (() => {
-          const w = d.toLocaleDateString(dateLocale, { weekday: 'short' });
-          return /^[A-Za-z]/.test(w) ? w.slice(0, 2) : w;
-        })(),
-      };
-    }),
-    [year, month, daysInMonth, dateLocale]
-  );
+  const { first, days } = monthBounds(month);
+  const today = istanbulDate();
+  const todayIndex = today.slice(0, 7) === month ? daysBetween(first, today) : -1;
+  const dates = useMemo(() => Array.from({ length: days }, (_, i) => `${month}-${pad(i + 1)}`), [month, days]);
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
-  const resetSelection = useCallback(() => {
-    setSelCarId(null);
-    setSelStart(null);
-    setSelEnd(null);
-    setMenuPos(null);
-  }, []);
-
-  // ── Data fetching ────────────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setTooltip(null);
-    setSelCarId(null);
-    setSelStart(null);
-    setSelEnd(null);
-    setMenuPos(null);
-    setBlockPopup(null);
-
-    const pad        = (n: number) => String(n).padStart(2, '0');
-    const monthStart = `${year}-${pad(month + 1)}-01`;
-    const monthEnd   = `${year}-${pad(month + 1)}-${pad(daysInMonth)}`;
-
-    const [carsRes, availRes, calRes] = await Promise.all([
-      supabase.from('cars').select('id, plate_number, model_group(name, image_url)').eq('is_active', true).order('plate_number'),
-      supabase.from('car_availability').select('id, status'),
-      supabase.from('car_calendar')
-        .select('id, car_id, start_date, end_date, block_type, booking_id')
-        .lte('start_date', monthEnd)
-        .gte('end_date', monthStart),
-    ]);
-
-    if (carsRes.error || availRes.error || calRes.error) {
-      setError(carsRes.error?.message ?? availRes.error?.message ?? calRes.error?.message ?? t('calendar:loadError'));
-      setLoading(false);
-      return;
-    }
-
-    const statusById = new Map<number, CalendarStatus>();
-    for (const row of (availRes.data ?? []) as AvailabilityRaw[]) {
-      statusById.set(row.id, row.status);
-    }
-
-    const mappedCars: CalendarCar[] = (carsRes.data as CarRaw[])
-      .map(row => {
-        const mg = resolveModelGroup(row.model_group);
-        return { id: row.id, plate_number: row.plate_number, model_name: mg.name, image_url: mg.image_url, car_status: statusById.get(row.id) ?? 'working' };
-      })
-      .sort((a, b) => a.model_name.localeCompare(b.model_name));
-
-    const calRows    = (calRes.data ?? []) as CarCalendarRaw[];
-    const bookingIds = Array.from(new Set(calRows.map(r => r.booking_id).filter((id): id is number => id !== null)));
-
-    const customerByBookingId = new Map<number, string>();
-    if (bookingIds.length > 0) {
-      const bookRes = await supabase.from('bookings').select('id, customers(first_name, last_name)').in('id', bookingIds);
-      if (!bookRes.error) {
-        for (const b of (bookRes.data ?? []) as BookingCustomerRaw[]) {
-          const c = resolveCustomer(b.customers);
-          customerByBookingId.set(b.id, `${c.first_name} ${c.last_name}`.trim());
-        }
-      }
-    }
-
-    const calMap = new Map<number, CalendarEntry[]>();
-    for (const row of calRows) {
-      const entry: CalendarEntry = {
-        id: row.id, car_id: row.car_id,
-        start_date: row.start_date.slice(0, 10),
-        end_date: row.end_date.slice(0, 10),
-        block_type: row.block_type, booking_id: row.booking_id,
-        customer_name: row.booking_id !== null ? (customerByBookingId.get(row.booking_id) ?? null) : null,
-      };
-      const list = calMap.get(row.car_id);
-      if (list) list.push(entry);
-      else calMap.set(row.car_id, [entry]);
-    }
-
-    setAllCars(mappedCars);
-    setCalendarMap(calMap);
-    setLoading(false);
-  }, [year, month, daysInMonth, dateLocale]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // ── Toast auto-dismiss ───────────────────────────────────────────────────
+  // ── Data ──
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
+    const id = ++loadId.current;
+    setFailed(false);
+    setPopover(null);
+    setSelection(null);
+    getFleetMonth(month).then(next => { if (id === loadId.current) setData(next); }).catch(() => { if (id === loadId.current) setFailed(true); });
+    return () => { loadId.current += 1; };
+  }, [month, reload]);
 
-  // ── Filtered cars ────────────────────────────────────────────────────────
-  const filteredCars = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return allCars.filter(car => {
-      const matchSearch = !q || car.plate_number.toLowerCase().includes(q) || car.model_name.toLowerCase().includes(q);
-      const matchStatus = statusFilter === 'all' || car.car_status === statusFilter;
-      return matchSearch && matchStatus;
+  // Live: asked again for the month, after a change here, and whenever the tab comes back.
+  const loadConflicts = useCallback(() => {
+    let active = true;
+    getCalendarConflicts(month)
+      .then(rows => { if (active) { setConflicts(rows); setConflictsFailed(false); } })
+      .catch(() => { if (active) setConflictsFailed(true); });
+    return () => { active = false; };
+  }, [month]);
+  useEffect(() => { setConflicts(null); return loadConflicts(); }, [loadConflicts, reload]);
+  useEffect(() => {
+    let cancel = () => {};
+    const onFocus = () => { cancel(); cancel = loadConflicts(); };
+    window.addEventListener('focus', onFocus);
+    return () => { window.removeEventListener('focus', onFocus); cancel(); };
+  }, [loadConflicts]);
+
+  useEffect(() => () => { window.clearTimeout(hoverTimer.current); window.clearTimeout(toastTimer.current); }, []);
+  useEffect(() => {
+    if (!pulse) return;
+    const id = window.setTimeout(() => setPulse(null), PULSE_MS);
+    return () => window.clearTimeout(id);
+  }, [pulse]);
+
+  const say = (text: string, bad = false) => {
+    window.clearTimeout(toastTimer.current);
+    setToast({ text, bad });
+    toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS);
+  };
+
+  // ── Rows ──
+  const cars = useMemo(() => data?.cars ?? [], [data]);
+  const barsByCar = useMemo(() => {
+    const map = new Map<number, FleetBar[]>();
+    for (const bar of data?.bars ?? []) map.set(bar.carId, [...(map.get(bar.carId) ?? []), bar]);
+    return map;
+  }, [data]);
+  const counts = useMemo(() => statusCounts(cars), [cars]);
+  const rows = useMemo(() => cars.filter(car => (filter === 'all' || car.status === filter) && rowMatches(car, barsByCar.get(car.id) ?? [], search)), [cars, filter, search, barsByCar]);
+  const flagged = useMemo(() => flaggedBookings(conflicts ?? [], data?.bars ?? []), [conflicts, data]);
+
+  const setMonth = (next: string) => setParams(current => {
+    const updated = new URLSearchParams(current);
+    if (next === currentMonth()) updated.delete('month');
+    else updated.set('month', next);
+    return updated;
+  }, { replace: true });
+
+  // ── Popover: hover on a pointer that hovers, a tap everywhere ──
+  const canHover = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+  const openBar = (bar: FleetBar, car: FleetCar, el: Element, pinned: boolean) => {
+    window.clearTimeout(hoverTimer.current);
+    setSelection(null);
+    setPopover({ bar, car, anchor: anchorOf(el), pinned });
+  };
+  const hoverBar = (bar: FleetBar, car: FleetCar, el: Element) => {
+    if (!canHover || popover?.pinned) return;
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => openBar(bar, car, el, false), 260);
+  };
+  const leaveBar = () => {
+    window.clearTimeout(hoverTimer.current);
+    if (popover && !popover.pinned) hoverTimer.current = window.setTimeout(() => setPopover(current => (current?.pinned ? current : null)), 220);
+  };
+
+  useEffect(() => {
+    if (!popover && !selection?.anchor) return;
+    const onDown = () => { setPopover(null); setSelection(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !historyCar) { setPopover(null); setSelection(null); } };
+    const onScroll = () => setPopover(current => (current?.pinned ? current : null));
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    board.current?.addEventListener('scroll', onScroll, { passive: true });
+    const el = board.current;
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); el?.removeEventListener('scroll', onScroll); };
+  }, [popover, selection, historyCar]);
+
+  // ── Picking free days ──
+  const pickDay = (car: FleetCar, date: string, el: Element) => {
+    setPopover(null);
+    setSelection(current => {
+      if (!current || current.carId !== car.id || current.end !== null || date <= current.start) return { carId: car.id, start: date, end: null, anchor: null };
+      return { ...current, end: date, anchor: anchorOf(el) };
     });
-  }, [allCars, search, statusFilter]);
+  };
 
-  // ── Event handlers ───────────────────────────────────────────────────────
-  const handleHover = useCallback((entry: CalendarEntry | null, e: React.MouseEvent) => {
-    setTooltip(entry ? { entry, x: e.clientX, y: e.clientY } : null);
-  }, []);
-
-  // Click on an existing calendar block → open popup
-  const handleBlockClick = useCallback((entry: CalendarEntry, car: CalendarCar, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setTooltip(null);
-    resetSelection();
-    setBlockPopup({ entry, car, x: e.clientX, y: e.clientY });
-  }, [resetSelection]);
-
-  // Click on an empty cell → date range selection
-  const handleDayClick = useCallback((carId: number, dayStr: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setTooltip(null);
-
-    if (selCarId !== carId || selEnd !== null) {
-      setSelCarId(carId);
-      setSelStart(dayStr);
-      setSelEnd(null);
-      setMenuPos(null);
-    } else if (selStart !== null) {
-      if (dayStr > selStart) {
-        setSelEnd(dayStr);
-        setMenuPos({ x: e.clientX, y: e.clientY });
-      } else {
-        setSelStart(dayStr);
-        setSelEnd(null);
-        setMenuPos(null);
-      }
-    }
-  }, [selCarId, selEnd, selStart]);
-
-  const handleInsert = useCallback(async (blockType: 'maintenance' | 'selling' | 'replacement') => {
-    if (!selCarId || !selStart || !selEnd) return;
+  const insert = async (blockType: BlockType) => {
+    if (!selection?.end || inserting) return;
     setInserting(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error: insertError } = await supabase.from('car_calendar').insert({
-      car_id: selCarId,
-      start_date: selStart,
-      end_date: selEnd,
-      block_type: blockType,
-      created_by: user?.id ?? null,
-    });
-
-    setInserting(false);
-
-    if (insertError) {
-      setToast({ message: `Failed to save: ${insertError.message}`, isError: true });
-    } else {
-      const label = blockType.charAt(0).toUpperCase() + blockType.slice(1);
-      setToast({ message: `${label} block added successfully` });
-      resetSelection();
-      loadData();
+    try {
+      await addBlock(selection.carId, selection.start, selection.end, blockType);
+      say(t('menu.added', { block: t(`common:carStatus.${blockType}`) }));
+      setSelection(null);
+      setReload(n => n + 1);
+    } catch {
+      say(t('menu.addFailed'), true);
+    } finally {
+      setInserting(false);
     }
-  }, [selCarId, selStart, selEnd, resetSelection, loadData]);
+  };
 
-  const handleAddBooking = useCallback(() => {
-    if (!selCarId || !selStart || !selEnd) return;
-    navigate(`/dashboard/bookings?car_id=${selCarId}&start_date=${selStart}&end_date=${selEnd}`);
-    resetSelection();
-  }, [selCarId, selStart, selEnd, navigate, resetSelection]);
+  // ── Jump to a conflict ──
+  const jump = (conflict: Conflict) => {
+    const car = cars.find(c => c.id === conflict.car_id);
+    if (!car) return;
+    if (!rows.includes(car)) { setSearch(''); if (filter !== 'all') setFilter('all'); }
+    setPulse(conflict.booking_id != null ? `b:${conflict.booking_id}` : `car:${car.id}`);
+    // Two frames: one for the filters to let go of the row, one for it to be drawn.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const row = board.current?.querySelector<HTMLElement>(`[data-car="${car.id}"]`);
+      if (!row) return;
+      const bar = conflict.booking_id != null ? row.querySelector<HTMLElement>(`[data-bar="b:${conflict.booking_id}"]`) : null;
+      const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      (bar ?? row).scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' });
+      (bar ?? row.querySelector<HTMLElement>('.hc-fc-car'))?.focus({ preventScroll: true });
+    }));
+  };
 
-  const gridCols = `${LEFT_W}px repeat(${daysInMonth}, ${COL_W}px)`;
-  const gridMinW = LEFT_W + COL_W * daysInMonth;
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const monthLabel = new Date(`${month}-01T12:00:00Z`).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const weekday = (date: string) => {
+    const name = new Date(`${date}T12:00:00Z`).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' });
+    return /^[A-Za-z]/.test(name) ? name.slice(0, 2) : name;
+  };
+  const loading = data === null && !failed;
+  const pct = (n: number) => (cars.length ? `${Math.round((n / cars.length) * 100)}%` : '0%');
+  const selectedCar = selection ? cars.find(c => c.id === selection.carId) ?? null : null;
 
   return (
-    <div style={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--surface)',
-      fontFamily: FONT,
-      color: TEXT_DARK,
-    }}>
-
-      <style>{`
-        @keyframes ttFadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes calSpin { to { transform: rotate(360deg); } }
-      `}</style>
-
-      {/* ── Page header ─────────────────────────────────────────────────── */}
-      <div style={{ padding: '32px 32px 20px', flexShrink: 0, background: 'white' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ba6ea' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#3A74C2', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-            {t('calendar:eyebrow')}
-          </span>
+    <div className="hc-pi hc-fc">
+      <header className="hc-pi-head">
+        <div>
+          <h1>{t('title')}</h1>
+          <p>{t('subtitle')}</p>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 500, letterSpacing: '-0.8px', color: '#0f1117', margin: '0 0 6px', lineHeight: 1.1 }}>
-          {t('calendar:title')}
-        </h1>
-        <p style={{ fontSize: 15, color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
-          {t('calendar:vehicleCount', { count: allCars.length, month: formatMonthLabel(currentMonth, dateLocale) })}
-        </p>
-      </div>
+      </header>
 
-      {/* ── Controls bar ─────────────────────────────────────────────────── */}
-      <div className="hc-cal-bar" style={{
-        height: 56,
-        flexShrink: 0,
-        borderTop: `1px solid ${BORDER_SOFT}`,
-        borderBottom: `1px solid ${BORDER_SOFT}`,
-        background: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 32px',
-        position: 'relative',
-      }}>
+      {conflictsFailed && <p role="alert" className="hc-fc-warn">{t('conflicts.failed')}</p>}
+      {conflicts && conflicts.length > 0 && <ConflictsPanel key={month} conflicts={conflicts} onJump={jump} />}
 
-        {/* Center: month nav */}
-        <div className="hc-cal-month" style={{
-          position: 'absolute',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}>
-          <button
-            onClick={() => setCurrentMonth(m => addMonths(m, -1))}
-            style={{
-              width: 34, height: 34, borderRadius: '50%',
-              border: `1px solid ${BORDER_SOFT}`,
-              background: 'white', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: TEXT_DARK,
-              transition: 'background 0.15s ease, border-color 0.15s ease',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = '#dddddd';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'white';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER_SOFT;
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
-          <span style={{
-            fontSize: 18, fontWeight: 700, color: TEXT_DARK,
-            minWidth: 168, textAlign: 'center', letterSpacing: '-0.4px',
-            userSelect: 'none',
-          }}>
-            {formatMonthLabel(currentMonth, dateLocale)}
-          </span>
-
-          <button
-            onClick={() => setCurrentMonth(m => addMonths(m, 1))}
-            style={{
-              width: 34, height: 34, borderRadius: '50%',
-              border: `1px solid ${BORDER_SOFT}`,
-              background: 'white', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: TEXT_DARK,
-              transition: 'background 0.15s ease, border-color 0.15s ease',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#f7f7f7';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = '#dddddd';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'white';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = BORDER_SOFT;
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
-          {!isCurrentMonth && (
-            <Button
-              onClick={() => setCurrentMonth(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
-            >
-              {t('calendar:today')}
-            </Button>
-          )}
-        </div>
-
-        {/* Right: search + filter */}
-        <div className="hc-cal-tools" style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-
-          {/* Search pill */}
-          <div style={{ position: 'relative' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{
-              position: 'absolute', insetInlineStart: 13, top: '50%', transform: 'translateY(-50%)',
-              pointerEvents: 'none', color: TEXT_LIGHT,
-            }}>
-              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8"/>
-              <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-            <input
-              type="text"
-              placeholder={t('calendar:search')}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{
-                paddingInlineStart: 36, paddingInlineEnd: 16, height: 38,
-                borderRadius: 24, border: 'none',
-                background: '#f7f7f7', fontSize: 13.5, color: TEXT_DARK,
-                outline: 'none', width: 168, fontFamily: FONT,
-                transition: 'box-shadow 0.15s ease',
-              }}
-              onFocus={e => { e.currentTarget.style.boxShadow = `0 0 0 2px ${AIRBNB_RED}50`; }}
-              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}
-            />
-          </div>
-
-          {/* Filter pill */}
-          <FilterBar
-            fields={[{
-              key: 'status',
-              label: t('common:filterBar.status'),
-              activeLabel: statusFilter === 'all' ? null : t(STATUS_OPTIONS.find(o => o.value === statusFilter)?.labelKey ?? ''),
-              onClear: () => setStatusFilter('all'),
-              control: (
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value as CalendarStatus | 'all')}
-                  style={{
-                    height: 38, paddingInlineStart: 16, paddingInlineEnd: 34,
-                    borderRadius: 24, border: 'none',
-                    background: '#f7f7f7', fontSize: 13.5, color: TEXT_DARK,
-                    cursor: 'pointer', outline: 'none', fontFamily: FONT,
-                    appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aaaaaa' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' fill='none'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
-                  }}
-                >
-                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
-                </select>
-              ),
-            }]}
-          />
-        </div>
-      </div>
-
-      {/* ── Legend bar ────────────────────────────────────────────────────── */}
-      <div className="hc-cal-legend" style={{
-        height: 44,
-        flexShrink: 0,
-        borderBottom: `1px solid ${BORDER_SOFT}`,
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 32px',
-        gap: 24,
-        background: 'white',
-      }}>
-        {LEGEND_KINDS.map(kind => (
-          <div key={kind} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <div style={{
-              width: 11, height: 11, borderRadius: '50%',
-              background: LEGEND_DOT[kind], flexShrink: 0,
-            }} />
-            <span style={{ fontSize: 12, color: TEXT_MID }}>{t(STATUS_LABEL_KEY[kind])}</span>
-          </div>
+      <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-fc-tiles">
+        <StatTile tone="st-all" art={TILE_ART.all} label={t('tiles.all')} sub={t('tiles.allSub')} value={loading ? null : counts.all.toLocaleString('tr-TR')} pressed={filter === 'all'} onPress={() => setFilter('all')} />
+        {CAR_STATUSES.map(status => (
+          <StatTile key={status} tone={`st-${carStatusTone(status)}` as TileTone} art={TILE_ART[status]} label={t(`tiles.${status}`)} sub={t('tiles.share', { pct: pct(counts[status] ?? 0) })}
+            value={loading ? null : (counts[status] ?? 0).toLocaleString('tr-TR')} pressed={filter === status} onPress={() => setFilter(status)} />
         ))}
-
-        {/* Selection hint */}
-        {!selStart && (
-          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ color: TEXT_LIGHT }}>
-              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/>
-              <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-            <span style={{ fontSize: 12, color: TEXT_LIGHT }}>{t('calendar:hint')}</span>
-          </div>
-        )}
-
-        {/* Active selection label */}
-        {selStart && !selEnd && (
-          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: '#eff6ff', borderRadius: 20, padding: '4px 12px',
-            }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ba6ea', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>
-                {t('calendar:pickEndDate', { date: formatDateShort(selStart, dateLocale) })}
-              </span>
-            </div>
-            <button
-              onClick={resetSelection}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: TEXT_LIGHT, padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
-              }}
-              title={t('calendar:clearSelection')}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
-        )}
-
-        {/* Range selected label */}
-        {selStart && selEnd && (
-          <div style={{ marginInlineStart: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: '#eff6ff', borderRadius: 20, padding: '4px 12px',
-            }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ba6ea', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563eb' }}>
-                {formatDateShort(selStart, dateLocale)} → {formatDateShort(selEnd, dateLocale)}
-              </span>
-            </div>
-            <button
-              onClick={resetSelection}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: TEXT_LIGHT, padding: 4, display: 'flex', alignItems: 'center', borderRadius: 4,
-              }}
-              title={t('calendar:clearSelection')}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* ── Loading ───────────────────────────────────────────────────────── */}
-      {loading && (
-        <div style={{
-          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column', gap: 16,
-        }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: '50%',
-            border: `2.5px solid #f0f0f0`,
-            borderTop: `2.5px solid ${AIRBNB_RED}`,
-            animation: 'calSpin 0.75s linear infinite',
-          }} />
-          <span style={{ fontSize: 14, color: TEXT_MID, letterSpacing: '-0.1px' }}>Loading calendar…</span>
+      <ul className="hc-fc-legend" aria-label={t('legend.label')}>
+        {LEGEND.map(status => <li key={status} className={`hc-fc-chip hc-st-${status}`}><i aria-hidden="true" />{t(`legend.${status}`)}</li>)}
+      </ul>
+
+      <div className="hc-fc-tools">
+        <div className="hc-months">
+          <MonthSwitcher label={monthLabel} prevLabel={t('month.prev')} nextLabel={t('month.next')} onPrev={() => setMonth(shiftMonth(month, -1))} onNext={() => setMonth(shiftMonth(month, 1))} />
+          {month !== currentMonth() && <button type="button" className="hc-pi-all" onClick={() => setMonth(currentMonth())}>{t('today')}</button>}
         </div>
-      )}
+        <input type="search" className="hc-input !mt-0" placeholder={t('search')} aria-label={t('search')} value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
 
-      {/* ── Error ─────────────────────────────────────────────────────────── */}
-      {error && !loading && (
-        <div style={{
-          margin: '24px 32px 0',
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: '#fff5f5', borderRadius: 12,
-          border: '1px solid #fecdd3',
-          padding: '14px 18px',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="1.8"/>
-            <path d="M12 8v4M12 16h.01" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-          <span style={{ fontSize: 14, color: '#b91c1c', flex: 1 }}>{error}</span>
-          <Button
-            onClick={loadData}
-            style={{ flexShrink: 0 }}
->
-            {t('calendar:retry')}
-          </Button>
+      <p className="hc-fc-hint" aria-live="polite">
+        {selection && !selection.end && selectedCar
+          ? <>{t('pickEndDate', { date: formatDay(selection.start, locale) })} <button type="button" className="hc-fc-linkbtn" onClick={() => setSelection(null)}>{t('clearSelection')}</button></>
+          : t('hint')}
+      </p>
+
+      {failed ? (
+        <div role="alert" className="hc-bk-state surface-depth">
+          <p>{t('loadError')}</p>
+          <Button onClick={() => setReload(n => n + 1)}>{t('retry')}</Button>
         </div>
-      )}
-
-      {/* ── Calendar grid ─────────────────────────────────────────────────── */}
-      {!loading && !error && (
-        <div style={{ flex: 1, overflow: 'auto', marginTop: 24 }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: gridCols,
-            gridAutoRows: ROW_H,
-            minWidth: gridMinW,
-          }}>
-
-            {/* ── Header row ─────────────────────────────────────────────── */}
-
-            {/* Corner cell */}
-            <div style={{
-              position: 'sticky', top: 0, insetInlineStart: 0, zIndex: 20,
-              background: 'white',
-              borderBottom: `1px solid ${BORDER_SOFT}`,
-              display: 'flex', alignItems: 'center',
-              padding: '0 20px',
-            }}>
-              <span style={{
-                fontSize: 11, fontWeight: 600, color: TEXT_LIGHT,
-                letterSpacing: '0.6px', textTransform: 'uppercase',
-              }}>
-                {t('calendar:carCount', { count: filteredCars.length })}
-              </span>
+      ) : (
+        <div ref={board} className="hc-fc-board surface-depth" aria-busy={loading}>
+          <div className="hc-fc-grid" style={{ '--days': days } as React.CSSProperties}>
+            <div className="hc-fc-head">
+              <div className="hc-fc-corner">{loading ? '' : t('carCount', { count: rows.length })}</div>
+              <div className="hc-fc-days">
+                {dates.map((date, i) => (
+                  <div key={date} className={`hc-fc-day${isWeekend(date) ? ' is-weekend' : ''}${i === todayIndex ? ' is-today' : ''}`}>
+                    <small>{weekday(date)}</small>
+                    <b className="hc-num">{i + 1}</b>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Day header cells */}
-            {dayMeta.map(({ day, abbr, isWeekend }) => {
-              const isToday = day === todayDay;
+            {loading ? (
+              [0, 1, 2, 3, 4, 5].map(i => <div key={i} className="hc-fc-row is-bone"><div className="hc-fc-car"><span className="hc-bk-bone" /></div><div className="hc-fc-track" /></div>)
+            ) : rows.length === 0 ? (
+              <div className="hc-fc-empty"><p>{t('noVehicles')}</p><small>{t('noVehiclesHint')}</small></div>
+            ) : rows.map(car => {
+              const laned = laneBars(barsByCar.get(car.id) ?? []);
+              const lanes = Math.max(1, ...laned.map(entry => entry.lane + 1));
+              const tone = carStatusTone(car.status);
+              const picking = selection?.carId === car.id ? selection : null;
               return (
-                <div
-                  key={`h-${day}`}
-                  style={{
-                    position: 'sticky', top: 0, zIndex: 10,
-                    background: 'white',
-                    borderBottom: `1px solid ${BORDER_SOFT}`,
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center', gap: 3,
-                  }}
-                >
-                  <span style={{
-                    fontSize: 10, fontWeight: 500,
-                    color: TEXT_LIGHT, letterSpacing: '0.3px',
-                    textTransform: 'uppercase', lineHeight: 1,
-                  }}>
-                    {abbr}
-                  </span>
-
-                  {isToday ? (
-                    <div style={{
-                      width: 26, height: 26, borderRadius: '50%',
-                      background: AIRBNB_RED,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <span style={{
-                        fontSize: 13, fontWeight: 700, color: 'white',
-                        lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                      }}>
-                        {day}
-                      </span>
-                    </div>
-                  ) : (
-                    <span style={{
-                      fontSize: 14, fontWeight: 600,
-                      color: isWeekend ? '#cccccc' : TEXT_DARK,
-                      lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {day}
-                    </span>
-                  )}
+                <div key={car.id} className={`hc-fc-row${pulse === `car:${car.id}` ? ' is-pulse' : ''}`} data-car={car.id} style={{ '--lanes': lanes } as React.CSSProperties}>
+                  <button type="button" className="hc-fc-car" onClick={() => setHistoryCar(car)} title={t('history.open', { plate: car.plate })}>
+                    <PlateChip plate={car.plate} />
+                    <span className="hc-fc-car-model"><bdi dir="auto">{car.model}</bdi></span>
+                    <span className={`hc-fc-chip hc-st-${tone}`}><i aria-hidden="true" />{t(`tiles.${car.status}`)}</span>
+                  </button>
+                  <div className="hc-fc-track">
+                    {dates.map((date, i) => {
+                      const inRange = picking && (picking.end ? date >= picking.start && date <= picking.end : date === picking.start);
+                      return (
+                        <div key={date} className={`hc-fc-cell${isWeekend(date) ? ' is-weekend' : ''}${i === todayIndex ? ' is-today' : ''}${inRange ? ' is-picked' : ''}`}
+                          onMouseDown={e => e.stopPropagation()} onClick={e => pickDay(car, date, e.currentTarget)} />
+                      );
+                    })}
+                    {todayIndex >= 0 && <span className="hc-fc-now" aria-hidden="true" style={{ '--at': todayIndex + 0.5 } as React.CSSProperties} />}
+                    {laned.map(({ bar, lane }) => {
+                      const span = barSpan(bar, month);
+                      if (!span) return null;
+                      const isFlagged = bar.bookingId != null && flagged.has(bar.bookingId);
+                      const label = bar.customer ?? (bar.note || t(`legend.${bar.status}`));
+                      return (
+                        <button
+                          key={bar.key}
+                          type="button"
+                          data-bar={bar.key}
+                          className={`hc-fc-bar hc-st-${bar.status}${isFlagged ? ' is-flagged' : ''}${span.clippedStart ? ' is-cut-start' : ''}${span.clippedEnd ? ' is-cut-end' : ''}${pulse === bar.key ? ' is-pulse' : ''}${popover?.bar.key === bar.key ? ' is-active' : ''}`}
+                          style={{ '--from': span.from, '--to': span.to, '--lane': lane } as React.CSSProperties}
+                          aria-label={t('bar.label', { status: t(`legend.${bar.status}`), who: bar.customer ?? bar.bookingNumber ?? label, from: formatDay(bar.start, locale), to: formatDay(bar.end, locale) })}
+                          aria-haspopup="dialog"
+                          onMouseDown={e => e.stopPropagation()}
+                          onClick={e => openBar(bar, car, e.currentTarget, true)}
+                          onMouseEnter={e => hoverBar(bar, car, e.currentTarget)}
+                          onMouseLeave={leaveBar}
+                        >
+                          <span><bdi dir="auto">{label}</bdi></span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
-
-            {/* ── Car rows ───────────────────────────────────────────────── */}
-
-            {filteredCars.length === 0 && (
-              <div style={{
-                gridColumn: '1 / -1',
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                padding: '80px 20px', gap: 8,
-              }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: TEXT_DARK }}>No vehicles found</div>
-                <div style={{ fontSize: 13, color: TEXT_MID }}>Try adjusting your search or filter.</div>
-              </div>
-            )}
-
-            {filteredCars.map(car => {
-              const rowBg  = 'var(--surface)';
-              const status = car.car_status;
-
-              return (
-                <React.Fragment key={car.id}>
-
-                  {/* Left panel */}
-                  <div style={{
-                    position: 'sticky', insetInlineStart: 0, zIndex: 5,
-                    background: rowBg,
-                    borderInlineEnd: `1px solid ${BORDER_SOFT}`,
-                    display: 'flex', flexDirection: 'column',
-                    justifyContent: 'center',
-                    padding: '0 20px',
-                    width: LEFT_W,
-                    gap: 2,
-                  }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: TEXT_DARK, lineHeight: 1.2 }}>
-                      <span className="hc-num">{car.plate_number || '—'}</span>
-                    </div>
-                    <div style={{
-                      fontSize: 13, color: TEXT_MID, lineHeight: 1.2,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {car.model_name}
-                    </div>
-                    <div style={{
-                      marginTop: 5,
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      background: BADGE[status].bg, borderRadius: 20,
-                      padding: '2px 8px', alignSelf: 'flex-start',
-                    }}>
-                      <div style={{
-                        width: 5, height: 5, borderRadius: '50%',
-                        background: BADGE[status].color, flexShrink: 0,
-                      }} />
-                      <span style={{
-                        fontSize: 11, fontWeight: 500, color: BADGE[status].color,
-                        whiteSpace: 'nowrap', lineHeight: 1.4,
-                      }}>
-                        {t(STATUS_LABEL_KEY[status])}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Day cells */}
-                  {dayMeta.map(({ day, isWeekend }) => {
-                    const isToday  = day === todayDay;
-                    const dayStr   = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const entries  = calendarMap.get(car.id) ?? [];
-                    const calEntry = entries.find(e => e.start_date.slice(0, 10) <= dayStr && dayStr <= e.end_date.slice(0, 10)) ?? null;
-                    const kind     = calEntry ? blockTypeToKind(calEntry.block_type) : status;
-
-                    // Default circle appearance
-                    let circleBg = calEntry
-                      ? CELL_FILL[kind]
-                      : isToday ? '#fff1f2' : '#fecaca';
-
-                    let circleColor = calEntry
-                      ? CELL_TEXT_COLOR[kind]
-                      : isToday ? AIRBNB_RED : '#dc2626';
-
-                    let cellBg = rowBg;
-
-                    // ── Selection overrides (only on empty cells) ──────────
-                    const isThisCar  = selCarId === car.id;
-                    const isSelStart = isThisCar && selStart === dayStr && !calEntry;
-                    const isSelEnd   = isThisCar && selEnd === dayStr && !calEntry;
-                    const isInRange  = isThisCar && selStart !== null && selEnd !== null
-                                       && dayStr > selStart && dayStr < selEnd && !calEntry;
-                    const isPending  = isThisCar && selStart !== null && selEnd === null
-                                       && dayStr === selStart && !calEntry;
-
-                    if (isSelStart || isSelEnd) {
-                      circleBg    = '#4ba6ea';
-                      circleColor = 'white';
-                      cellBg      = '#eff6ff';
-                    } else if (isInRange) {
-                      circleBg    = '#bfdbfe';
-                      circleColor = '#2563eb';
-                      cellBg      = '#eff6ff';
-                    } else if (isPending) {
-                      circleBg    = '#4ba6ea';
-                      circleColor = 'white';
-                    }
-
-                    // Highlight the active popup block
-                    const isPopupBlock = blockPopup?.entry.id === calEntry?.id && calEntry !== null;
-
-                    return (
-                      <div
-                        key={`${car.id}-${day}`}
-                        style={{
-                          background: cellBg,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                        }}
-                        onClick={e => {
-                          if (calEntry) {
-                            handleBlockClick(calEntry, car, e);
-                          } else {
-                            handleDayClick(car.id, dayStr, e);
-                          }
-                        }}
-                        onMouseEnter={calEntry && !isPopupBlock ? e => handleHover(calEntry, e) : undefined}
-                        onMouseLeave={calEntry ? () => setTooltip(null) : undefined}
-                        onMouseMove={calEntry && !isPopupBlock ? e => handleHover(calEntry, e) : undefined}
-                      >
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%',
-                          background: circleBg,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'transform 0.12s ease, background 0.1s ease',
-                          boxShadow: (isSelStart || isSelEnd || isPending)
-                            ? '0 2px 8px rgba(75,166,234,0.35)'
-                            : isPopupBlock
-                              ? '0 0 0 2px #4ba6ea'
-                              : 'none',
-                          outline: isPopupBlock ? '2px solid #4ba6ea' : 'none',
-                          outlineOffset: 2,
-                        }}>
-                          <span style={{
-                            fontSize: 13,
-                            fontWeight: (isSelStart || isSelEnd || isPending || isInRange || calEntry) ? 600 : isToday ? 700 : 400,
-                            color: circleColor,
-                            fontVariantNumeric: 'tabular-nums', lineHeight: 1,
-                            userSelect: 'none',
-                          }}>
-                            {day}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                </React.Fragment>
-              );
-            })}
-
           </div>
         </div>
       )}
 
-      {/* Tooltip — hidden when any popup/menu is open */}
-      {tooltip && !menuPos && !blockPopup && <Tooltip state={tooltip} />}
-
-      {/* ── Action menu (new range selection) ───────────────────────────── */}
-      {menuPos && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-            onClick={resetSelection}
-          />
-          <ActionMenu
-            pos={menuPos}
-            onAddBooking={handleAddBooking}
-            onInsert={handleInsert}
-            inserting={inserting}
-          />
-        </>
+      {popover && (
+        <BarCard
+          key={popover.bar.key}
+          popover={popover}
+          flagged={popover.bar.bookingId != null && flagged.has(popover.bar.bookingId)}
+          bookingsRoute={bookingsRoute}
+          onClose={() => setPopover(null)}
+          onHoverKeep={() => window.clearTimeout(hoverTimer.current)}
+          onHoverLeave={leaveBar}
+          onHistory={() => { const car = popover.car; setPopover(null); setHistoryCar(car); }}
+          onChanged={message => { setPopover(null); say(message); setReload(n => n + 1); }}
+          onFailed={message => say(message, true)}
+        />
       )}
 
-      {/* ── Block popup (click existing block) ──────────────────────────── */}
-      {blockPopup && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-            onClick={() => setBlockPopup(null)}
-          />
-          <BlockPopup
-            state={blockPopup}
-            onClose={() => setBlockPopup(null)}
-            onSaved={() => { setBlockPopup(null); loadData(); }}
-            onDeleted={() => { setBlockPopup(null); loadData(); }}
-            onToast={setToast}
-          />
-        </>
+      {selection?.end && selection.anchor && selectedCar && (
+        <Floating anchor={selection.anchor} width={260} label={t('menu.title', { from: formatDay(selection.start, locale), to: formatDay(selection.end, locale) })} className="hc-fc-menu">
+          <p className="hc-fc-menu-title">
+            <PlateChip plate={selectedCar.plate} />
+            <span>{t('menu.title', { from: formatDay(selection.start, locale), to: formatDay(selection.end, locale) })}</span>
+          </p>
+          {bookingsRoute && (
+            <button type="button" className="hc-fc-menu-item hc-st-booked" onClick={() => navigate(`${bookingsRoute}?new=1&car_id=${selection.carId}&start_date=${selection.start}&end_date=${selection.end}`)}>
+              <i aria-hidden="true" />{t('menu.addBooking')}
+            </button>
+          )}
+          {BLOCK_TYPES.map(type => (
+            <button key={type} type="button" className={`hc-fc-menu-item hc-st-${type}`} disabled={inserting} onClick={() => void insert(type)}>
+              <i aria-hidden="true" />{t(`common:carStatus.${type}`)}
+            </button>
+          ))}
+        </Floating>
       )}
 
-      {toast && <Toast info={toast} />}
+      {historyCar && <CarHistoryDrawer car={historyCar} canSeeMoney={canSeeMoney} bookingsRoute={bookingsRoute} onClose={() => setHistoryCar(null)} />}
+
+      {toast && ReactDOM.createPortal(
+        <div role="status" className={`hc-toast-in fixed inset-x-3 bottom-6 z-[9400] mx-auto max-w-sm rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white shadow-lg ${toast.bad ? 'bg-[#b42318]' : 'bg-[#0f1117]'}`}>{toast.text}</div>,
+        document.body,
+      )}
     </div>
   );
 };

@@ -1,0 +1,45 @@
+/*
+ * Fleet status colours: the one place they are defined. The Bookings tiles and the
+ * Fleet Calendar (tiles, legend, bars, row chips) all read these, and Admin uses the
+ * same values.
+ *
+ * Each status has four tokens:
+ *   from / to  the tile and bar gradient
+ *   ink        text on it
+ *   chip       the accent: dot, bar border, active tile border, check badge
+ */
+
+:root {
+  --st-booked-from: #EAF7EF;      --st-booked-to: #D3EEDC;      --st-booked-ink: #166534;      --st-booked-chip: #22C55E;
+  --st-pending-from: #FEF6E4;     --st-pending-to: #FBE7BE;     --st-pending-ink: #92400E;     --st-pending-chip: #D97706;
+  --st-completed-from: #F3F5F9;   --st-completed-to: #E3E8F0;   --st-completed-ink: #334155;   --st-completed-chip: #64748B;
+  --st-parking-from: #F7F8FA;     --st-parking-to: #EEF0F3;     --st-parking-ink: #4B5563;     --st-parking-chip: #9CA3AF;
+  --st-maintenance-from: #F4F0FE; --st-maintenance-to: #E6DDFC; --st-maintenance-ink: #5B21B6; --st-maintenance-chip: #8B5CF6;
+  --st-selling-from: #FEFBE8;     --st-selling-to: #FDF2B3;     --st-selling-ink: #854D0E;     --st-selling-chip: #EAB308;
+  --st-replacement-from: #FFF1EE; --st-replacement-to: #FFD9D0; --st-replacement-ink: #9A3412; --st-replacement-chip: #F97362;
+  --st-all-from: #EAF3FD;         --st-all-to: #D6E7FA;         --st-all-ink: #1F4E8C;         --st-all-chip: #6EA4E7;
+}
+
+/* `.hc-st-<status>` sets the four generic tokens for anything inside it. */
+.hc-st-booked      { --st-from: var(--st-booked-from);      --st-to: var(--st-booked-to);      --st-ink: var(--st-booked-ink);      --st-chip: var(--st-booked-chip); }
+.hc-st-pending     { --st-from: var(--st-pending-from);     --st-to: var(--st-pending-to);     --st-ink: var(--st-pending-ink);     --st-chip: var(--st-pending-chip); }
+.hc-st-completed   { --st-from: var(--st-completed-from);   --st-to: var(--st-completed-to);   --st-ink: var(--st-completed-ink);   --st-chip: var(--st-completed-chip); }
+.hc-st-parking     { --st-from: var(--st-parking-from);     --st-to: var(--st-parking-to);     --st-ink: var(--st-parking-ink);     --st-chip: var(--st-parking-chip); }
+.hc-st-maintenance { --st-from: var(--st-maintenance-from); --st-to: var(--st-maintenance-to); --st-ink: var(--st-maintenance-ink); --st-chip: var(--st-maintenance-chip); }
+.hc-st-selling     { --st-from: var(--st-selling-from);     --st-to: var(--st-selling-to);     --st-ink: var(--st-selling-ink);     --st-chip: var(--st-selling-chip); }
+.hc-st-replacement { --st-from: var(--st-replacement-from); --st-to: var(--st-replacement-to); --st-ink: var(--st-replacement-ink); --st-chip: var(--st-replacement-chip); }
+.hc-st-all         { --st-from: var(--st-all-from);         --st-to: var(--st-all-to);         --st-ink: var(--st-all-ink);         --st-chip: var(--st-all-chip); }
+
+/* Stat tiles in a status colour: `<StatTile tone="st-booked">`. */
+.hc-tile.hc-tile-st-booked, .hc-tile.hc-tile-st-pending, .hc-tile.hc-tile-st-completed, .hc-tile.hc-tile-st-parking,
+.hc-tile.hc-tile-st-maintenance, .hc-tile.hc-tile-st-selling, .hc-tile.hc-tile-st-replacement, .hc-tile.hc-tile-st-all {
+  --tile-from: var(--st-from); --tile-to: var(--st-to); --tile-ink: var(--st-ink); --tile-chip: var(--st-chip);
+}
+.hc-tile-st-booked      { --st-from: var(--st-booked-from);      --st-to: var(--st-booked-to);      --st-ink: var(--st-booked-ink);      --st-chip: var(--st-booked-chip); }
+.hc-tile-st-pending     { --st-from: var(--st-pending-from);     --st-to: var(--st-pending-to);     --st-ink: var(--st-pending-ink);     --st-chip: var(--st-pending-chip); }
+.hc-tile-st-completed   { --st-from: var(--st-completed-from);   --st-to: var(--st-completed-to);   --st-ink: var(--st-completed-ink);   --st-chip: var(--st-completed-chip); }
+.hc-tile-st-parking     { --st-from: var(--st-parking-from);     --st-to: var(--st-parking-to);     --st-ink: var(--st-parking-ink);     --st-chip: var(--st-parking-chip); }
+.hc-tile-st-maintenance { --st-from: var(--st-maintenance-from); --st-to: var(--st-maintenance-to); --st-ink: var(--st-maintenance-ink); --st-chip: var(--st-maintenance-chip); }
+.hc-tile-st-selling     { --st-from: var(--st-selling-from);     --st-to: var(--st-selling-to);     --st-ink: var(--st-selling-ink);     --st-chip: var(--st-selling-chip); }
+.hc-tile-st-replacement { --st-from: var(--st-replacement-from); --st-to: var(--st-replacement-to); --st-ink: var(--st-replacement-ink); --st-chip: var(--st-replacement-chip); }
+.hc-tile-st-all         { --st-from: var(--st-all-from);         --st-to: var(--st-all-to);         --st-ink: var(--st-all-ink);         --st-chip: var(--st-all-chip); }

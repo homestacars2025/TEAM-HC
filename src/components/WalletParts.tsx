@@ -8,9 +8,12 @@ export type Period = 'month' | 'all';
 export const selectClass =
   'h-11 min-w-0 cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 text-sm text-[#0f1117] outline-none focus:border-[var(--accent)] sm:h-10';
 
-export type TileTone = 'balance' | 'received' | 'spent' | 'paid' | 'negative' | 'warn' | 'total';
+type BaseTone = 'balance' | 'received' | 'spent' | 'paid' | 'negative' | 'warn' | 'total';
+/** `st-*` tones take their colours from `styles/statusTokens.css`, shared with the Fleet Calendar. */
+export type StatusTone = 'st-booked' | 'st-pending' | 'st-completed' | 'st-parking' | 'st-maintenance' | 'st-selling' | 'st-replacement' | 'st-all';
+export type TileTone = BaseTone | StatusTone;
 
-const TILE_ICONS: Record<TileTone, React.ReactNode> = {
+const TILE_ICONS: Record<BaseTone, React.ReactNode> = {
   balance: <><rect x="3" y="6" width="18" height="13" rx="3" stroke="currentColor" strokeWidth="2" /><path d="M16 12.5h2M3 10h13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
   received: <path d="M12 4v13M6.5 11.5L12 17l5.5-5.5M5 20h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />,
   spent: <path d="M12 20V7M6.5 12.5L12 7l5.5 5.5M5 4h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />,
@@ -42,7 +45,7 @@ export const StatTile: React.FC<StatTileProps> = ({ tone, label, value, sub, onP
       <div className="hc-tile-head">
         {art ?? (
           <span aria-hidden="true" className="hc-tile-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">{icon ?? TILE_ICONS[tone]}</svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">{icon ?? TILE_ICONS[tone.startsWith('st-') ? 'total' : tone as BaseTone]}</svg>
           </span>
         )}
         <div className="hc-tile-label">{label}</div>

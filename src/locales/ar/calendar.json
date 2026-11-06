@@ -1,48 +1,169 @@
 {
-  "booked": "محجوزة",
-  "allStatuses": "كل الحالات",
-  "today": "اليوم",
-  "search": "بحث…",
-  "hint": "اضغط يوماً لبدء تحديد فترة",
-  "clearSelection": "مسح التحديد",
-  "loading": "جارٍ تحميل التقويم…",
-  "loadError": "تعذّر تحميل البيانات",
-  "noVehicles": "لا توجد مركبات",
-  "noVehiclesHint": "جرّب تعديل البحث أو الفلتر.",
-  "carCount_one": "سيارة واحدة",
-  "carCount_other": "{{count}} سيارة",
-  "popup": {
-    "from": "من",
-    "to": "إلى",
-    "editBlock": "تعديل الحجب",
-    "managedFromBookings": "تُدار من صفحة الحجوزات",
-    "blockType": "نوع الحجب",
-    "startDate": "تاريخ البداية",
-    "endDate": "تاريخ النهاية",
-    "saving": "جارٍ الحفظ…",
-    "save": "حفظ",
-    "deleting": "جارٍ الحذف…",
-    "dateOrder": "تاريخ النهاية يجب أن يلي تاريخ البداية",
-    "updated": "تم تحديث الحجب",
-    "deleted": "تم حذف الحجب"
-  },
-  "menu": {
-    "addBooking": "إضافة حجز"
-  },
-  "pickEndDate": "{{date}} — اضغط يوماً لاحقاً لتحديد تاريخ النهاية",
   "eyebrow": "تقويم الأسطول",
   "title": "تقويم الأسطول",
-  "actions": "إجراءات",
-  "retry": "إعادة المحاولة",
-  "confirmDelete": "متأكد من حذف هذا الحجب؟",
+  "subtitle": "كل سيارة، وكل حجز وحجب، يوماً بيوم",
+  "today": "اليوم",
+  "month": {
+    "prev": "الشهر السابق",
+    "next": "الشهر التالي"
+  },
+  "search": "ابحث باللوحة أو الموديل أو العميل…",
+  "carCount_zero": "{{count}} سيارة",
+  "carCount_one": "سيارة واحدة",
+  "carCount_two": "سيارتان",
+  "carCount_few": "{{count}} سيارات",
+  "carCount_many": "{{count}} سيارة",
+  "carCount_other": "{{count}} سيارة",
   "vehicleCount_zero": "{{count}} مركبة · {{month}}",
   "vehicleCount_one": "مركبة واحدة · {{month}}",
   "vehicleCount_two": "مركبتان · {{month}}",
   "vehicleCount_few": "{{count}} مركبات · {{month}}",
   "vehicleCount_many": "{{count}} مركبة · {{month}}",
   "vehicleCount_other": "{{count}} مركبة · {{month}}",
-  "carCount_zero": "{{count}} سيارة",
-  "carCount_two": "سيارتان",
-  "carCount_few": "{{count}} سيارات",
-  "carCount_many": "{{count}} سيارة"
+  "tiles": {
+    "all": "كل السيارات",
+    "allSub": "الأسطول النشط",
+    "working": "تعمل",
+    "pending": "قيد الانتظار",
+    "parking": "في الموقف",
+    "maintenance": "صيانة",
+    "selling": "للبيع",
+    "replacement": "بديلة",
+    "share": "{{pct}} من الأسطول"
+  },
+  "legend": {
+    "label": "الألوان",
+    "booked": "محجوزة",
+    "pending": "قيد الانتظار",
+    "completed": "مكتملة",
+    "maintenance": "صيانة",
+    "selling": "للبيع",
+    "replacement": "بديلة",
+    "parking": "متاحة"
+  },
+  "hint": "اختر يوماً متاحاً ثم يوماً بعده لإضافة حجز أو حجب",
+  "pickEndDate": "{{date}} — اختر يوماً لاحقاً لتحديد النهاية",
+  "clearSelection": "مسح التحديد",
+  "loading": "جارٍ تحميل التقويم…",
+  "loadError": "تعذّر تحميل التقويم.",
+  "retry": "حاول مجدداً",
+  "noVehicles": "لا توجد سيارة مطابقة.",
+  "noVehiclesHint": "جرّب بحثاً آخر، أو اضغط البطاقة النشطة لإلغائها.",
+  "conflicts": {
+    "title_zero": "لا مشاكل هذا الشهر",
+    "title_one": "مشكلة واحدة هذا الشهر",
+    "title_two": "مشكلتان هذا الشهر",
+    "title_few": "{{count}} مشاكل هذا الشهر",
+    "title_many": "{{count}} مشكلة هذا الشهر",
+    "title_other": "{{count}} مشكلة هذا الشهر",
+    "show": "عرض",
+    "hide": "إخفاء",
+    "failed": "تعذّر فحص هذا الشهر.",
+    "severity": {
+      "high": "عالية",
+      "medium": "متوسطة",
+      "low": "منخفضة"
+    },
+    "kinds": {
+      "double_booking": "حجزان متداخلان: {{number}} و{{other}}",
+      "blocked_period": "{{number}} يتداخل مع حجب {{block}}",
+      "missing_delivery": "بدأ {{number}} ولم يُسجَّل تسليم",
+      "missing_pickup": "انتهى {{number}} ولم يُسجَّل استلام",
+      "not_closed": "انتهى {{number}} وما زال مؤكداً"
+    },
+    "jump": "اعرض {{plate}} في التقويم"
+  },
+  "bar": {
+    "customer": "العميل",
+    "booking": "الحجز",
+    "from": "من",
+    "to": "إلى",
+    "days_zero": "{{count}} يوم",
+    "days_one": "يوم واحد",
+    "days_two": "يومان",
+    "days_few": "{{count}} أيام",
+    "days_many": "{{count}} يوماً",
+    "days_other": "{{count}} يوم",
+    "status": "الحالة",
+    "openBooking": "فتح الحجز",
+    "carHistory": "سجل السيارة",
+    "close": "إغلاق",
+    "conflict": "فيه تعارض",
+    "label": "{{status}} · {{who}} · {{from}} ← {{to}}"
+  },
+  "popup": {
+    "editBlock": "تعديل الحجب",
+    "blockType": "نوع الحجب",
+    "startDate": "تاريخ البداية",
+    "endDate": "تاريخ النهاية",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "cancel": "إلغاء",
+    "saving": "جارٍ الحفظ…",
+    "save": "حفظ",
+    "deleting": "جارٍ الحذف…",
+    "dateOrder": "يجب أن يكون تاريخ النهاية بعد البداية.",
+    "updated": "تم تحديث الحجب",
+    "deleted": "تم حذف الحجب",
+    "confirmDelete": "حذف هذا الحجب؟",
+    "saveFailed": "تعذّر حفظ الحجب.",
+    "deleteFailed": "تعذّر حذف الحجب."
+  },
+  "menu": {
+    "title": "{{from}} ← {{to}}",
+    "addBooking": "إضافة حجز",
+    "added": "تمت إضافة حجب {{block}}",
+    "addFailed": "تعذّرت إضافة الحجب."
+  },
+  "history": {
+    "title": "سجل السيارة",
+    "open": "سجل {{plate}}",
+    "filters": {
+      "all": "الكل",
+      "bookings": "الحجوزات",
+      "operations": "العمليات",
+      "issues": "الأعطال",
+      "fines": "المخالفات"
+    },
+    "summary": {
+      "bookings": "الحجوزات",
+      "days": "أيام التأجير في {{year}}",
+      "km": "العداد الحالي"
+    },
+    "loading": "جارٍ تحميل السجل…",
+    "failed": "تعذّر تحميل السجل.",
+    "retry": "حاول مجدداً",
+    "empty": "لا شيء هنا بعد.",
+    "kinds": {
+      "booking": "حجز",
+      "extension": "تمديد",
+      "operation": "عملية",
+      "maintenance": "صيانة",
+      "selling": "للبيع",
+      "replacement": "بديلة",
+      "issue": "عطل",
+      "fine": "مخالفة",
+      "car_change": "تغيير السيارة"
+    },
+    "km": "{{km}} كم",
+    "fuel": "الوقود {{pct}}%",
+    "by": "بواسطة {{name}}",
+    "carChange": "{{from}} ← {{to}}",
+    "ongoing": "مستمر",
+    "bookingStatus": {
+      "confirmed": "مؤكد",
+      "pending": "قيد الانتظار",
+      "completed": "مكتمل",
+      "cancelled": "ملغى"
+    },
+    "fineStatus": {
+      "paid": "مدفوعة",
+      "unpaid": "غير مدفوعة"
+    },
+    "issueStatus": {
+      "open": "مفتوح",
+      "resolved": "محلول"
+    },
+    "openBooking": "فتح الحجز"
+  }
 }
