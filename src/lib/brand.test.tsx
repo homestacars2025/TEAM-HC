@@ -1,6 +1,7 @@
 import React from 'react';
 import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join, relative } from 'path';
+import { inflateSync } from 'zlib';
 import { render, screen } from '@testing-library/react';
 import BrandLogo from '../components/BrandLogo';
 import { BRAND_RATIO, brandImg, brandLockupHtml, brandSrc, inlineBrandAssets, lockupMetrics, resetBrandCache } from './brand';
@@ -127,5 +128,61 @@ describe('brand files', () => {
     expect(offenders).toEqual([]);
     expect(existsSync(join(SRC, 'logo.svg'))).toBe(false);
     expect(existsSync(join(PUBLIC, 'favicon.svg'))).toBe(false);
+  });
+});
+
+/** Size, color type and the top-left pixel of a PNG (row 0's first pixel is stored unfiltered). */
+function pngInfo(png: Buffer): { size: number; colorType: number; cornerAlpha: number } {
+  expect(png.subarray(1, 4).toString('latin1')).toBe('PNG');
+  const size = png.readUInt32BE(16);
+  const colorType = png.readUInt8(25);
+  const idat: Buffer[] = [];
+  for (let at = 8; at < png.length;) {
+    const length = png.readUInt32BE(at);
+    if (png.subarray(at + 4, at + 8).toString('latin1') === 'IDAT') idat.push(png.subarray(at + 8, at + 8 + length));
+    at += 12 + length;
+  }
+  const pixels = inflateSync(Buffer.concat(idat));
+  const cornerAlpha = colorType === 6 ? pixels[4] : colorType === 4 ? pixels[2] : 255;
+  return { size, colorType, cornerAlpha };
+}
+
+/** The PNGs inside an ICO, which the favicon script writes as embedded PNGs. */
+function icoImages(ico: Buffer): Buffer[] {
+  return Array.from({ length: ico.readUInt16LE(4) }, (_, i) => {
+    const entry = 6 + i * 16;
+    const length = ico.readUInt32LE(entry + 8);
+    const offset = ico.readUInt32LE(entry + 12);
+    return ico.subarray(offset, offset + length);
+  });
+}
+
+describe('favicons', () => {
+  test('the tab icons are the arch alone, on a transparent ground', () => {
+    const tab = [
+      ...icoImages(readFileSync(join(PUBLIC, 'favicon.ico'))),
+      readFileSync(join(PUBLIC, 'favicon-16x16.png')),
+      readFileSync(join(PUBLIC, 'favicon-32x32.png')),
+    ].map(pngInfo);
+    expect(tab.map(icon => icon.size).sort((a, b) => a - b)).toEqual([16, 16, 32, 32, 48]);
+    for (const icon of tab) {
+      expect(icon.colorType).toBe(6);
+      expect(icon.cornerAlpha).toBe(0);
+    }
+  });
+
+  test('the home-screen icons keep their solid white square', () => {
+    for (const name of ['apple-touch-icon.png', 'android-chrome-192x192.png', 'android-chrome-512x512.png']) {
+      expect(pngInfo(readFileSync(join(PUBLIC, name))).cornerAlpha).toBe(255);
+    }
+  });
+
+  test('every icon link and manifest entry carries the cache-busting version', () => {
+    const html = readFileSync(join(PUBLIC, 'index.html'), 'utf8');
+    const links = Array.from(html.matchAll(/<link rel="(?:icon|apple-touch-icon)"[^>]*>/g), match => match[0]);
+    expect(links).toHaveLength(4);
+    for (const link of links) expect(link).toMatch(/\?v=2"/);
+    const manifest = JSON.parse(readFileSync(join(PUBLIC, 'manifest.json'), 'utf8')) as { icons: { src: string }[] };
+    for (const icon of manifest.icons) expect(icon.src).toMatch(/\?v=2$/);
   });
 });
