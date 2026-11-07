@@ -5723,3 +5723,31 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-fh-state .hc-btn { margin-top: 10px; }
 .hc-fh-bones { display: flex; flex-direction: column; gap: 10px; }
 .hc-fh-bones .hc-bk-bone { height: 64px; border-radius: 14px; }
+
+/* Model Groups: a card grid, one column on a phone, two on a tablet, three on a desktop. */
+.hc-mg-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 640px) { .hc-mg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .hc-mg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .hc-mg { padding-inline: 40px; } }
+.hc-mg-tools { display: flex; flex-direction: column; gap: 10px; }
+.hc-mg-tools .hc-input { min-height: 44px; }
+@media (min-width: 640px) {
+  .hc-mg-tools { flex-direction: row; align-items: center; }
+  .hc-mg-tools .hc-input { width: 320px; flex: none; }
+}
+.hc-mg-sort { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-x: auto; }
+.hc-mg-sort .hc-hgs-sort button { min-height: 40px; }
+.hc-mg-dir { display: grid; flex: none; place-items: center; width: 44px; height: 44px; border-radius: 10px; color: #6b7280; cursor: pointer; }
+.hc-mg-dir:hover { background: rgba(0, 0, 0, 0.05); color: #3a74c2; }
+.hc-mg-action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; }
+@media (min-width: 768px) { .hc-mg-action { min-height: 40px; } }
+.hc-mg-new { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.hc-mg-small { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding-inline: 12px; font-size: 13px; }
+@media (min-width: 768px) { .hc-mg-small { min-height: 34px; } }
+@media (min-width: 768px) { .hc-ce.hc-mg-sheet { width: min(760px, 100%); } }
+@media (min-width: 1024px) { .hc-tiles.hc-tiles-filter.hc-mg-tiles { max-width: 900px; } }
+@media (max-width: 639.98px) {
+  .hc-mg-sort > span { display: none; }
+  .hc-mg-sort .hc-hgs-sort { flex: 1; min-width: 0; }
+  .hc-mg-sort .hc-hgs-sort button { flex: 1; min-width: 0; min-height: 44px; padding-inline: 6px; }
+}
