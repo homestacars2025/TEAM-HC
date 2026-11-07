@@ -63,8 +63,7 @@
     "noBarcode": "This car has no HGS barcode.",
     "addBarcode": "Add barcode",
     "count_one": "{{n}} transit",
-    "count_other": "{{n}} transits",
-    "export": "Export CSV"
+    "count_other": "{{n}} transits"
   },
   "fix": {
     "title": "HGS barcode",
@@ -122,12 +121,21 @@
     "clearGlobal": "Back to the month",
     "clearCar": "Clear the dates on {{plate}}"
   },
-  "csv": {
-    "date": "Date",
-    "time": "Time",
-    "entry": "Entry",
-    "exit": "Exit",
-    "toll": "Toll road",
-    "amount": "Amount (TRY)"
+  "pdf": {
+    "export": "Export PDF",
+    "title": "HGS statement",
+    "language": "Statement language",
+    "booking": "Booking (optional)",
+    "noBooking": "No booking: the whole range",
+    "noBookings": "No bookings on this car in these days",
+    "bookingsLoading": "Loading bookings…",
+    "bookingsFailed": "Couldn't load the bookings. You can still create the statement without one.",
+    "bookingDays": "Only the booking's days are listed: {{range}}",
+    "private": "Include private roads",
+    "create": "Create PDF",
+    "busy": "Preparing the PDF…",
+    "failed": "Couldn't create the PDF. Try again.",
+    "badRange": "Choose a start and an end date.",
+    "done": "Downloaded {{name}}"
   }
 }

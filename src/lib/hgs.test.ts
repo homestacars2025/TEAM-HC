@@ -1,4 +1,4 @@
-import { barcodeProblem, carParam, carParamKey, formatCount, hasBarcode, hgsCsvName, hgsCsvRows, periodBounds, presetOf, presetRange, rangeLabel, rangedRow, readRange, readSort, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
+import { barcodeProblem, carParam, carParamKey, formatCount, hasBarcode, periodBounds, presetOf, presetRange, rangeLabel, rangedRow, readRange, readSort, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
 
 const car = (id: number, plate: string, barcode: string | null, model: string | null = 'Fiat Egea'): HgsCar => ({ id, plate, barcode, model });
 const CARS = [car(1, '34ABC100', '1129193640'), car(2, '34MDJ129', null, 'Renault Taliant'), car(3, '34MSR195', '  ', 'Citroen C4 X'), car(4, '06FHN975', '1131524991', 'Toyota Corolla'), car(5, '34ZZZ900', '1131498796')];
@@ -172,21 +172,6 @@ describe('a range of days', () => {
     expect(carParamKey('34OLD01')).toBe('plate:34OLD01');
     const rows = hgsRows(CARS, TRANSITS);
     expect(rows.some(row => row.key === carParamKey(carParam({ carId: null, plate: '34 OLD 01' })))).toBe(true);
-  });
-
-  test('the export: Istanbul date and time, entry, exit, road, amount, oldest first', () => {
-    const csv = hgsCsvRows([
-      { transit_datetime: '2026-11-05T09:12:00+00:00', entry_location: 'Çamlıca', exit_location: '*', otoyol: 'Kuzey Marmara', amount: 61.5 },
-      { transit_datetime: '2026-10-31T21:40:00+00:00', entry_location: '*', exit_location: 'FSM', otoyol: null, amount: 59 },
-    ], ['Date', 'Time', 'Entry', 'Exit', 'Toll', 'Amount']);
-    expect(csv).toEqual([
-      ['Date', 'Time', 'Entry', 'Exit', 'Toll', 'Amount'],
-      ['2026-11-01', '00:40', null, 'FSM', null, 59],
-      ['2026-11-05', '12:12', 'Çamlıca', null, 'Kuzey Marmara', 61.5],
-    ]);
-    expect(hgsCsvName('34 ABC 123', { from: '2026-11-01', to: '2026-11-06' })).toBe('hgs-34ABC123-2026-11-01_2026-11-06');
-    expect(hgsCsvName('34ABC123', '2026-02')).toBe('hgs-34ABC123-2026-02-01_2026-02-28');
-    expect(hgsCsvName('34ABC123', 'all')).toBe('hgs-34ABC123-all');
   });
 
   test('the tiles follow a range like a month', () => {

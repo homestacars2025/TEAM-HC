@@ -253,26 +253,3 @@ export function transitPlace(row: { entry_location: string | null; exit_location
   if (entry && exit && entry !== exit) return `${entry} → ${exit}`;
   return exit ?? entry ?? station(row.otoyol) ?? '—';
 }
-
-export interface HgsExportRow {
-  transit_datetime: string;
-  entry_location: string | null;
-  exit_location: string | null;
-  otoyol: string | null;
-  amount: number;
-}
-
-/** One car's detail as a spreadsheet: Istanbul date and time, entry, exit, toll road, amount. Oldest first. */
-export function hgsCsvRows(items: readonly HgsExportRow[], headers: readonly [string, string, string, string, string, string]): (string | number | null)[][] {
-  const sorted = [...items].sort((a, b) => Date.parse(a.transit_datetime) - Date.parse(b.transit_datetime));
-  return [
-    [...headers],
-    ...sorted.map(item => [transitDate(item.transit_datetime), transitTime(item.transit_datetime), station(item.entry_location), station(item.exit_location), station(item.otoyol), Math.round(item.amount * 100) / 100]),
-  ];
-}
-
-/** `hgs-34ABC123-2026-11-01_2026-11-06`, or `hgs-34ABC123-all`. */
-export const hgsCsvName = (plate: string, period: HgsPeriod): string => {
-  const days = periodDays(period);
-  return `hgs-${plate.replace(/\s/g, '')}-${days ? `${days.from}_${days.to}` : 'all'}`;
-};

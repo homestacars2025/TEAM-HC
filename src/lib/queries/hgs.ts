@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
-import { periodBounds, type HgsCar, type HgsPeriod, type HgsTransit } from '../hgs';
+import { periodBounds, type DayRange, type HgsCar, type HgsPeriod, type HgsTransit } from '../hgs';
+import { windowBounds, type StatementBooking, type StatementSource } from '../hgsStatement';
 import type { PortalRow } from '../hgsPortal';
 
 /**
@@ -114,4 +115,50 @@ export async function importHgsPortalFile(plate: string, rows: PortalRow[], file
   if (error) throw error;
   const result = data as PortalImportResult;
   return { ...result, inserted: Number(result.inserted) || 0, skipped_duplicates: Number(result.skipped_duplicates) || 0, total_amount: Number(result.total_amount) || 0 };
+}
+
+// ─── The PDF statement ────────────────────────────────────────────────────────
+
+/** One car's transits in a window of days, every one of them, a page at a time. */
+export async function getHgsStatementTransits(carId: number | null, plate: string, window: DayRange): Promise<StatementSource[]> {
+  const { from, to } = windowBounds(window);
+  const rows: StatementSource[] = [];
+  for (let start = 0; ; start += PAGE) {
+    let query = supabase.from(TRANSITS).select('id, road_type, transit_datetime, entry_location, exit_location, otoyol, amount');
+    query = carId !== null ? query.eq('car_id', carId) : query.is('car_id', null).eq('plate_number', plate);
+    const { data, error } = await query.gte('transit_datetime', from).lt('transit_datetime', to).order('transit_datetime').order('id').range(start, start + PAGE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as StatementSource[];
+    rows.push(...page.map(row => ({ ...row, amount: Number(row.amount) })));
+    if (page.length < PAGE) return rows;
+  }
+}
+
+type BookingRow = {
+  id: number; booking_number: string | null; start_date: string; end_date: string;
+  customers: { first_name: string | null; last_name: string | null; language: string | null } | { first_name: string | null; last_name: string | null; language: string | null }[] | null;
+};
+
+/** The car's bookings, cancelled ones aside, that share a day with the window; latest first. */
+export async function getStatementBookings(carId: number, window: DayRange): Promise<StatementBooking[]> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('id, booking_number, start_date, end_date, customers(first_name, last_name, language)')
+    .eq('car_id', carId)
+    .neq('status', 'cancelled')
+    .lte('start_date', window.to)
+    .gte('end_date', window.from)
+    .order('start_date', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as BookingRow[]).map(row => {
+    const who = Array.isArray(row.customers) ? row.customers[0] : row.customers;
+    return {
+      id: row.id,
+      bookingNumber: row.booking_number,
+      start: row.start_date.slice(0, 10),
+      end: row.end_date.slice(0, 10),
+      customer: [who?.first_name, who?.last_name].filter(Boolean).join(' ').trim() || null,
+      language: who?.language ?? null,
+    };
+  });
 }

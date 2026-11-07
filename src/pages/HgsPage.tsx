@@ -11,20 +11,21 @@ import StatusArt from '../components/cars/StatusArt';
 import { ComplianceTriangle } from '../components/cars/Compliance';
 import { StatTile } from '../components/WalletParts';
 import HgsRangePicker, { CalendarIcon } from '../components/hgs/HgsRangePicker';
+import HgsStatementDialog from '../components/hgs/HgsStatementDialog';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTileFilter } from '../hooks/useTileFilter';
 import { formatTRY } from '../lib/CurrencyContext';
-import { downloadCsv } from '../lib/csv';
 import { formatPlate } from '../lib/custodyExpense';
 import {
-  HGS_FILTERS, HGS_SORTS, barcodeProblem, carParam, carParamKey, formatCount, hgsCsvName, hgsCsvRows, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod,
-  periodKey, rangeLabel, rangedRow, readRange, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
+  HGS_FILTERS, HGS_SORTS, barcodeProblem, carParam, carParamKey, formatCount, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod,
+  periodDays, periodKey, rangeLabel, rangedRow, readRange, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
   type DayRange, type HgsCar, type HgsPeriod, type HgsRow, type HgsSort, type HgsTransit,
 } from '../lib/hgs';
 import { ALL_MONTHS, currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
 import { getHgsCarTransits, getHgsCars, getHgsLastSync, getHgsTransits, importHgsPortalFile, saveHgsBarcode, type HgsCarTransit, type PortalImportResult } from '../lib/queries/hgs';
 import { isPortalFile, readPortalFile } from '../lib/hgsPortal';
+import { istanbulDate } from '../lib/istanbulTime';
 import { useTimeFormat } from '../lib/relative-time';
 import { formatDateDisplay, useDateLocale } from './AccountingPage';
 
@@ -61,11 +62,20 @@ const percent = (share: number) => (share > 0 && share < 0.005 ? '<1%' : `${Math
 
 // ─── Transits of one car ──────────────────────────────────────────────────────
 
-const DownloadIcon: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 15v3.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+const PdfIcon: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 3H7.5A1.5 1.5 0 006 4.5v15A1.5 1.5 0 007.5 21h9a1.5 1.5 0 001.5-1.5V7l-4-4z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /><path d="M14 3v4h4M9 13h6M9 16.5h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
-const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddBarcode: (() => void) | null }> = ({ id, row, period, onAddBarcode }) => {
+/** The statement's days to start from: the period on screen, up to today; for all time, from the first transit. */
+function statementStart(period: HgsPeriod, items: readonly HgsCarTransit[]): DayRange {
+  const today = istanbulDate();
+  const days = periodDays(period);
+  if (days) return { from: days.from > today ? today : days.from, to: days.to > today ? today : days.to };
+  const first = items.length ? transitDate(items[items.length - 1].transit_datetime) : today;
+  return { from: first, to: today };
+}
+
+const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddBarcode: (() => void) | null; onExported: (fileName: string) => void }> = ({ id, row, period, onAddBarcode, onExported }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const [items, setItems] = useState<HgsCarTransit[] | null>(null);
@@ -86,10 +96,7 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddB
     return () => { cancelled = true; };
   }, [row.carId, row.plate, key, attempt]);
 
-  const exportCsv = () => {
-    if (!items?.length) return;
-    downloadCsv(hgsCsvName(row.plate, period), hgsCsvRows(items, [t('csv.date'), t('csv.time'), t('csv.entry'), t('csv.exit'), t('csv.toll'), t('csv.amount')]));
-  };
+  const [exporting, setExporting] = useState(false);
 
   return (
     <div id={id} className="hc-hgs-panel">
@@ -108,15 +115,13 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddB
         <div role="status" aria-label={t('transits.loading')} className="hc-hgs-bones">
           {[0, 1, 2].map(i => <span key={i} className="hc-bk-bone" />)}
         </div>
-      ) : items.length === 0 ? (
-        <p className="hc-hgs-panel-note">{t('transits.empty')}</p>
       ) : (
         <>
         <div className="hc-hgs-panel-tools">
-          <span>{t('transits.count', { count: items.length, n: formatCount(items.length) })}</span>
-          <button type="button" className="hc-hgs-export" onClick={exportCsv}><DownloadIcon />{t('transits.export')}</button>
+          <span>{items.length === 0 ? t('transits.empty') : t('transits.count', { count: items.length, n: formatCount(items.length) })}</span>
+          <button type="button" className="hc-hgs-export" aria-haspopup="dialog" onClick={() => setExporting(true)}><PdfIcon />{t('pdf.export')}</button>
         </div>
-        <ol className="hc-hgs-transits">
+        {items.length > 0 && <ol className="hc-hgs-transits">
           {items.map(item => {
             const place = transitPlace(item);
             const road = item.otoyol?.trim();
@@ -137,8 +142,18 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddB
               </li>
             );
           })}
-        </ol>
+        </ol>}
         </>
+      )}
+      {exporting && items && (
+        <HgsStatementDialog
+          carId={row.carId}
+          plate={row.plate}
+          model={row.model}
+          initialRange={statementStart(period, items)}
+          onClose={() => setExporting(false)}
+          onDone={name => { setExporting(false); onExported(name); }}
+        />
       )}
     </div>
   );
@@ -224,8 +239,8 @@ const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({
 const CarCard: React.FC<{
   row: HgsRow; period: HgsPeriod; range: DayRange | null; onRange: (next: DayRange | null) => void;
   open: boolean; onToggle: () => void; onAddBarcode: (() => void) | null;
-  upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void;
-}> = ({ row, period, range, onRange, open, onToggle, onAddBarcode, upload, onUpload }) => {
+  upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void; onExported: (fileName: string) => void;
+}> = ({ row, period, range, onRange, open, onToggle, onAddBarcode, upload, onUpload, onExported }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const panelId = useId();
@@ -270,7 +285,7 @@ const CarCard: React.FC<{
         </div>
       )}
       {upload && <UploadResult state={upload} onDismiss={() => onUpload(undefined)} />}
-      {open && <CarTransits id={panelId} row={row} period={period} onAddBarcode={onAddBarcode} />}
+      {open && <CarTransits id={panelId} row={row} period={period} onAddBarcode={onAddBarcode} onExported={onExported} />}
     </li>
   );
 };
@@ -488,6 +503,12 @@ const HgsPage: React.FC = () => {
     return next;
   });
 
+  const showToast = (text: string) => {
+    window.clearTimeout(toastTimer.current);
+    setToast(text);
+    toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS);
+  };
+
   const onBarcodeSaved = (car: HgsCar, barcode: string) => {
     setFixing(null);
     setData(current => (current ? { ...current, cars: current.cars.map(c => (c.id === car.id ? { ...c, barcode } : c)) } : current));
@@ -616,6 +637,7 @@ const HgsPage: React.FC = () => {
                 onAddBarcode={row.active && !row.barcode && row.carId !== null ? () => { const car = cars.find(c => c.id === row.carId); if (car) setFixing(car); } : null}
                 upload={uploads[row.key]}
                 onUpload={next => setUploads(current => ({ ...current, [row.key]: next }))}
+                onExported={name => showToast(t('pdf.done', { name: LTR(name) }))}
               />
             ))}
           </ul>
