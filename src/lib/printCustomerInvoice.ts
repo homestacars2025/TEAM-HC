@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
-import { brandImg } from './brand';
+import { brandImg, brandLockupHtml } from './brand';
 import { hgsDay, hgsDetail, lineKind, round2 } from './bookingWallet';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ ${printFontStyles()}
   .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
   .hdr{background:#fff;padding:36px 48px 32px;display:flex;justify-content:space-between;align-items:flex-start}
   .brand-logo{display:block;object-fit:contain}
-  .brand-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;padding-left:7px}
+  .brand-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;margin-top:4px}
   .inv-meta{text-align:right}
   .inv-label{font-size:10px;font-weight:700;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
   .inv-number{font-size:28px;font-weight:800;color:#0f1117;margin-top:4px;letter-spacing:-.5px}
@@ -194,7 +194,7 @@ ${printFontStyles()}
 <div class="page">
   <div class="hdr">
     <div>
-      ${brandImg('wordmarkLight', 36)}
+      ${brandLockupHtml(36)}
       <div class="brand-tag">Premium Car Rental · Istanbul</div>
     </div>
     <div class="inv-meta">

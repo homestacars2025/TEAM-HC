@@ -16,7 +16,7 @@
     <!--
       The one loading screen. It is here rather than in React so it paints before
       any script has loaded, and stays the same element until src/lib/bootSplash.ts
-      takes it away. No words, because the fonts aren't in yet: just the Homesta mark.
+      takes it away. No text, because the fonts aren't in yet: just the Homesta lockup.
     -->
     <style>
       html, body { margin: 0; background: #fff; }
@@ -27,11 +27,15 @@
       }
       #boot-splash[hidden] { display: none; }
       #boot-splash.is-done { opacity: 0; pointer-events: none; }
-      /* The official mark, never redrawn: its own white ground and clear space. */
+      /* The official lockup, never redrawn: icon 40px, wordmark 28px (0.6875 of it),
+         side by side and centered; each file carries its own clear space. */
       .boot-logo {
-        display: block; width: 96px; height: 96px;
+        display: flex; align-items: center; gap: 12.5px;
         animation: boot-pulse 1.6s ease-in-out infinite;
       }
+      .boot-logo img { display: block; flex: none; }
+      .boot-icon { width: 40px; height: 40px; border-radius: 22%; }
+      .boot-wordmark { width: 103.13px; height: 28px; }
       @keyframes boot-pulse {
         0%, 100% { transform: scale(1); opacity: 1; }
         50% { transform: scale(1.05); opacity: 0.82; }
@@ -112,7 +116,10 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="boot-splash" aria-hidden="true">
-      <img class="boot-logo" src="%PUBLIC_URL%/brand/homesta-icon.png" width="96" height="96" alt="" />
+      <div class="boot-logo">
+        <img class="boot-icon" src="%PUBLIC_URL%/brand/homesta-icon.png" width="40" height="40" alt="" />
+        <img class="boot-wordmark" src="%PUBLIC_URL%/brand/homesta-wordmark-light.png" width="103" height="28" alt="" />
+      </div>
     </div>
     <div id="root"></div>
     <!--

@@ -37,7 +37,7 @@ const DashboardPage: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <BrandLogo variant="wordmark" theme="light" size={32} />
+        <BrandLogo variant="lockup" theme="light" size={32} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{user?.email}</span>
           <button

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../lib/CurrencyContext';
 import { printFontStyles } from '../lib/printFonts';
-import { brandImg } from '../lib/brand';
+import { brandImg, brandLockupHtml } from '../lib/brand';
 import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -457,8 +457,8 @@ const KGMPage: React.FC = () => {
 <body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #e5e7eb;padding-bottom:16px">
     <div>
-      ${brandImg('wordmarkLight', 32)}
-      <div style="font-size:22px;font-weight:800;color:#0f1117;letter-spacing:-0.5px;margin-top:6px">KGM Daily Report</div>
+      ${brandLockupHtml(32)}
+      <div style="font-size:22px;font-weight:800;color:#0f1117;letter-spacing:-0.5px;margin-top:8px">KGM Daily Report</div>
       <div style="font-size:12px;color:#6b7280;margin-top:4px">Generated: ${generatedAt}</div>
     </div>
     <div style="text-align:right">

@@ -208,10 +208,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
         rail ? 'justify-center' : 'gap-3 px-4',
       )}>
         {rail ? (
-          <BrandLogo variant="icon" size={40} />
+          <BrandLogo variant="icon" size={32} />
         ) : (
           <div className="min-w-0 flex-1">
-            <BrandLogo variant="wordmark" theme="light" size={34} />
+            <BrandLogo variant="lockup" theme="light" size={32} />
           </div>
         )}
 

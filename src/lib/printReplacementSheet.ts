@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { fmt, fmtKm, fmtFuel, fmtDate, infoRow, infoRowPair } from './printContract';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
-import { brandImg } from './brand';
+import { brandImg, brandLockupHtml } from './brand';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -572,7 +572,7 @@ ${printFontStyles()}
   <!-- Header -->
   <div class="doc-header">
     <div class="brand-block">
-      ${brandImg('wordmarkLight', 34)}
+      ${brandLockupHtml(32)}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="company-info">

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join, relative } from 'path';
 import { render, screen } from '@testing-library/react';
 import BrandLogo from '../components/BrandLogo';
-import { BRAND_RATIO, brandImg, brandSrc, inlineBrandAssets, resetBrandCache } from './brand';
+import { BRAND_RATIO, brandImg, brandLockupHtml, brandSrc, inlineBrandAssets, lockupMetrics, resetBrandCache } from './brand';
 
 const SRC = join(__dirname, '..');
 const PUBLIC = join(SRC, '..', 'public');
@@ -30,6 +30,36 @@ describe('BrandLogo', () => {
     expect(dark.getAttribute('src')).toBe('/brand/homesta-wordmark-dark.png');
     expect(light.height).toBe(34);
     expect(light.width).toBe(Math.round(34 * 4000 / 1086));
+  });
+});
+
+describe('the lockup', () => {
+  test('icon then wordmark at 22px beside a 32px icon, 10px apart, one label for both', () => {
+    expect(lockupMetrics(32)).toEqual({ icon: 32, wordmark: 22, gap: 10 });
+    render(<BrandLogo variant="lockup" size={32} />);
+    const lockup = screen.getByRole('img', { name: 'Homesta Cars' });
+    expect(lockup.style.gap).toBe('10px');
+    const [icon, wordmark] = Array.from(lockup.querySelectorAll('img'));
+    expect(icon.getAttribute('src')).toBe('/brand/homesta-icon.png');
+    expect([icon.width, icon.height]).toEqual([32, 32]);
+    expect(wordmark.getAttribute('src')).toBe('/brand/homesta-wordmark-light.png');
+    expect([wordmark.width, wordmark.height]).toEqual([Math.round(22 * 4000 / 1086), 22]);
+    expect([icon.alt, wordmark.alt]).toEqual(['', '']);
+  });
+
+  test('the dark lockup takes the white wordmark', () => {
+    render(<BrandLogo variant="lockup" theme="dark" size={40} />);
+    const imgs = screen.getByRole('img', { name: 'Homesta Cars' }).querySelectorAll('img');
+    expect(imgs[1].getAttribute('src')).toBe('/brand/homesta-wordmark-dark.png');
+    expect(imgs[1].height).toBe(28);
+  });
+
+  test('print headers get the same lockup, at the files\' own ratio', () => {
+    const html = brandLockupHtml(32);
+    expect(html).toContain('aria-label="Homesta Cars"');
+    expect(html).toContain('gap:10px');
+    expect(html.indexOf(brandSrc('icon'))).toBeLessThan(html.indexOf(brandSrc('wordmarkLight')));
+    expect(html).toContain(`width:${Math.round(22 * BRAND_RATIO.wordmarkLight * 100) / 100}px;height:22px`);
   });
 });
 
@@ -80,12 +110,13 @@ describe('brand files', () => {
   test('every printed document carries the official wordmark and icon', () => {
     for (const file of ['lib/printContract.ts', 'lib/printReplacementSheet.ts', 'lib/printCustomerInvoice.ts', 'pages/KGMPage.tsx']) {
       const source = readFileSync(join(SRC, file), 'utf8');
-      expect(source).toMatch(/brandImg\('wordmark(Light|Dark)'/);
+      expect(source).toContain('brandLockupHtml(');
       expect(source).toContain("brandImg('icon'");
     }
     const pdf = readFileSync(join(SRC, 'components/hgs/HgsStatementPdf.tsx'), 'utf8');
     expect(pdf).toContain("brandDataUrl('wordmarkLight')");
     expect(pdf).toContain("brandDataUrl('icon')");
+    expect(pdf).toContain('lockupMetrics(');
   });
 
   test('no hand-drawn or text logo is left anywhere', () => {

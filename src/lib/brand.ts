@@ -35,6 +35,14 @@ const EMBED_MAX_WIDTH: Record<BrandAsset, number> = {
   wordmarkDark: 1200,
 };
 
+/** The lockup: the wordmark sits at this share of the icon's height (22px beside a 32px icon). */
+export const LOCKUP_WORDMARK_SCALE = 0.6875;
+
+/** Icon and wordmark heights and the gap between them, for an icon `size` px high. */
+export function lockupMetrics(size: number): { icon: number; wordmark: number; gap: number } {
+  return { icon: size, wordmark: Math.round(size * LOCKUP_WORDMARK_SCALE), gap: Math.round((size * 10) / 32 * 10) / 10 };
+}
+
 const ASSETS = Object.keys(BRAND_FILES) as BrandAsset[];
 
 /** The file's path in the app, e.g. `/brand/homesta-icon.png`. */
@@ -49,6 +57,23 @@ export function brandSrc(asset: BrandAsset): string {
 export function brandImg(asset: BrandAsset, height: number, className = 'brand-logo'): string {
   const width = Math.round(height * BRAND_RATIO[asset] * 100) / 100;
   return `<img class="${className}" src="${brandSrc(asset)}" alt="${BRAND_ALT}" width="${Math.round(width)}" height="${height}" style="width:${width}px;height:${height}px">`;
+}
+
+/**
+ * The icon and the wordmark side by side for a print header, vertically centered.
+ * A flex row, so in a right-to-left document the icon sits on the right.
+ */
+export function brandLockupHtml(iconHeight: number, theme: 'light' | 'dark' = 'light'): string {
+  const { icon, wordmark, gap } = lockupMetrics(iconHeight);
+  const asset: BrandAsset = theme === 'dark' ? 'wordmarkDark' : 'wordmarkLight';
+  const img = (a: BrandAsset, h: number, radius: string) => {
+    const w = Math.round(h * BRAND_RATIO[a] * 100) / 100;
+    return `<img src="${brandSrc(a)}" alt="" width="${Math.round(w)}" height="${h}" style="display:block;flex:none;width:${w}px;height:${h}px;object-fit:contain${radius}">`;
+  };
+  return `<span class="brand-lockup" role="img" aria-label="${BRAND_ALT}" style="display:inline-flex;align-items:center;gap:${gap}px">`
+    + img('icon', icon, ';border-radius:22%')
+    + img(asset, wordmark, '')
+    + '</span>';
 }
 
 function readAsDataUrl(blob: Blob): Promise<string> {

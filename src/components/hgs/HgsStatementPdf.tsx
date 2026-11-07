@@ -5,7 +5,7 @@ import {
   STATEMENT_TEXT, statementAmount, statementDay, statementNumber, statementSummary,
   type StatementData,
 } from '../../lib/hgsStatement';
-import { BRAND_RATIO, brandDataUrl } from '../../lib/brand';
+import { BRAND_RATIO, brandDataUrl, lockupMetrics } from '../../lib/brand';
 
 /**
  * The HGS statement as a PDF, drawn with react-pdf. This module is only ever loaded
@@ -90,8 +90,8 @@ export interface StatementLogos {
   icon: string;
 }
 
-/** Height in pt; the width follows the file. Each file holds its own clear space. */
-const WORDMARK_HEIGHT = 34;
+/** Heights in pt; widths follow the files. Each file holds its own clear space. */
+const LOCKUP = lockupMetrics(24);
 const ICON_HEIGHT = 16;
 
 /** A Turkish plate: the blue TR strip, then the number. Always left to right. */
@@ -151,7 +151,11 @@ const StatementDocument: React.FC<{ data: StatementData; logos: StatementLogos }
 
         {/* Header */}
         <View style={[s.head, { flexDirection: row }]}>
-          <Image src={logos.wordmark} style={{ width: WORDMARK_HEIGHT * BRAND_RATIO.wordmarkLight, height: WORDMARK_HEIGHT }} />
+          {/* The lockup: icon then wordmark, mirrored with the row in Arabic. */}
+          <View style={{ flexDirection: row, alignItems: 'center', gap: LOCKUP.gap }}>
+            <Image src={logos.icon} style={{ width: LOCKUP.icon, height: LOCKUP.icon, borderRadius: LOCKUP.icon * 0.22 }} />
+            <Image src={logos.wordmark} style={{ width: LOCKUP.wordmark * BRAND_RATIO.wordmarkLight, height: LOCKUP.wordmark }} />
+          </View>
           <View style={{ alignItems: rtl ? 'flex-start' : 'flex-end' }}>
             <Words style={[s.title, { textAlign: end }]}>{t.title}</Words>
             <View style={[s.metaRow, { flexDirection: row }]}>
