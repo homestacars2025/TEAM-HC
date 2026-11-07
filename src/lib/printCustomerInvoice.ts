@@ -136,7 +136,7 @@ export async function printCustomerInvoice(
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Invoice ${invNum} — HomestaCars</title>
+<title>Invoice ${invNum} — Homesta Cars</title>
 ${printFontStyles()}
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -148,13 +148,13 @@ ${printFontStyles()}
   .back-btn{background:#fff;color:#0f1117;box-shadow:0 0 0 1px #d1d5db}
   .back-btn:hover{background:#f3f4f6}
   .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
-  .hdr{background:linear-gradient(135deg,#0d1117 0%,#1c2a3a 100%);padding:40px 48px;display:flex;justify-content:space-between;align-items:flex-start}
+  .hdr{background:#fff;padding:36px 48px 32px;display:flex;justify-content:space-between;align-items:flex-start}
   .brand-logo{display:block;object-fit:contain}
-  .brand-tag{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:2px}
+  .brand-tag{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:2px;padding-left:7px}
   .inv-meta{text-align:right}
   .inv-label{font-size:10px;font-weight:700;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
-  .inv-number{font-size:28px;font-weight:800;color:#fff;margin-top:4px;letter-spacing:-.5px}
-  .inv-date{font-size:12px;color:rgba(255,255,255,.45);margin-top:5px}
+  .inv-number{font-size:28px;font-weight:800;color:#0f1117;margin-top:4px;letter-spacing:-.5px}
+  .inv-date{font-size:12px;color:#6b7280;margin-top:5px}
   .accent{height:3px;background:linear-gradient(90deg,#4ba6ea 0%,#93d2ff 100%)}
   .body{padding:40px 48px}
   .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:36px}
@@ -194,7 +194,7 @@ ${printFontStyles()}
 <div class="page">
   <div class="hdr">
     <div>
-      ${brandImg('wordmarkDark', 40)}
+      ${brandImg('wordmarkLight', 36)}
       <div class="brand-tag">Premium Car Rental · Istanbul</div>
     </div>
     <div class="inv-meta">
