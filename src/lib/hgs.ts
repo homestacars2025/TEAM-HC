@@ -84,12 +84,12 @@ export function presetOf(range: DayRange | null, today: string = istanbulDate())
   return RANGE_PRESETS.find(preset => { const p = presetRange(preset, today); return p.from === range.from && p.to === range.to; }) ?? null;
 }
 
-/** `01.11 → 06.11`; with the year, `01.11.25`, when the range isn't all in this year. */
+/** `01.11 → 06.11`, or `06.11` for one day; with the year, `01.11.25`, when the range isn't all in this year. */
 export function rangeLabel(range: DayRange, today: string = istanbulDate()): string {
   const year = today.slice(0, 4);
   const withYear = range.from.slice(0, 4) !== year || range.to.slice(0, 4) !== year;
   const day = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}${withYear ? `.${iso.slice(2, 4)}` : ''}`;
-  return `${day(range.from)} → ${day(range.to)}`;
+  return range.from === range.to ? day(range.from) : `${day(range.from)} → ${day(range.to)}`;
 }
 
 /** First and last instant of a period, for a query on `transit_datetime`; `null` for all time. */

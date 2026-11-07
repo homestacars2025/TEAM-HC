@@ -39,7 +39,13 @@
     "range_two": "سيارتان بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بهما",
     "range_few": "{{count}} سيارات بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
     "range_many": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
-    "range_other": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها"
+    "range_other": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "day_zero": "كل السيارات لها عبور HGS في {{range}}",
+    "day_one": "سيارة واحدة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "day_two": "سيارتان بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بهما",
+    "day_few": "{{count}} سيارات بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "day_many": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "day_other": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها"
   },
   "tiles": {
     "spend": "إجمالي المصروف",

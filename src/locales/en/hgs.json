@@ -23,7 +23,9 @@
     "open": "Open {{plate}}",
     "more": "+{{n}} more",
     "range_one": "{{count}} car has no HGS transits in {{range}} — check its HGS",
-    "range_other": "{{count}} cars have no HGS transits in {{range}} — check their HGS"
+    "range_other": "{{count}} cars have no HGS transits in {{range}} — check their HGS",
+    "day_one": "{{count}} car has no HGS transits on {{range}} — check its HGS",
+    "day_other": "{{count}} cars have no HGS transits on {{range}} — check their HGS"
   },
   "tiles": {
     "spend": "Total spend",

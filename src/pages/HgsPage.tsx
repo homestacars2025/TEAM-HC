@@ -529,7 +529,7 @@ const HgsPage: React.FC = () => {
           <div className="min-w-0">
             <h2 id="hgs-banner-title">
               {globalRange
-                ? t('banner.range', { count: idle.length, range: LTR(rangeLabel(globalRange)) })
+                ? t(globalRange.from === globalRange.to ? 'banner.day' : 'banner.range', { count: idle.length, range: LTR(rangeLabel(globalRange)) })
                 : allMonths
                 ? t('banner.ever', { count: idle.length })
                 : month === currentMonth()

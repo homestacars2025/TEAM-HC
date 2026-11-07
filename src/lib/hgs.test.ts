@@ -150,6 +150,7 @@ describe('a range of days', () => {
   test('the chip reads day.month, with the year when it isn\'t this one', () => {
     expect(rangeLabel({ from: '2026-11-01', to: '2026-11-06' }, '2026-11-07')).toBe('01.11 → 06.11');
     expect(rangeLabel({ from: '2025-12-20', to: '2026-01-06' }, '2026-11-07')).toBe('20.12.25 → 06.01.26');
+    expect(rangeLabel({ from: '2026-11-06', to: '2026-11-06' }, '2026-11-07')).toBe('06.11');
   });
 
   test('a car\'s own range: its numbers, and its share of the fleet in those days', () => {
