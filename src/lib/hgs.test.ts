@@ -1,4 +1,4 @@
-import { barcodeProblem, formatCount, hasBarcode, readSort, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
+import { barcodeProblem, carParam, carParamKey, formatCount, hasBarcode, hgsCsvName, hgsCsvRows, periodBounds, presetOf, presetRange, rangeLabel, rangedRow, readRange, readSort, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
 
 const car = (id: number, plate: string, barcode: string | null, model: string | null = 'Fiat Egea'): HgsCar => ({ id, plate, barcode, model });
 const CARS = [car(1, '34ABC100', '1129193640'), car(2, '34MDJ129', null, 'Renault Taliant'), car(3, '34MSR195', '  ', 'Citroen C4 X'), car(4, '06FHN975', '1131524991', 'Toyota Corolla'), car(5, '34ZZZ900', '1131498796')];
@@ -112,4 +112,84 @@ test('counts are grouped like the lira beside them', () => {
 
 test('a month range is Istanbul midnight to midnight', () => {
   expect(monthRange('2026-12')).toEqual({ from: '2026-12-01T00:00:00+03:00', to: '2027-01-01T00:00:00+03:00' });
+});
+
+describe('a range of days', () => {
+  test('the address holds two real days or none, turned around if needed', () => {
+    expect(readRange('2026-11-01', '2026-11-06')).toEqual({ from: '2026-11-01', to: '2026-11-06' });
+    expect(readRange('2026-11-06', '2026-11-01')).toEqual({ from: '2026-11-01', to: '2026-11-06' });
+    expect([readRange('2026-11-01', null), readRange('2026-02-30', '2026-03-01'), readRange('2026-11', '2026-12'), readRange('x', 'y')]).toEqual([null, null, null, null]);
+  });
+
+  test('both ends count, on the Istanbul date', () => {
+    const range = { from: '2026-11-01', to: '2026-11-06' };
+    // 23:30 UTC on 31 Oct is 02:30 on 1 Nov in Istanbul.
+    expect(inPeriod({ transit_datetime: '2026-10-31T23:30:00+00:00' }, range)).toBe(true);
+    expect(inPeriod({ transit_datetime: '2026-11-06T20:59:00+00:00' }, range)).toBe(true);
+    expect(inPeriod({ transit_datetime: '2026-11-06T21:00:00+00:00' }, range)).toBe(false);
+    expect(periodBounds(range)).toEqual({ from: '2026-11-01T00:00:00+03:00', to: '2026-11-07T00:00:00+03:00' });
+    expect(periodBounds('2026-11')).toEqual(monthRange('2026-11'));
+    expect(periodBounds('all')).toBeNull();
+  });
+
+  test('presets, and the preset a range is', () => {
+    const today = '2026-11-07';
+    expect(presetRange('today', today)).toEqual({ from: today, to: today });
+    expect(presetRange('last7', today)).toEqual({ from: '2026-11-01', to: today });
+    expect(presetRange('thisMonth', today)).toEqual({ from: '2026-11-01', to: today });
+    expect(presetRange('lastMonth', today)).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    expect(presetRange('lastMonth', '2026-03-15')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(presetRange('lastMonth', '2026-01-04')).toEqual({ from: '2025-12-01', to: '2025-12-31' });
+    // On the 7th, the last seven days and this month are the same days: the first one wins.
+    expect(presetOf({ from: '2026-11-01', to: today }, today)).toBe('last7');
+    expect(presetOf({ from: '2026-10-01', to: '2026-10-31' }, today)).toBe('lastMonth');
+    expect(presetOf({ from: '2026-10-02', to: '2026-10-31' }, today)).toBeNull();
+    expect(presetOf(null, today)).toBeNull();
+  });
+
+  test('the chip reads day.month, with the year when it isn\'t this one', () => {
+    expect(rangeLabel({ from: '2026-11-01', to: '2026-11-06' }, '2026-11-07')).toBe('01.11 → 06.11');
+    expect(rangeLabel({ from: '2025-12-20', to: '2026-01-06' }, '2026-11-07')).toBe('20.12.25 → 06.01.26');
+  });
+
+  test('a car\'s own range: its numbers, and its share of the fleet in those days', () => {
+    const rows = hgsRows(CARS, TRANSITS.filter(row => inPeriod(row, '2026-11')));
+    const fhn = rows.find(row => row.carId === 4)!;
+    const ranged = rangedRow(fhn, CARS, TRANSITS, { from: '2026-11-01', to: '2026-11-02' });
+    // On 1–2 Nov: 06FHN975 100, the plate-only 34 OLD 01 12, the gone car 8.
+    expect(ranged).toMatchObject({ key: fhn.key, transits: 1, amount: 100, active: true });
+    expect(ranged.share).toBeCloseTo(100 / 120);
+    expect(ranged.last).toBe('2026-11-01T00:00:00+00:00');
+    const quiet = rangedRow(rows.find(row => row.carId === 2)!, CARS, TRANSITS, { from: '2026-11-01', to: '2026-11-02' });
+    expect(quiet).toMatchObject({ transits: 0, amount: 0, last: null, share: 0, plate: '34MDJ129' });
+  });
+
+  test('the address names a car by id, or by plate when it has none', () => {
+    expect(carParam({ carId: 4, plate: '06FHN975' })).toBe('4');
+    expect(carParam({ carId: null, plate: '34 OLD 01' })).toBe('34OLD01');
+    expect(carParamKey('4')).toBe('car:4');
+    expect(carParamKey('34OLD01')).toBe('plate:34OLD01');
+    const rows = hgsRows(CARS, TRANSITS);
+    expect(rows.some(row => row.key === carParamKey(carParam({ carId: null, plate: '34 OLD 01' })))).toBe(true);
+  });
+
+  test('the export: Istanbul date and time, entry, exit, road, amount, oldest first', () => {
+    const csv = hgsCsvRows([
+      { transit_datetime: '2026-11-05T09:12:00+00:00', entry_location: 'Çamlıca', exit_location: '*', otoyol: 'Kuzey Marmara', amount: 61.5 },
+      { transit_datetime: '2026-10-31T21:40:00+00:00', entry_location: '*', exit_location: 'FSM', otoyol: null, amount: 59 },
+    ], ['Date', 'Time', 'Entry', 'Exit', 'Toll', 'Amount']);
+    expect(csv).toEqual([
+      ['Date', 'Time', 'Entry', 'Exit', 'Toll', 'Amount'],
+      ['2026-11-01', '00:40', null, 'FSM', null, 59],
+      ['2026-11-05', '12:12', 'Çamlıca', null, 'Kuzey Marmara', 61.5],
+    ]);
+    expect(hgsCsvName('34 ABC 123', { from: '2026-11-01', to: '2026-11-06' })).toBe('hgs-34ABC123-2026-11-01_2026-11-06');
+    expect(hgsCsvName('34ABC123', '2026-02')).toBe('hgs-34ABC123-2026-02-01_2026-02-28');
+    expect(hgsCsvName('34ABC123', 'all')).toBe('hgs-34ABC123-all');
+  });
+
+  test('the tiles follow a range like a month', () => {
+    const tiles = hgsTiles(CARS, TRANSITS, { from: '2026-11-03', to: '2026-11-04' }, '2026-11');
+    expect(tiles).toMatchObject({ transits: 2, spend: 89.5, used: 2 });
+  });
 });

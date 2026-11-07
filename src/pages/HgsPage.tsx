@@ -10,14 +10,17 @@ import PlateChip from '../components/booking/PlateChip';
 import StatusArt from '../components/cars/StatusArt';
 import { ComplianceTriangle } from '../components/cars/Compliance';
 import { StatTile } from '../components/WalletParts';
+import HgsRangePicker, { CalendarIcon } from '../components/hgs/HgsRangePicker';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTileFilter } from '../hooks/useTileFilter';
 import { formatTRY } from '../lib/CurrencyContext';
+import { downloadCsv } from '../lib/csv';
 import { formatPlate } from '../lib/custodyExpense';
 import {
-  HGS_FILTERS, HGS_SORTS, barcodeProblem, formatCount, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
-  type HgsCar, type HgsRow, type HgsSort, type HgsTransit,
+  HGS_FILTERS, HGS_SORTS, barcodeProblem, carParam, carParamKey, formatCount, hgsCsvName, hgsCsvRows, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod,
+  periodKey, rangeLabel, rangedRow, readRange, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
+  type DayRange, type HgsCar, type HgsPeriod, type HgsRow, type HgsSort, type HgsTransit,
 } from '../lib/hgs';
 import { ALL_MONTHS, currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
 import { getHgsCarTransits, getHgsCars, getHgsLastSync, getHgsTransits, importHgsPortalFile, saveHgsBarcode, type HgsCarTransit, type PortalImportResult } from '../lib/queries/hgs';
@@ -58,22 +61,35 @@ const percent = (share: number) => (share > 0 && share < 0.005 ? '<1%' : `${Math
 
 // ─── Transits of one car ──────────────────────────────────────────────────────
 
-const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; onAddBarcode: (() => void) | null }> = ({ id, row, month, onAddBarcode }) => {
+const DownloadIcon: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 15v3.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+
+const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddBarcode: (() => void) | null }> = ({ id, row, period, onAddBarcode }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const [items, setItems] = useState<HgsCarTransit[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const key = periodKey(period);
+  // The period is read through its key, so a new object for the same days doesn't fetch again.
+  const latest = useRef(period);
+  latest.current = period;
 
   useEffect(() => {
     let cancelled = false;
     setItems(null);
     setFailed(false);
-    getHgsCarTransits(row.carId, row.plate, month)
+    getHgsCarTransits(row.carId, row.plate, latest.current)
       .then(data => { if (!cancelled) setItems(data); })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
-  }, [row.carId, row.plate, month, attempt]);
+  }, [row.carId, row.plate, key, attempt]);
+
+  const exportCsv = () => {
+    if (!items?.length) return;
+    downloadCsv(hgsCsvName(row.plate, period), hgsCsvRows(items, [t('csv.date'), t('csv.time'), t('csv.entry'), t('csv.exit'), t('csv.toll'), t('csv.amount')]));
+  };
 
   return (
     <div id={id} className="hc-hgs-panel">
@@ -95,6 +111,11 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; onAddBarco
       ) : items.length === 0 ? (
         <p className="hc-hgs-panel-note">{t('transits.empty')}</p>
       ) : (
+        <>
+        <div className="hc-hgs-panel-tools">
+          <span>{t('transits.count', { count: items.length, n: formatCount(items.length) })}</span>
+          <button type="button" className="hc-hgs-export" onClick={exportCsv}><DownloadIcon />{t('transits.export')}</button>
+        </div>
         <ol className="hc-hgs-transits">
           {items.map(item => {
             const place = transitPlace(item);
@@ -117,6 +138,7 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; month: string; onAddBarco
             );
           })}
         </ol>
+        </>
       )}
     </div>
   );
@@ -200,15 +222,16 @@ const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({
 // ─── One car ──────────────────────────────────────────────────────────────────
 
 const CarCard: React.FC<{
-  row: HgsRow; month: string; open: boolean; onToggle: () => void; onAddBarcode: (() => void) | null;
+  row: HgsRow; period: HgsPeriod; range: DayRange | null; onRange: (next: DayRange | null) => void;
+  open: boolean; onToggle: () => void; onAddBarcode: (() => void) | null;
   upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void;
-}> = ({ row, month, open, onToggle, onAddBarcode, upload, onUpload }) => {
+}> = ({ row, period, range, onRange, open, onToggle, onAddBarcode, upload, onUpload }) => {
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const panelId = useId();
   const share = percent(row.share);
   return (
-    <li className={`hc-hgs-card surface-depth ${open ? 'is-open' : ''}`} data-car={row.key}>
+    <li className={`hc-hgs-card surface-depth ${open ? 'is-open' : ''} ${range ? 'is-ranged' : ''}`} data-car={row.key}>
       <div className="hc-hgs-line">
       <button type="button" className="hc-hgs-row" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
         <span className="hc-hgs-car">
@@ -230,10 +253,24 @@ const CarCard: React.FC<{
         </span>
         <Chevron />
       </button>
-      <PortalUpload plate={row.plate} state={upload} onState={onUpload} />
+      <div className="hc-hgs-side">
+        <HgsRangePicker variant="row" range={range} onChange={onRange} label={t('range.dates')} title={t('range.carTitle', { plate: LTR(formatPlate(row.plate)) })} />
+        <PortalUpload plate={row.plate} state={upload} onState={onUpload} />
       </div>
+      </div>
+      {range && (
+        <div className="hc-hgs-range-chip-row">
+          <span className="hc-hgs-range-chip">
+            <CalendarIcon size={13} />
+            <bdi dir="ltr">{rangeLabel(range)}</bdi>
+            <button type="button" onClick={() => onRange(null)} aria-label={t('range.clearCar', { plate: LTR(formatPlate(row.plate)) })} title={t('range.clearRow')}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+            </button>
+          </span>
+        </div>
+      )}
       {upload && <UploadResult state={upload} onDismiss={() => onUpload(undefined)} />}
-      {open && <CarTransits id={panelId} row={row} month={month} onAddBarcode={onAddBarcode} />}
+      {open && <CarTransits id={panelId} row={row} period={period} onAddBarcode={onAddBarcode} />}
     </li>
   );
 };
@@ -305,6 +342,12 @@ const HgsPage: React.FC = () => {
   const allMonths = month === ALL_MONTHS;
   const lastMonth = useRef(allMonths ? currentMonth() : month);
   if (!allMonths) lastMonth.current = month;
+  const globalRange = readRange(params.get('from'), params.get('to'));
+  /** The page's period: the range when one is set, else the month. */
+  const period: HgsPeriod = globalRange ?? month;
+  const carValue = params.get('car');
+  const carRange = carValue ? readRange(params.get('cfrom'), params.get('cto')) : null;
+  const rangedKey = carValue && carRange ? carParamKey(carValue) : null;
   const [filter, setFilter] = useTileFilter(HGS_FILTERS);
   const sort = readSort(params.get('sort'));
   const setSort = (next: HgsSort) => setParams(current => {
@@ -359,17 +402,40 @@ const HgsPage: React.FC = () => {
 
   const setMonth = (next: string) => setParams(current => {
     const updated = new URLSearchParams(current);
+    updated.delete('from');
+    updated.delete('to');
     if (next === currentMonth()) updated.delete('month');
     else updated.set('month', next);
     return updated;
   }, { replace: true });
 
+  /** Every car's range, in place of the month. Cleared, the page goes back to this month. */
+  const setGlobalRange = (next: DayRange | null) => setParams(current => {
+    const updated = new URLSearchParams(current);
+    updated.delete('month');
+    if (next) { updated.set('from', next.from); updated.set('to', next.to); } else { updated.delete('from'); updated.delete('to'); }
+    return updated;
+  }, { replace: true });
+
+  /** One car's own range; one car at a time, so a range on another car replaces it. */
+  const setCarRange = (row: HgsRow, next: DayRange | null) => setParams(current => {
+    const updated = new URLSearchParams(current);
+    if (next) { updated.set('car', carParam(row)); updated.set('cfrom', next.from); updated.set('cto', next.to); } else { updated.delete('car'); updated.delete('cfrom'); updated.delete('cto'); }
+    return updated;
+  }, { replace: true });
+
   const cars = useMemo(() => data?.cars ?? [], [data]);
   const transits = useMemo(() => data?.transits ?? [], [data]);
-  const tiles = useMemo(() => hgsTiles(cars, transits, month), [cars, transits, month]);
-  const rows = useMemo(() => hgsRows(cars, transits.filter(row => inPeriod(row, month))), [cars, transits, month]);
-  /** The banner and the "without transits" tile: one list, so they always agree. */
-  const idle = useMemo(() => idleRows(rows), [rows]);
+  const periodId = periodKey(period);
+  const carRangeId = carRange ? periodKey(carRange) : '';
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the period is followed through its key
+  const tiles = useMemo(() => hgsTiles(cars, transits, period), [cars, transits, periodId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baseRows = useMemo(() => hgsRows(cars, transits.filter(row => inPeriod(row, period))), [cars, transits, periodId]);
+  /** The banner and the "without transits" tile follow the page's period, never one car's range. */
+  const idle = useMemo(() => idleRows(baseRows), [baseRows]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const rows = useMemo(() => (rangedKey && carRange ? baseRows.map(row => (row.key === rangedKey ? rangedRow(row, cars, transits, carRange) : row)) : baseRows), [baseRows, rangedKey, carRangeId, cars, transits]);
   const idleKeys = useMemo(() => new Set(idle.map(row => row.key)), [idle]);
   const chipCount = useMediaQuery('(min-width: 640px)') ? BANNER_CHIPS.wide : BANNER_CHIPS.narrow;
   const shown = useMemo(
@@ -385,6 +451,16 @@ const HgsPage: React.FC = () => {
     setOpen(current => new Set(current).add(key));
     setFocusKey(key);
   };
+  // A link that came in with one car's range opens that car, once the list is there. Only on arrival.
+  const sharedKey = useRef(rangedKey);
+  useEffect(() => {
+    const key = sharedKey.current;
+    if (!data || !key) return;
+    sharedKey.current = null;
+    if (rows.some(row => row.key === key)) showCar(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   useEffect(() => {
     if (!focusKey) return;
     const card = Array.from(document.querySelectorAll<HTMLElement>('.hc-hgs-card[data-car]')).find(el => el.dataset.car === focusKey);
@@ -452,7 +528,9 @@ const HgsPage: React.FC = () => {
           <ComplianceTriangle severity="expired" size={48} className="hc-hgs-banner-art" />
           <div className="min-w-0">
             <h2 id="hgs-banner-title">
-              {allMonths
+              {globalRange
+                ? t('banner.range', { count: idle.length, range: LTR(rangeLabel(globalRange)) })
+                : allMonths
                 ? t('banner.ever', { count: idle.length })
                 : month === currentMonth()
                   ? t('banner.thisMonth', { count: idle.length })
@@ -480,7 +558,7 @@ const HgsPage: React.FC = () => {
         </section>
       )}
 
-      <div className="hc-months">
+      <div className={`hc-months ${globalRange ? 'is-ranged' : ''}`}>
         <MonthSwitcher
           label={allMonths ? t('month.all') : monthName(month)}
           prevLabel={t('month.prev')}
@@ -489,11 +567,19 @@ const HgsPage: React.FC = () => {
           onPrev={() => setMonth(shiftMonth(month, -1))}
           onNext={() => setMonth(shiftMonth(month, 1))}
         />
-        <button type="button" aria-pressed={allMonths} className="hc-pi-all" onClick={() => setMonth(allMonths ? lastMonth.current : ALL_MONTHS)}>{t('month.all')}</button>
+        <button type="button" aria-pressed={allMonths && !globalRange} className="hc-pi-all" onClick={() => setMonth(allMonths && !globalRange ? lastMonth.current : ALL_MONTHS)}>{t('month.all')}</button>
+        <span className="hc-hgs-range-global">
+          <HgsRangePicker variant="global" range={globalRange} onChange={setGlobalRange} label={t('range.global')} title={t('range.globalTitle')} />
+          {globalRange && (
+            <button type="button" className="hc-hgs-range-x" onClick={() => setGlobalRange(null)} aria-label={t('range.clearGlobal')} title={t('range.clearGlobal')}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+            </button>
+          )}
+        </span>
       </div>
 
       <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-hgs-tiles">
-        <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.spend')} sub={allMonths ? t('month.all') : monthName(month)} value={value(formatTRY(tiles.spend))} pressed={filter === 'all'} onPress={() => setFilter('all')} />
+        <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.spend')} sub={globalRange ? LTR(rangeLabel(globalRange)) : allMonths ? t('month.all') : monthName(month)} value={value(formatTRY(tiles.spend))} pressed={filter === 'all'} onPress={() => setFilter('all')} />
         <StatTile tone="received" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.transits')} sub={t('tiles.transitsSub', { count: tiles.used })} value={value(formatCount(tiles.transits))} pressed={filter === 'used'} onPress={() => setFilter('used')} />
         <StatTile tone="paid" art={<StatusArt name="total" className="hc-tile-art" />} label={t('tiles.cars')} sub={t('tiles.carsSub', { n: formatCount(idle.length) })} value={value(formatCount(tiles.carsOnHgs))} pressed={filter === 'idle'} onPress={() => setFilter('idle')} />
         <StatTile tone="warn" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.thisMonth')} sub={delta} value={value(formatTRY(tiles.thisMonth))} />
@@ -522,7 +608,9 @@ const HgsPage: React.FC = () => {
               <CarCard
                 key={row.key}
                 row={row}
-                month={month}
+                period={row.key === rangedKey && carRange ? carRange : period}
+                range={row.key === rangedKey ? carRange : null}
+                onRange={next => setCarRange(row, next)}
                 open={open.has(row.key)}
                 onToggle={() => toggle(row.key)}
                 onAddBarcode={row.active && !row.barcode && row.carId !== null ? () => { const car = cars.find(c => c.id === row.carId); if (car) setFixing(car); } : null}

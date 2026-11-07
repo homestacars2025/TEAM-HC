@@ -1,6 +1,5 @@
 import { supabase } from '../supabase';
-import { ALL_MONTHS } from '../pendingInvoices';
-import { monthRange, type HgsCar, type HgsTransit } from '../hgs';
+import { periodBounds, type HgsCar, type HgsPeriod, type HgsTransit } from '../hgs';
 import type { PortalRow } from '../hgsPortal';
 
 /**
@@ -63,16 +62,14 @@ export interface HgsCarTransit {
   description: string | null;
 }
 
-/** One car's transits for the period, newest first. A car that left the fleet is found by its plate. */
-export async function getHgsCarTransits(carId: number | null, plate: string, month: string): Promise<HgsCarTransit[]> {
+/** One car's transits for a month or a range of days, newest first. A car that left the fleet is found by its plate. */
+export async function getHgsCarTransits(carId: number | null, plate: string, period: HgsPeriod): Promise<HgsCarTransit[]> {
   let query = supabase
     .from(TRANSITS)
     .select('id, road_type, transit_datetime, entry_location, exit_location, otoyol, amount, description');
   query = carId !== null ? query.eq('car_id', carId) : query.is('car_id', null).eq('plate_number', plate);
-  if (month !== ALL_MONTHS) {
-    const { from, to } = monthRange(month);
-    query = query.gte('transit_datetime', from).lt('transit_datetime', to);
-  }
+  const bounds = periodBounds(period);
+  if (bounds) query = query.gte('transit_datetime', bounds.from).lt('transit_datetime', bounds.to);
   const { data, error } = await query.order('transit_datetime', { ascending: false }).order('id', { ascending: false }).limit(PAGE);
   if (error) throw error;
   return ((data ?? []) as HgsCarTransit[]).map(row => ({ ...row, amount: Number(row.amount) }));

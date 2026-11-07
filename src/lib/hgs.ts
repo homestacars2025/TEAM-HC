@@ -1,3 +1,4 @@
+import { addDay } from './bookingDates';
 import { BUSINESS_TIME_ZONE, istanbulDate } from './istanbulTime';
 import { ALL_MONTHS, shiftMonth } from './pendingInvoices';
 
@@ -35,8 +36,73 @@ export const transitTime = (iso: string): string =>
   new Intl.DateTimeFormat('en-GB', { timeZone: BUSINESS_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
 export const transitMonth = (iso: string): string => transitDate(iso).slice(0, 7);
 
-export const inPeriod = (row: Pick<HgsTransit, 'transit_datetime'>, month: string): boolean =>
-  month === ALL_MONTHS || transitMonth(row.transit_datetime) === month;
+// ─── Periods: a month, all time, or a range of days ───────────────────────────
+
+/** Istanbul days, `YYYY-MM-DD`, both ends included. */
+export interface DayRange { from: string; to: string }
+/** A month (`2026-11`), `all`, or a range of days. */
+export type HgsPeriod = string | DayRange;
+
+const isDay = (value: string | null | undefined): value is string =>
+  !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value;
+
+/** `?from=&to=` or `?cfrom=&cto=`: both real days or nothing. The wrong way round is turned around. */
+export function readRange(from: string | null, to: string | null): DayRange | null {
+  if (!isDay(from) || !isDay(to)) return null;
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+
+export const inPeriod = (row: Pick<HgsTransit, 'transit_datetime'>, period: HgsPeriod): boolean => {
+  if (typeof period !== 'string') {
+    const day = transitDate(row.transit_datetime);
+    return day >= period.from && day <= period.to;
+  }
+  return period === ALL_MONTHS || transitMonth(row.transit_datetime) === period;
+};
+
+/** Same period, as a value a hook can depend on. */
+export const periodKey = (period: HgsPeriod): string => (typeof period === 'string' ? period : `${period.from}_${period.to}`);
+
+export const RANGE_PRESETS = ['today', 'last7', 'thisMonth', 'lastMonth'] as const;
+export type RangePreset = typeof RANGE_PRESETS[number];
+
+const lastDayOf = (month: string): string => addDay(`${shiftMonth(month, 1)}-01`, -1);
+
+/** Last 7 days is today and the six before it; this month runs to today; last month is all of it. */
+export function presetRange(preset: RangePreset, today: string = istanbulDate()): DayRange {
+  const month = today.slice(0, 7);
+  if (preset === 'today') return { from: today, to: today };
+  if (preset === 'last7') return { from: addDay(today, -6), to: today };
+  if (preset === 'thisMonth') return { from: `${month}-01`, to: today };
+  const previous = shiftMonth(month, -1);
+  return { from: `${previous}-01`, to: lastDayOf(previous) };
+}
+
+/** The preset a range is, to show it pressed. */
+export function presetOf(range: DayRange | null, today: string = istanbulDate()): RangePreset | null {
+  if (!range) return null;
+  return RANGE_PRESETS.find(preset => { const p = presetRange(preset, today); return p.from === range.from && p.to === range.to; }) ?? null;
+}
+
+/** `01.11 → 06.11`; with the year, `01.11.25`, when the range isn't all in this year. */
+export function rangeLabel(range: DayRange, today: string = istanbulDate()): string {
+  const year = today.slice(0, 4);
+  const withYear = range.from.slice(0, 4) !== year || range.to.slice(0, 4) !== year;
+  const day = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}${withYear ? `.${iso.slice(2, 4)}` : ''}`;
+  return `${day(range.from)} → ${day(range.to)}`;
+}
+
+/** First and last instant of a period, for a query on `transit_datetime`; `null` for all time. */
+export function periodBounds(period: HgsPeriod): { from: string; to: string } | null {
+  if (typeof period !== 'string') return { from: `${period.from}T00:00:00+03:00`, to: `${addDay(period.to, 1)}T00:00:00+03:00` };
+  return period === ALL_MONTHS ? null : monthRange(period);
+}
+
+/** A period as days, for the export's file name; `null` for all time. */
+export function periodDays(period: HgsPeriod): DayRange | null {
+  if (typeof period !== 'string') return period;
+  return period === ALL_MONTHS ? null : { from: `${period}-01`, to: lastDayOf(period) };
+}
 
 const byPlate = (a: { plate: string }, b: { plate: string }) => a.plate.localeCompare(b.plate, 'en', { numeric: true });
 
@@ -91,6 +157,20 @@ export function hgsRows(cars: readonly HgsCar[], transits: readonly HgsTransit[]
   return Array.from(rows.values()).map(row => ({ ...row, amount: Math.round(row.amount * 100) / 100, share: total > 0 ? row.amount / total : 0 }));
 }
 
+/** The row key a `?car=` names: a car id, or the plate of a car that isn't one. */
+export const carParamKey = (value: string): string => (/^\d+$/.test(value) ? `car:${value}` : `plate:${value.replace(/\s/g, '')}`);
+/** The `?car=` for a row. */
+export const carParam = (row: Pick<HgsRow, 'carId' | 'plate'>): string => (row.carId !== null ? String(row.carId) : row.plate.replace(/\s/g, ''));
+
+/**
+ * One car's row worked out for its own range: its share is of what the whole fleet spent
+ * in that range. A car with nothing in the range keeps its name and shows zeros.
+ */
+export function rangedRow(row: HgsRow, cars: readonly HgsCar[], transits: readonly HgsTransit[], range: DayRange): HgsRow {
+  const found = hgsRows(cars, transits.filter(transit => inPeriod(transit, range))).find(other => other.key === row.key);
+  return found ? { ...found, active: row.active } : { ...row, transits: 0, amount: 0, last: null, share: 0 };
+}
+
 /** Active cars with no transit at all in the period: the banner, and the "without transits" tile. */
 export function idleRows(rows: readonly HgsRow[]): HgsRow[] {
   return rows.filter(row => row.active && row.transits === 0).sort(byPlate);
@@ -111,7 +191,7 @@ export interface HgsTiles {
   delta: number | null;
 }
 
-export function hgsTiles(cars: readonly HgsCar[], transits: readonly HgsTransit[], month: string, now: string = istanbulDate().slice(0, 7)): HgsTiles {
+export function hgsTiles(cars: readonly HgsCar[], transits: readonly HgsTransit[], month: HgsPeriod, now: string = istanbulDate().slice(0, 7)): HgsTiles {
   const period = transits.filter(row => inPeriod(row, month));
   const sum = (rows: readonly HgsTransit[]) => Math.round(rows.reduce((total, row) => total + row.amount, 0) * 100) / 100;
   const usedCars = new Set(period.map(row => (row.car_id !== null ? `car:${row.car_id}` : `plate:${row.plate_number}`)));
@@ -173,3 +253,26 @@ export function transitPlace(row: { entry_location: string | null; exit_location
   if (entry && exit && entry !== exit) return `${entry} → ${exit}`;
   return exit ?? entry ?? station(row.otoyol) ?? '—';
 }
+
+export interface HgsExportRow {
+  transit_datetime: string;
+  entry_location: string | null;
+  exit_location: string | null;
+  otoyol: string | null;
+  amount: number;
+}
+
+/** One car's detail as a spreadsheet: Istanbul date and time, entry, exit, toll road, amount. Oldest first. */
+export function hgsCsvRows(items: readonly HgsExportRow[], headers: readonly [string, string, string, string, string, string]): (string | number | null)[][] {
+  const sorted = [...items].sort((a, b) => Date.parse(a.transit_datetime) - Date.parse(b.transit_datetime));
+  return [
+    [...headers],
+    ...sorted.map(item => [transitDate(item.transit_datetime), transitTime(item.transit_datetime), station(item.entry_location), station(item.exit_location), station(item.otoyol), Math.round(item.amount * 100) / 100]),
+  ];
+}
+
+/** `hgs-34ABC123-2026-11-01_2026-11-06`, or `hgs-34ABC123-all`. */
+export const hgsCsvName = (plate: string, period: HgsPeriod): string => {
+  const days = periodDays(period);
+  return `hgs-${plate.replace(/\s/g, '')}-${days ? `${days.from}_${days.to}` : 'all'}`;
+};

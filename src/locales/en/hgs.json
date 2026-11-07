@@ -21,7 +21,9 @@
     "ever_other": "{{count}} cars have no HGS transits yet — check their HGS",
     "noBarcode": "No barcode",
     "open": "Open {{plate}}",
-    "more": "+{{n}} more"
+    "more": "+{{n}} more",
+    "range_one": "{{count}} car has no HGS transits in {{range}} — check its HGS",
+    "range_other": "{{count}} cars have no HGS transits in {{range}} — check their HGS"
   },
   "tiles": {
     "spend": "Total spend",
@@ -57,7 +59,10 @@
     "road_public": "Public road",
     "road_private": "Private road",
     "noBarcode": "This car has no HGS barcode.",
-    "addBarcode": "Add barcode"
+    "addBarcode": "Add barcode",
+    "count_one": "{{n}} transit",
+    "count_other": "{{n}} transits",
+    "export": "Export CSV"
   },
   "fix": {
     "title": "HGS barcode",
@@ -96,5 +101,31 @@
       "empty": "The file has no transits with an amount.",
       "failed": "Couldn't upload the file. Try again."
     }
+  },
+  "range": {
+    "dates": "Dates",
+    "carTitle": "Dates · {{plate}}",
+    "global": "From → To",
+    "globalTitle": "Dates for every car",
+    "presets": "Quick ranges",
+    "today": "Today",
+    "last7": "Last 7 days",
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "custom": "Custom",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "clearRow": "Back to the page period",
+    "clearGlobal": "Back to the month",
+    "clearCar": "Clear the dates on {{plate}}"
+  },
+  "csv": {
+    "date": "Date",
+    "time": "Time",
+    "entry": "Entry",
+    "exit": "Exit",
+    "toll": "Toll road",
+    "amount": "Amount (TRY)"
   }
 }

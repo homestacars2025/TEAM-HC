@@ -4645,7 +4645,7 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-hgs-card { container-type: inline-size; overflow: hidden; border: 1px solid #ebebeb; border-radius: 16px; background: #fff; }
 .hc-hgs-skeleton { display: grid; gap: 10px; padding: 18px 16px; }
 .hc-hgs-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto;
   grid-template-areas: "car car car chev" "code code code code" "tr last amount amount";
   gap: 8px 14px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px;
   border: 0; background: none; color: inherit; font-family: inherit; text-align: start; cursor: pointer;
@@ -5487,6 +5487,78 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-hgs-result-close { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -6px -6px -6px 0; border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer; }
 @media (pointer: coarse) { .hc-hgs-result-close { width: 44px; height: 44px; margin: -12px -10px -12px 0; } }
 @media (prefers-reduced-motion: reduce) { .hc-hgs-upload-spin { animation: none; } }
+
+/* ─── HGS: a range of days, on one car or on every car ─────────────────────── */
+.hc-hgs-side { display: flex; flex: none; flex-direction: column; border-inline-start: 1px solid #f0f0f0; }
+.hc-hgs-side > button { flex: 1; border-inline-start: 0; }
+.hc-hgs-side > button + button { border-top: 1px solid #f0f0f0; }
+@media (min-width: 640px) {
+  .hc-hgs-side { flex-direction: row; border-inline-start: 0; }
+  .hc-hgs-side > button { border-inline-start: 1px solid #f0f0f0; }
+  .hc-hgs-side > button + button { border-top: 0; }
+}
+.hc-hgs-dates {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px;
+  min-width: 48px; padding: 0 12px; border: 0; border-inline-start: 1px solid #f0f0f0;
+  background: none; color: #3a74c2; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+}
+.hc-hgs-dates:hover { background: #f4f8fd; }
+.hc-hgs-dates:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; }
+.hc-hgs-dates.is-set, .hc-hgs-dates[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent-strong); }
+.hc-hgs-dates-label { display: none; white-space: nowrap; }
+@media (min-width: 640px) { .hc-hgs-dates { min-width: 0; padding: 0 14px; } .hc-hgs-dates-label { display: inline; } }
+
+.hc-hgs-range-chip-row { display: flex; padding: 0 12px 10px; }
+.hc-hgs-range-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding-inline: 10px 2px;
+  border: 1px solid rgba(58, 116, 194, 0.28); border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong);
+  font-size: 12.5px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.hc-hgs-range-chip button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: none; color: inherit; cursor: pointer; }
+.hc-hgs-range-chip button:hover { background: rgba(58, 116, 194, 0.14); }
+@media (pointer: coarse) { .hc-hgs-range-chip { min-height: 36px; } .hc-hgs-range-chip button { width: 36px; height: 36px; } }
+.hc-hgs-card.is-ranged { border-color: rgba(58, 116, 194, 0.35); }
+
+.hc-hgs-range-global { display: inline-flex; align-items: stretch; gap: 0; }
+.hc-hgs-range-open {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-inline: 14px; border: 1px solid #ebebeb; border-radius: 12px;
+  background: #fff; color: #3a74c2; font-family: inherit; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap;
+}
+.hc-hgs-range-open:hover { background: #f4f8fd; }
+.hc-hgs-range-open.is-set { border-color: var(--accent-strong); background: var(--accent-soft); color: var(--accent-strong); border-start-end-radius: 0; border-end-end-radius: 0; }
+.hc-hgs-range-x {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; min-height: 44px; border: 1px solid var(--accent-strong); border-inline-start: 0;
+  border-start-end-radius: 12px; border-end-end-radius: 12px; background: var(--accent-soft); color: var(--accent-strong); cursor: pointer;
+}
+.hc-hgs-range-x:hover { background: rgba(58, 116, 194, 0.16); }
+.hc-months.is-ranged .hc-month strong { color: #9ca3af; }
+
+.hc-hgs-range-pop { position: fixed; z-index: 9200; padding: 14px; border: 1px solid var(--border-subtle); border-radius: 16px; background-color: var(--surface); }
+.hc-hgs-range-pop h3 { margin: 0 0 10px; color: #0f1117; font-size: 14px; font-weight: 650; }
+.hc-hgs-range-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.hc-hgs-range-presets button {
+  min-height: 40px; padding-inline: 10px; border: 1px solid #ebebeb; border-radius: 10px; background: #fff; color: #0f1117;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.hc-hgs-range-presets button:hover { background: #f4f8fd; }
+.hc-hgs-range-presets button[aria-pressed="true"] { border-color: var(--accent-strong); background: var(--accent-soft); color: var(--accent-strong); }
+.hc-hgs-range-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; align-items: end; }
+.hc-hgs-range-custom label { display: grid; gap: 4px; min-width: 0; }
+.hc-hgs-range-custom label span { color: #4b5563; font-size: 12px; font-weight: 600; }
+.hc-hgs-range-custom input { min-width: 0; width: 100%; }
+.hc-hgs-range-custom > :last-child { grid-column: 1 / -1; }
+.hc-hgs-range-clear { width: 100%; min-height: 40px; margin-top: 8px; border: 0; background: none; color: var(--accent-strong); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.hc-hgs-range-backdrop { position: fixed; inset: 0; z-index: 9200; display: flex; align-items: flex-end; background: rgba(15, 17, 23, 0.4); }
+.hc-hgs-range-pop.is-sheet { position: relative; width: 100%; max-height: 85dvh; overflow-y: auto; padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; }
+.hc-hgs-range-pop.is-sheet .hc-hgs-range-presets button { min-height: 44px; }
+
+.hc-hgs-panel-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0 4px; color: #6b7280; font-size: 12.5px; font-weight: 600; }
+.hc-hgs-export {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding-inline: 12px; border: 1px solid #ebebeb; border-radius: 10px;
+  background: #fff; color: #3a74c2; font-family: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+}
+.hc-hgs-export:hover { background: #f4f8fd; }
+@media (pointer: coarse) { .hc-hgs-export { min-height: 44px; } }
 
 /* ─── Fleet Calendar ─────────────────────────────────────────────────────────
    Colours come from styles/statusTokens.css (`.hc-st-*`), shared with Bookings. */

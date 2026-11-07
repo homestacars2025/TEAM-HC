@@ -33,7 +33,13 @@
     "ever_other": "{{count}} سيارة بلا أي عبور HGS حتى الآن — تحقّق من HGS الخاص بها",
     "noBarcode": "بدون باركود",
     "open": "افتح {{plate}}",
-    "more": "+{{n}} أخرى"
+    "more": "+{{n}} أخرى",
+    "range_zero": "كل السيارات لها عبور HGS في {{range}}",
+    "range_one": "سيارة واحدة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "range_two": "سيارتان بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بهما",
+    "range_few": "{{count}} سيارات بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "range_many": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "range_other": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها"
   },
   "tiles": {
     "spend": "إجمالي المصروف",
@@ -73,7 +79,14 @@
     "road_public": "طريق عام",
     "road_private": "طريق خاص",
     "noBarcode": "هذه السيارة بدون باركود HGS.",
-    "addBarcode": "أضف الباركود"
+    "addBarcode": "أضف الباركود",
+    "count_zero": "لا عبور",
+    "count_one": "عبور واحد",
+    "count_two": "عبوران",
+    "count_few": "{{n}} عبورات",
+    "count_many": "{{n}} عبوراً",
+    "count_other": "{{n}} عبور",
+    "export": "تصدير CSV"
   },
   "fix": {
     "title": "باركود HGS",
@@ -116,5 +129,31 @@
       "empty": "لا يحتوي الملف على عبورات بمبلغ.",
       "failed": "تعذّر رفع الملف. حاول مرة أخرى."
     }
+  },
+  "range": {
+    "dates": "التواريخ",
+    "carTitle": "التواريخ · {{plate}}",
+    "global": "من ← إلى",
+    "globalTitle": "تواريخ لكل السيارات",
+    "presets": "فترات سريعة",
+    "today": "اليوم",
+    "last7": "آخر 7 أيام",
+    "thisMonth": "هذا الشهر",
+    "lastMonth": "الشهر الماضي",
+    "custom": "مخصص",
+    "from": "من",
+    "to": "إلى",
+    "apply": "تطبيق",
+    "clearRow": "العودة إلى فترة الصفحة",
+    "clearGlobal": "العودة إلى الشهر",
+    "clearCar": "امسح تواريخ {{plate}}"
+  },
+  "csv": {
+    "date": "التاريخ",
+    "time": "الوقت",
+    "entry": "الدخول",
+    "exit": "الخروج",
+    "toll": "الطريق",
+    "amount": "المبلغ (TRY)"
   }
 }
