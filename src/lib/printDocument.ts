@@ -11,8 +11,13 @@
  *   iframe rather than the iframe, so the document has to be the page itself. Its bar
  *   keeps "Print / Save PDF" (the share sheet saves a PDF from there) and "Back".
  *
+ * Either way the Homesta logo files are inlined first (see lib/brand.ts): a document
+ * opened from a blob URL can't reach /brand/.
+ *
  * The Admin app does the same.
  */
+
+import { inlineBrandAssets } from './brand';
 
 /** iPhone, iPad and Android, including iPadOS, which reports itself as a Mac with touch. */
 export function isMobileDevice(nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'> = navigator): boolean {
@@ -72,7 +77,8 @@ function openInPlace(html: string): void {
   window.location.href = URL.createObjectURL(new Blob([asTabPage(html)], { type: 'text/html' }));
 }
 
-export function printHtml(html: string): void {
-  if (isMobileDevice() || typeof window.print !== 'function') openInPlace(html);
-  else printInFrame(html);
+export async function printHtml(html: string): Promise<void> {
+  const page = await inlineBrandAssets(html);
+  if (isMobileDevice() || typeof window.print !== 'function') openInPlace(page);
+  else printInFrame(page);
 }

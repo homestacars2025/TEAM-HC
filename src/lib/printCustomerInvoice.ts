@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
+import { brandImg } from './brand';
 import { hgsDay, hgsDetail, lineKind, round2 } from './bookingWallet';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -148,9 +149,8 @@ ${printFontStyles()}
   .back-btn:hover{background:#f3f4f6}
   .page{max-width:800px;margin:0 auto 48px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.10)}
   .hdr{background:linear-gradient(135deg,#0d1117 0%,#1c2a3a 100%);padding:40px 48px;display:flex;justify-content:space-between;align-items:flex-start}
-  .brand-name{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.5px}
-  .brand-dot{color:#4ba6ea}
-  .brand-tag{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:2px;margin-top:5px}
+  .brand-logo{display:block;object-fit:contain}
+  .brand-tag{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:2px}
   .inv-meta{text-align:right}
   .inv-label{font-size:10px;font-weight:700;color:#4ba6ea;text-transform:uppercase;letter-spacing:2px}
   .inv-number{font-size:28px;font-weight:800;color:#fff;margin-top:4px;letter-spacing:-.5px}
@@ -184,7 +184,7 @@ ${printFontStyles()}
   .t-row.balance .t-lbl{font-weight:800;font-size:14px;color:#0f1117}
   .t-row.balance .t-val{font-weight:800;font-size:16px;color:#4ba6ea}
   .footer{padding:22px 48px;background:#f8f9fb;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f0f0f0}
-  .footer-brand{font-size:14px;font-weight:800;color:#0f1117}
+  .footer-mark{display:block;object-fit:contain;border-radius:22%}
   .footer-info{font-size:11px;color:#9ca3af;line-height:1.9;text-align:right}
   @media print{body{background:#fff}.page{box-shadow:none;border-radius:0;margin:0;max-width:100%}.print-bar{display:none}}
 </style>
@@ -194,7 +194,7 @@ ${printFontStyles()}
 <div class="page">
   <div class="hdr">
     <div>
-      <div class="brand-name">Homesta<span class="brand-dot">Cars</span></div>
+      ${brandImg('wordmarkDark', 40)}
       <div class="brand-tag">Premium Car Rental · Istanbul</div>
     </div>
     <div class="inv-meta">
@@ -234,7 +234,7 @@ ${printFontStyles()}
     </div>
   </div>
   <div class="footer">
-    <div class="footer-brand">HomestaCars</div>
+    ${brandImg('icon', 28, 'footer-mark')}
     <div class="footer-info">
       Şişli &amp; Kayaşehir, Istanbul, Turkey<br>
       Premium Car Rental Since 2025<br>
@@ -244,5 +244,5 @@ ${printFontStyles()}
 </div>
 </body></html>`;
 
-  printHtml(html);
+  await printHtml(html);
 }

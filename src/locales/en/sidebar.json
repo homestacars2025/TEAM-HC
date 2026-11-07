@@ -42,7 +42,6 @@
   "collapse": "Collapse sidebar",
   "expand": "Expand sidebar",
   "signOut": "Sign out",
-  "brandSubtitle": "Team",
   "profileFallback": "User",
   "openTasks": "{{count}} open task(s)"
 }

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../lib/CurrencyContext';
 import { printFontStyles } from '../lib/printFonts';
+import { brandImg } from '../lib/brand';
 import Button from '../components/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -450,12 +451,14 @@ const KGMPage: React.FC = () => {
     @page { size: A4 landscape; margin: 20mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--font-sans); color: #111827; }
+    .brand-logo, .footer-mark { display: block; object-fit: contain; }
   </style>
 </head>
 <body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:2px solid #e5e7eb;padding-bottom:16px">
     <div>
-      <div style="font-size:22px;font-weight:800;color:#0f1117;letter-spacing:-0.5px">KGM Daily Report</div>
+      ${brandImg('wordmarkLight', 32)}
+      <div style="font-size:22px;font-weight:800;color:#0f1117;letter-spacing:-0.5px;margin-top:6px">KGM Daily Report</div>
       <div style="font-size:12px;color:#6b7280;margin-top:4px">Generated: ${generatedAt}</div>
     </div>
     <div style="text-align:right">
@@ -496,8 +499,8 @@ const KGMPage: React.FC = () => {
       </tr>
     </tfoot>
   </table>
-  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af">
-    Homesta Cars - KGM Toll Management System
+  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#9ca3af">
+    ${brandImg('icon', 18, 'footer-mark')}Homesta Cars - KGM Toll Management System
   </div>
   <script>
     window.onload = function() {

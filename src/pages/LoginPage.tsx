@@ -4,6 +4,7 @@ import { hideBootSplash } from '../lib/bootSplash';
 import { supabase } from '../lib/supabase';
 import { signOutOnPurpose } from '../lib/sessionKeeper';
 import Button from '../components/Button';
+import BrandLogo from '../components/BrandLogo';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -108,25 +109,7 @@ const LoginPage: React.FC = () => {
         }} />
 
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            background: 'var(--brand)',
-            borderRadius: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <svg width="22" height="22" viewBox="0 0 120 120" fill="none" stroke="white" strokeWidth="14" strokeLinecap="round">
-              <path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100"/>
-            </svg>
-          </div>
-          <span style={{ color: 'white', fontWeight: 700, fontSize: 18, letterSpacing: '-0.3px' }}>
-            HomestaCars
-          </span>
-        </div>
+        <BrandLogo variant="wordmark" theme="dark" size={44} />
 
         {/* Middle content */}
         <div>
@@ -194,28 +177,8 @@ const LoginPage: React.FC = () => {
         boxShadow: '-1px 0 0 var(--border)',
       }}>
         {/* Mobile logo */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          marginBottom: 48,
-        }}
-        className="login-mobile-logo"
-        >
-          <div style={{
-            width: 36,
-            height: 36,
-            background: 'var(--brand)',
-            borderRadius: 9,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 120 120" fill="none" stroke="white" strokeWidth="14" strokeLinecap="round">
-              <path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100"/>
-            </svg>
-          </div>
-          <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.3px' }}>HomestaCars</span>
+        <div style={{ marginBottom: 40 }} className="login-mobile-logo">
+          <BrandLogo variant="wordmark" theme="light" size={40} />
         </div>
 
         <div style={{ marginBottom: 36 }}>
@@ -226,10 +189,10 @@ const LoginPage: React.FC = () => {
             marginBottom: 8,
             color: 'var(--text-primary)',
           }}>
-            HomestaCars
+            Team Portal
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
-            Team Portal — Staff & Admin Access
+            Staff & Admin Access
           </p>
         </div>
 

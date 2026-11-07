@@ -7,6 +7,7 @@ import { LANGUAGE_CODES, LANGUAGE_NAMES, useLanguage, type Language } from '../l
 import { useInbox } from '../lib/InboxContext';
 import { usePageAccess, type AppPage } from '../contexts/PageAccessContext';
 import { fallbackIcon, pageIcons, usePageLabel } from './pageNav';
+import BrandLogo from './BrandLogo';
 
 /**
  * The navigation is built from `app_pages`, filtered by `canAccessPage`: nothing
@@ -206,16 +207,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
         'relative flex h-16 shrink-0 items-center border-b border-[var(--border-subtle)]',
         rail ? 'justify-center' : 'gap-3 px-4',
       )}>
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-strong)]">
-          <svg width="18" height="18" viewBox="0 0 120 120" fill="none" stroke="white" strokeWidth="14" strokeLinecap="round" aria-hidden="true">
-            <path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100"/>
-          </svg>
-        </div>
-
-        {!rail && (
+        {rail ? (
+          <BrandLogo variant="icon" size={40} />
+        ) : (
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold leading-tight tracking-tight text-[#0f1117]">HomestaCars</div>
-            <div className="mt-px text-[11px] text-gray-400">{t('brandSubtitle')}</div>
+            <BrandLogo variant="wordmark" theme="light" size={34} />
           </div>
         )}
 

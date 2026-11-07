@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { signOutOnPurpose } from '../lib/sessionKeeper';
 import type { User } from '@supabase/supabase-js';
+import BrandLogo from '../components/BrandLogo';
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,26 +37,7 @@ const DashboardPage: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32,
-            height: 32,
-            background: 'var(--brand)',
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M5 17H3a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="9" y="11" width="14" height="10" rx="2" stroke="white" strokeWidth="2"/>
-              <circle cx="12" cy="16" r="1" fill="white"/>
-            </svg>
-          </div>
-          <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
-            HomestaCars
-          </span>
-        </div>
+        <BrandLogo variant="wordmark" theme="light" size={32} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{user?.email}</span>
           <button

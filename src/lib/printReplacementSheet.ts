@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { fmt, fmtKm, fmtFuel, fmtDate, infoRow, infoRowPair } from './printContract';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
+import { brandImg } from './brand';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,12 +183,9 @@ ${printFontStyles()}
     border-bottom: 3px double #1a2942;
     margin-bottom: 10px;
   }
-  .brand-name {
-    font-size: 20px;
-    font-weight: 900;
-    color: #1a2942;
-    letter-spacing: 1.5px;
-    line-height: 1;
+  .brand-logo {
+    display: block;
+    object-fit: contain;
   }
   .brand-sub {
     font-size: 8px;
@@ -195,7 +193,6 @@ ${printFontStyles()}
     font-weight: 700;
     letter-spacing: 2.5px;
     text-transform: uppercase;
-    margin-top: 3px;
   }
   .company-info {
     text-align: right;
@@ -535,6 +532,12 @@ ${printFontStyles()}
   }
 
   /* ── Footer note ────────────────────────────────────── */
+  .footer-mark {
+    display: inline-block;
+    vertical-align: middle;
+    object-fit: contain;
+    margin-right: 4px;
+  }
   .footer-note {
     margin-top: 8px;
     text-align: center;
@@ -569,7 +572,7 @@ ${printFontStyles()}
   <!-- Header -->
   <div class="doc-header">
     <div class="brand-block">
-      <div class="brand-name">HOMESTA CARS</div>
+      ${brandImg('wordmarkLight', 34)}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="company-info">
@@ -722,7 +725,7 @@ ${printFontStyles()}
   </div>
 
   <div class="footer-note">
-    Bu tutanak asıl kira sözleşmesinin ekidir. / This record is an annex to the original rental contract. / هذا المحضر ملحق بعقد الإيجار الأصلي.
+    ${brandImg('icon', 16, 'footer-mark')}Bu tutanak asıl kira sözleşmesinin ekidir. / This record is an annex to the original rental contract. / هذا المحضر ملحق بعقد الإيجار الأصلي.
   </div>
 
 </div>
@@ -752,5 +755,5 @@ export async function printReplacementSheet(sheet: ReplacementSheet): Promise<vo
   };
 
 
-  printHtml(buildHTML(sheet, cust));
+  await printHtml(buildHTML(sheet, cust));
 }

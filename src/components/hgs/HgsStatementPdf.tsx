@@ -1,10 +1,11 @@
 import React from 'react';
 import type { Style } from '@react-pdf/types';
-import { Document, Font, Page, Path, StyleSheet, Svg, Text, View, pdf } from '@react-pdf/renderer';
+import { Document, Font, Image, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer';
 import {
   STATEMENT_TEXT, statementAmount, statementDay, statementNumber, statementSummary,
   type StatementData,
 } from '../../lib/hgsStatement';
+import { BRAND_RATIO, brandDataUrl } from '../../lib/brand';
 
 /**
  * The HGS statement as a PDF, drawn with react-pdf. This module is only ever loaded
@@ -14,8 +15,6 @@ import {
  */
 
 const BRAND = 'Homesta Cars';
-const WORD_HOMESTA = 'homesta';
-const WORD_CARS = ' cars';
 const SITE = 'homestacars.com';
 
 const C = {
@@ -50,7 +49,6 @@ const s = StyleSheet.create({
   page: { paddingTop: 40, paddingBottom: 64, paddingHorizontal: 40, fontFamily: FONTS as unknown as string, fontSize: 9, color: C.ink, backgroundColor: '#FFFFFF' },
   strip: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: C.brand },
   head: { alignItems: 'flex-start', justifyContent: 'space-between' },
-  brandBlock: { alignItems: 'center', gap: 8 },
   title: { fontSize: 17, fontWeight: 700, color: C.ink },
   metaRow: { gap: 5, marginTop: 4 },
   metaLabel: { fontSize: 8, color: C.muted },
@@ -82,24 +80,19 @@ const s = StyleSheet.create({
   legal: { marginTop: 18, borderWidth: 1, borderColor: C.line, borderRadius: 8, paddingVertical: 11, paddingHorizontal: 13, backgroundColor: C.zebra },
   legalTitle: { fontSize: 8, fontWeight: 600, color: C.ink, marginBottom: 4 },
   legalText: { fontSize: 8, lineHeight: 1.55, color: C.soft },
-  footer: { position: 'absolute', left: 40, right: 40, bottom: 26, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: C.line, justifyContent: 'space-between' },
+  footer: { position: 'absolute', left: 40, right: 40, bottom: 22, paddingTop: 6, borderTopWidth: 0.5, borderTopColor: C.line, justifyContent: 'space-between', alignItems: 'center' },
   footerText: { fontSize: 7.5, color: C.muted },
 });
 
-/** The Homesta arch, as in the app's logo. */
-const Mark: React.FC<{ size: number }> = ({ size }) => (
-  <Svg width={size} height={size} viewBox="0 0 120 120">
-    <Path d="M22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100" stroke={C.brand} strokeWidth={14} strokeLinecap="round" fill="none" />
-  </Svg>
-);
+/** The official logo files, as data URLs, so the PDF carries them inside. */
+export interface StatementLogos {
+  wordmark: string;
+  icon: string;
+}
 
-/** "homesta cars", the wordmark. Always left to right. */
-const Wordmark: React.FC = () => (
-  <Text style={{ direction: 'ltr' }}>
-    <Text style={{ fontSize: 15, fontWeight: 500, letterSpacing: -0.6, color: C.ink }}>{WORD_HOMESTA}</Text>
-    <Text style={{ fontSize: 11.5, fontWeight: 500, color: C.brand }}>{WORD_CARS}</Text>
-  </Text>
-);
+/** Height in pt; the width follows the file. Each file holds its own clear space. */
+const WORDMARK_HEIGHT = 34;
+const ICON_HEIGHT = 16;
 
 /** A Turkish plate: the blue TR strip, then the number. Always left to right. */
 const Plate: React.FC<{ plate: string; rtl: boolean }> = ({ plate, rtl }) => {
@@ -126,7 +119,7 @@ const WIDTH: Record<Col, { width?: number; flexGrow?: number; flexBasis?: number
   amount: { width: 66 },
 };
 
-const StatementDocument: React.FC<{ data: StatementData }> = ({ data }) => {
+const StatementDocument: React.FC<{ data: StatementData; logos: StatementLogos }> = ({ data, logos }) => {
   const t = STATEMENT_TEXT[data.lang];
   const rtl = data.lang === 'ar';
   const row = rtl ? 'row-reverse' as const : 'row' as const;
@@ -158,10 +151,7 @@ const StatementDocument: React.FC<{ data: StatementData }> = ({ data }) => {
 
         {/* Header */}
         <View style={[s.head, { flexDirection: row }]}>
-          <View style={[s.brandBlock, { flexDirection: row }]}>
-            <Mark size={30} />
-            <Wordmark />
-          </View>
+          <Image src={logos.wordmark} style={{ width: WORDMARK_HEIGHT * BRAND_RATIO.wordmarkLight, height: WORDMARK_HEIGHT }} />
           <View style={{ alignItems: rtl ? 'flex-start' : 'flex-end' }}>
             <Words style={[s.title, { textAlign: end }]}>{t.title}</Words>
             <View style={[s.metaRow, { flexDirection: row }]}>
@@ -250,7 +240,10 @@ const StatementDocument: React.FC<{ data: StatementData }> = ({ data }) => {
         </View>
 
         <View style={[s.footer, { flexDirection: row }]} fixed>
-          <Ltr style={s.footerText}>{`${BRAND} · ${SITE} · ${number}`}</Ltr>
+          <View style={{ flexDirection: row, alignItems: 'center', gap: 6 }}>
+            <Image src={logos.icon} style={{ width: ICON_HEIGHT, height: ICON_HEIGHT }} />
+            <Ltr style={s.footerText}>{`${BRAND} · ${SITE} · ${number}`}</Ltr>
+          </View>
           {/* Written after layout, so it gets its own width up front. */}
           <Text style={[s.footerText, { width: 110, direction: dir, textAlign: end }]} render={({ pageNumber, totalPages }) => t.page.replace('{x}', String(pageNumber)).replace('{y}', String(totalPages))} />
         </View>
@@ -262,7 +255,8 @@ const StatementDocument: React.FC<{ data: StatementData }> = ({ data }) => {
 /** The statement as a PDF file. */
 export async function renderHgsStatement(data: StatementData): Promise<Blob> {
   registerFonts();
-  return pdf(<StatementDocument data={data} />).toBlob();
+  const [wordmark, icon] = await Promise.all([brandDataUrl('wordmarkLight'), brandDataUrl('icon')]);
+  return pdf(<StatementDocument data={data} logos={{ wordmark, icon }} />).toBlob();
 }
 
 export default StatementDocument;

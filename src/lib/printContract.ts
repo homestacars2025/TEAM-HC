@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
+import { brandImg } from './brand';
 import { formatFuelRange } from './fuelRange';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -311,12 +312,9 @@ ${printFontStyles()}
     margin-bottom: 10px;
   }
   .brand-block {}
-  .brand-name {
-    font-size: 20px;
-    font-weight: 900;
-    color: #1a2942;
-    letter-spacing: 1.5px;
-    line-height: 1;
+  .brand-logo {
+    display: block;
+    object-fit: contain;
   }
   .brand-sub {
     font-size: 8px;
@@ -324,7 +322,6 @@ ${printFontStyles()}
     font-weight: 700;
     letter-spacing: 2.5px;
     text-transform: uppercase;
-    margin-top: 3px;
   }
   .company-info {
     text-align: right;
@@ -804,6 +801,12 @@ ${printFontStyles()}
   }
 
   /* ── Footer note ────────────────────────────────────── */
+  .footer-mark {
+    display: inline-block;
+    vertical-align: middle;
+    object-fit: contain;
+    margin-right: 4px;
+  }
   .footer-note {
     margin-top: 8px;
     text-align: center;
@@ -839,7 +842,7 @@ ${printFontStyles()}
   <!-- Header -->
   <div class="doc-header">
     <div class="brand-block">
-      <div class="brand-name">HOMESTA CARS</div>
+      ${brandImg('wordmarkLight', 34)}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="company-info">
@@ -1006,7 +1009,7 @@ ${printFontStyles()}
   <!-- Mini header -->
   <div class="terms-header">
     <div class="brand-block">
-      <div class="brand-name" style="font-size:15px">HOMESTA CARS</div>
+      ${brandImg('wordmarkLight', 28)}
       <div class="brand-sub">Premium Car Rental &middot; Istanbul</div>
     </div>
     <div class="terms-header-ref">
@@ -1069,7 +1072,7 @@ ${printFontStyles()}
   </div>
 
   <div class="footer-note">
-    HOMESTA CARS &nbsp;&middot;&nbsp; Başakşehir, İstanbul
+    ${brandImg('icon', 16, 'footer-mark')}HOMESTA CARS &nbsp;&middot;&nbsp; Başakşehir, İstanbul
     &nbsp;&middot;&nbsp;
     Bu sözleşme elektronik ortamda oluşturulmuştur / This contract was generated electronically.
     &nbsp;&middot;&nbsp;
@@ -1113,5 +1116,5 @@ export async function printBookingContract(booking: ContractBooking): Promise<vo
   };
 
 
-  printHtml(buildHTML(booking, cust));
+  await printHtml(buildHTML(booking, cust));
 }
