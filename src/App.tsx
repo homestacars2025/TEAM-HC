@@ -34,8 +34,14 @@ const MediaLayout = lazy(() => import('./pages/media/media-layout'));
 const MediaIdeasPage = lazy(() => import('./pages/media/ideas/page'));
 const MediaCalendarPage = lazy(() => import('./pages/media/calendar/page'));
 const MediaInfluencersPage = lazy(() => import('./pages/media/influencers/page'));
+const InterviewsPage = lazy(() => import('./pages/hr/InterviewsPage'));
+const HrOpeningsPage = lazy(() => import('./pages/hr/HrOpeningsPage'));
+const HrOpeningPage = lazy(() => import('./pages/hr/HrOpeningPage'));
+const OpeningBuilderPage = lazy(() => import('./pages/hr/OpeningBuilderPage'));
 
 /** Shown only for the moment the Media chunk is in flight. */
+const INTERVIEW_PAGES = ['interviews', 'hr'] as const;
+
 const MediaChunkFallback: React.FC = () => (
   <div style={{
     minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -104,6 +110,16 @@ const App: React.FC = () => {
             <Route path="calendar" element={<RequirePage page="media_calendar"><MediaCalendarPage /></RequirePage>} />
             <Route path="influencers" element={<RequirePage page="media_influencers"><MediaInfluencersPage /></RequirePage>} />
           </Route>
+          {/*
+            HR. The interviews screen opens for either key, as the database lets both
+            schedule; everything else needs the HR page. Without the key: home.
+          */}
+          <Route path="hr/interviews" element={<RequirePage page={INTERVIEW_PAGES} redirect><Suspense fallback={<MediaChunkFallback />}><InterviewsPage /></Suspense></RequirePage>} />
+          <Route path="hr" element={<RequirePage page="hr" redirect><Suspense fallback={<MediaChunkFallback />}><HrOpeningsPage /></Suspense></RequirePage>} />
+          <Route path="hr/openings/new" element={<RequirePage page="hr" redirect><Suspense fallback={<MediaChunkFallback />}><OpeningBuilderPage /></Suspense></RequirePage>} />
+          <Route path="hr/openings/:id" element={<RequirePage page="hr" redirect><Suspense fallback={<MediaChunkFallback />}><HrOpeningPage /></Suspense></RequirePage>} />
+          <Route path="hr/openings/:id/edit" element={<RequirePage page="hr" redirect><Suspense fallback={<MediaChunkFallback />}><OpeningBuilderPage /></Suspense></RequirePage>} />
+          <Route path="hr/*" element={<Navigate to="/dashboard/hr" replace />} />
           <Route path="*" element={<RedirectToFirstPage />} />
         </Route>
         {/* ProtectedRoute sends a signed-out visitor on to /login. */}

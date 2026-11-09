@@ -118,6 +118,16 @@ export const pageIcons: Record<string, React.ReactNode> = {
     <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
     <path d="M17 14h-6M13 18H7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
   </>),
+  hr: icon(<>
+    <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8"/>
+    <path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M16 6.5h5M16 10h5M17.5 13.5H21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+  </>),
+  interviews: icon(<>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" stroke="currentColor" strokeWidth="1.8"/>
+    <path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M9 14.5l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </>),
   media_influencers: icon(<>
     <path d="M3 11l18-5v12L3 14v-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
     <path d="M11.6 16.8a3 3 0 11-5.8-1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -149,6 +159,8 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   pending_invoices: 'nav.pendingInvoices',
   hgs: 'nav.hgs',
   customer_wallets: 'nav.customerWallets',
+  hr: 'nav.hr',
+  interviews: 'nav.interviews',
   media_ideas: 'nav.ideas',
   media_calendar: 'nav.mediaCalendar',
   media_influencers: 'nav.influencers',

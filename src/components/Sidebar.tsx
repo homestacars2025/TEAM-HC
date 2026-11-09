@@ -15,7 +15,7 @@ import BrandLogo from './BrandLogo';
  * lives in the top bar, so this is the logo and the nav and nothing else.
  */
 
-const GROUP_ORDER = ['main', 'fleet', 'operations', 'finance', 'media'];
+const GROUP_ORDER = ['main', 'fleet', 'operations', 'finance', 'hr', 'media'];
 
 /** Reached from the account menu in the top bar, never from the nav. */
 const HIDDEN_GROUPS = ['account'];
@@ -146,9 +146,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
     });
   };
 
+  /** Recruitment owns everything under /dashboard/hr except the interviews screen, which has its own entry. */
+  const hrActive = location.pathname.startsWith('/dashboard/hr') && !location.pathname.startsWith('/dashboard/hr/interviews');
+
   const renderItem = (page: AppPage) => {
     const label = pageLabel(page);
     const hasTaskCount = page.key === 'tasks' && openTasksCount > 0;
+    const activeOf = (isActive: boolean) => (page.key === 'hr' ? hrActive : isActive);
     return (
       <NavLink
         key={page.key}
@@ -157,15 +161,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
         end
         title={rail ? label : undefined}
         onClick={onMobileClose}
-        className={({ isActive }) => clsx(
+        aria-current={page.key === 'hr' && hrActive ? 'page' : undefined}
+        className={({ isActive: routeActive }) => { const isActive = activeOf(routeActive); return clsx(
           'relative flex min-h-11 items-center rounded-xl text-sm no-underline transition-colors duration-150 lg:min-h-9',
           rail ? 'justify-center' : 'gap-2 px-3',
           isActive
             ? 'bg-[var(--accent-soft)] font-semibold text-[var(--accent-strong)]'
             : 'font-medium text-gray-600 hover:bg-black/[0.04] hover:text-gray-900',
-        )}
+        ); }}
       >
-        {({ isActive }) => (
+        {({ isActive: routeActive }) => { const isActive = activeOf(routeActive); return (
           <>
             {isActive && (
               <span className="absolute start-0 top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-e-[3px] bg-[var(--accent)]" />
@@ -187,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
               </span>
             )}
           </>
-        )}
+        ); }}
       </NavLink>
     );
   };

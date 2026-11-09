@@ -48,7 +48,7 @@ const TRANSLATED = [
  * by path rather than by name. `media.test.tsx` is exempt: its fixtures are
  * English on purpose.
  */
-const TREES = ['pages/media', 'components/modelGroups', 'components/ui', 'components/wallet', 'components/goals', 'components/custody', 'components/customers', 'components/booking', 'components/cars', 'components/fines', 'components/issues', 'components/forms', 'components/calendar', 'components/hgs'];
+const TREES = ['pages/media', 'pages/hr', 'components/hr', 'components/modelGroups', 'components/ui', 'components/wallet', 'components/goals', 'components/custody', 'components/customers', 'components/booking', 'components/cars', 'components/fines', 'components/issues', 'components/forms', 'components/calendar', 'components/hgs'];
 
 function walk(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {

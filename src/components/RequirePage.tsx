@@ -101,22 +101,28 @@ function useAccessState(): React.ReactNode {
   return null;
 }
 
-/** `redirect` sends someone without the page home instead of explaining. */
-const RequirePage: React.FC<{ page: string; redirect?: boolean; children: React.ReactNode }> = ({ page, redirect = false, children }) => {
+/**
+ * `redirect` sends someone without the page home instead of explaining. `page` may
+ * list several keys when any one of them opens the route (the interviews screen
+ * opens for `interviews` and for `hr`).
+ */
+const RequirePage: React.FC<{ page: string | readonly string[]; redirect?: boolean; children: React.ReactNode }> = ({ page, redirect = false, children }) => {
   const { pages, canAccessPage, firstAllowedRoute } = usePageAccess();
   const state = useAccessState();
   const openedPage = useRef<string | null>(null);
+  const keys: readonly string[] = typeof page === 'string' ? [page] : page;
+  const id = keys.join('|');
 
   if (state) return <>{state}</>;
 
-  if (canAccessPage(page)) {
-    openedPage.current = page;
+  if (keys.some(key => canAccessPage(key))) {
+    openedPage.current = id;
     return <>{children}</>;
   }
 
   // Taken away while it was open, by a refresh that succeeded: move on quietly.
   // A page that was never open is someone typing a URL, and they get told why.
-  if (openedPage.current === page && firstAllowedRoute) return <Navigate to={firstAllowedRoute} replace />;
+  if (openedPage.current === id && firstAllowedRoute) return <Navigate to={firstAllowedRoute} replace />;
   if (redirect) {
     const home = canAccessPage('home') ? pages.find(p => p.key === 'home')?.route : undefined;
     const target = home ?? firstAllowedRoute;

@@ -4,7 +4,8 @@
     "fleet": "الأسطول",
     "operations": "العمليات",
     "finance": "المالية",
-    "media": "الوسائط"
+    "media": "الوسائط",
+    "hr": "الموارد البشرية"
   },
   "nav": {
     "home": "الرئيسية",
@@ -29,7 +30,9 @@
     "influencers": "المؤثرون",
     "mediaCalendar": "التقويم",
     "pendingInvoices": "الفواتير المعلقة",
-    "hgs": "HGS"
+    "hgs": "HGS",
+    "hr": "التوظيف",
+    "interviews": "المقابلات"
   },
   "currency": {
     "label": "العملة",

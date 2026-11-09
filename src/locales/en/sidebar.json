@@ -4,7 +4,8 @@
     "fleet": "Fleet",
     "operations": "Operations",
     "finance": "Finance",
-    "media": "Media"
+    "media": "Media",
+    "hr": "HR"
   },
   "nav": {
     "home": "Home",
@@ -29,7 +30,9 @@
     "influencers": "Influencers",
     "mediaCalendar": "Calendar",
     "pendingInvoices": "Pending Invoices",
-    "hgs": "HGS"
+    "hgs": "HGS",
+    "hr": "Recruitment",
+    "interviews": "Interviews"
   },
   "currency": {
     "label": "Currency",
