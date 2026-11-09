@@ -91,7 +91,8 @@ const OpeningBuilderPage: React.FC = () => {
     setSaving(true);
     try {
       const saved = await saveOpening(id ?? null, draft, userId);
-      if (!id) { navigate(openingPath(saved), { replace: true }); return; }
+      // A new opening has no applicants yet: stay in the builder, where it can be published.
+      if (!id) { navigate(`${openingPath(saved)}/edit`, { replace: true }); return; }
       setToast({ text: t('common.saved') });
     } catch (reason) {
       setToast({ text: t('common.saveError', { reason: reason instanceof Error ? reason.message : String(reason) }), bad: true });
