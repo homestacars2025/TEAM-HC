@@ -222,6 +222,17 @@ export const transferFailure = (message: string | undefined): { key: 'forbidden'
 
 /** `[AUTO-HGS] 06-10-2026 MAHMUTBEY → AVCILAR`, optionally with `14:05` after the date and ` · OTOYOL` at the end. */
 const AUTO_HGS = /^\[AUTO-HGS\]\s+(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s*(.*)$/;
+/**
+ * `06-10-2026 MAHMUTBEY → AVCILAR`, as `apply_customer_hgs` writes it from the portal:
+ * no prefix, so the arrow is what tells it from a date someone typed.
+ */
+const PORTAL_HGS = /^(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{1,2}:\d{2}))?\s+(.*→.*)$/;
+
+/** One transit from the toll feed or the portal, rather than a line typed by hand. */
+export const isHgsPass = (description: string | null | undefined): boolean => {
+  const text = description?.trim() ?? '';
+  return AUTO_HGS.test(text) || PORTAL_HGS.test(text);
+};
 const UNKNOWN_STATION = new Set(['', '?', '*']);
 
 export interface HgsDetail {
@@ -241,7 +252,7 @@ const istanbulDay = (iso: string | null) =>
 
 export function hgsDetail(line: Pick<WalletLineRow, 'description' | 'created_at'>): HgsDetail {
   const text = line.description?.trim() ?? '';
-  const auto = text.match(AUTO_HGS);
+  const auto = text.match(AUTO_HGS) ?? text.match(PORTAL_HGS);
   if (!auto) return { date: istanbulDay(line.created_at), time: null, route: text && !/^hgs$/i.test(text) ? text : null, toll: null, pass: false };
   const [, d, m, y, clock, rest] = auto;
   const cut = rest.lastIndexOf(' · ');
