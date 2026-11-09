@@ -13,12 +13,17 @@ import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { formatDay, useDateLocale } from '../hooks/useDateLocale';
 import { downloadCsv } from '../lib/csv';
 import { getSupplier, getSupplierLedger, voidSupplierTx } from '../lib/queries/suppliers';
-import { formatMoney, ledgerTotals, SUPPLIERS_PATH, withRunning, type Supplier, type SupplierTx, type SupplierTxWithRunning } from '../lib/suppliers';
+import { ledgerTotals, SUPPLIERS_PATH, withRunning, type Supplier, type SupplierTx, type SupplierTxWithRunning, type SupplierCurrency } from '../lib/suppliers';
+import { useMoney } from '../hooks/useMoney';
+import { RateNote } from '../components/Money';
 import { ReceiptLightbox } from './AccountingPage';
 
 const SupplierDetailPage: React.FC<{ supplierId: number }> = ({ supplierId }) => {
   const { t } = useTranslation('finance');
   const { t: tc } = useTranslation('common');
+  const display = useMoney();
+  /** Lira follows the top bar's currency; a bill in dollars or euros stays in its own. */
+  const formatMoney = (amount: number, currency: SupplierCurrency) => display.formatIn(amount, currency, { sign: 'negative' });
   const locale = useDateLocale();
   const { userId } = useCurrentUser();
 
@@ -128,7 +133,7 @@ const SupplierDetailPage: React.FC<{ supplierId: number }> = ({ supplierId }) =>
   }
 
   const filtered = month !== 'all' || car !== 'all';
-  const money = (row: SupplierTxWithRunning) => <bdi dir="ltr">{row.kind === 'bill' ? '+' : '−'}{formatMoney(row.amount, row.currency)}</bdi>;
+  const money = (row: SupplierTxWithRunning) => <bdi dir="ltr" className="hc-money-mono">{row.kind === 'bill' ? '+' : '−'}{formatMoney(row.amount, row.currency)}</bdi>;
 
   return (
     <div>
@@ -164,14 +169,15 @@ const SupplierDetailPage: React.FC<{ supplierId: number }> = ({ supplierId }) =>
 
       <section className="hc-sup-totals" aria-label={t('ledger.totals')}>
         {totals.length === 0 ? (
-          <div className="hc-sup-total surface-depth"><span>{t('ledger.balance')}</span><strong><bdi dir="ltr">{formatMoney(0, 'TRY')}</bdi></strong></div>
+          <div className="hc-sup-total surface-depth"><span>{t('ledger.balance')}</span><strong><bdi dir="ltr" className="hc-money-mono">{formatMoney(0, 'TRY')}</bdi></strong></div>
         ) : totals.map(row => (
           <div key={row.currency} className="hc-sup-total surface-depth">
             <span>{filtered ? t('ledger.balanceFiltered') : t('ledger.balance')}</span>
-            <strong className={row.balance > 0 ? 'is-owed' : undefined}><bdi dir="ltr">{formatMoney(row.balance, row.currency)}</bdi></strong>
+            <strong className={row.balance > 0 ? 'is-owed' : undefined}><bdi dir="ltr" className="hc-money-mono">{formatMoney(row.balance, row.currency)}</bdi></strong>
             <small>{t('ledger.billsPaid', { bills: formatMoney(row.bills, row.currency), paid: formatMoney(row.paid, row.currency) })}</small>
           </div>
         ))}
+        <RateNote className="col-span-full !mt-0" />
       </section>
 
       <div className="hc-records-tools">
@@ -224,7 +230,7 @@ const SupplierDetailPage: React.FC<{ supplierId: number }> = ({ supplierId }) =>
                   </td>
                   <td data-label={t('tx.paidFrom')}>{row.account?.name ?? '—'}</td>
                   <td data-label={t('ledger.amount')} className={`is-num hc-sup-cell-amount ${row.kind === 'bill' ? 'is-bill' : 'is-paid'}`}>{money(row)}</td>
-                  <td data-label={t('ledger.running')} className="is-num">{row.running === null ? '—' : <bdi dir="ltr">{formatMoney(row.running, row.currency)}</bdi>}</td>
+                  <td data-label={t('ledger.running')} className="is-num">{row.running === null ? '—' : <bdi dir="ltr" className="hc-money-mono">{formatMoney(row.running, row.currency)}</bdi>}</td>
                   <td className="hc-sup-cell-receipt"><ReceiptThumb url={row.receipt_url} label={t('ledger.receipt')} onOpen={setReceipt} /></td>
                   <td className="hc-sup-cell-actions">
                     {/* A custody row is undone by undoing the approval, which also fixes the car sheet. */}

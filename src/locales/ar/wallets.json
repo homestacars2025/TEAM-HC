@@ -107,6 +107,12 @@
   "customerCount_few": "{{count}} عملاء",
   "customerCount_many": "{{count}} عميلاً",
   "customerCount_other": "{{count}} عميل",
+  "walletCount_zero": "{{count}} محفظة",
+  "walletCount_one": "محفظة واحدة",
+  "walletCount_two": "محفظتان",
+  "walletCount_few": "{{count}} محافظ",
+  "walletCount_many": "{{count}} محفظة",
+  "walletCount_other": "{{count}} محفظة",
   "bookingCount_zero": "{{count}} حجز",
   "bookingCount_one": "حجز واحد",
   "bookingCount_two": "حجزان",
@@ -117,7 +123,15 @@
     "all": "الكل",
     "owes": "مدينون لنا",
     "credit": "رصيد دائن",
-    "settled": "مُسوّى"
+    "settled": "مُسوّى",
+    "net": {
+      "receivable": "صافي المستحق لنا",
+      "receivableSub": "ما يدين به العملاء بعد خصم الأرصدة",
+      "payable": "صافي المستحق علينا",
+      "payableSub": "ما ندين به للعملاء بعد خصم المستحقات",
+      "zero": "الرصيد الصافي",
+      "zeroSub": "لا مستحقات على أي طرف"
+    }
   },
   "wallet": {
     "title": "محفظة {{name}}",

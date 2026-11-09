@@ -36,10 +36,12 @@ interface StatTileProps {
   art?: React.ReactNode;
   /** The paths of a different icon, for a tile whose tone's own icon would mislead. */
   icon?: React.ReactNode;
+  /** A second, smaller caption under `sub`. */
+  note?: string;
 }
 
 /** The first tile in `.hc-tiles` becomes the wide one on a phone. */
-export const StatTile: React.FC<StatTileProps> = ({ tone, label, value, sub, onPress, pressed = false, art, icon }) => {
+export const StatTile: React.FC<StatTileProps> = ({ tone, label, value, sub, onPress, pressed = false, art, icon, note }) => {
   const content = (
     <>
       <div className="hc-tile-head">
@@ -55,6 +57,7 @@ export const StatTile: React.FC<StatTileProps> = ({ tone, label, value, sub, onP
           <bdi dir="ltr">{value ?? '—'}</bdi>
         </div>
         <div className="hc-tile-sub">{sub}</div>
+        {note && <div className="hc-tile-sub hc-tile-note">{note}</div>}
       </div>
     </>
   );

@@ -1,14 +1,19 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { balanceTone, formatLira, type LineKind } from '../../lib/bookingWallet';
+import { useMoney } from '../../hooks/useMoney';
 
-/** "Credit ₺X", "Owes ₺X" or "Settled", coloured to match. */
-export const BalanceChip: React.FC<{ balance: number; size?: 'sm' | 'lg' }> = ({ balance, size = 'sm' }) => {
+/**
+ * "Credit ₺X", "Owes ₺X" or "Settled", coloured to match. `converted` shows the
+ * balance in the top bar's currency, as Accounting's list does.
+ */
+export const BalanceChip: React.FC<{ balance: number; size?: 'sm' | 'lg'; converted?: boolean }> = ({ balance, size = 'sm', converted = false }) => {
   const { t } = useTranslation('wallets');
+  const money = useMoney();
   const tone = balanceTone(balance);
   return (
     <span className={`hc-cw-chip is-${tone} is-${size}`}>
-      {tone === 'settled' ? t('wallet.settled') : <>{t(`wallet.${tone}`)} <bdi dir="ltr" className="hc-num">{formatLira(balance)}</bdi></>}
+      {tone === 'settled' ? t('wallet.settled') : <>{t(`wallet.${tone}`)} <bdi dir="ltr" className={converted ? 'hc-num hc-money-mono' : 'hc-num'}>{converted ? money.format(balance) : formatLira(balance)}</bdi></>}
     </span>
   );
 };

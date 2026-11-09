@@ -8,12 +8,17 @@ import { StatTile } from '../components/WalletParts';
 import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { useTileFilter } from '../hooks/useTileFilter';
 import { getSupplierBalances, getSuppliers } from '../lib/queries/suppliers';
-import { formatMoney, inSupplierFilter, matchesSupplier, owedByCurrency, SUPPLIER_CATEGORIES, supplierPath, SUPPLIER_FILTERS, type Supplier, type SupplierBalance } from '../lib/suppliers';
+import { inSupplierFilter, matchesSupplier, owedByCurrency, SUPPLIER_CATEGORIES, supplierPath, SUPPLIER_FILTERS, type Supplier, type SupplierBalance, type SupplierCurrency } from '../lib/suppliers';
+import { useMoney } from '../hooks/useMoney';
+import { RateNote } from '../components/Money';
 
 /** Lives inside the Suppliers tab of Accounting, which has the page's title and padding. */
 const SuppliersPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation('finance');
   const { t: tc } = useTranslation('common');
+  const money = useMoney();
+  /** Lira follows the top bar's currency; a bill in dollars or euros stays in its own. */
+  const formatMoney = (amount: number, currency: SupplierCurrency) => money.formatIn(amount, currency, { sign: 'negative' });
   const { userId } = useCurrentUser();
   const navigate = useNavigate();
   const [filter, setFilter] = useTileFilter(SUPPLIER_FILTERS);
@@ -87,6 +92,7 @@ const SuppliersPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =
         <StatTile tone="received" label={t('suppliers.tiles.settled')} value={value(count('settled'))} sub={t('suppliers.tiles.settledSub')} pressed={filter === 'settled'} onPress={() => setFilter('settled')} />
         <StatTile tone="paid" label={t('suppliers.tiles.inactive')} value={value(count('inactive'))} sub={t('suppliers.tiles.inactiveSub')} pressed={filter === 'inactive'} onPress={() => setFilter('inactive')} />
       </div>
+      <RateNote className="!mt-0" />
 
       <div className="hc-records-tools">
         <div className="hc-records-row">
@@ -122,7 +128,7 @@ const SuppliersPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =
                     : money.map(row => (
                       <span key={row.currency} className={row.balance > 0 ? 'is-owed' : 'is-credit'}>
                         <small>{t(row.balance > 0 ? 'suppliers.weOwe' : 'suppliers.credit')}</small>
-                        <bdi dir="ltr">{formatMoney(Math.abs(row.balance), row.currency)}</bdi>
+                        <bdi dir="ltr" className="hc-money-mono">{formatMoney(Math.abs(row.balance), row.currency)}</bdi>
                       </span>
                     ))}
                 </div>

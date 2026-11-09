@@ -21,8 +21,10 @@ import { StatTile } from '../components/WalletParts';
 import { useTileFilter } from '../hooks/useTileFilter';
 import CustomerWalletSheet from '../components/wallet/CustomerWalletSheet';
 import { BalanceChip } from '../components/wallet/WalletParts';
-import { balanceTone, formatLira, type BalanceTone } from '../lib/bookingWallet';
-import { matchesCustomer, summarizeCustomers, type BookingLabelRow, type CustomerSummary } from '../lib/customerWallets';
+import { balanceTone, type BalanceTone } from '../lib/bookingWallet';
+import { matchesCustomer, netOwed, summarizeCustomers, walletTotals, type BookingLabelRow, type CustomerSummary } from '../lib/customerWallets';
+import { RateNote } from '../components/Money';
+import { useMoney } from '../hooks/useMoney';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -595,7 +597,7 @@ const CustomerRow: React.FC<{ entry: CustomerSummary; onOpen: () => void }> = ({
           </span>
         )}
       </span>
-      <BalanceChip balance={entry.balance} />
+      <BalanceChip balance={entry.balance} converted />
     </button>
   );
 };
@@ -605,6 +607,7 @@ const CustomerRow: React.FC<{ entry: CustomerSummary; onOpen: () => void }> = ({
 /** `embedded` sits inside a tab of Accounting, which has its own title and padding. */
 const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { t } = useTranslation('wallets');
+  const money = useMoney();
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useTileFilter(FILTERS);
   const openId = params.get('customer');
@@ -664,25 +667,22 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
       return TONE_ORDER[ta] - TONE_ORDER[tb] || Math.abs(b.balance) - Math.abs(a.balance) || a.name.localeCompare(b.name);
     }), [rows, bookings, t]);
 
-  const totals = useMemo(() => {
-    const owes = customers.filter(entry => balanceTone(entry.balance) === 'owes');
-    const credit = customers.filter(entry => balanceTone(entry.balance) === 'credit');
-    return {
-      owes: owes.length,
-      owed: owes.reduce((sum, entry) => sum - entry.balance, 0),
-      credit: credit.length,
-      held: credit.reduce((sum, entry) => sum + entry.balance, 0),
-      settled: customers.length - owes.length - credit.length,
-    };
-  }, [customers]);
-
-  const shown = useMemo(() => {
+  // The tiles follow the search, so a plate's customers show their own figures;
+  // the net follows the tile filter too, as it describes the list below.
+  const searched = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return customers.filter(entry => {
-      if (filter !== 'all' && balanceTone(entry.balance) !== filter) return false;
-      return matchesCustomer(entry, query);
-    });
-  }, [customers, filter, search]);
+    return customers.filter(entry => matchesCustomer(entry, query));
+  }, [customers, search]);
+
+  const totals = useMemo(() => walletTotals(searched), [searched]);
+
+  const shown = useMemo(
+    () => (filter === 'all' ? searched : searched.filter(entry => balanceTone(entry.balance) === filter)),
+    [searched, filter],
+  );
+
+  const net = useMemo(() => netOwed(shown), [shown]);
+  const netSide = net > 0.005 ? 'receivable' : net < -0.005 ? 'payable' : 'zero';
 
   const openWallet = (customerId: string | null) => setParams(current => {
     const next = new URLSearchParams(current);
@@ -719,11 +719,20 @@ const CustomerWalletsPage: React.FC<{ embedded?: boolean }> = ({ embedded = fals
       )}
 
       <div className="hc-tiles hc-tiles-filter hc-cw-tiles">
-        <StatTile tone="total" label={t('tiles.all')} value={ready ? String(customers.length) : null} sub={t('customerCount', { count: customers.length })} onPress={() => setFilter('all')} pressed={filter === 'all'} />
-        <StatTile tone="negative" label={t('tiles.owes')} value={ready ? formatLira(totals.owed) : null} sub={t('customerCount', { count: totals.owes })} onPress={() => setFilter('owes')} pressed={filter === 'owes'} />
-        <StatTile tone="received" label={t('tiles.credit')} value={ready ? formatLira(totals.held) : null} sub={t('customerCount', { count: totals.credit })} onPress={() => setFilter('credit')} pressed={filter === 'credit'} />
+        <StatTile
+          tone={netSide === 'receivable' ? 'negative' : netSide === 'payable' ? 'received' : 'total'}
+          label={t(`tiles.net.${netSide}`)}
+          value={ready ? money.format(net) : null}
+          sub={t(`tiles.net.${netSide}Sub`)}
+          note={ready ? t('walletCount', { count: shown.length }) : undefined}
+          onPress={() => setFilter('all')}
+          pressed={filter === 'all'}
+        />
+        <StatTile tone="negative" label={t('tiles.owes')} value={ready ? money.format(totals.owed) : null} sub={t('customerCount', { count: totals.owes })} onPress={() => setFilter('owes')} pressed={filter === 'owes'} />
+        <StatTile tone="received" label={t('tiles.credit')} value={ready ? money.format(totals.held) : null} sub={t('customerCount', { count: totals.credit })} onPress={() => setFilter('credit')} pressed={filter === 'credit'} />
         <StatTile tone="balance" label={t('tiles.settled')} value={ready ? String(totals.settled) : null} sub={t('customerCount', { count: totals.settled })} onPress={() => setFilter('settled')} pressed={filter === 'settled'} />
       </div>
+      <RateNote className="!mt-0" />
 
       <div className="hc-cw-toolbar">
         <label className="hc-cw-search">

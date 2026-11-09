@@ -17,6 +17,8 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
 interface ExchangeRate {
   currency: string;
   rate_to_try: number;
+  /** When the rate was last set, for the "converted at" caption. */
+  updated_at?: string | null;
 }
 
 interface CurrencyContextValue {
@@ -64,7 +66,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     let cancelled = false;
-    supabase.from('exchange_rates').select('currency, rate_to_try').then(({ data }) => {
+    supabase.from('exchange_rates').select('currency, rate_to_try, updated_at').then(({ data }) => {
       if (!cancelled && data) setRates(data as ExchangeRate[]);
     });
     return () => { cancelled = true; };

@@ -103,13 +103,23 @@
   "all": "All",
   "customerCount_one": "{{count}} customer",
   "customerCount_other": "{{count}} customers",
+  "walletCount_one": "{{count}} wallet",
+  "walletCount_other": "{{count}} wallets",
   "bookingCount_one": "{{count}} booking",
   "bookingCount_other": "{{count}} bookings",
   "tiles": {
     "all": "All",
     "owes": "Owe us",
     "credit": "In credit",
-    "settled": "Settled"
+    "settled": "Settled",
+    "net": {
+      "receivable": "Net receivable",
+      "receivableSub": "Customers owe us after credits",
+      "payable": "Net payable",
+      "payableSub": "We owe customers after credits",
+      "zero": "Net balance",
+      "zeroSub": "Nothing owed either way"
+    }
   },
   "wallet": {
     "title": "{{name}}'s wallet",

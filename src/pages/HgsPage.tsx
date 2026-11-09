@@ -15,7 +15,8 @@ import HgsStatementDialog from '../components/hgs/HgsStatementDialog';
 import { usePageAccess } from '../contexts/PageAccessContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTileFilter } from '../hooks/useTileFilter';
-import { formatTRY } from '../lib/CurrencyContext';
+import { useMoney } from '../hooks/useMoney';
+import { RateNote } from '../components/Money';
 import { formatPlate } from '../lib/custodyExpense';
 import {
   HGS_FILTERS, HGS_SORTS, barcodeProblem, carParam, carParamKey, formatCount, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod,
@@ -76,6 +77,7 @@ function statementStart(period: HgsPeriod, items: readonly HgsCarTransit[]): Day
 }
 
 const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddBarcode: (() => void) | null; onExported: (fileName: string) => void }> = ({ id, row, period, onAddBarcode, onExported }) => {
+  const { format: formatMoney } = useMoney();
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const [items, setItems] = useState<HgsCarTransit[] | null>(null);
@@ -138,7 +140,7 @@ const CarTransits: React.FC<{ id: string; row: HgsRow; period: HgsPeriod; onAddB
                     : null}
                   {road && road !== place && <small><bdi dir="ltr">{road}</bdi></small>}
                 </span>
-                <b className="hc-hgs-t-amount"><bdi dir="ltr">{formatTRY(item.amount)}</bdi></b>
+                <b className="hc-hgs-t-amount"><bdi dir="ltr" className="hc-money-mono">{formatMoney(item.amount)}</bdi></b>
               </li>
             );
           })}
@@ -214,6 +216,7 @@ const PortalUpload: React.FC<{ plate: string; state: UploadState | undefined; on
 };
 
 const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({ state, onDismiss }) => {
+  const { format: formatMoney } = useMoney();
   const { t } = useTranslation('hgs');
   if (state.kind === 'busy') return null;
   return (
@@ -221,7 +224,7 @@ const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({
       <div className="min-w-0">
         {state.kind === 'error' ? <p>{state.message}</p> : (
           <>
-            <p>{t('upload.done', { inserted: formatCount(state.result.inserted), skipped: formatCount(state.result.skipped_duplicates), total: LTR(formatTRY(state.result.total_amount)) })}</p>
+            <p>{t('upload.done', { inserted: formatCount(state.result.inserted), skipped: formatCount(state.result.skipped_duplicates), total: LTR(formatMoney(state.result.total_amount)) })}</p>
             {!state.result.car_matched && <p className="hc-hgs-result-warn">{t('upload.noCar')}</p>}
             {state.undated > 0 && <p className="hc-hgs-result-note">{t('upload.undated', { count: state.undated })}</p>}
           </>
@@ -241,6 +244,7 @@ const CarCard: React.FC<{
   open: boolean; onToggle: () => void; onAddBarcode: (() => void) | null;
   upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void; onExported: (fileName: string) => void;
 }> = ({ row, period, range, onRange, open, onToggle, onAddBarcode, upload, onUpload, onExported }) => {
+  const { format: formatMoney } = useMoney();
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const panelId = useId();
@@ -260,7 +264,7 @@ const CarCard: React.FC<{
         <span className="hc-hgs-stat"><small>{t('row.transits')}</small><b className="hc-num">{formatCount(row.transits)}</b></span>
         <span className="hc-hgs-stat"><small>{t('row.last')}</small><b>{row.last ? formatDateDisplay(transitDate(row.last), locale) : '—'}</b></span>
         <span className="hc-hgs-amount">
-          <b><bdi dir="ltr">{formatTRY(row.amount)}</bdi></b>
+          <b><bdi dir="ltr" className="hc-money-mono">{formatMoney(row.amount)}</bdi></b>
           <span className="hc-hgs-share">
             <span role="img" aria-label={t('row.share', { pct: share })} className="hc-hgs-bar"><i style={{ inlineSize: `${Math.min(row.share * 100, 100)}%` }} /></span>
             <small dir="ltr">{share}</small>
@@ -348,6 +352,7 @@ const BarcodeDialog: React.FC<{ car: HgsCar; carsRoute: string | null; onClose: 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const HgsPage: React.FC = () => {
+  const { format: formatMoney } = useMoney();
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
   const { relative } = useTimeFormat();
@@ -600,11 +605,12 @@ const HgsPage: React.FC = () => {
       </div>
 
       <div className="hc-tiles hc-tiles-filter hc-bk-tiles hc-hgs-tiles">
-        <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.spend')} sub={globalRange ? LTR(rangeLabel(globalRange)) : allMonths ? t('month.all') : monthName(month)} value={value(formatTRY(tiles.spend))} pressed={filter === 'all'} onPress={() => setFilter('all')} />
+        <StatTile tone="balance" art={<HomeArt name="wallet" className="hc-tile-art" />} label={t('tiles.spend')} sub={globalRange ? LTR(rangeLabel(globalRange)) : allMonths ? t('month.all') : monthName(month)} value={value(formatMoney(tiles.spend))} pressed={filter === 'all'} onPress={() => setFilter('all')} />
         <StatTile tone="received" art={<Icon3D name="total" className="hc-tile-art" />} label={t('tiles.transits')} sub={t('tiles.transitsSub', { count: tiles.used })} value={value(formatCount(tiles.transits))} pressed={filter === 'used'} onPress={() => setFilter('used')} />
         <StatTile tone="paid" art={<StatusArt name="total" className="hc-tile-art" />} label={t('tiles.cars')} sub={t('tiles.carsSub', { n: formatCount(idle.length) })} value={value(formatCount(tiles.carsOnHgs))} pressed={filter === 'idle'} onPress={() => setFilter('idle')} />
-        <StatTile tone="warn" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.thisMonth')} sub={delta} value={value(formatTRY(tiles.thisMonth))} />
+        <StatTile tone="warn" art={<HomeArt name="schedule" className="hc-tile-art" />} label={t('tiles.thisMonth')} sub={delta} value={value(formatMoney(tiles.thisMonth))} />
       </div>
+      <RateNote className="!mt-0" />
 
       <div className="hc-bk-tools">
         <input type="search" className="hc-input !mt-0" placeholder={t('tools.search')} aria-label={t('tools.search')} value={search} onChange={e => setSearch(e.target.value)} />

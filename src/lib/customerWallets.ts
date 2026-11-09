@@ -2,7 +2,7 @@
  * The Customer wallets list: one row per customer, the sum of all their bookings, never
  * split by car. Counted the way the wallet itself counts, so a row and its wallet agree.
  */
-import { round2 } from './bookingWallet';
+import { balanceTone, round2 } from './bookingWallet';
 import type { LedgerRow } from './customerLedger';
 
 type Joined<T> = T | T[] | null | undefined;
@@ -95,4 +95,26 @@ export function matchesCustomer(entry: CustomerSummary, query: string): boolean 
   if (key && entry.plates.some(plate => plateKey(plate).includes(key))) return true;
   const number = digits(typed);
   return number.length >= 3 && !!entry.phone && digits(entry.phone).includes(number);
+}
+
+/** The tiles' figures for a list: how many owe and how much, how many are in credit and how much. */
+export function walletTotals(entries: readonly CustomerSummary[]) {
+  const owes = entries.filter(entry => balanceTone(entry.balance) === 'owes');
+  const credit = entries.filter(entry => balanceTone(entry.balance) === 'credit');
+  return {
+    owes: owes.length,
+    owed: owes.reduce((sum, entry) => sum - entry.balance, 0),
+    credit: credit.length,
+    held: credit.reduce((sum, entry) => sum + entry.balance, 0),
+    settled: entries.length - owes.length - credit.length,
+  };
+}
+
+/**
+ * What customers owe us after the credit we hold: owed minus credit, in lira.
+ * Positive is ours to collect, negative is ours to give back.
+ */
+export function netOwed(entries: readonly CustomerSummary[]): number {
+  const { owed, held } = walletTotals(entries);
+  return Math.round((owed - held) * 100) / 100;
 }

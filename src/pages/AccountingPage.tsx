@@ -14,7 +14,8 @@ import SupplierDetailPage from './SupplierDetailPage';
 import SuppliersPage from './SuppliersPage';
 import { supabase } from '../lib/supabase';
 import { sortCarsByModel } from '../lib/car-picker';
-import { useCurrency } from '../lib/CurrencyContext';
+import { useMoney } from '../hooks/useMoney';
+import { RateNote } from '../components/Money';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import Button from '../components/Button';
@@ -350,7 +351,7 @@ const CarSheetsTab: React.FC<{
   const { t: tc } = useTranslation('common');
   const { t: tf } = useTranslation('finance');
   const dateLocale = useDateLocale();
-  const { fmt } = useCurrency();
+  const { format: fmt } = useMoney();
   const monthKey = monthKeyOf(monthDate);
 
   const [cars, setCars] = useState<CarOption[]>([]);
@@ -502,9 +503,9 @@ const CarSheetsTab: React.FC<{
                     {suggested.length > 0 && <span className="hc-sug-chip">{tf('suggested.chip', { count: suggested.length })}</span>}
                   </span>
                   <span className="hc-acc-sheet-figures">
-                    <span><small>{t('summary.totalIn')}</small><b className="is-in"><bdi dir="ltr">{fmt(own?.in ?? 0)}</bdi></b></span>
-                    <span><small>{t('summary.totalOut')}</small><b className="is-out"><bdi dir="ltr">{fmt(own?.out ?? 0)}</bdi></b></span>
-                    <span><small>{t('summary.balance')}</small><b className={(own?.net ?? 0) < 0 ? 'is-out' : 'is-in'}><bdi dir="ltr">{(own?.net ?? 0) < 0 ? '−' : '+'}{fmt(own?.net ?? 0)}</bdi></b></span>
+                    <span><small>{t('summary.totalIn')}</small><b className="is-in"><bdi dir="ltr" className="hc-money-mono">{fmt(own?.in ?? 0)}</bdi></b></span>
+                    <span><small>{t('summary.totalOut')}</small><b className="is-out"><bdi dir="ltr" className="hc-money-mono">{fmt(own?.out ?? 0)}</bdi></b></span>
+                    <span><small>{t('summary.balance')}</small><b className={(own?.net ?? 0) < 0 ? 'is-out' : 'is-in'}><bdi dir="ltr" className="hc-money-mono">{(own?.net ?? 0) < 0 ? '−' : '+'}{fmt(own?.net ?? 0)}</bdi></b></span>
                   </span>
                   <svg className="hc-appr-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
@@ -530,7 +531,7 @@ const CarSheetsTab: React.FC<{
                         : <span style={{ color: '#d1d5db' }}>—</span>}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: txn.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      <span className="hc-num">{txn.direction === 'IN' ? '+' : '−'}{fmt(txn.amount)}</span>
+                      <span className="hc-num hc-money-mono">{txn.direction === 'IN' ? '+' : '−'}{fmt(txn.amount)}</span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -874,7 +875,7 @@ const CompanyExpensesSection: React.FC<{
   const { t } = useTranslation('accounting');
   const { t: tc } = useTranslation('common');
   const dateLocale = useDateLocale();
-  const { fmt } = useCurrency();
+  const { format: fmt } = useMoney();
   const [rows, setRows] = useState<CompanyExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -938,6 +939,7 @@ const CompanyExpensesSection: React.FC<{
         <SummaryPill label={t('summary.totalIn')} value={fmt(totals.tin)} color={COLOR_IN} />
         <SummaryPill label={t('summary.totalOut')} value={fmt(totals.tout)} color={COLOR_OUT} />
         <SummaryPill label={t('summary.net')} value={`${totals.net >= 0 ? '+' : '−'}${fmt(totals.net)}`} color={totals.net >= 0 ? COLOR_IN : COLOR_OUT} />
+        <RateNote className="self-end" />
         <div style={{ flex: 1 }} />
         <Button onClick={() => setShowAdd(true)}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -968,7 +970,7 @@ const CompanyExpensesSection: React.FC<{
                       ? <a href={r.receipt_url} target="_blank" rel="noreferrer" style={{ color: '#3A74C2', fontWeight: 600, textDecoration: 'none' }}>{t('receipt.view')}</a>
                       : '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'end', fontWeight: 700, color: r.direction === 'IN' ? COLOR_IN : COLOR_OUT }}>
-                      <span className="hc-num">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
+                      <span className="hc-num hc-money-mono">{r.direction === 'IN' ? '+' : '−'}{fmt(r.amount)}</span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'end' }}>
                       <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -1365,7 +1367,7 @@ const rowActionBtn: React.CSSProperties = {
 const SummaryPill: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
   <div className="surface-depth" style={{ ...cardStyle, padding: '10px 16px', minWidth: 130 }}>
     <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{label}</div>
-    <div style={{ fontSize: 18, fontWeight: 800, color }}><bdi dir="ltr">{value}</bdi></div>
+    <div style={{ fontSize: 18, fontWeight: 800, color }}><bdi dir="ltr" className="hc-money-mono">{value}</bdi></div>
   </div>
 );
 
@@ -1707,6 +1709,7 @@ const AccountingPage: React.FC = () => {
       </div>
 
       {tab === 'home' && <FinanceHome userId={userId} />}
+      {tab === 'car_sheets' && <RateNote className="!mt-0" />}
       {tab === 'car_sheets' && <CarSheetsTab key={focusCar ?? 'cars'} monthDate={monthDate} notify={notify} focusCar={focusCar} focusEntry={focusEntry} userId={userId} onAnswered={answered} />}
       {tab === 'company' && <CompanyExpensesSection monthDate={monthDate} userId={userId} notify={notify} focusEntry={focusEntry} onAnswered={answered} onOpenReceipt={setReceipt} />}
       {tab === 'custody' && <CustodyTab userId={userId} onOpenReceipt={setReceipt} onPendingChange={setPendingCount} notify={(message, failed) => notify({ message, type: failed ? 'error' : 'success' })} />}

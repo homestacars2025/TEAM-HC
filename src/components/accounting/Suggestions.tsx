@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '../../contexts/CurrentUserContext';
 import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
 import { useStaffProfiles } from '../../hooks/useStaffProfiles';
-import { useCurrency } from '../../lib/CurrencyContext';
+import { useMoney } from '../../hooks/useMoney';
 import type { ExpenseCar } from '../../lib/custodyExpense';
 import { getActiveCars } from '../../lib/queries/custody';
 import { reviewErrorKey, suggestedMatch, suggestionsFor, type ReviewExpense } from '../../lib/expenseReview';
@@ -197,7 +197,7 @@ const wholeAmount = (text: string) => text.replace(/[.,]0+$/, '');
 
 export const SuggestionBanner: React.FC<{ suggestions: Suggestions }> = ({ suggestions: s }) => {
   const { t } = useTranslation('finance');
-  const { fmt } = useCurrency();
+  const { format: fmt } = useMoney();
   if (s.shown.length === 0) return null;
   return (
     <div role="status" className="hc-sug-banner surface-depth">
@@ -209,7 +209,7 @@ export const SuggestionBanner: React.FC<{ suggestions: Suggestions }> = ({ sugge
 
 export const SuggestionList: React.FC<{ suggestions: Suggestions; rows: ReviewExpense[]; onOpenReceipt: (url: string) => void }> = ({ suggestions: s, rows, onOpenReceipt }) => {
   const { t } = useTranslation('finance');
-  const { fmt } = useCurrency();
+  const { format: fmt } = useMoney();
   const locale = useDateLocale();
   const categoryLabel = useExpenseCategoryLabel();
   const staff = useStaffProfiles();
@@ -232,7 +232,7 @@ export const SuggestionList: React.FC<{ suggestions: Suggestions; rows: ReviewEx
               <p dir="auto">{row.description || '—'}</p>
               <small dir="auto">{t('suggested.from', { employee: staff?.get(row.employee_id)?.full_name ?? t('review.employee') })}</small>
             </div>
-            <div className="hc-sug-amount"><bdi dir="ltr">−{fmt(row.amount)}</bdi></div>
+            <div className="hc-sug-amount"><bdi dir="ltr" className="hc-money-mono">−{fmt(row.amount)}</bdi></div>
             <ReceiptThumb url={row.receipt_url} label={t('review.receipt')} onOpen={onOpenReceipt} />
             {me && <SignatureCell signer={me} signedAt={s.signatures.get(row.id)?.get(me.profile_id)} onToggle={() => void s.toggleSignature(row)} />}
             <div className="hc-sug-actions">
@@ -250,7 +250,7 @@ export const SuggestionList: React.FC<{ suggestions: Suggestions; rows: ReviewEx
 export const SuggestionDialogs: React.FC<{ suggestions: Suggestions }> = ({ suggestions: s }) => {
   const { t } = useTranslation('finance');
   const { t: tc } = useTranslation('common');
-  const { fmt } = useCurrency();
+  const { format: fmt } = useMoney();
   return (
     <>
       {s.editing && (

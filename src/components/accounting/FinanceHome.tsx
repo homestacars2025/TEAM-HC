@@ -4,15 +4,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePageAccess } from '../../contexts/PageAccessContext';
 import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
 import { useStaffProfiles } from '../../hooks/useStaffProfiles';
-import { formatTRY, useCurrency } from '../../lib/CurrencyContext';
+import { useMoney } from '../../hooks/useMoney';
+import { formatTRY } from '../../lib/CurrencyContext';
 import { customerBalances, getLedgerRows, ledgerTotals, type LedgerRow } from '../../lib/customerLedger';
-import { fetchCurrentUsdRate } from '../../lib/exchangeRate';
 import { reviewStats, type ReviewExpense } from '../../lib/expenseReview';
 import { istanbulDate } from '../../lib/istanbulTime';
 import { getCustodyMovements, getSignatures, getWalletBalances, type Signatures } from '../../lib/queries/expenseReview';
 import { getMonthCompanyExpenses, getMonthSheetExpenses, getUnpaidFines } from '../../lib/queries/financeHome';
 import { getSupplierBalances } from '../../lib/queries/suppliers';
-import { formatMoney, owedByCurrency, type SupplierBalance } from '../../lib/suppliers';
+import { owedByCurrency, type SupplierBalance } from '../../lib/suppliers';
+import { RateNote } from '../Money';
 import PlateChip from '../booking/PlateChip';
 import { ComplianceTriangle } from '../cars/Compliance';
 import StaffAvatar from '../StaffAvatar';
@@ -39,10 +40,9 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
   const locale = useDateLocale();
   const navigate = useNavigate();
   const { canAccessPage } = usePageAccess();
-  const { currency, rates, fmt } = useCurrency();
+  const money = useMoney();
   const staff = useStaffProfiles();
   const [data, setData] = useState<HomeData | null>(null);
-  const [usdRate, setUsdRate] = useState<number | null>(null);
   const month = useMemo(() => istanbulDate().slice(0, 7), []);
 
   useEffect(() => {
@@ -53,7 +53,6 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
     ]).then(([movements, signatures, balances, ledger, fines, suppliers, sheetExpenses, companyExpenses]) => {
       if (!cancelled) setData({ movements, signatures, balances, ledger, fines, suppliers, sheetExpenses, companyExpenses });
     });
-    fetchCurrentUsdRate().then(rate => { if (!cancelled) setUsdRate(rate); });
     return () => { cancelled = true; };
   }, [month]);
 
@@ -64,7 +63,8 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
     return reviewStats(data.movements, { month, signed });
   }, [data, month, userId]);
 
-  const customers = useMemo(() => (data?.ledger ? ledgerTotals(customerBalances(data.ledger, currency, rates, usdRate)) : null), [data, currency, rates, usdRate]);
+  // Balances stay in lira here and are converted once, on screen, at the latest rate.
+  const customers = useMemo(() => (data?.ledger ? ledgerTotals(customerBalances(data.ledger, 'TRY', [], null)) : null), [data]);
   const held = data?.balances ? Array.from(data.balances.values()).reduce((sum, value) => sum + value, 0) : null;
   const owedSuppliers = data?.suppliers ? owedByCurrency(data.suppliers) : null;
   const supplierCount = data?.suppliers ? new Set(data.suppliers.filter(row => row.balance > 0).map(row => row.supplier_id)).size : 0;
@@ -93,12 +93,13 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
           <StatTile tone="warn" label={t('home.tiles.pending')} value={sum(custody?.pending.total, formatTRY)} sub={count('review.tiles.expenses', custody?.pending.count)} onPress={go(`${ACCOUNTING}?tab=custody&filter=pending`)} art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} />
           <StatTile tone="balance" label={t('home.tiles.unsigned')} value={custody ? String(custody.unsigned.count) : null} sub={custody ? formatTRY(custody.unsigned.total) : ''} onPress={go(`${ACCOUNTING}?tab=custody&filter=unsigned`)} />
           <StatTile tone="total" label={t('home.tiles.held')} value={sum(held, n => `${n < 0 ? '−' : ''}${formatTRY(n)}`)} sub={t('home.tiles.heldSub')} onPress={go(`${ACCOUNTING}?tab=custody`)} />
-          <StatTile tone="negative" label={t('home.tiles.owed')} value={sum(customers?.owed, fmt)} sub={count('home.customers', customers?.debtors.length)} onPress={go(`${ACCOUNTING}?tab=customers&filter=owes`)} />
-          <StatTile tone="received" label={t('home.tiles.credit')} value={sum(customers?.credit, fmt)} sub={count('home.customers', customers?.inCredit)} onPress={go(`${ACCOUNTING}?tab=customers&filter=credit`)} />
-          <StatTile tone="spent" label={t('home.tiles.fines')} value={sum(data?.fines?.total, fmt)} sub={count('home.fines', data?.fines?.count)} onPress={canAccessPage('fines') ? go('/dashboard/fines?filter=unpaid') : undefined} />
-          <StatTile tone="warn" label={t('home.tiles.suppliers')} value={ready && owedSuppliers ? (owedSuppliers[0] ? formatMoney(owedSuppliers[0].total, owedSuppliers[0].currency) : formatMoney(0, 'TRY')) : null} sub={owedSuppliers && owedSuppliers.length > 1 ? owedSuppliers.slice(1).map(row => formatMoney(row.total, row.currency)).join(' · ') : count('home.suppliers', data?.suppliers ? supplierCount : undefined)} onPress={go(`${ACCOUNTING}?tab=suppliers&filter=owed`)} />
-          <StatTile tone="paid" label={t('home.tiles.sheets')} value={sum(data?.sheetExpenses, fmt)} sub={t('home.tiles.thisMonth')} onPress={go(`${ACCOUNTING}?tab=car_sheets`)} />
-          <StatTile tone="paid" label={t('home.tiles.company')} value={sum(data?.companyExpenses, fmt)} sub={t('home.tiles.thisMonth')} onPress={go(`${ACCOUNTING}?tab=company`)} />
+          <StatTile tone="negative" label={t('home.tiles.owed')} value={sum(customers?.owed, money.format)} sub={count('home.customers', customers?.debtors.length)} onPress={go(`${ACCOUNTING}?tab=customers&filter=owes`)} />
+          <StatTile tone="received" label={t('home.tiles.credit')} value={sum(customers?.credit, money.format)} sub={count('home.customers', customers?.inCredit)} onPress={go(`${ACCOUNTING}?tab=customers&filter=credit`)} />
+          <StatTile tone="spent" label={t('home.tiles.fines')} value={sum(data?.fines?.total, money.format)} sub={count('home.fines', data?.fines?.count)} onPress={canAccessPage('fines') ? go('/dashboard/fines?filter=unpaid') : undefined} />
+          <StatTile tone="warn" label={t('home.tiles.suppliers')} value={ready && owedSuppliers ? (owedSuppliers[0] ? money.formatIn(owedSuppliers[0].total, owedSuppliers[0].currency) : money.format(0)) : null} sub={owedSuppliers && owedSuppliers.length > 1 ? owedSuppliers.slice(1).map(row => money.formatIn(row.total, row.currency)).join(' · ') : count('home.suppliers', data?.suppliers ? supplierCount : undefined)} onPress={go(`${ACCOUNTING}?tab=suppliers&filter=owed`)} />
+          <StatTile tone="paid" label={t('home.tiles.sheets')} value={sum(data?.sheetExpenses, money.format)} sub={t('home.tiles.thisMonth')} onPress={go(`${ACCOUNTING}?tab=car_sheets`)} />
+          <StatTile tone="paid" label={t('home.tiles.company')} value={sum(data?.companyExpenses, money.format)} sub={t('home.tiles.thisMonth')} onPress={go(`${ACCOUNTING}?tab=company`)} />
+          <RateNote className="col-span-full !mt-0" />
         </div>
 
         <section className="hc-trk-card surface-depth hc-fin-actions" aria-label={t('home.actions.title')}>
@@ -141,7 +142,7 @@ const FinanceHome: React.FC<{ userId: string | null }> = ({ userId }) => {
                       <strong dir="auto">{entry.name || '—'}</strong>
                       {entry.plate && <small><PlateChip plate={entry.plate} /></small>}
                     </span>
-                    <b className="is-minus"><bdi dir="ltr">{fmt(-entry.balance)}</bdi></b>
+                    <b className="is-minus"><bdi dir="ltr" className="hc-money-mono">{money.format(-entry.balance)}</bdi></b>
                   </Link>
                 </li>
               ))}

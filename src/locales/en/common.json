@@ -145,5 +145,9 @@
     "wrongPassword": "That email and password don't match.",
     "failed": "Couldn't sign in. Check your connection and try again.",
     "noAccess": "This account doesn't have access to the team dashboard."
+  },
+  "money": {
+    "converted": "Converted at {{pair}}",
+    "convertedOn": "Converted at {{pair}} ({{date}})"
   }
 }

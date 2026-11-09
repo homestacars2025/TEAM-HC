@@ -17,11 +17,11 @@ import {
   ALL_MONTHS, carName, currentMonth, hasNoRental, INVOICE_FILTERS, inInvoiceFilter, inMonth, invoiceCsvRows, invoiceMatches, invoiceTotals, isMissingAmount, readMonth, shiftMonth, type PendingInvoice,
 } from '../lib/pendingInvoices';
 import { getPendingInvoices, markInvoices } from '../lib/queries/pendingInvoices';
-import { formatMoney } from '../lib/suppliers';
+import { useMoney } from '../hooks/useMoney';
+import { RateNote } from '../components/Money';
 
 const TOAST_MS = 7000;
 
-const lira = (amount: number) => formatMoney(amount, 'TRY');
 
 interface Toast {
   message: string;
@@ -32,6 +32,8 @@ interface Toast {
 
 const PendingInvoicesPage: React.FC = () => {
   const { t } = useTranslation('finance');
+  const money = useMoney();
+  const lira = (amount: number) => money.format(amount, { sign: 'negative' });
   const locale = useDateLocale();
   const [params, setParams] = useSearchParams();
   const month = readMonth(params.get('month'));
@@ -153,6 +155,7 @@ const PendingInvoicesPage: React.FC = () => {
         <StatTile tone="paid" art={<HomeArt name="operations" className="hc-tile-art" />} label={t('invoices.tiles.vat')} sub={t('invoices.tiles.vatSub')} value={value(lira(totals.vat))} />
         <StatTile tone="warn" art={<ComplianceTriangle severity="missing" size={40} className="hc-tile-art" />} label={t('invoices.tiles.missing')} sub={t('invoices.tiles.missingSub')} value={value(String(totals.missing))} pressed={filter === 'missing'} onPress={() => setFilter('missing')} />
       </div>
+      <RateNote className="!mt-0" />
 
       <div className="hc-pi-tools">
         <input type="search" className="hc-input !mt-0" placeholder={t('invoices.search')} aria-label={t('invoices.search')} value={search} onChange={e => setSearch(e.target.value)} />
