@@ -2,14 +2,13 @@
  * "Add HGS from portal" in the customer wallet, through the database's own functions
  * (shared with Admin), and only them:
  *
- * - `preview_customer_hgs(p_booking_id, p_from_date)`: the booking car's portal transits
- *   whose Istanbul day falls from `p_from_date` (or the booking start) to the booking end,
- *   not yet charged to a customer;
- * - `apply_customer_hgs(p_booking_id, p_from_date)`: charges them, one `hgs` / OUT line
- *   each, and marks the transits.
+ * - `preview_customer_hgs(p_booking_id, p_from_date, p_to_date)`: the booking car's
+ *   portal transits whose Istanbul day falls from `p_from_date` to `p_to_date` (null: the
+ *   booking's start / end) on rented days only, not yet charged to a customer;
+ * - `apply_customer_hgs(p_booking_id, p_from_date, p_to_date)`: charges them, one `hgs` /
+ *   OUT line each, and marks the transits.
  *
- * Both exist with and without `p_from_date`, so every call sends it (null when empty);
- * one argument alone is ambiguous to PostgREST.
+ * The range is free: the functions, not this code, keep out the days the car wasn't rented.
  *
  * Lira only. This never asks for, sends or stores an exchange rate: dollars are a view
  * concern, worked out elsewhere when someone chooses USD.
@@ -55,14 +54,17 @@ export function readTransits(rows: unknown): PortalTransit[] {
 export const transitsTotal = (transits: readonly Pick<PortalTransit, 'amount'>[]) =>
   Math.round(transits.reduce((sum, t) => sum + t.amount, 0) * 100) / 100;
 
-export async function previewPortalHgs(bookingId: number, fromDate: string | null): Promise<PortalTransit[]> {
-  const { data, error } = await supabase.rpc('preview_customer_hgs', { p_booking_id: bookingId, p_from_date: fromDate || null });
+const rangeArgs = (bookingId: number, fromDate: string | null, toDate: string | null) =>
+  ({ p_booking_id: bookingId, p_from_date: fromDate || null, p_to_date: toDate || null });
+
+export async function previewPortalHgs(bookingId: number, fromDate: string | null, toDate: string | null): Promise<PortalTransit[]> {
+  const { data, error } = await supabase.rpc('preview_customer_hgs', rangeArgs(bookingId, fromDate, toDate));
   if (error) throw new Error(error.message);
   return readTransits(data);
 }
 
-export async function applyPortalHgs(bookingId: number, fromDate: string | null): Promise<PortalHgsResult> {
-  const { data, error } = await supabase.rpc('apply_customer_hgs', { p_booking_id: bookingId, p_from_date: fromDate || null });
+export async function applyPortalHgs(bookingId: number, fromDate: string | null, toDate: string | null): Promise<PortalHgsResult> {
+  const { data, error } = await supabase.rpc('apply_customer_hgs', rangeArgs(bookingId, fromDate, toDate));
   if (error) throw new Error(error.message);
   const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
   return { count: num(row?.inserted_count), total: num(row?.inserted_total) };

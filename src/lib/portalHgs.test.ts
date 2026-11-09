@@ -14,15 +14,15 @@ const line = (description: string | null, kind = 'hgs') => ({ kind, description 
 beforeEach(() => { mockCalls.length = 0; });
 
 describe('the database functions, and only them', () => {
-  test('always send both arguments, so the overloaded functions are never ambiguous', async () => {
+  test('send the free range as given, null for an empty end', async () => {
     mockData = [{ portal_id: 6235, tdate: '2026-10-17', amount: '59', road_type: 'public', note: '17-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ' }];
-    const rows = await previewPortalHgs(710, null);
-    expect(mockCalls).toEqual([{ fn: 'preview_customer_hgs', args: { p_booking_id: 710, p_from_date: null } }]);
+    const rows = await previewPortalHgs(710, null, null);
+    expect(mockCalls).toEqual([{ fn: 'preview_customer_hgs', args: { p_booking_id: 710, p_from_date: null, p_to_date: null } }]);
     expect(rows).toEqual([{ portalId: 6235, date: '2026-10-17', amount: 59, roadType: 'public', note: '17-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ' }]);
 
     mockData = [{ inserted_count: 25, inserted_total: '1903.0' }];
-    expect(await applyPortalHgs(710, '2026-10-01')).toEqual({ count: 25, total: 1903 });
-    expect(mockCalls[1]).toEqual({ fn: 'apply_customer_hgs', args: { p_booking_id: 710, p_from_date: '2026-10-01' } });
+    expect(await applyPortalHgs(710, '2026-10-01', '2027-01-15')).toEqual({ count: 25, total: 1903 });
+    expect(mockCalls[1]).toEqual({ fn: 'apply_customer_hgs', args: { p_booking_id: 710, p_from_date: '2026-10-01', p_to_date: '2027-01-15' } });
   });
 
   test('lira only: nothing here sends or stores an exchange rate, or writes a line itself', () => {

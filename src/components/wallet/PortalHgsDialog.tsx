@@ -48,6 +48,7 @@ export const PortalHgsDialog: React.FC<{
   const manual = useMemo(() => manualHgsLines(lines), [lines]);
   const suggestion = useMemo(() => suggestedFrom(lines, start, end), [lines, start, end]);
   const [from, setFrom] = useState(start);
+  const [to, setTo] = useState(end);
   const [transits, setTransits] = useState<PortalTransit[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [freshness, setFreshness] = useState<PortalFreshness | null>(null);
@@ -69,17 +70,17 @@ export const PortalHgsDialog: React.FC<{
     return () => { active = false; };
   }, [booking.car_id]);
 
-  // Read again on open and whenever From changes; an out-of-range day is held back.
+  // Read again on open and whenever the range changes. The range is free: the database
+  // charges only the days the car was rented, so a wider one is safe.
   useEffect(() => {
-    if (!from || from < start || from > end) return undefined;
     let active = true;
     setTransits(null);
     setFailed(false);
-    previewPortalHgs(booking.id, from === start ? null : from)
+    previewPortalHgs(booking.id, from, to)
       .then(next => { if (active) setTransits(next); })
       .catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [booking.id, from, start, end]);
+  }, [booking.id, from, to]);
 
   const count = transits?.length ?? 0;
   const total = transitsTotal(transits ?? []);
@@ -90,7 +91,7 @@ export const PortalHgsDialog: React.FC<{
     setApplying(true);
     setApplyError(null);
     try {
-      const result = await applyPortalHgs(booking.id, from === start ? null : from);
+      const result = await applyPortalHgs(booking.id, from, to);
       onPosted(result.count, result.total);
     } catch (reason) {
       setApplying(false);
@@ -137,14 +138,18 @@ export const PortalHgsDialog: React.FC<{
 
           <section className="hc-ce-section surface-depth">
             <div className="hc-phgs-period">
-              <label className="hc-ce-field">
-                <span className="hc-field-label">{t('portalHgs.from')}</span>
-                <input type="date" dir="ltr" className="hc-input" value={from} min={start} max={end} disabled={applying}
-                  onChange={e => setFrom(e.target.value || start)} />
-              </label>
+              {/* Hints, not limits: the database charges only rented days, whatever the range. */}
               <div className="hc-ce-field">
-                <span className="hc-field-label">{t('portalHgs.to')}</span>
-                <div className="hc-ce-locked" aria-readonly="true">{formatDay(end, locale)}</div>
+                <label htmlFor="hc-phgs-from" className="hc-field-label">{t('portalHgs.from')}</label>
+                <input id="hc-phgs-from" type="date" dir="ltr" className="hc-input" value={from} disabled={applying}
+                  aria-describedby="hc-phgs-from-hint" onChange={e => setFrom(e.target.value || start)} />
+                <span id="hc-phgs-from-hint" className="text-[12px] text-black/45">{t('portalHgs.fromHint', { date: formatDay(start, locale) })}</span>
+              </div>
+              <div className="hc-ce-field">
+                <label htmlFor="hc-phgs-to" className="hc-field-label">{t('portalHgs.to')}</label>
+                <input id="hc-phgs-to" type="date" dir="ltr" className="hc-input" value={to} disabled={applying}
+                  aria-describedby="hc-phgs-to-hint" onChange={e => setTo(e.target.value || end)} />
+                <span id="hc-phgs-to-hint" className="text-[12px] text-black/45">{t('portalHgs.toHint', { date: formatDay(end, locale) })}</span>
               </div>
             </div>
             <p className="mt-2 text-[12px] text-black/50">{t('portalHgs.periodHint')}</p>
