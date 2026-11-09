@@ -81,18 +81,46 @@ export const DEFAULT_SLOT_MINUTES = 20;
 
 // ─── Opening jsonb ────────────────────────────────────────────────────────────
 
-export const QUESTION_TYPES = ['short_text', 'long_text', 'single_choice', 'multiple_choice', 'number', 'date', 'file'] as const;
+export const QUESTION_TYPES = ['short_text', 'long_text', 'number', 'date', 'phone', 'yes_no', 'single_choice', 'multiple_choice', 'file'] as const;
 export type QuestionType = typeof QUESTION_TYPES[number];
 export const CHOICE_TYPES: readonly QuestionType[] = ['single_choice', 'multiple_choice'];
 
+/** The public form's languages; a label is one string or one per language. */
+export const FORM_LANGS = ['ar', 'en', 'tr'] as const;
+export type FormLang = typeof FORM_LANGS[number];
+export type Localized = string | Partial<Record<FormLang, string>>;
+
+/** A choice: its stored value, with labels per language when it has them. */
+export type FieldOption = string | { value: string; label?: Localized };
+
+/** The only keys a file question may have: the slots the application endpoint stores. */
+export const FILE_SLOTS = ['cv', 'license', 'id_document'] as const;
+export type FileSlot = typeof FILE_SLOTS[number];
+export const isFileSlot = (key: string): key is FileSlot => (FILE_SLOTS as readonly string[]).includes(key);
+
 export interface FormField {
-  /** Stable per opening: the key an answer is stored under. Never reused. */
+  /** Stable per opening: the key an answer is stored under. Never reused. For a file, one of FILE_SLOTS. */
   key: string;
   type: QuestionType;
-  label: string;
+  label: Localized;
   required: boolean;
-  options: string[];
+  options: FieldOption[];
 }
+
+/** The reader's language, then English, then whichever is there. */
+export function pickLabel(label: Localized | undefined, lang: string): string {
+  if (!label) return '';
+  if (typeof label === 'string') return label;
+  return label[lang as FormLang] || label.en || Object.values(label).find(Boolean) || '';
+}
+
+/** Every language as its own string, for the builder. */
+export const labelParts = (label: Localized): Record<FormLang, string> =>
+  typeof label === 'string' ? { ar: '', en: label, tr: '' } : { ar: label.ar ?? '', en: label.en ?? '', tr: label.tr ?? '' };
+
+export const optionValue = (option: FieldOption): string => (typeof option === 'string' ? option : String(option.value));
+export const optionLabel = (option: FieldOption, lang: string): string =>
+  typeof option === 'string' ? option : pickLabel(option.label, lang) || String(option.value);
 
 export interface InterviewCriterion {
   key: string;
@@ -103,6 +131,30 @@ export interface InterviewCriterion {
 
 const isQuestionType = (value: unknown): value is QuestionType => (QUESTION_TYPES as readonly unknown[]).includes(value);
 
+function readLabel(raw: unknown): Localized {
+  if (typeof raw === 'string') return raw.trim();
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const out: Partial<Record<FormLang, string>> = {};
+    for (const lang of FORM_LANGS) {
+      const value = (raw as Record<string, unknown>)[lang];
+      if (typeof value === 'string' && value.trim()) out[lang] = value.trim();
+    }
+    return out;
+  }
+  return '';
+}
+
+function readOption(raw: unknown): FieldOption | null {
+  if (typeof raw === 'string') return raw.trim() ? raw : null;
+  if (raw && typeof raw === 'object' && 'value' in raw) {
+    const value = String((raw as { value: unknown }).value ?? '').trim();
+    if (!value) return null;
+    const label = readLabel((raw as { label?: unknown }).label);
+    return pickLabel(label, 'en') ? { value, label } : value;
+  }
+  return null;
+}
+
 export function parseFormSchema(raw: unknown): FormField[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((entry, index) => {
@@ -110,14 +162,14 @@ export function parseFormSchema(raw: unknown): FormField[] {
     const f = entry as Record<string, unknown>;
     const key = typeof f.key === 'string' && f.key.trim() ? f.key.trim() : null;
     if (!key) return [];
-    const label = typeof f.label === 'string' ? f.label.trim() : '';
+    const label = readLabel(f.label);
     return [{
       key,
       // An unknown type degrades to text: the answer still has to be readable.
       type: isQuestionType(f.type) ? f.type : 'short_text',
-      label: label || `#${index + 1}`,
+      label: pickLabel(label, 'en') ? label : `#${index + 1}`,
       required: f.required === true,
-      options: Array.isArray(f.options) ? f.options.filter((o): o is string => typeof o === 'string' && o.trim().length > 0) : [],
+      options: Array.isArray(f.options) ? f.options.map(readOption).filter((o): o is FieldOption => o !== null) : [],
     }];
   });
 }
@@ -196,23 +248,109 @@ export function answerToStrings(value: unknown): string[] {
 
 export interface Attachment {
   path: string;
+  /** A file slot (`cv`, `license`, `id_document`), or a name for an older list entry. */
+  slot: FileSlot | null;
   name: string;
 }
 
-/** `attachments` jsonb: an array of paths, or of `{ path, name }`. Anything else is dropped. */
+/**
+ * `attachments` jsonb. The application endpoint writes `{ cv, license, id_document }`
+ * of storage paths; older rows hold an array of paths or `{ path, name }`.
+ */
 export function parseAttachments(raw: unknown): Attachment[] {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return Object.entries(raw as Record<string, unknown>).flatMap(([key, value]) => {
+      const path = typeof value === 'string' ? value.trim() : '';
+      if (!path) return [];
+      return [{ path, slot: isFileSlot(key) ? key : null, name: key }];
+    });
+  }
   if (!Array.isArray(raw)) return [];
   return raw.flatMap(entry => {
-    if (typeof entry === 'string' && entry.trim()) return [{ path: entry.trim(), name: entry.trim().split('/').pop() ?? entry }];
+    if (typeof entry === 'string' && entry.trim()) return [{ path: entry.trim(), slot: null, name: entry.trim().split('/').pop() ?? entry }];
     if (entry && typeof entry === 'object') {
       const e = entry as Record<string, unknown>;
       const path = typeof e.path === 'string' ? e.path.trim() : typeof e.url === 'string' ? e.url.trim() : '';
       if (!path) return [];
       const name = typeof e.name === 'string' && e.name.trim() ? e.name.trim() : path.split('/').pop() ?? path;
-      return [{ path, name }];
+      return [{ path, slot: null, name }];
     }
     return [];
   });
+}
+
+/** The CV, licence and ID first, then anything else, each path once; `cv_url` is the CV of older rows. */
+export function applicantFiles(attachments: readonly Attachment[], cvPath: string | null): Attachment[] {
+  const seen = new Set<string>();
+  const out: Attachment[] = [];
+  const add = (file: Attachment) => { if (!seen.has(file.path)) { seen.add(file.path); out.push(file); } };
+  const bySlot = (slot: FileSlot) => attachments.find(file => file.slot === slot);
+  const cv = bySlot('cv') ?? (cvPath ? { path: cvPath, slot: 'cv' as const, name: 'cv' } : undefined);
+  if (cv) add(cv);
+  (['license', 'id_document'] as const).forEach(slot => { const file = bySlot(slot); if (file) add(file); });
+  attachments.forEach(add);
+  return out;
+}
+
+// ─── Knock-out rules ──────────────────────────────────────────────────────────
+
+/** Checked by the application endpoint against the answers and the fixed fields. */
+export const KNOCKOUT_OPS = ['lt', 'lte', 'gt', 'gte', 'eq', 'neq', 'in', 'not_in', 'empty'] as const;
+export type KnockoutOp = typeof KNOCKOUT_OPS[number];
+export const NUMERIC_OPS: readonly KnockoutOp[] = ['lt', 'lte', 'gt', 'gte'];
+export const LIST_OPS: readonly KnockoutOp[] = ['in', 'not_in'];
+
+/** The fixed form fields a rule can test, besides the opening's own questions. */
+export const FIXED_FIELDS = ['age', 'nationality', 'residence_city', 'residence_district'] as const;
+
+export type KnockoutValue = string | number | boolean | string[] | null;
+
+export interface KnockoutRule {
+  field: string;
+  op: KnockoutOp;
+  value: KnockoutValue;
+  reason: string;
+}
+
+export function parseKnockoutRules(raw: unknown): KnockoutRule[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap(entry => {
+    if (!entry || typeof entry !== 'object') return [];
+    const r = entry as Record<string, unknown>;
+    if (typeof r.field !== 'string' || !r.field.trim() || !(KNOCKOUT_OPS as readonly unknown[]).includes(r.op)) return [];
+    const v = r.value;
+    const value: KnockoutValue = Array.isArray(v) ? v.map(String) : typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? v : null;
+    return [{ field: r.field.trim(), op: r.op as KnockoutOp, value, reason: typeof r.reason === 'string' ? r.reason : '' }];
+  });
+}
+
+/** What a rule's value box holds while it is edited: text, or `true`/`false` for a yes/no question. */
+export function ruleValueText(rule: Pick<KnockoutRule, 'value'>): string {
+  if (Array.isArray(rule.value)) return rule.value.join(', ');
+  if (rule.value === null) return '';
+  return String(rule.value);
+}
+
+/**
+ * The value as the endpoint compares it: numbers for lt…gte, a list for in/not_in,
+ * a boolean for a yes/no question, nothing for empty, text otherwise.
+ */
+export function ruleValueFrom(text: string, op: KnockoutOp, fieldType: QuestionType | 'number' | 'text'): KnockoutValue {
+  if (op === 'empty') return null;
+  if (LIST_OPS.includes(op)) return text.split(',').map(part => part.trim()).filter(Boolean);
+  if (NUMERIC_OPS.includes(op)) return text.trim() === '' ? null : Number(text.replace(',', '.'));
+  if (fieldType === 'yes_no') return text === 'true' ? true : text === 'false' ? false : null;
+  if (fieldType === 'number') return text.trim() === '' ? null : Number(text.replace(',', '.'));
+  return text.trim() || null;
+}
+
+/** A key under `hr:builder.knockout.errors`, or null. */
+export function ruleProblem(rule: KnockoutRule): 'field' | 'value' | 'number' | null {
+  if (!rule.field) return 'field';
+  if (rule.op === 'empty') return null;
+  if (rule.value === null || (Array.isArray(rule.value) && rule.value.length === 0)) return 'value';
+  if (NUMERIC_OPS.includes(rule.op) && (typeof rule.value !== 'number' || !Number.isFinite(rule.value))) return 'number';
+  return null;
 }
 
 // ─── Time (interviews are held in Istanbul) ───────────────────────────────────

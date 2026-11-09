@@ -5,7 +5,8 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { interviewCounts, matchesInterviewFilter, openSlots, slotDays, sortShortlist, type InterviewSlot, type ShortlistRow } from './interviews';
 import { openingProblem, slugify, toOpeningDraft } from './hr';
-import { istanbulDay, istanbulInstant, nextKey, parseAttachments, parseCriteria, parseFormSchema, readConfirmation, weightedScore } from './model';
+import { applicantFiles, istanbulDay, istanbulInstant, nextKey, optionLabel, parseAttachments, parseCriteria, parseFormSchema, parseKnockoutRules, pickLabel, readConfirmation, ruleProblem, ruleValueFrom, weightedScore } from './model';
+import { matchesTile } from '../../pages/hr/HrOpeningPage';
 
 let mockAllowed = new Set<string>();
 jest.mock('../../contexts/PageAccessContext', () => ({
@@ -133,7 +134,7 @@ describe('openings and scoring', () => {
   test('a malformed form or scorecard entry is dropped, not rendered', () => {
     expect(parseFormSchema([{ key: 'q1', type: 'weird', label: ' Age ' }, { label: 'no key' }, null])).toEqual([{ key: 'q1', type: 'short_text', label: 'Age', required: false, options: [] }]);
     expect(parseCriteria([{ key: 'c1', label: 'Driving', weight: 60 }, { key: 'c2', label: '', weight: -1 }])).toEqual([{ key: 'c1', label: 'Driving', weight: 60 }, { key: 'c2', label: '#2', weight: null }]);
-    expect(parseAttachments(['cv/a.pdf', { path: 'x/b.png', name: 'Licence' }, 5])).toEqual([{ path: 'cv/a.pdf', name: 'a.pdf' }, { path: 'x/b.png', name: 'Licence' }]);
+    expect(parseAttachments(['cv/a.pdf', { path: 'x/b.png', name: 'Licence' }, 5])).toEqual([{ path: 'cv/a.pdf', slot: null, name: 'a.pdf' }, { path: 'x/b.png', slot: null, name: 'Licence' }]);
   });
 
   test('keys are never reused', () => {
@@ -158,5 +159,53 @@ describe('openings and scoring', () => {
 
   test('public link names fold Turkish letters', () => {
     expect(slugify('Şoför — Kayaşehir Şubesi')).toBe('sofor-kayasehir-subesi');
+  });
+});
+
+describe('what the public application endpoint writes', () => {
+  test('files come as { cv, license, id_document }, CV first, the old cv_url counted once', () => {
+    const files = parseAttachments({ license: 'o/1-license.jpg', cv: 'o/1-cv.pdf', id_document: 'o/1-id_document.pdf', other: '' });
+    expect(files.map(f => f.slot)).toEqual(['license', 'cv', 'id_document']);
+    expect(applicantFiles(files, 'o/1-cv.pdf').map(f => f.slot)).toEqual(['cv', 'license', 'id_document']);
+    expect(applicantFiles([], 'legacy/cv.pdf')).toEqual([{ path: 'legacy/cv.pdf', slot: 'cv', name: 'cv' }]);
+  });
+
+  test('labels per language, the reader first, then English', () => {
+    const [field] = parseFormSchema([{ key: 'q1', type: 'yes_no', label: { ar: 'هل لديك رخصة؟', en: 'Do you have a licence?', tr: '' }, required: true }]);
+    expect(field.type).toBe('yes_no');
+    expect(pickLabel(field.label, 'ar')).toBe('هل لديك رخصة؟');
+    expect(pickLabel(field.label, 'tr')).toBe('Do you have a licence?');
+    const [choice] = parseFormSchema([{ key: 'q2', type: 'single_choice', label: 'Shift', options: ['Day', { value: 'night', label: { en: 'Night', ar: 'ليلي' } }] }]);
+    expect(optionLabel(choice.options[1], 'ar')).toBe('ليلي');
+  });
+
+  test('every type the website renders survives a read', () => {
+    const types = ['short_text', 'long_text', 'number', 'date', 'phone', 'yes_no', 'single_choice', 'multiple_choice', 'file'];
+    expect(parseFormSchema(types.map((type, i) => ({ key: `k${i}`, type, label: 'x' }))).map(f => f.type)).toEqual(types);
+  });
+
+  test('knock-out values are stored the way the endpoint compares them', () => {
+    expect(ruleValueFrom('21', 'lt', 'number')).toBe(21);
+    expect(ruleValueFrom('Syria, Iraq ,', 'in', 'text')).toEqual(['Syria', 'Iraq']);
+    expect(ruleValueFrom('false', 'eq', 'yes_no')).toBe(false);
+    expect(ruleValueFrom('anything', 'empty', 'text')).toBeNull();
+    expect(ruleProblem({ field: 'age', op: 'lt', value: Number.NaN, reason: '' })).toBe('number');
+    expect(ruleProblem({ field: 'q1', op: 'empty', value: null, reason: '' })).toBeNull();
+    expect(parseKnockoutRules([{ field: 'age', op: 'lt', value: 21, reason: 'Under 21' }, { field: 'x', op: 'like', value: 1 }])).toEqual([{ field: 'age', op: 'lt', value: 21, reason: 'Under 21' }]);
+  });
+
+  test('a file question must be one of the three slots, each once, and rules must be complete', () => {
+    const base = { ...toOpeningDraft(null), title: 'Driver' };
+    const file = (key: string) => ({ key, type: 'file' as const, label: { en: 'File' }, required: false, options: [] });
+    expect(openingProblem({ ...base, formSchema: [file('q3')] })).toBe('fileKey');
+    expect(openingProblem({ ...base, formSchema: [file('cv'), file('cv')] })).toBe('fileKey');
+    expect(openingProblem({ ...base, formSchema: [file('cv'), file('license')] })).toBeNull();
+    expect(openingProblem({ ...base, knockoutRules: [{ field: '', op: 'lt', value: 21, reason: '' }] })).toBe('rule');
+  });
+
+  test('the Auto-rejected tile shows who a knock-out rule caught', () => {
+    const a = { knockoutFailed: true, shortlisted: false, stage: 'rejected' } as Parameters<typeof matchesTile>[0];
+    expect(matchesTile(a, 'auto_rejected')).toBe(true);
+    expect(matchesTile({ ...a, knockoutFailed: false }, 'auto_rejected')).toBe(false);
   });
 });

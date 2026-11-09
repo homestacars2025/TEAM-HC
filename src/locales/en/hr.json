@@ -54,7 +54,9 @@
     "multiple_choice": "Multiple choice",
     "number": "Number",
     "date": "Date",
-    "file": "File upload"
+    "file": "File upload",
+    "phone": "Phone",
+    "yes_no": "Yes / no"
   },
   "common": {
     "years": "{{age}} yrs",
@@ -140,7 +142,7 @@
     "positions": "Positions",
     "description": "Description",
     "questions": "Application form",
-    "questionsHint": "What applicants answer. Each question keeps its key, so answers already given stay attached.",
+    "questionsHint": "What applicants answer on the website. Each question keeps its key, so answers already given stay attached. Labels in Arabic, English and Turkish; the website shows the visitor's language, then English.",
     "addQuestion": "Add question",
     "questionLabel": "Question",
     "type": "Type",
@@ -167,16 +169,60 @@
     "close": "Close opening",
     "reopen": "Reopen",
     "slug": "Public link name",
-    "slugHint": "Letters, numbers and dashes. The Cars website has no careers page yet, so nothing is public until one exists.",
+    "slugHint": "Letters, numbers and dashes. Once published, the opening is live at homestacars.com/careers/ and this name.",
     "slugTaken": "That link name is taken. Try another.",
     "statusSaved": "Opening is now {{status}}",
     "errors": {
       "title": "Give the opening a title.",
       "positions": "Positions is a whole number, or empty.",
-      "question": "Every question needs a label.",
+      "question": "Every question needs a label in at least one language.",
       "options": "A choice question needs at least two options.",
       "criterion": "Every criterion needs a label.",
-      "weights": "Give every criterion a weight adding up to 100, or leave them all empty."
+      "weights": "Give every criterion a weight adding up to 100, or leave them all empty.",
+      "fileKey": "Each file question needs its own file: CV, driving licence or ID document.",
+      "rule": "Finish or remove the knock-out rules marked in red."
+    },
+    "fileSlot": "File",
+    "lang": {
+      "ar": "Arabic",
+      "en": "English",
+      "tr": "Turkish"
+    },
+    "knockout": {
+      "title": "Knock-out rules",
+      "hint": "An applicant who matches a rule comes in auto-rejected, with its reason. They never see it.",
+      "none": "No rules: every applicant comes in as new.",
+      "field": "Field",
+      "fixed": "Applicant details",
+      "fields": {
+        "age": "Age",
+        "nationality": "Nationality",
+        "residence_city": "City",
+        "residence_district": "District"
+      },
+      "op": "Rejects when",
+      "value": "Value",
+      "values": "Values",
+      "listHint": "Comma between values",
+      "ops": {
+        "lt": "is less than",
+        "lte": "is at most",
+        "gt": "is more than",
+        "gte": "is at least",
+        "eq": "is",
+        "neq": "is not",
+        "in": "is one of",
+        "not_in": "is none of",
+        "empty": "is empty"
+      },
+      "reason": "Reason",
+      "reasonHint": "Shown to HR, e.g. Under 21",
+      "add": "Add rule",
+      "errors": {
+        "field": "Pick a field.",
+        "value": "Enter a value.",
+        "number": "Enter a number."
+      }
     }
   },
   "pipeline": {
@@ -194,7 +240,8 @@
       "all": "All applicants",
       "allSub": "this opening",
       "shortlist": "Shortlisted",
-      "shortlistSub": "for an interview"
+      "shortlistSub": "for an interview",
+      "autoRejectedSub": "failed a knock-out rule"
     },
     "shortlistOnly": "Shortlisted only",
     "empty": "No applicants yet",
@@ -207,7 +254,8 @@
       "district": "District",
       "stage": "Stage",
       "score": "Score",
-      "applied": "Applied"
+      "applied": "Applied",
+      "flags": "Flags"
     },
     "moveTo": "Move to",
     "moved": "{{name}} → {{stage}}",
@@ -245,7 +293,11 @@
     "shortlisted": "Shortlisted",
     "unshortlist": "Remove from shortlist",
     "attendance": "Attendance",
-    "slot": "Interview slot",
+    "slot": {
+      "cv": "CV",
+      "license": "Driving licence",
+      "id_document": "ID document"
+    },
     "noShow": "Mark no-show",
     "noShowDone": "Marked as no-show; their slot is open again",
     "knockout": "Knockout",
@@ -317,5 +369,22 @@
     "leaderboard": "Scores",
     "leaderboardEmpty": "No scored interviews yet",
     "rank": "#"
+  },
+  "flags": {
+    "autoRejected": "Auto-rejected",
+    "duplicate": "Possible duplicate",
+    "duplicateOf": "Same phone as {{name}}",
+    "language": {
+      "ar": "Applied in Arabic",
+      "en": "Applied in English",
+      "tr": "Applied in Turkish"
+    }
+  },
+  "publicLink": {
+    "label": "Public link",
+    "copy": "Copy link",
+    "copyWhatsapp": "Copy WhatsApp link",
+    "copied": "Copied",
+    "failed": "Couldn't copy. Select the link and copy it."
   }
 }

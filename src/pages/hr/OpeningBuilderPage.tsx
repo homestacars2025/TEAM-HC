@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import Button from '../../components/Button';
 import { useCurrentUser } from '../../contexts/CurrentUserContext';
 import { getOpening, openingProblem, saveOpening, setOpeningStatus, slugify, toOpeningDraft, type Opening, type OpeningDraft } from '../../lib/recruitment/hr';
-import { CHOICE_TYPES, QUESTION_TYPES, nextKey, type FormField, type InterviewCriterion, type OpeningStatus, type QuestionType } from '../../lib/recruitment/model';
+import { CHOICE_TYPES, FILE_SLOTS, FORM_LANGS, QUESTION_TYPES, isFileSlot, labelParts, nextKey, optionValue, pickLabel, type FormField, type InterviewCriterion, type OpeningStatus, type QuestionType } from '../../lib/recruitment/model';
+import { KnockoutEditor } from '../../components/hr/KnockoutEditor';
+import { PublicLink } from '../../components/hr/PublicLink';
 import { BackArrow, HR_BASE, OpeningStatusChip, openingPath } from './HrOpeningsPage';
 
 /**
@@ -171,6 +173,7 @@ const OpeningBuilderPage: React.FC = () => {
               <span className="mt-1 text-[12px] text-black/45">{t('builder.slugHint')}</span>
             </label>
           )}
+          {opening.status === 'published' && opening.publicSlug && <div className="mb-3"><PublicLink slug={opening.publicSlug} /></div>}
           <div className="flex flex-wrap gap-2">
             {opening.status !== 'published' && <Button disabled={statusBusy} onClick={() => changeStatus('published')}>{t('builder.publish')}</Button>}
             {opening.status === 'published' && <Button variant="secondary" disabled={statusBusy} onClick={() => changeStatus('closed')}>{t('builder.close')}</Button>}
@@ -184,36 +187,66 @@ const OpeningBuilderPage: React.FC = () => {
           <div className="hc-ce-section-title"><h3>{t('builder.questions')}</h3><span className="hc-ce-section-aside">{t('builder.questionsHint')}</span></div>
         </header>
         <ol className="hc-hr-builder-list">
-          {draft.formSchema.map((field, index) => (
-            <li key={field.key}>
-              <div className="hc-hr-builder-row">
-                <label className="hc-ce-field min-w-0 flex-1">
-                  <span className="hc-field-label">{t('builder.questionLabel')} <small className="hc-num text-black/35">{field.key}</small></span>
-                  <input dir="auto" className={`hc-input ${showErrors && !field.label.trim() ? 'is-invalid' : ''}`} value={field.label} onChange={e => setField(index, { label: e.target.value })} />
+          {draft.formSchema.map((field, index) => {
+            const parts = labelParts(field.label);
+            const usedSlots = draft.formSchema.filter((other, i) => i !== index && other.type === 'file').map(other => other.key);
+            const freeSlots = FILE_SLOTS.filter(slot => !usedSlots.includes(slot));
+            const changeType = (type: QuestionType) => {
+              if (type === field.type) return;
+              if (type === 'file') { if (freeSlots.length) setField(index, { type, key: freeSlots[0], options: [] }); return; }
+              setField(index, { type, key: field.type === 'file' ? nextKey(draft.formSchema, 'q') : field.key });
+            };
+            return (
+              <li key={`${field.key}-${index}`}>
+                <div className="hc-hr-builder-row">
+                  <label className="hc-ce-field sm:w-52">
+                    <span className="hc-field-label">{t('builder.type')} <small className="hc-num text-black/35">{field.key}</small></span>
+                    <select className="hc-input" value={field.type} onChange={e => changeType(e.target.value as QuestionType)}>
+                      {QUESTION_TYPES.map(type => <option key={type} value={type} disabled={type === 'file' && field.type !== 'file' && freeSlots.length === 0}>{t(`questionType.${type}`)}</option>)}
+                    </select>
+                  </label>
+                  {field.type === 'file' && (
+                    <label className="hc-ce-field sm:w-52">
+                      <span className="hc-field-label">{t('builder.fileSlot')}</span>
+                      <select className={`hc-input ${showErrors && !isFileSlot(field.key) ? 'is-invalid' : ''}`} value={isFileSlot(field.key) ? field.key : ''} onChange={e => setField(index, { key: e.target.value })}>
+                        {!isFileSlot(field.key) && <option value="">—</option>}
+                        {FILE_SLOTS.map(slot => <option key={slot} value={slot} disabled={usedSlots.includes(slot)}>{t(`applicant.slot.${slot}`)}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <span className="flex-1" />
+                  <RowTools index={index} count={draft.formSchema.length} onMove={to => set('formSchema', move(draft.formSchema, index, to))} onRemove={() => set('formSchema', draft.formSchema.filter((_, i) => i !== index))} />
+                </div>
+                <div className="hc-hr-labels mt-2">
+                  {FORM_LANGS.map(lang => (
+                    <label key={lang} className="hc-ce-field">
+                      <span className="hc-field-label">{t('builder.questionLabel')} · {t(`builder.lang.${lang}`)}</span>
+                      <input dir={lang === 'ar' ? 'rtl' : 'ltr'} lang={lang} className={`hc-input ${showErrors && !pickLabel(field.label, 'en').trim() ? 'is-invalid' : ''}`} value={parts[lang]}
+                        onChange={e => setField(index, { label: { ...parts, [lang]: e.target.value } })} />
+                    </label>
+                  ))}
+                </div>
+                {CHOICE_TYPES.includes(field.type) && (
+                  <label className="hc-ce-field mt-2">
+                    <span className="hc-field-label">{t('builder.options')} <small className="text-black/40">{t('builder.optionsHint')}</small></span>
+                    <textarea dir="auto" rows={3} className={`hc-input ${showErrors && field.options.filter(o => optionValue(o).trim()).length < 2 ? 'is-invalid' : ''}`}
+                      value={field.options.map(optionValue).join('\n')}
+                      // An option already labelled per language keeps its labels while its value is unchanged.
+                      onChange={e => setField(index, { options: e.target.value.split('\n').map(line => field.options.find(o => typeof o !== 'string' && optionValue(o) === line) ?? line) })} />
+                  </label>
+                )}
+                <label className="hc-hr-check mt-2">
+                  <input type="checkbox" checked={field.required} onChange={e => setField(index, { required: e.target.checked })} />
+                  {t('builder.required')}
                 </label>
-                <label className="hc-ce-field sm:w-48">
-                  <span className="hc-field-label">{t('builder.type')}</span>
-                  <select className="hc-input" value={field.type} onChange={e => setField(index, { type: e.target.value as QuestionType })}>
-                    {QUESTION_TYPES.map(type => <option key={type} value={type}>{t(`questionType.${type}`)}</option>)}
-                  </select>
-                </label>
-                <RowTools index={index} count={draft.formSchema.length} onMove={to => set('formSchema', move(draft.formSchema, index, to))} onRemove={() => set('formSchema', draft.formSchema.filter((_, i) => i !== index))} />
-              </div>
-              {CHOICE_TYPES.includes(field.type) && (
-                <label className="hc-ce-field mt-2">
-                  <span className="hc-field-label">{t('builder.options')} <small className="text-black/40">{t('builder.optionsHint')}</small></span>
-                  <textarea dir="auto" rows={3} className={`hc-input ${showErrors && field.options.filter(o => o.trim()).length < 2 ? 'is-invalid' : ''}`} value={field.options.join('\n')} onChange={e => setField(index, { options: e.target.value.split('\n') })} />
-                </label>
-              )}
-              <label className="hc-hr-check mt-2">
-                <input type="checkbox" checked={field.required} onChange={e => setField(index, { required: e.target.checked })} />
-                {t('builder.required')}
-              </label>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
-        <Button variant="secondary" className="hc-mg-small mt-3" onClick={() => set('formSchema', [...draft.formSchema, { key: nextKey(draft.formSchema, 'q'), type: 'short_text', label: '', required: false, options: [] }])}>+ {t('builder.addQuestion')}</Button>
+        <Button variant="secondary" className="hc-mg-small mt-3" onClick={() => set('formSchema', [...draft.formSchema, { key: nextKey(draft.formSchema, 'q'), type: 'short_text', label: { ar: '', en: '', tr: '' }, required: false, options: [] }])}>+ {t('builder.addQuestion')}</Button>
       </section>
+
+      <KnockoutEditor draft={draft} showErrors={showErrors} onChange={rules => set('knockoutRules', rules)} />
 
       <section className="hc-ce-section surface-depth">
         <header className="hc-ce-section-head">

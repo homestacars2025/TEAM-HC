@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import type { Applicant } from '../../lib/recruitment/hr';
 import {
   CONFIRMATION_TONES,
   PRIORITY_TONES,
@@ -90,3 +91,38 @@ export const ScorePicker: React.FC<{ value: number | null; onChange: (next: numb
     ))}
   </span>
 );
+
+/**
+ * What the application endpoint flagged: auto-rejected by a knock-out rule (the reasons
+ * in its tooltip), a possible duplicate (a link to the earlier applicant), and the
+ * language they applied in.
+ */
+export const ApplicantFlags: React.FC<{
+  applicant: Pick<Applicant, 'knockoutFailed' | 'knockoutReasons' | 'duplicateOf' | 'language'>;
+  duplicateName?: string | null;
+  /** Null when the earlier applicant isn't on screen; the badge then only says so. */
+  onOpenDuplicate?: (() => void) | null;
+  compact?: boolean;
+}> = ({ applicant, duplicateName, onOpenDuplicate, compact = false }) => {
+  const { t } = useTranslation('hr');
+  const reasons = applicant.knockoutReasons.join(' · ');
+  return (
+    <>
+      {applicant.knockoutFailed && (
+        <span className="hc-hr-chip hc-hr-flag is-rejected" title={reasons || undefined} tabIndex={reasons ? 0 : undefined}
+          aria-label={reasons ? `${t('flags.autoRejected')}: ${reasons}` : t('flags.autoRejected')}>
+          {t('flags.autoRejected')}
+        </span>
+      )}
+      {applicant.duplicateOf && (onOpenDuplicate && !compact ? (
+        <button type="button" className="hc-hr-chip hc-hr-flag is-duplicate" onClick={onOpenDuplicate}
+          title={duplicateName ? t('flags.duplicateOf', { name: duplicateName }) : undefined}>
+          {t('flags.duplicate')}{duplicateName ? <span className="opacity-75"> · <bdi dir="auto">{duplicateName}</bdi></span> : null}
+        </button>
+      ) : (
+        <span className="hc-hr-chip hc-hr-flag is-duplicate" title={duplicateName ? t('flags.duplicateOf', { name: duplicateName }) : undefined}>{t('flags.duplicate')}</span>
+      ))}
+      {applicant.language && <span className="hc-hr-chip hc-hr-lang" title={t(`flags.language.${applicant.language}`, { defaultValue: applicant.language })}>{applicant.language.toUpperCase()}</span>}
+    </>
+  );
+};

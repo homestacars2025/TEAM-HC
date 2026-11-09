@@ -30,7 +30,12 @@ import {
   RECOMMENDATION_STAGE,
   RECRUITMENT_STAGES,
   answerToStrings,
+  applicantFiles,
   formatDayLabel,
+  optionLabel,
+  optionValue,
+  pickLabel,
+  type FormField,
   formatTime,
   istanbulDay,
   readStage,
@@ -40,7 +45,7 @@ import {
   type Recommendation,
   type RecruitmentStage,
 } from '../../lib/recruitment/model';
-import { ConfirmationPicker, PriorityChip, ScorePicker, StageChip, StarRating } from './HrParts';
+import { ApplicantFlags, ConfirmationPicker, PriorityChip, ScorePicker, StageChip, StarRating } from './HrParts';
 
 const CloseIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
@@ -167,12 +172,16 @@ export const ApplicantDrawer: React.FC<{
   slot: HrSlot | null;
   location: string | null;
   profileId: string | null;
+  /** The earlier applicant this one may duplicate, when the page has them. */
+  duplicate: Applicant | null;
+  onOpenApplicant: (id: string) => void;
   onClose: () => void;
   /** After a write, so the page reads the applicant again. */
   onChanged: (message?: string) => void;
   onError: (message: string) => void;
-}> = ({ applicant, opening, interviews, slot, location, profileId, onClose, onChanged, onError }) => {
-  const { t } = useTranslation(['hr', 'common']);
+}> = ({ applicant, opening, interviews, slot, location, profileId, duplicate, onOpenApplicant, onClose, onChanged, onError }) => {
+  const { t, i18n } = useTranslation(['hr', 'common']);
+  const lang = i18n.resolvedLanguage ?? 'en';
   const locale = useDateLocale();
   useBlockedPage();
   const [activities, setActivities] = useState<Activity[] | null>(null);
@@ -226,15 +235,19 @@ export const ApplicantDrawer: React.FC<{
     }
   };
 
-  const fileAnswers = opening.formSchema.filter(field => field.type === 'file').flatMap(field => answerToStrings(applicant.answers[field.key]).map(path => ({ path, name: field.label })));
-  const files = [
-    ...(applicant.cvPath ? [{ path: applicant.cvPath, name: t('applicant.cv') }] : []),
-    ...applicant.attachments,
-    ...fileAnswers,
-  ];
+  const files = applicantFiles(applicant.attachments, applicant.cvPath);
+  const fileName = (file: { slot: string | null; name: string }) => (file.slot ? t(`applicant.slot.${file.slot}`) : file.name);
   const schemaKeys = new Set(opening.formSchema.map(field => field.key));
   const extraAnswers = Object.keys(applicant.answers).filter(key => !schemaKeys.has(key) && answerToStrings(applicant.answers[key]).length > 0);
-  const answerLines = (value: unknown) => answerToStrings(value).map(line => (line === 'true' ? t('applicant.yes') : line === 'false' ? t('applicant.no') : line));
+  /** Yes/no as words, a choice by its label in the reader's language, anything else as given. */
+  const answerLines = (value: unknown, field?: FormField) => {
+    if (typeof value === 'boolean') return [value ? t('applicant.yes') : t('applicant.no')];
+    return answerToStrings(value).map(line => {
+      if (line === 'true' || line === 'false') return line === 'true' ? t('applicant.yes') : t('applicant.no');
+      const option = field?.options.find(o => optionValue(o) === line);
+      return option ? optionLabel(option, lang) : line;
+    });
+  };
 
   const activityText = (activity: Activity): string => {
     const kind = activity.meta.kind;
@@ -255,6 +268,7 @@ export const ApplicantDrawer: React.FC<{
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <StageChip stage={applicant.stage} />
               <PriorityChip priority={applicant.priority} />
+              <ApplicantFlags applicant={applicant} duplicateName={duplicate?.fullName ?? null} onOpenDuplicate={duplicate ? () => onOpenApplicant(duplicate.id) : null} />
               <span className="text-[12.5px] text-black/45">{t('applicant.applied', { date: new Date(applicant.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}</span>
             </div>
           </div>
@@ -336,7 +350,7 @@ export const ApplicantDrawer: React.FC<{
                 {files.map(file => (
                   <li key={file.path}>
                     <FileIcon />
-                    <span dir="auto" className="min-w-0 flex-1 truncate">{file.name}</span>
+                    <span dir="auto" className="min-w-0 flex-1 truncate">{fileName(file)}</span>
                     <button type="button" className="hc-hr-link" onClick={() => openFile(file.path)}>{t('applicant.open')}</button>
                   </li>
                 ))}
@@ -347,10 +361,10 @@ export const ApplicantDrawer: React.FC<{
           <Section title={t('applicant.answers')}>
             <dl className="hc-hr-answers">
               {opening.formSchema.filter(field => field.type !== 'file').map(field => {
-                const lines = answerLines(applicant.answers[field.key]);
+                const lines = answerLines(applicant.answers[field.key], field);
                 return (
                   <div key={field.key}>
-                    <dt dir="auto">{field.label}</dt>
+                    <dt dir="auto">{pickLabel(field.label, lang)}</dt>
                     <dd dir="auto">{lines.length ? lines.map(line => <span key={line} className="block">{line}</span>) : <span className="text-black/35">{t('applicant.noAnswer')}</span>}</dd>
                   </div>
                 );

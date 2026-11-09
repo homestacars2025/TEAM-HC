@@ -6,7 +6,8 @@ import Button, { buttonClass } from '../../components/Button';
 import Icon3D from '../../components/Icon3D';
 import { StatTile } from '../../components/WalletParts';
 import { ApplicantDrawer } from '../../components/hr/ApplicantDrawer';
-import { ConfirmationChip, PriorityChip, StageChip } from '../../components/hr/HrParts';
+import { ApplicantFlags, ConfirmationChip, PriorityChip, StageChip } from '../../components/hr/HrParts';
+import { PublicLink } from '../../components/hr/PublicLink';
 import { InterviewCalendar } from '../../components/hr/InterviewCalendar';
 import { useCurrentUser } from '../../contexts/CurrentUserContext';
 import { useDateLocale } from '../../hooks/useDateLocale';
@@ -34,11 +35,12 @@ import { BackArrow, HR_BASE, OpeningStatusChip, openingPath } from './HrOpenings
  */
 
 const TOAST_MS = 3200;
-const TILE_FILTERS = ['new', 'shortlisted', 'interviewed', 'hired'] as const;
+const AutoRejectedIcon = <><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" /><path d="M7 17L17 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></>;
+const TILE_FILTERS = ['new', 'shortlisted', 'interviewed', 'hired', 'auto_rejected'] as const;
 type TileFilter = typeof TILE_FILTERS[number];
 
-const matchesTile = (a: Applicant, filter: TileFilter | 'all') =>
-  filter === 'all' || (filter === 'shortlisted' ? a.shortlisted : a.stage === filter);
+export const matchesTile = (a: Applicant, filter: TileFilter | 'all') =>
+  filter === 'all' || (filter === 'shortlisted' ? a.shortlisted : filter === 'auto_rejected' ? a.knockoutFailed : a.stage === filter);
 
 const matchesSearch = (a: Applicant, query: string) => {
   const words = query.trim().toLocaleLowerCase('tr-TR').split(/\s+/).filter(Boolean);
@@ -124,7 +126,9 @@ const HrOpeningPage: React.FC = () => {
     shortlisted: list.filter(a => a.shortlisted).length,
     interviewed: list.filter(a => a.stage === 'interviewed').length,
     hired: list.filter(a => a.stage === 'hired').length,
+    auto_rejected: list.filter(a => a.knockoutFailed).length,
   }), [list]);
+  const byId = useMemo(() => new Map(list.map(a => [a.id, a])), [list]);
 
   const move = async (applicant: Applicant, target: RecruitmentStage) => {
     if (applicant.stage === target) return;
@@ -181,7 +185,7 @@ const HrOpeningPage: React.FC = () => {
       <span className="flex flex-wrap gap-1">
         {a.shortlisted && <ConfirmationChip status={a.confirmation} />}
         {a.priority !== 'medium' && <PriorityChip priority={a.priority} />}
-        {a.knockoutFailed && <span className="hc-hr-chip" style={{ background: '#FFF1F2', color: '#BE123C' }} title={t('pipeline.knockout')}>!</span>}
+        <ApplicantFlags applicant={a} duplicateName={a.duplicateOf ? byId.get(a.duplicateOf)?.fullName ?? null : null} compact />
       </span>
     </button>
   );
@@ -196,6 +200,8 @@ const HrOpeningPage: React.FC = () => {
         </div>
         {opening && <Link to={`${openingPath(opening.id)}/edit`} className={buttonClass('secondary', 'hc-mg-new')}>{t('openings.edit')}</Link>}
       </header>
+
+      {opening?.status === 'published' && opening.publicSlug && <PublicLink slug={opening.publicSlug} />}
 
       <div role="tablist" aria-label={opening?.title ?? ''} className="hc-hr-tabs">
         {(['pipeline', 'interviews'] as const).map(key => (
@@ -214,6 +220,7 @@ const HrOpeningPage: React.FC = () => {
             <StatTile tone="st-pending" art={<Icon3D name="confirmed" className="hc-tile-art" />} label={t('pipeline.tiles.shortlist')} sub={t('pipeline.tiles.shortlistSub')} value={value(counts.shortlisted)} pressed={filter === 'shortlisted'} onPress={() => setFilter('shortlisted')} />
             <StatTile tone="st-maintenance" art={<Icon3D name="completed" className="hc-tile-art" />} label={t('stage.interviewed')} sub={t('openings.applicants', { count: counts.interviewed })} value={value(counts.interviewed)} pressed={filter === 'interviewed'} onPress={() => setFilter('interviewed')} />
             <StatTile tone="st-booked" art={<Icon3D name="confirmed" className="hc-tile-art" />} label={t('stage.hired')} sub={t('openings.applicants', { count: counts.hired })} value={value(counts.hired)} pressed={filter === 'hired'} onPress={() => setFilter('hired')} />
+            <StatTile tone="negative" icon={AutoRejectedIcon} label={t('flags.autoRejected')} sub={t('pipeline.tiles.autoRejectedSub')} value={value(counts.auto_rejected)} pressed={filter === 'auto_rejected'} onPress={() => setFilter('auto_rejected')} />
           </div>
 
           <div className="hc-hr-tools">
@@ -259,7 +266,7 @@ const HrOpeningPage: React.FC = () => {
               <table className="hc-hr-table">
                 <thead>
                   <tr>
-                    {(['name', 'age', 'nationality', 'district', 'stage', 'score', 'applied'] as const).map(col => <th key={col} scope="col">{t(`pipeline.columns.${col}`)}</th>)}
+                    {(['name', 'age', 'nationality', 'district', 'stage', 'flags', 'score', 'applied'] as const).map(col => <th key={col} scope="col">{t(`pipeline.columns.${col}`)}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -270,6 +277,12 @@ const HrOpeningPage: React.FC = () => {
                       <td dir="auto">{a.nationality ?? '—'}</td>
                       <td dir="auto">{a.residenceDistrict ?? '—'}</td>
                       <td><StageChip stage={a.stage} /></td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <span className="flex flex-wrap gap-1">
+                          <ApplicantFlags applicant={a} duplicateName={a.duplicateOf ? byId.get(a.duplicateOf)?.fullName ?? null : null}
+                            onOpenDuplicate={a.duplicateOf && byId.has(a.duplicateOf) ? () => setParam('applicant', a.duplicateOf) : null} />
+                        </span>
+                      </td>
                       <td className="hc-num">{scoreOf.has(a.id) ? `${scoreOf.get(a.id)}/100` : '—'}</td>
                       <td className="hc-num">{new Date(a.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</td>
                     </tr>
@@ -289,6 +302,8 @@ const HrOpeningPage: React.FC = () => {
           slot={slotOf.get(openApplicant.id) ?? null}
           location={settings?.location ?? null}
           profileId={userId}
+          duplicate={openApplicant.duplicateOf ? byId.get(openApplicant.duplicateOf) ?? null : null}
+          onOpenApplicant={applicantId => setParam('applicant', applicantId)}
           onClose={() => setParam('applicant', null)}
           onChanged={refresh}
           onError={onError}

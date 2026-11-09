@@ -13,7 +13,13 @@ import { supabase } from '../supabase';
 import {
   RECRUITMENT_STAGES,
   RECOMMENDATION_STAGE,
+  isFileSlot,
+  labelParts,
+  optionValue,
   parseAnswers,
+  parseKnockoutRules,
+  pickLabel,
+  ruleProblem,
   parseAttachments,
   parseCriteria,
   parseFormSchema,
@@ -26,6 +32,7 @@ import {
   type FormField,
   type InterviewConfirmation,
   type InterviewCriterion,
+  type KnockoutRule,
   type OpeningStatus,
   type Priority,
   type Recommendation,
@@ -44,6 +51,8 @@ export interface Opening {
   formSchema: FormField[];
   interviewCriteria: InterviewCriterion[];
   interviewQuestions: string[];
+  /** Checked by the application endpoint; a hit marks the applicant auto-rejected. */
+  knockoutRules: KnockoutRule[];
   positionsCount: number | null;
   publishedAt: string | null;
   closedAt: string | null;
@@ -73,6 +82,10 @@ export interface Applicant {
   lostReason: string | null;
   knockoutFailed: boolean;
   knockoutReasons: string[];
+  /** The earlier applicant to this opening with the same phone, when there is one. */
+  duplicateOf: string | null;
+  /** The language they applied in: ar, en or tr. */
+  language: string | null;
   shortlisted: boolean;
   confirmation: InterviewConfirmation;
   createdAt: string;
@@ -120,8 +133,8 @@ export interface HrSlot {
   applicantId: string | null;
 }
 
-const OPENING_COLUMNS = 'id, title, department, description, status, public_slug, form_schema, interview_criteria, interview_questions, positions_count, published_at, closed_at, created_at';
-const APPLICANT_COLUMNS = 'id, opening_id, full_name, age, phone, email, nationality, residence_city, residence_district, cv_url, attachments, answers, stage, source, priority, rating, notes, lost_reason, knockout_failed, knockout_reasons, shortlisted_for_interview, interview_confirmation, created_at';
+const OPENING_COLUMNS = 'id, title, department, description, status, public_slug, form_schema, interview_criteria, interview_questions, knockout_rules, positions_count, published_at, closed_at, created_at';
+const APPLICANT_COLUMNS = 'id, opening_id, full_name, age, phone, email, nationality, residence_city, residence_district, cv_url, attachments, answers, stage, source, priority, rating, notes, lost_reason, knockout_failed, knockout_reasons, duplicate_of, language, shortlisted_for_interview, interview_confirmation, created_at';
 
 const str = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value : null);
 const num = (value: unknown): number | null => (value === null || value === undefined || Number.isNaN(Number(value)) ? null : Number(value));
@@ -138,6 +151,7 @@ export function readOpening(row: Record<string, unknown>, counts?: { all: number
     formSchema: parseFormSchema(row.form_schema),
     interviewCriteria: parseCriteria(row.interview_criteria),
     interviewQuestions: parseQuestions(row.interview_questions),
+    knockoutRules: parseKnockoutRules(row.knockout_rules),
     positionsCount: num(row.positions_count),
     publishedAt: str(row.published_at),
     closedAt: str(row.closed_at),
@@ -170,6 +184,8 @@ export function readApplicant(row: Record<string, unknown>): Applicant {
     lostReason: str(row.lost_reason),
     knockoutFailed: row.knockout_failed === true,
     knockoutReasons: Array.isArray(row.knockout_reasons) ? (row.knockout_reasons as unknown[]).map(String) : [],
+    duplicateOf: str(row.duplicate_of),
+    language: str(row.language),
     shortlisted: row.shortlisted_for_interview === true,
     confirmation: readConfirmation(row.interview_confirmation),
     createdAt: String(row.created_at ?? ''),
@@ -211,6 +227,7 @@ export interface OpeningDraft {
   formSchema: FormField[];
   interviewCriteria: InterviewCriterion[];
   interviewQuestions: string[];
+  knockoutRules: KnockoutRule[];
 }
 
 export const toOpeningDraft = (opening: Opening | null): OpeningDraft => ({
@@ -221,18 +238,31 @@ export const toOpeningDraft = (opening: Opening | null): OpeningDraft => ({
   formSchema: opening?.formSchema ?? [],
   interviewCriteria: opening?.interviewCriteria ?? [],
   interviewQuestions: opening?.interviewQuestions ?? [],
+  knockoutRules: opening?.knockoutRules ?? [],
 });
 
+export type OpeningProblem = 'title' | 'positions' | 'question' | 'options' | 'fileKey' | 'criterion' | 'weights' | 'rule';
+
 /** A key under `hr:builder.errors`, or null when the draft can be saved. */
-export function openingProblem(draft: OpeningDraft): 'title' | 'positions' | 'question' | 'options' | 'criterion' | 'weights' | null {
+export function openingProblem(draft: OpeningDraft): OpeningProblem | null {
   if (!draft.title.trim()) return 'title';
   if (draft.positionsCount.trim() && !/^\d+$/.test(draft.positionsCount.trim())) return 'positions';
-  if (draft.formSchema.some(field => !field.label.trim())) return 'question';
-  if (draft.formSchema.some(field => (field.type === 'single_choice' || field.type === 'multiple_choice') && field.options.filter(o => o.trim()).length < 2)) return 'options';
+  if (draft.formSchema.some(field => !pickLabel(field.label, 'en').trim())) return 'question';
+  if (draft.formSchema.some(field => (field.type === 'single_choice' || field.type === 'multiple_choice') && field.options.filter(o => optionValue(o).trim()).length < 2)) return 'options';
+  const files = draft.formSchema.filter(field => field.type === 'file');
+  if (files.some(field => !isFileSlot(field.key)) || new Set(files.map(field => field.key)).size !== files.length) return 'fileKey';
   if (draft.interviewCriteria.some(c => !c.label.trim())) return 'criterion';
   const weights = draft.interviewCriteria.map(c => c.weight).filter((w): w is number => w !== null);
   if (weights.length > 0 && (weights.length !== draft.interviewCriteria.length || Math.round(weights.reduce((a, b) => a + b, 0)) !== 100)) return 'weights';
+  if (draft.knockoutRules.some(rule => ruleProblem(rule) !== null)) return 'rule';
   return null;
+}
+
+/** A label as stored: one string stays one string; per language, only the languages filled in. */
+function cleanLabel(label: FormField['label']): FormField['label'] {
+  if (typeof label === 'string') return label.trim();
+  const parts = labelParts(label);
+  return Object.fromEntries(Object.entries(parts).filter(([, text]) => text.trim()).map(([lang, text]) => [lang, text.trim()]));
 }
 
 function openingPayload(draft: OpeningDraft) {
@@ -241,9 +271,18 @@ function openingPayload(draft: OpeningDraft) {
     department: draft.department.trim() || null,
     description: draft.description.trim() || null,
     positions_count: draft.positionsCount.trim() ? Number(draft.positionsCount.trim()) : null,
-    form_schema: draft.formSchema.map(field => ({ ...field, label: field.label.trim(), options: field.options.map(o => o.trim()).filter(Boolean) })),
+    form_schema: draft.formSchema.map(field => ({
+      key: field.key,
+      type: field.type,
+      label: cleanLabel(field.label),
+      required: field.required,
+      ...(field.type === 'single_choice' || field.type === 'multiple_choice'
+        ? { options: field.options.filter(o => optionValue(o).trim()).map(o => (typeof o === 'string' ? o.trim() : o)) }
+        : {}),
+    })),
     interview_criteria: draft.interviewCriteria.map(c => ({ key: c.key, label: c.label.trim(), weight: c.weight })),
     interview_questions: draft.interviewQuestions.map(q => q.trim()).filter(Boolean),
+    knockout_rules: draft.knockoutRules.map(rule => ({ field: rule.field, op: rule.op, value: rule.op === 'empty' ? null : rule.value, reason: rule.reason.trim() })),
   };
 }
 
