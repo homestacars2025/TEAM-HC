@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { printFontStyles } from './printFonts';
 import { printHtml } from './printDocument';
 import { brandImg, brandLockupHtml } from './brand';
-import { hgsDay, hgsDetail, lineKind, round2 } from './bookingWallet';
+import { foldHgs, hgsDay, hgsDetail, lineKind, round2 } from './bookingWallet';
 
 /* ────────────────────────────────────────────────────────────────────────────
    printCustomerInvoice — replicates the ADMIN dashboard customer invoice
@@ -22,6 +22,8 @@ export interface InvoiceEntry {
   direction: string | null;
   amount: number;
   car_id: number | null;
+  /** HGS lines fold by it: one row per batch. */
+  event_no?: number | null;
 }
 
 // Simple TRY formatter — symbol prepended, no space, absolute value.
@@ -92,12 +94,12 @@ export async function printCustomerInvoice(
     <td>${fmt(e.amount)}</td>
   </tr>`;
 
-  // Every HGS line folds into one row where the newest of them was, with the same net
-  // total, so the totals below don't move. The details sit underneath: printed when they
-  // were open in the wallet, and the page's checkbox (seen where the invoice replaces
-  // the page, on a phone) shows or hides them.
-  const hgs = entries.filter(e => lineKind(e.type ?? '') === 'hgs');
-  const hgsRows = () => {
+  // HGS lines fold into one row per batch (`event_no`), as in the wallet, where the newest
+  // of that batch was, with the same net total, so the totals below don't move. The
+  // details sit underneath: printed when they were open in the wallet, and the page's
+  // checkbox (seen where the invoice replaces the page, on a phone) shows or hides them.
+  const isHgs = (e: InvoiceEntry) => lineKind(e.type ?? '') === 'hgs';
+  const hgsRows = (hgs: InvoiceEntry[]) => {
     const details = hgs.map(e => ({ e, d: hgsDetail(e) }));
     const dates = details.map(x => x.d.date).filter((date): date is string => !!date).sort();
     const from = dates[0] ?? null;
@@ -126,9 +128,8 @@ export async function printCustomerInvoice(
   </tr>`).join('');
     return summary + lines;
   };
-  const firstHgs = hgs[0];
-  const rows = entries.map(e => (lineKind(e.type ?? '') !== 'hgs' ? row(e) : e === firstHgs ? hgsRows() : '')).join('');
-  const hgsToggle = hgs.length > 0
+  const rows = foldHgs(entries, isHgs, e => e.event_no).map(item => (item.kind === 'line' ? row(item.item) : hgsRows(item.items))).join('');
+  const hgsToggle = entries.some(isHgs)
     ? `<label class="hgs-toggle"><input type="checkbox"${handlers.hgsDetails ? ' checked' : ''} onchange="document.querySelectorAll('.hgs-detail').forEach(function(r){r.hidden=!this.checked}.bind(this))"> Show HGS details</label>`
     : '';
 

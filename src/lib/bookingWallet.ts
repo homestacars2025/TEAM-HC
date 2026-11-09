@@ -25,6 +25,8 @@ export interface WalletLineRow {
   created_at: string | null;
   pay_method?: string | null;
   payment_ref?: string | null;
+  /** The booking event a line belongs to; every `apply_customer_hgs` batch gets a fresh one. */
+  event_no?: number | null;
   cars?: Joined<{ plate_number: string | null }>;
 }
 
@@ -266,6 +268,8 @@ export function hgsDetail(line: Pick<WalletLineRow, 'description' | 'created_at'
 }
 
 export interface HgsGroup {
+  /** The batch: its `event_no`, or `none` for the lines that have none. */
+  key: string;
   /** Newest first, as every list in the wallet. */
   lines: WalletLine[];
   /** IN minus OUT, so a charge is negative like any line. */
@@ -278,11 +282,12 @@ export interface HgsGroup {
 
 export type WalletItem = { kind: 'line'; line: WalletLine } | { kind: 'hgs'; group: HgsGroup };
 
-export function hgsGroup(lines: readonly WalletLine[]): HgsGroup {
+export function hgsGroup(lines: readonly WalletLine[], key = hgsBatchKey(lines[0]?.event_no)): HgsGroup {
   const details = lines.map(hgsDetail);
   const dates = details.map(detail => detail.date).filter((date): date is string => !!date).sort();
   const passes = details.filter(detail => detail.pass).length;
   return {
+    key,
     lines: [...lines],
     signed: round2(lines.reduce((sum, line) => sum + line.signed, 0)),
     from: dates[0] ?? null,
@@ -292,16 +297,39 @@ export function hgsGroup(lines: readonly WalletLine[]): HgsGroup {
   };
 }
 
-/** A booking's lines with every HGS line folded into one, placed where the newest of them was. */
-export function walletItems(lines: readonly WalletLine[]): WalletItem[] {
-  const hgs = lines.filter(line => line.kind === 'hgs');
-  const items: WalletItem[] = [];
-  let placed = false;
-  for (const line of lines) {
-    if (line.kind !== 'hgs') items.push({ kind: 'line', line });
-    else if (!placed) { items.push({ kind: 'hgs', group: hgsGroup(hgs) }); placed = true; }
+export const hgsBatchKey = (eventNo: number | null | undefined) => (eventNo == null ? 'none' : String(eventNo));
+
+export type Folded<T> = { kind: 'line'; item: T } | { kind: 'hgs'; key: string; items: T[] };
+
+/**
+ * HGS lines folded by batch: one group per `event_no`, so each "Add HGS from portal" run
+ * stays its own line and never merges with another, or with what was typed by hand
+ * (those without one share a group). Each group sits where its first line in `entries` was.
+ */
+export function foldHgs<T>(entries: readonly T[], isHgs: (entry: T) => boolean, eventNo: (entry: T) => number | null | undefined): Folded<T>[] {
+  const batches = new Map<string, T[]>();
+  for (const entry of entries) {
+    if (!isHgs(entry)) continue;
+    const key = hgsBatchKey(eventNo(entry));
+    batches.set(key, [...(batches.get(key) ?? []), entry]);
   }
-  return items;
+  const placed = new Set<string>();
+  const folded: Folded<T>[] = [];
+  for (const entry of entries) {
+    if (!isHgs(entry)) { folded.push({ kind: 'line', item: entry }); continue; }
+    const key = hgsBatchKey(eventNo(entry));
+    if (placed.has(key)) continue;
+    placed.add(key);
+    folded.push({ kind: 'hgs', key, items: batches.get(key) ?? [] });
+  }
+  return folded;
+}
+
+/** A booking's lines, newest first, with each HGS batch folded into one line where its newest was. */
+export function walletItems(lines: readonly WalletLine[]): WalletItem[] {
+  return foldHgs(lines, line => line.kind === 'hgs', line => line.event_no).map(item => (item.kind === 'line'
+    ? { kind: 'line', line: item.item }
+    : { kind: 'hgs', group: hgsGroup(item.items, item.key) }));
 }
 
 /** `28/09`, with the year only when the range crosses one. */

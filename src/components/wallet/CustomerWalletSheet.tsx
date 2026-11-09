@@ -106,7 +106,7 @@ export function hgsSummary(group: HgsGroup, t: TFunction): string {
   return [when, count].filter(Boolean).join(' · ');
 }
 
-/** Every HGS line of a booking as one row; the chevron opens them underneath. Open, they print too. */
+/** One HGS batch of a booking as one row; the chevron opens its lines underneath. Open, they print too. */
 const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void; onPartner: (bookingId: number) => void }> = ({ group, open, onToggle, onPartner, onEdit, onDelete }) => {
   const { t } = useTranslation('wallets');
   const listId = useId();
@@ -163,7 +163,13 @@ const BookingCard: React.FC<LineActions & {
   const { t } = useTranslation('wallets');
   const locale = useDateLocale();
   const [showAll, setShowAll] = useState(false);
-  const [hgsOpen, setHgsOpen] = useState(false);
+  /** The HGS batches open on screen, by key; each opens on its own. */
+  const [hgsOpen, setHgsOpen] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleHgs = (key: string) => setHgsOpen(open => {
+    const next = new Set(open);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  });
   const { booking, lines } = entry;
   const items = useMemo(() => walletItems(lines), [lines]);
   const shown = showAll ? items : items.slice(0, SHOWN_LINES);
@@ -190,7 +196,7 @@ const BookingCard: React.FC<LineActions & {
         : (
           <ul className="hc-cw-lines">
             {shown.map(item => item.kind === 'hgs'
-              ? <HgsGroupRow key="hgs" group={item.group} open={hgsOpen} onToggle={() => setHgsOpen(value => !value)} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />
+              ? <HgsGroupRow key={`hgs-${item.group.key}`} group={item.group} open={hgsOpen.has(item.group.key)} onToggle={() => toggleHgs(item.group.key)} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />
               : <LineRow key={item.line.id} line={item.line} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />)}
           </ul>
         )}
@@ -219,7 +225,7 @@ const BookingCard: React.FC<LineActions & {
           </button>
         )}
         {lines.length > 0 && (
-          <button type="button" className="hc-cw-soft" onClick={() => onPrint(hgsOpen)} disabled={printing}>
+          <button type="button" className="hc-cw-soft" onClick={() => onPrint(hgsOpen.size > 0)} disabled={printing}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             {printing ? t('form.preparing') : t('form.print')}
           </button>
@@ -313,7 +319,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
     setPrinting(entry.booking.id);
     // Newest first, the order the invoice expects, and only this booking's lines.
     await printCustomerInvoice(customerId, entry.lines.map(line => ({
-      created_at: line.created_at, type: line.type, description: line.description, direction: line.direction, amount: line.amount, car_id: line.car_id,
+      created_at: line.created_at, type: line.type, description: line.description, direction: line.direction, amount: line.amount, car_id: line.car_id, event_no: line.event_no,
     })), { onError: message => setToast(message), hgsDetails });
     setPrinting(null);
   };

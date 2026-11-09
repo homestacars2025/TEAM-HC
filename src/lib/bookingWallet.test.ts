@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  balanceTone, bookingNotes, buildWallet, canMove, defaultTarget, formatLira, hgsDay, hgsDetail, humanType, leftoverBalance, lineKind, walletItems,
+  balanceTone, bookingNotes, buildWallet, canMove, defaultTarget, foldHgs, formatLira, hgsDay, hgsDetail, humanType, leftoverBalance, lineKind, walletItems,
   transferAmount, transferFailure, walletTotal, type WalletBookingRow, type WalletLineRow,
 } from './bookingWallet';
 
@@ -171,6 +171,31 @@ describe('HGS lines, grouped', () => {
     expect(group!.lines.map(l => l.amount)).toEqual([41, 41, 1127, 49]);
     // The booking's balance is what it was before grouping.
     expect(entry.balance).toBe(-5000 + 3000 - 1176);
+  });
+
+  it('keeps each portal batch its own line, apart from what was typed by hand (HOM-09-26-037)', () => {
+    const batch = (amount: number, day: string, eventNo: number, at: string) => line(7, amount, 'OUT', { type: 'hgs', description: `${day} KARGO → KARGO`, event_no: eventNo, created_at: at });
+    const rows = [
+      line(7, 9000, 'OUT', { created_at: '2026-09-22T09:00:00Z', event_no: 1 }),
+      line(7, 272, 'OUT', { type: 'hgs', description: 'HGS to 31/09/2026', created_at: '2026-10-07T00:00:00Z', event_no: null }),
+      batch(65, '02-10-2026', 3, '2026-11-09T16:32:07Z'),
+      batch(35, '05-10-2026', 3, '2026-11-09T16:32:07Z'),
+      line(7, 5000, 'IN', { type: 'payment', created_at: '2026-11-10T09:00:00Z' }),
+      batch(40, '03-11-2026', 4, '2026-12-01T10:00:00Z'),
+    ];
+    const [entry] = buildWallet(rows, [booking(7)]);
+    const items = walletItems(entry.lines);
+    expect(items.map(item => (item.kind === 'hgs' ? `hgs:${item.group.key}` : item.line.type))).toEqual(['hgs:4', 'payment', 'hgs:3', 'hgs:none', 'rental']);
+    const groups = items.flatMap(item => (item.kind === 'hgs' ? [item.group] : []));
+    expect(groups.map(g => [g.key, g.lines.length, g.signed, g.passes, g.entries])).toEqual([['4', 1, -40, 1, 0], ['3', 2, -100, 2, 0], ['none', 1, -272, 0, 1]]);
+    expect(groups[1]).toMatchObject({ from: '2026-10-02', to: '2026-10-05' });
+    expect(entry.balance).toBe(-9000 - 272 - 100 + 5000 - 40);
+  });
+
+  it('folds anything by batch: lines without an event number share one group, event 0 is its own', () => {
+    const entries = [{ t: 'hgs', e: 2 }, { t: 'rental', e: 2 }, { t: 'hgs', e: null }, { t: 'hgs', e: 0 }, { t: 'hgs', e: 2 }, { t: 'hgs', e: undefined }];
+    const folded = foldHgs(entries, x => x.t === 'hgs', x => x.e);
+    expect(folded.map(f => (f.kind === 'hgs' ? `${f.key}×${f.items.length}` : f.item.t))).toEqual(['2×2', 'rental', 'none×2', '0×1']);
   });
 
   it('leaves a booking with no HGS line as it was, and groups even a single line', () => {
