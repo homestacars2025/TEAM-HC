@@ -12,6 +12,7 @@ import {
   type BookingNote, type BookingWallet, type HgsGroup, type WalletLine,
 } from '../../lib/bookingWallet';
 import { getCustomerWallet, type CustomerWalletData, type TransferResult } from '../../lib/queries/bookingWallet';
+import { PortalHgsDialog } from './PortalHgsDialog';
 import MoveBalanceSheet from './MoveBalanceSheet';
 import { BalanceChip, CloseIcon, LineGlyph, MoveIcon } from './WalletParts';
 
@@ -152,11 +153,13 @@ const BookingCard: React.FC<LineActions & {
   focused: boolean;
   onMove: () => void;
   onAdd?: () => void;
+  /** Charge the booking its HGS from the portal data; absent when it can't be. */
+  onPortalHgs?: () => void;
   /** With the HGS lines one by one, when they're open on screen. */
   onPrint: (hgsDetails: boolean) => void;
   printing: boolean;
   onPartner: (bookingId: number) => void;
-}> = ({ entry, movable, focused, onMove, onAdd, onPrint, printing, onPartner, onEdit, onDelete }) => {
+}> = ({ entry, movable, focused, onMove, onAdd, onPortalHgs, onPrint, printing, onPartner, onEdit, onDelete }) => {
   const { t } = useTranslation('wallets');
   const locale = useDateLocale();
   const [showAll, setShowAll] = useState(false);
@@ -209,6 +212,12 @@ const BookingCard: React.FC<LineActions & {
             {t('addTransactionShort')}
           </button>
         )}
+        {onPortalHgs && (
+          <button type="button" className="hc-cw-soft" onClick={onPortalHgs}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3L5 21M16 3l3 18M12 4v2.5M12 10.5v3M12 17.5V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            {t('portalHgs.action')}
+          </button>
+        )}
         {lines.length > 0 && (
           <button type="button" className="hc-cw-soft" onClick={() => onPrint(hgsOpen)} disabled={printing}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -246,6 +255,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
   const [moving, setMoving] = useState<number | null>(null);
   const [focused, setFocused] = useState<number | null>(focusBookingId);
   const [printing, setPrinting] = useState<number | null>(null);
+  const [portalHgs, setPortalHgs] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const scrolled = useRef(false);
 
@@ -266,13 +276,14 @@ const CustomerWalletSheet: React.FC<LineActions & {
 
   useEffect(() => { sheet.current?.focus(); }, []);
 
-  // The move sheet takes Escape first while it is open.
+  // The move sheet and the HGS dialog take Escape first while they are open.
+  const layered = covered || portalHgs != null;
   useEffect(() => {
-    if (covered) return undefined;
+    if (layered) return undefined;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, covered]);
+  }, [onClose, layered]);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -315,6 +326,13 @@ const CustomerWalletSheet: React.FC<LineActions & {
   };
 
   const movingEntry = moving != null ? wallet.find(entry => entry.booking.id === moving) ?? null : null;
+  const portalEntry = portalHgs != null ? wallet.find(entry => entry.booking.id === portalHgs) ?? null : null;
+  const hgsPosted = (count: number, amount: number) => {
+    setPortalHgs(null);
+    setToast(t('portalHgs.posted', { count, amount: formatLira(amount) }));
+    setReload(value => value + 1);
+    onChanged?.();
+  };
   const tone = balanceTone(total);
 
   return ReactDOM.createPortal(
@@ -364,6 +382,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
                     focused={focused === entry.booking.id}
                     onMove={() => setMoving(entry.booking.id)}
                     onAdd={onAdd ? () => onAdd(entry.booking.id, name) : undefined}
+                    onPortalHgs={entry.booking.car_id != null && entry.booking.status !== 'cancelled' ? () => setPortalHgs(entry.booking.id) : undefined}
                     onPrint={hgsDetails => void print(entry, hgsDetails)}
                     printing={printing === entry.booking.id}
                     onPartner={goTo}
@@ -377,6 +396,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
 
         {toast && <div role="status" className="hc-ce-toast">{toast}</div>}
       </div>
+      {portalEntry && <PortalHgsDialog entry={portalEntry} onClose={() => setPortalHgs(null)} onPosted={hgsPosted} />}
       {movingEntry && <MoveBalanceSheet from={movingEntry} wallet={wallet} onClose={() => setMoving(null)} onMoved={moved} />}
     </div>,
     document.body,

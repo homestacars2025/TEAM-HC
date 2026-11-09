@@ -5902,3 +5902,17 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-hr-slotlist li.is-blocked { background: rgba(0, 0, 0, 0.03); color: rgba(0, 0, 0, 0.45); }
 .hc-hr-meter { display: block; width: 80px; height: 6px; overflow: hidden; border-radius: 999px; background: #EEF0F3; }
 .hc-hr-meter i { display: block; height: 100%; border-radius: inherit; background: #6EA4E7; }
+
+/* Wallet: HGS from the portal. */
+.hc-ce-backdrop.hc-cw-layer2 { z-index: 8300; }
+@media (min-width: 768px) { .hc-ce.hc-phgs { width: min(600px, 100%); } }
+.hc-phgs-note { padding: 10px 12px; border: 1px solid rgba(75, 166, 234, 0.25); border-radius: 12px; background: rgba(75, 166, 234, 0.07); color: #1E4E8C; font-size: 13px; line-height: 1.45; }
+.hc-phgs-note.is-warn { border-color: rgba(245, 158, 11, 0.3); background: #FFFBEB; color: #92400E; }
+.hc-phgs-note.is-bad { border-color: rgba(220, 38, 38, 0.2); background: #FEF2F2; color: #B42318; }
+.hc-phgs-note ul { margin-top: 6px; padding-inline-start: 16px; list-style: disc; }
+.hc-phgs-period { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.hc-phgs-period .hc-input { min-height: 44px; }
+.hc-phgs-period > :last-child { grid-column: 1 / -1; }
+@media (min-width: 640px) { .hc-phgs-period { grid-template-columns: 1fr 1fr 0.8fr; } .hc-phgs-period > :last-child { grid-column: auto; } }
+.hc-phgs-sum { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 10px; font-size: 14px; color: #0f1117; }
+.hc-phgs-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #F3F4F6; font-size: 13px; color: #374151; }
