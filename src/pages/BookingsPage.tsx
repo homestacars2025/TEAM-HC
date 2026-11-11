@@ -787,7 +787,7 @@ const toCustomerLanguage = (v: unknown): CustomerLanguage =>
   (v === 'tr' || v === 'en' || v === 'ar') ? v : 'ar';
 
 const EMPTY_FORM: BookingFormData = {
-  booking_number: '', status: 'pending', car_id: '',
+  booking_number: '', status: 'confirmed', car_id: '',
   start_date: '', end_date: '',
   pickup_location: '', dropoff_location: '', km_at_delivery: '', fuel_at_delivery: '',
   insurance_type: '', additional_services: '',
