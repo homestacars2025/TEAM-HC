@@ -5363,6 +5363,14 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-cw-line.is-detail:last-child { border-bottom: 0; }
 .hc-cw-line.is-detail .hc-cw-line-label { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .hc-cw-line.is-detail .hc-cw-line-amount { font-size: 13px; }
+/* With who-recorded-it avatars, a phone gives the title its own line and puts the amount and actions under it. */
+@media (max-width: 479.98px) {
+  .hc-cw-line.has-stamp { flex-wrap: wrap; row-gap: 0; }
+  .hc-cw-line.has-stamp > .hc-cw-line-text { flex-basis: calc(100% - 42px); }
+  .hc-cw-line.has-stamp.is-detail > .hc-cw-line-text { flex-basis: 100%; }
+  .hc-cw-line.has-stamp > .hc-cw-line-amount { margin-inline-start: 42px; margin-inline-end: auto; }
+  .hc-cw-line.has-stamp.is-detail > .hc-cw-line-amount { margin-inline-start: 0; }
+}
 @media (max-width: 639.98px) { .hc-cw-hgs-lines { margin-inline-start: 14px; padding-inline-start: 10px; } }
 .hc-cw-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: transparent; color: #9ca3af; cursor: pointer; }
 .hc-cw-icon:hover { background: #f2f4f7; color: #0f1117; }

@@ -15,6 +15,8 @@ import { getCustomerWallet, type CustomerWalletData, type TransferResult } from 
 import { PortalHgsDialog } from './PortalHgsDialog';
 import MoveBalanceSheet from './MoveBalanceSheet';
 import { BalanceChip, CloseIcon, LineGlyph, MoveIcon } from './WalletParts';
+import { DeletedLedgerEntries, LedgerActorsProvider, LedgerStamp, useLedgerActorsEnabled } from './LedgerActors';
+import { usePageAccess } from '../../contexts/PageAccessContext';
 
 const SHOWN_LINES = 6;
 
@@ -44,8 +46,9 @@ const LineRow: React.FC<LineActions & { line: WalletLine; onPartner: (bookingId:
   const editable = !line.pay_method && line.kind !== 'transfer';
   const detail = line.kind === 'transfer' ? line.note : line.description;
   const hgs = inGroup ? hgsDetail(line) : null;
+  const stamped = useLedgerActorsEnabled();
   return (
-    <li className={`hc-cw-line is-${line.kind}${hgs ? ' is-detail' : ''}`}>
+    <li className={`hc-cw-line is-${line.kind}${hgs ? ' is-detail' : ''}${stamped ? ' has-stamp' : ''}`}>
       {!hgs && <LineGlyph kind={line.kind} />}
       {hgs ? (
         <span className="hc-cw-line-text">
@@ -88,6 +91,7 @@ const LineRow: React.FC<LineActions & { line: WalletLine; onPartner: (bookingId:
           {!editable && <span className="hc-cw-locked">{t('table.locked')}</span>}
         </span>
       )}
+      <LedgerStamp ledgerId={line.id} createdBy={line.created_by} createdAt={line.created_at} updatedBy={line.updated_by} updatedAt={line.updated_at} />
     </li>
   );
 };
@@ -340,8 +344,12 @@ const CustomerWalletSheet: React.FC<LineActions & {
     onChanged?.();
   };
   const tone = balanceTone(total);
+  // Finance sees who recorded and edited each line; `ledger_actor_cards` answers no one else anyway.
+  const { canAccessPage } = usePageAccess();
+  const actorIds = useMemo(() => (data?.rows ?? []).flatMap(row => [row.created_by, row.updated_by]), [data]);
 
   return ReactDOM.createPortal(
+    <LedgerActorsProvider ids={actorIds} enabled={canAccessPage('accounting')}>
     <div className="hc-ce-backdrop hc-cw-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div
         ref={sheet}
@@ -396,6 +404,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
                     onDelete={onDelete}
                   />
                 ))}
+              <DeletedLedgerEntries customerId={customerId} refreshKey={version + reload} />
             </>
           )}
         </div>
@@ -404,7 +413,8 @@ const CustomerWalletSheet: React.FC<LineActions & {
       </div>
       {portalEntry && <PortalHgsDialog entry={portalEntry} onClose={() => setPortalHgs(null)} onPosted={hgsPosted} />}
       {movingEntry && <MoveBalanceSheet from={movingEntry} wallet={wallet} onClose={() => setMoving(null)} onMoved={moved} />}
-    </div>,
+    </div>
+    </LedgerActorsProvider>,
     document.body,
   );
 };

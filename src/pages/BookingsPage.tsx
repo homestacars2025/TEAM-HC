@@ -1372,7 +1372,8 @@ const BookingFormModal: React.FC<FormModalProps> = ({
   const days = rentalDays(form.start_date, form.end_date);
   const recentCars = useMemo(() => (cars ? recentCarIds().flatMap(id => cars.filter(car => car.id === id)) : []), [cars]);
   const { busy, cautions, failed: availabilityFailed, conflictsFor } = useCarAvailability(form.start_date, form.end_date, { bookingId: editId, customerId: thisCustomerId, softAllowed: true });
-  const isAdmin = useCurrentUser().profile?.role === 'admin';
+  const { userId, profile: currentProfile } = useCurrentUser();
+  const isAdmin = currentProfile?.role === 'admin';
   /** Car and dates an admin has agreed to book over maintenance or a replacement. */
   const softAccepted = useRef<string | null>(null);
   const [softFlagged, setSoftFlagged] = useState(false);
@@ -1637,6 +1638,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
       const { error: rentalError } = await supabase.from('customer_accounting_ledger').insert([{
         booking_id: bookingId, customer_id: customerId, car_id: carIdNum,
         type: 'rental', amount: toTRY(rentalAmt), direction: 'OUT', description: 'Rental fee', ...rateStamp,
+        created_by: userId,
       }]);
       if (rentalError) onRentalFailed();
 
@@ -1741,6 +1743,7 @@ const BookingFormModal: React.FC<FormModalProps> = ({
           : await supabase.from('customer_accounting_ledger').insert({
             booking_id: editId!, customer_id: bookingCustomerId!, car_id: carIdNum,
             type: 'rental', amount: toTRY(rentalAmt), direction: 'OUT', description: 'Rental fee', ...rateStamp,
+            created_by: userId,
           });
         if (rentalError) onRentalFailed();
       }

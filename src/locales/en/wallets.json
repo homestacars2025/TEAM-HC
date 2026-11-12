@@ -224,5 +224,43 @@
     "posted_other": "{{count}} HGS transits added · {{amount}}",
     "failed": "Couldn't add: {{reason}}",
     "loadError": "Couldn't read the portal data. Try again."
+  },
+  "actors": {
+    "recordedBy": "Recorded by {{name}} · {{when}}",
+    "recordedByShort": "Recorded by {{name}}",
+    "lastEdited": "Last edited by {{name}} · {{when}}",
+    "system": "System",
+    "systemTip": "Automatic entry (HGS, fines, system)",
+    "autoEntry": "Automatic entry",
+    "someone": "Someone",
+    "showHistory": "Show history",
+    "history": "History",
+    "edited": "Edited",
+    "deleted": "Deleted",
+    "recorded": "Recorded",
+    "notEdited": "Not edited since it was recorded.",
+    "otherChanged": "Other details changed.",
+    "historyError": "Couldn't load the history.",
+    "retry": "Try again",
+    "changedTo": "changed to",
+    "none": "None",
+    "carRef": "Car #{{id}}",
+    "bookingRef": "Booking #{{id}}",
+    "accountRef": "Account #{{id}}",
+    "fields": {
+      "amount": "Amount",
+      "type": "Type",
+      "direction": "Direction",
+      "description": "Description",
+      "car": "Car",
+      "booking": "Booking",
+      "account": "Account"
+    },
+    "deletedEntries": "Deleted entries",
+    "deletedHint": "Who removed what, and when",
+    "deletedCount": "Removed from this wallet: {{count}}",
+    "deletedEmpty": "Nothing has been deleted from this wallet.",
+    "deletedBy": "Deleted by {{name}}",
+    "deletedError": "Couldn't load deleted entries."
   }
 }

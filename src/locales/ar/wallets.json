@@ -264,5 +264,43 @@
     "posted_other": "أُضيف {{count}} عبور HGS · {{amount}}",
     "failed": "تعذّرت الإضافة: {{reason}}",
     "loadError": "تعذّرت قراءة بيانات البوابة. حاول مجدداً."
+  },
+  "actors": {
+    "recordedBy": "سجّلها: {{name}} · {{when}}",
+    "recordedByShort": "سجّلها: {{name}}",
+    "lastEdited": "آخر تعديل: {{name}} · {{when}}",
+    "system": "النظام",
+    "systemTip": "حركة تلقائية (HGS، مخالفات، النظام)",
+    "autoEntry": "حركة تلقائية",
+    "someone": "شخص ما",
+    "showHistory": "عرض السجل",
+    "history": "السجل",
+    "edited": "عُدّلت",
+    "deleted": "حُذفت",
+    "recorded": "سُجّلت",
+    "notEdited": "لم تُعدَّل منذ تسجيلها.",
+    "otherChanged": "تغيّرت تفاصيل أخرى.",
+    "historyError": "تعذّر تحميل السجل.",
+    "retry": "أعد المحاولة",
+    "changedTo": "أصبحت",
+    "none": "لا يوجد",
+    "carRef": "سيارة #{{id}}",
+    "bookingRef": "حجز #{{id}}",
+    "accountRef": "حساب #{{id}}",
+    "fields": {
+      "amount": "المبلغ",
+      "type": "النوع",
+      "direction": "الاتجاه",
+      "description": "الوصف",
+      "car": "السيارة",
+      "booking": "الحجز",
+      "account": "الحساب"
+    },
+    "deletedEntries": "الحركات المحذوفة",
+    "deletedHint": "من حذف ماذا، ومتى",
+    "deletedCount": "حُذفت من هذه المحفظة: {{count}}",
+    "deletedEmpty": "لم يُحذف شيء من هذه المحفظة.",
+    "deletedBy": "حذفها: {{name}}",
+    "deletedError": "تعذّر تحميل الحركات المحذوفة."
   }
 }

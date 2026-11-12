@@ -1,9 +1,10 @@
 import { supabase } from '../supabase';
+import { LEDGER_STAMP_COLUMNS } from '../ledgerActors';
 import type { LedgerCustomer } from '../customerLedger';
 import type { ReplacementRow, WalletBookingRow, WalletLineRow } from '../bookingWallet';
 
 /** Named columns only. Who owns a car never reaches a customer's wallet. */
-const LINE_COLUMNS = 'id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, pay_method, payment_ref, event_no, cars(plate_number)';
+const LINE_COLUMNS = `id, booking_id, customer_id, car_id, type, description, amount, direction, exchange_rate_at_entry, created_at, pay_method, payment_ref, event_no, ${LEDGER_STAMP_COLUMNS}, cars(plate_number)`;
 const BOOKING_COLUMNS = 'id, booking_number, customer_id, car_id, start_date, end_date, status, is_currently_active, cars(plate_number, model_group(name))';
 const SHEET_COLUMNS = 'original_booking_id, original_car_id, replacement_car_id, start_date, original:cars!replacement_sheets_original_car_id_fkey(plate_number), replacement:cars!replacement_sheets_replacement_car_id_fkey(plate_number)';
 

@@ -27,6 +27,10 @@ export interface WalletLineRow {
   payment_ref?: string | null;
   /** The booking event a line belongs to; every `apply_customer_hgs` batch gets a fresh one. */
   event_no?: number | null;
+  /** Who recorded it (null: the system did), and who last edited it. */
+  created_by?: string | null;
+  updated_by?: string | null;
+  updated_at?: string | null;
   cars?: Joined<{ plate_number: string | null }>;
 }
 
