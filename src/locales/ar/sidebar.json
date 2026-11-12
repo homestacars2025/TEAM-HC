@@ -32,7 +32,8 @@
     "pendingInvoices": "الفواتير المعلقة",
     "hgs": "HGS",
     "hr": "التوظيف",
-    "interviews": "المقابلات"
+    "interviews": "المقابلات",
+    "mail": "البريد"
   },
   "currency": {
     "label": "العملة",
@@ -46,5 +47,11 @@
   "expand": "توسيع القائمة",
   "signOut": "تسجيل الخروج",
   "profileFallback": "مستخدم",
-  "openTasks": "{{count}} مهمة مفتوحة"
+  "openTasks": "{{count}} مهمة مفتوحة",
+  "unreadMail_zero": "لا رسائل غير مقروءة",
+  "unreadMail_one": "رسالة واحدة غير مقروءة",
+  "unreadMail_two": "رسالتان غير مقروءتين",
+  "unreadMail_few": "{{count}} رسائل غير مقروءة",
+  "unreadMail_many": "{{count}} رسالة غير مقروءة",
+  "unreadMail_other": "{{count}} رسالة غير مقروءة"
 }

@@ -14,6 +14,10 @@ const icon = (children: React.ReactNode) => (
 );
 
 export const pageIcons: Record<string, React.ReactNode> = {
+  mail: icon(<>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8"/>
+    <path d="M3.5 7l8.5 6 8.5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </>),
   home: icon(<>
     <path d="M3 10.5L12 3l9 7.5V20a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 20v-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
     <path d="M9.5 21.5V14h5v7.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -164,6 +168,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   media_ideas: 'nav.ideas',
   media_calendar: 'nav.mediaCalendar',
   media_influencers: 'nav.influencers',
+  mail: 'nav.mail',
 };
 
 export function usePageLabel(): (page: AppPage) => string {

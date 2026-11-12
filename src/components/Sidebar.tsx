@@ -6,6 +6,7 @@ import { useCurrentUser } from '../contexts/CurrentUserContext';
 import { LANGUAGE_CODES, LANGUAGE_NAMES, useLanguage, type Language } from '../lib/LanguageContext';
 import { useInbox } from '../lib/InboxContext';
 import { usePageAccess, type AppPage } from '../contexts/PageAccessContext';
+import { MAIL_PAGE, useHasMail, useMailAccess } from '../lib/mail/MailAccessContext';
 import { fallbackIcon, pageIcons, usePageLabel } from './pageNav';
 import BrandLogo from './BrandLogo';
 
@@ -101,6 +102,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
   const { dir, canSwitch } = useLanguage();
   const { pages, canAccessPage, loading } = usePageAccess();
   const { openTasksCount } = useInbox();
+  const hasMail = useHasMail();
+  const { unreadTotal: unreadMail } = useMailAccess();
   const { t } = useTranslation('sidebar');
   const pageLabel = usePageLabel();
   const isDesktop = useIsDesktop();
@@ -118,11 +121,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
     // Whoever has Accounting finds Customer Wallets as one of its tabs.
     const inAccounting = canAccessPage('accounting');
     const visible = pages.filter(p => canAccessPage(p.key) && !HIDDEN_GROUPS.includes(p.group_key) && !(inAccounting && p.key === 'customer_wallets'));
+    // Mail isn't an app_pages row: it shows for whoever was given a mailbox.
+    if (hasMail) visible.push(MAIL_PAGE);
     const extraKeys = Array.from(new Set(visible.map(p => p.group_key))).filter(g => !GROUP_ORDER.includes(g));
     return [...GROUP_ORDER, ...extraKeys]
       .map(key => ({ key, items: visible.filter(p => p.group_key === key) }))
       .filter(group => group.items.length > 0);
-  }, [pages, canAccessPage]);
+  }, [pages, canAccessPage, hasMail]);
 
   // The page you land on is never tucked inside a closed group. Only a change of
   // route does this, so the group can still be closed by hand afterwards.
@@ -151,7 +156,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
 
   const renderItem = (page: AppPage) => {
     const label = pageLabel(page);
-    const hasTaskCount = page.key === 'tasks' && openTasksCount > 0;
+    const badge = page.key === 'tasks' ? openTasksCount : page.key === MAIL_PAGE.key ? unreadMail : 0;
+    const badgeLabel = page.key === 'tasks' ? t('openTasks', { count: badge }) : t('unreadMail', { count: badge });
+    const hasTaskCount = badge > 0;
     const activeOf = (isActive: boolean) => (page.key === 'hr' ? hrActive : isActive);
     return (
       <NavLink
@@ -185,10 +192,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, mobileOpen = false
             {!rail && <span className="min-w-0 truncate">{label}</span>}
             {hasTaskCount && !rail && (
               <span
-                aria-label={t('openTasks', { count: openTasksCount })}
-                className="ms-auto min-w-5 shrink-0 rounded-full bg-red-500 px-1.5 text-center text-[11px] font-extrabold leading-5 text-white"
+                aria-label={badgeLabel}
+                className={clsx('ms-auto min-w-5 shrink-0 rounded-full px-1.5 text-center text-[11px] font-extrabold leading-5 text-white', page.key === MAIL_PAGE.key ? 'bg-[var(--accent)]' : 'bg-red-500')}
               >
-                {openTasksCount > 99 ? '99+' : openTasksCount}
+                {badge > 99 ? '99+' : badge}
               </span>
             )}
           </>

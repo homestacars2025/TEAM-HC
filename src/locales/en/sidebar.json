@@ -32,7 +32,8 @@
     "pendingInvoices": "Pending Invoices",
     "hgs": "HGS",
     "hr": "Recruitment",
-    "interviews": "Interviews"
+    "interviews": "Interviews",
+    "mail": "Inbox"
   },
   "currency": {
     "label": "Currency",
@@ -46,5 +47,6 @@
   "expand": "Expand sidebar",
   "signOut": "Sign out",
   "profileFallback": "User",
-  "openTasks": "{{count}} open task(s)"
+  "openTasks": "{{count}} open task(s)",
+  "unreadMail": "{{count}} unread email(s)"
 }

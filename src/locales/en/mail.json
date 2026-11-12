@@ -1,0 +1,157 @@
+{
+  "folders": {
+    "inbox": "All mail",
+    "unread": "Unread",
+    "starred": "Starred",
+    "received": "Received",
+    "sent": "Sent",
+    "archived": "Archived"
+  },
+  "rail": {
+    "label": "Mail folders",
+    "open": "Folders and mailboxes",
+    "mailboxes": "Mailboxes",
+    "allMailboxes": "All mailboxes",
+    "soundOn": "Sound on new mail",
+    "soundOff": "Sound off"
+  },
+  "list": {
+    "label": "Conversations",
+    "unread": "Unread.",
+    "me": "me",
+    "to": "To: {{to}}",
+    "noSubject": "(no subject)",
+    "attachments": "Has attachments",
+    "count_one": "{{count}} conversation",
+    "count_other": "{{count}} conversations",
+    "search": "Search subject, people, text…",
+    "clearSearch": "Clear search"
+  },
+  "direction": {
+    "sent": "Sent",
+    "received": "Received"
+  },
+  "status": {
+    "draft": "Draft",
+    "pending_approval": "Awaiting approval",
+    "queued": "Queued",
+    "sent": "Sent",
+    "failed": "Failed",
+    "received": "Received"
+  },
+  "time": {
+    "now": "now",
+    "minutesAgo_one": "{{count}}m ago",
+    "minutesAgo_other": "{{count}}m ago",
+    "hoursAgo_one": "{{count}}h ago",
+    "hoursAgo_other": "{{count}}h ago",
+    "yesterday": "Yesterday"
+  },
+  "actions": {
+    "star": "Star",
+    "unstar": "Unstar",
+    "reply": "Reply",
+    "replyAll": "Reply all",
+    "forward": "Forward",
+    "archive": "Archive",
+    "unarchive": "Move to All mail",
+    "delete": "Delete",
+    "markUnread": "Mark as unread"
+  },
+  "reader": {
+    "label": "Conversation",
+    "pick": "Select a conversation to read it",
+    "pickHint": "Replies are sent from the same mailbox the conversation is in.",
+    "back": "Back to the list",
+    "collapse": "Collapse message",
+    "readOnly": "Read only",
+    "to": "To",
+    "cc": "Cc",
+    "noBody": "This message has no body.",
+    "bodyTitle": "Message body",
+    "messages_one": "{{count}} message",
+    "messages_other": "{{count}} messages",
+    "attachments_one": "{{count}} attachment",
+    "attachments_other": "{{count}} attachments",
+    "attachmentNotStored": "Only the file's details are stored, not the file"
+  },
+  "editor": {
+    "toolbar": "Formatting",
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "bullets": "Bulleted list",
+    "numbers": "Numbered list",
+    "quote": "Quote",
+    "clear": "Clear formatting",
+    "link": "Insert link",
+    "linkAddress": "Link address",
+    "addLink": "Add"
+  },
+  "compose": {
+    "button": "Compose",
+    "title": {
+      "new": "New message",
+      "reply": "Reply",
+      "replyAll": "Reply all",
+      "forward": "Forward"
+    },
+    "from": "From",
+    "to": "To",
+    "cc": "Cc",
+    "addCc": "Cc",
+    "subject": "Subject",
+    "message": "Message",
+    "placeholder": "Write your message…",
+    "readOnly": "You can read these mailboxes but not send from them.",
+    "noForwardAttachments": "Attachments aren't stored with received mail, so they can't be forwarded.",
+    "discard": "Discard",
+    "send": "Send",
+    "sending": "Sending…",
+    "errors": {
+      "noRecipient": "Add at least one recipient.",
+      "badAddress": "\"{{address}}\" isn't a valid address.",
+      "noMailbox": "Pick the mailbox to send from.",
+      "noSubject": "Add a subject.",
+      "noBody": "Write a message first.",
+      "notAllowed": "Sending from the team dashboard isn't switched on yet. The message was saved as failed; ask an admin to send it.",
+      "sendFailed": "Couldn't send: {{message}}"
+    }
+  },
+  "toast": {
+    "newMail": "New mail from {{from}} — {{subject}}",
+    "newMailMany_one": "{{count}} new message",
+    "newMailMany_other": "{{count}} new messages",
+    "open": "Open",
+    "archived": "Conversation archived",
+    "unarchived": "Moved back to All mail",
+    "undo": "Undo",
+    "deleted": "Conversation deleted",
+    "sent": "Sent from {{from}}"
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "load": "Couldn't load your mail.",
+    "retry": "Retry"
+  },
+  "empty": {
+    "noMailboxesTitle": "No mailboxes yet",
+    "noMailboxesBody": "An admin hasn't given you a mailbox. Once they do, it shows here.",
+    "noMatches": "No matches",
+    "noMatchesHint": "Try another word, a name or an address.",
+    "inbox": { "title": "No mail here yet", "hint": "New mail shows up here as it arrives." },
+    "unread": { "title": "You're all caught up", "hint": "Nothing unread here." },
+    "starred": { "title": "Nothing starred", "hint": "Star a conversation to keep it close at hand." },
+    "received": { "title": "Nothing received", "hint": "Mail sent to this mailbox shows here." },
+    "sent": { "title": "Nothing sent yet", "hint": "Messages sent from this mailbox show here." },
+    "archived": { "title": "Nothing archived", "hint": "Archive a conversation to clear it from All mail without deleting it." }
+  },
+  "delete": {
+    "title": "Delete this conversation?",
+    "body_one": "The message is removed for everyone, for good. Archive keeps it out of the way instead.",
+    "body_other": "All {{count}} messages are removed for everyone, for good. Archive keeps them out of the way instead.",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "deleting": "Deleting…"
+  }
+}

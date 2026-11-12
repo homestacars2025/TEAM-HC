@@ -25,6 +25,7 @@ import WalletPage from './pages/WalletPage';
 import CustodyPage from './pages/CustodyPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import RequireMail from './components/RequireMail';
 /*
  * Media has its own UI stack (Base UI, dnd-kit, motion,
  * date-fns, lucide). Loading it lazily keeps roughly 170 kB out of the initial
@@ -35,6 +36,8 @@ const MediaIdeasPage = lazy(() => import('./pages/media/ideas/page'));
 const MediaCalendarPage = lazy(() => import('./pages/media/calendar/page'));
 const MediaInfluencersPage = lazy(() => import('./pages/media/influencers/page'));
 const InterviewsPage = lazy(() => import('./pages/hr/InterviewsPage'));
+/** Mail carries DOMPurify and the editor; only people with a mailbox load it. */
+const MailPage = lazy(() => import('./pages/MailPage'));
 const HrOpeningsPage = lazy(() => import('./pages/hr/HrOpeningsPage'));
 const HrOpeningPage = lazy(() => import('./pages/hr/HrOpeningPage'));
 const OpeningBuilderPage = lazy(() => import('./pages/hr/OpeningBuilderPage'));
@@ -90,6 +93,8 @@ const App: React.FC = () => {
           <Route path="operations" element={<RequirePage page="operations"><OperationsPage /></RequirePage>} />
           <Route path="customer-wallets" element={<RequirePage page="customer_wallets"><CustomerWalletsRoute /></RequirePage>} />
           <Route path="tasks" element={<RequirePage page="tasks"><TasksPage /></RequirePage>} />
+          {/* Opened by mailbox grants (email_account_access), not by app_pages. */}
+          <Route path="mail" element={<RequireMail><Suspense fallback={<MediaChunkFallback />}><MailPage /></Suspense></RequireMail>} />
           <Route path="accounting" element={<RequirePage page="accounting"><AccountingPage /></RequirePage>} />
           <Route path="suppliers" element={<RequirePage page="accounting"><Navigate to={SUPPLIERS_PATH} replace /></RequirePage>} />
           <Route path="suppliers/:id" element={<RequirePage page="accounting"><SupplierRedirect /></RequirePage>} />
