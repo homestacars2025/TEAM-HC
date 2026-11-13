@@ -8,11 +8,12 @@ import PlateChip from '../booking/PlateChip';
 import { formatDay, useDateLocale } from '../../hooks/useDateLocale';
 import { printCustomerInvoice } from '../../lib/printCustomerInvoice';
 import {
-  balanceTone, buildWallet, canMove, formatLira, hgsDay, hgsDetail, humanType, walletItems, walletTotal,
+  balanceTone, buildWallet, canMove, formatLira, hgsDetail, humanType, walletItems, walletTotal,
   type BookingNote, type BookingWallet, type HgsGroup, type WalletLine,
 } from '../../lib/bookingWallet';
-import { getCustomerWallet, type CustomerWalletData, type TransferResult } from '../../lib/queries/bookingWallet';
+import { getCustomerWallet, type CustomerWalletData, type HgsDeleteResult, type TransferResult } from '../../lib/queries/bookingWallet';
 import { PortalHgsDialog } from './PortalHgsDialog';
+import { HgsDeleteDialog, hgsWhen } from './HgsDeleteDialog';
 import MoveBalanceSheet from './MoveBalanceSheet';
 import { BalanceChip, CloseIcon, LineGlyph, MoveIcon } from './WalletParts';
 import { DeletedLedgerEntries, LedgerActorsProvider, LedgerStamp, useLedgerActorsEnabled } from './LedgerActors';
@@ -98,40 +99,68 @@ const LineRow: React.FC<LineActions & { line: WalletLine; onPartner: (bookingId:
 
 /** "from 28/09 to 22/10 · 42 passes". */
 export function hgsSummary(group: HgsGroup, t: TFunction): string {
-  const crossesYear = !!group.from && !!group.to && group.from.slice(0, 4) !== group.to.slice(0, 4);
-  const when = !group.from || !group.to
-    ? null
-    : group.from === group.to
-      ? t('hgs.on', { date: hgsDay(group.from) })
-      : t('hgs.range', { from: hgsDay(group.from, crossesYear), to: hgsDay(group.to, crossesYear) });
+  const when = hgsWhen(group, t);
   const passes = group.passes > 0 ? t('hgs.passes', { count: group.passes }) : null;
   const entries = group.entries > 0 ? t('hgs.entries', { count: group.entries }) : null;
   const count = passes && entries ? t('hgs.both', { passes, entries }) : passes ?? entries;
   return [when, count].filter(Boolean).join(' · ');
 }
 
-/** One HGS batch of a booking as one row; the chevron opens its lines underneath. Open, they print too. */
-const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void; onPartner: (bookingId: number) => void }> = ({ group, open, onToggle, onPartner, onEdit, onDelete }) => {
+const TrashIcon: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+
+const signedLira = (signed: number) => `${signed > 0 ? '+' : signed < 0 ? '−' : ''}${formatLira(signed)}`;
+
+/** Finance only: deletes all of a booking's HGS, or one batch of it. */
+type DeleteHgs = (group: HgsGroup, scope: 'all' | 'batch') => void;
+
+/**
+ * All of a booking's HGS as one row; the chevron opens it, batch by batch when there is
+ * more than one, each under its own header. Open, the lines print too. Finance gets a
+ * trash on the row (every HGS charge) and on each batch header (that batch alone).
+ */
+const HgsGroupRow: React.FC<LineActions & { group: HgsGroup; open: boolean; onToggle: () => void; onPartner: (bookingId: number) => void; onDeleteHgs?: DeleteHgs }> = ({ group, open, onToggle, onPartner, onEdit, onDelete, onDeleteHgs }) => {
   const { t } = useTranslation('wallets');
   const listId = useId();
   const isIn = group.signed > 0;
+  const lineRows = (lines: WalletLine[]) => lines.map(line => <LineRow key={line.id} line={line} inGroup onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />);
   return (
     <li className={`hc-cw-hgs${open ? ' is-open' : ''}`}>
-      <button type="button" className="hc-cw-line is-hgs hc-cw-hgs-head" aria-expanded={open} aria-controls={listId} onClick={onToggle}>
-        <LineGlyph kind="hgs" />
-        <span className="hc-cw-line-text">
-          <span className="hc-cw-line-label">{t('kinds.hgs')}</span>
-          <span className="hc-cw-line-meta"><span className="hc-cw-line-date">{hgsSummary(group, t)}</span></span>
-        </span>
-        <span className={`hc-cw-line-amount hc-num ${isIn ? 'is-in' : 'is-out'}`}><bdi dir="ltr">{isIn ? '+' : group.signed < 0 ? '−' : ''}{formatLira(group.signed)}</bdi></span>
-        <svg className="hc-cw-hgs-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <span className="sr-only">{t(open ? 'hgs.hide' : 'hgs.show', { count: group.lines.length })}</span>
-      </button>
-      {open && (
-        <ul id={listId} className="hc-cw-hgs-lines">
-          {group.lines.map(line => <LineRow key={line.id} line={line} inGroup onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />)}
-        </ul>
-      )}
+      <div className="hc-cw-hgs-row">
+        <button type="button" className="hc-cw-line is-hgs hc-cw-hgs-head" aria-expanded={open} aria-controls={listId} onClick={onToggle}>
+          <LineGlyph kind="hgs" />
+          <span className="hc-cw-line-text">
+            <span className="hc-cw-line-label">{t('kinds.hgs')}</span>
+            <span className="hc-cw-line-meta"><span className="hc-cw-line-date">{hgsSummary(group, t)}</span></span>
+          </span>
+          <span className={`hc-cw-line-amount hc-num ${isIn ? 'is-in' : 'is-out'}`}><bdi dir="ltr">{signedLira(group.signed)}</bdi></span>
+          <svg className="hc-cw-hgs-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="sr-only">{t(open ? 'hgs.hide' : 'hgs.show', { count: group.lines.length })}</span>
+        </button>
+        {onDeleteHgs && group.charges.count > 0 && (
+          <button type="button" className="hc-cw-icon is-danger" onClick={() => onDeleteHgs(group, 'all')} aria-label={t('hgsDelete.actionAll')} title={t('hgsDelete.actionAll')}><TrashIcon /></button>
+        )}
+      </div>
+      {open && (group.batches.length > 1 ? (
+        <div id={listId} className="hc-cw-hgs-batches">
+          {group.batches.map(batch => (
+            <section key={batch.key} className="hc-cw-hgs-batch" aria-label={hgsSummary(batch, t)}>
+              <header className="hc-cw-hgs-batch-head">
+                <span className="hc-cw-hgs-batch-title">{hgsSummary(batch, t)}</span>
+                <span className={`hc-num ${batch.signed > 0 ? 'is-in' : 'is-out'}`}><bdi dir="ltr">{signedLira(batch.signed)}</bdi></span>
+                {/* Lines with no batch number can't be deleted alone: the function's null means every one. */}
+                {onDeleteHgs && batch.eventNo != null && batch.charges.count > 0 && (
+                  <button type="button" className="hc-cw-icon is-danger" onClick={() => onDeleteHgs(batch, 'batch')} aria-label={t('hgsDelete.actionBatch')} title={t('hgsDelete.actionBatch')}><TrashIcon /></button>
+                )}
+              </header>
+              <ul className="hc-cw-hgs-lines">{lineRows(batch.lines)}</ul>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <ul id={listId} className="hc-cw-hgs-lines">{lineRows(group.lines)}</ul>
+      ))}
     </li>
   );
 };
@@ -163,11 +192,13 @@ const BookingCard: React.FC<LineActions & {
   onPrint: (hgsDetails: boolean) => void;
   printing: boolean;
   onPartner: (bookingId: number) => void;
-}> = ({ entry, movable, focused, onMove, onAdd, onPortalHgs, onPrint, printing, onPartner, onEdit, onDelete }) => {
+  /** Finance only; absent for everyone else. */
+  onDeleteHgs?: DeleteHgs;
+}> = ({ entry, movable, focused, onMove, onAdd, onPortalHgs, onPrint, printing, onPartner, onEdit, onDelete, onDeleteHgs }) => {
   const { t } = useTranslation('wallets');
   const locale = useDateLocale();
   const [showAll, setShowAll] = useState(false);
-  /** The HGS batches open on screen, by key; each opens on its own. */
+  /** The HGS row open on screen, by key. */
   const [hgsOpen, setHgsOpen] = useState<ReadonlySet<string>>(() => new Set());
   const toggleHgs = (key: string) => setHgsOpen(open => {
     const next = new Set(open);
@@ -200,7 +231,7 @@ const BookingCard: React.FC<LineActions & {
         : (
           <ul className="hc-cw-lines">
             {shown.map(item => item.kind === 'hgs'
-              ? <HgsGroupRow key={`hgs-${item.group.key}`} group={item.group} open={hgsOpen.has(item.group.key)} onToggle={() => toggleHgs(item.group.key)} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />
+              ? <HgsGroupRow key={`hgs-${item.group.key}`} group={item.group} open={hgsOpen.has(item.group.key)} onToggle={() => toggleHgs(item.group.key)} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} onDeleteHgs={onDeleteHgs} />
               : <LineRow key={item.line.id} line={item.line} onPartner={onPartner} onEdit={onEdit} onDelete={onDelete} />)}
           </ul>
         )}
@@ -266,6 +297,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
   const [focused, setFocused] = useState<number | null>(focusBookingId);
   const [printing, setPrinting] = useState<number | null>(null);
   const [portalHgs, setPortalHgs] = useState<number | null>(null);
+  const [hgsDelete, setHgsDelete] = useState<{ entry: BookingWallet; group: HgsGroup; scope: 'all' | 'batch' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const scrolled = useRef(false);
 
@@ -286,8 +318,8 @@ const CustomerWalletSheet: React.FC<LineActions & {
 
   useEffect(() => { sheet.current?.focus(); }, []);
 
-  // The move sheet and the HGS dialog take Escape first while they are open.
-  const layered = covered || portalHgs != null;
+  // The move sheet and the HGS dialogs take Escape first while they are open.
+  const layered = covered || portalHgs != null || hgsDelete != null;
   useEffect(() => {
     if (layered) return undefined;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -343,9 +375,17 @@ const CustomerWalletSheet: React.FC<LineActions & {
     setReload(value => value + 1);
     onChanged?.();
   };
+  const hgsDeleted = (result: HgsDeleteResult) => {
+    setHgsDelete(null);
+    setToast(t('hgsDelete.done', { count: result.deleted, amount: formatLira(result.total) }));
+    setReload(value => value + 1);
+    onChanged?.();
+  };
   const tone = balanceTone(total);
   // Finance sees who recorded and edited each line; `ledger_actor_cards` answers no one else anyway.
+  // The same people (`is_finance`: admins and the Accounting page) may delete HGS by batch.
   const { canAccessPage } = usePageAccess();
+  const isFinance = canAccessPage('accounting');
   const actorIds = useMemo(() => (data?.rows ?? []).flatMap(row => [row.created_by, row.updated_by]), [data]);
 
   return ReactDOM.createPortal(
@@ -402,6 +442,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
                     onPartner={goTo}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onDeleteHgs={isFinance ? (group, scope) => setHgsDelete({ entry, group, scope }) : undefined}
                   />
                 ))}
               <DeletedLedgerEntries customerId={customerId} refreshKey={version + reload} />
@@ -411,6 +452,16 @@ const CustomerWalletSheet: React.FC<LineActions & {
 
         {toast && <div role="status" className="hc-ce-toast">{toast}</div>}
       </div>
+      {hgsDelete && (
+        <HgsDeleteDialog
+          bookingId={hgsDelete.entry.booking.id}
+          bookingNumber={hgsDelete.entry.booking.booking_number ?? `#${hgsDelete.entry.booking.id}`}
+          group={hgsDelete.group}
+          scope={hgsDelete.scope}
+          onClose={() => setHgsDelete(null)}
+          onDeleted={hgsDeleted}
+        />
+      )}
       {portalEntry && <PortalHgsDialog entry={portalEntry} onClose={() => setPortalHgs(null)} onPosted={hgsPosted} />}
       {movingEntry && <MoveBalanceSheet from={movingEntry} wallet={wallet} onClose={() => setMoving(null)} onMoved={moved} />}
     </div>

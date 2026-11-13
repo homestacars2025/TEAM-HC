@@ -198,6 +198,23 @@
     "show": "Show the {{count}} HGS lines",
     "hide": "Hide the HGS lines"
   },
+  "hgsDelete": {
+    "actionAll": "Delete all HGS of this booking",
+    "actionBatch": "Delete this HGS batch",
+    "titleAll": "Delete all HGS entries of this booking?",
+    "titleBatch": "Delete this HGS batch?",
+    "entries": "Entries",
+    "total": "Total",
+    "dates": "Dates",
+    "released": "Their portal transits go back to “Add HGS from portal”.",
+    "reason": "Reason (optional)",
+    "reasonPlaceholder": "e.g. charged to the wrong booking",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "failed": "Couldn't delete: {{reason}}",
+    "done_one": "{{count}} HGS entry deleted · {{amount}}",
+    "done_other": "{{count}} HGS entries deleted · {{amount}}"
+  },
   "portalHgs": {
     "action": "Add HGS",
     "title": "Add HGS from portal",

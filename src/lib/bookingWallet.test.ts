@@ -168,12 +168,14 @@ describe('HGS lines, grouped', () => {
     expect(items.map(item => item.kind)).toEqual(['hgs', 'line', 'line']);
     const group = items[0].kind === 'hgs' ? items[0].group : null;
     expect(group).toMatchObject({ signed: -1176, from: '2026-09-28', to: '2026-10-24', passes: 2, entries: 2 });
+    // The refund is HGS but not a charge: the delete counts only what it removes, the OUT lines.
+    expect(group!.charges).toEqual({ count: 3, total: 1217 });
     expect(group!.lines.map(l => l.amount)).toEqual([41, 41, 1127, 49]);
     // The booking's balance is what it was before grouping.
     expect(entry.balance).toBe(-5000 + 3000 - 1176);
   });
 
-  it('keeps each portal batch its own line, apart from what was typed by hand (HOM-09-26-037)', () => {
+  it('one HGS line per booking, its batches kept apart inside, apart from what was typed by hand (HOM-09-26-037)', () => {
     const batch = (amount: number, day: string, eventNo: number, at: string) => line(7, amount, 'OUT', { type: 'hgs', description: `${day} KARGO → KARGO`, event_no: eventNo, created_at: at });
     const rows = [
       line(7, 9000, 'OUT', { created_at: '2026-09-22T09:00:00Z', event_no: 1 }),
@@ -185,10 +187,13 @@ describe('HGS lines, grouped', () => {
     ];
     const [entry] = buildWallet(rows, [booking(7)]);
     const items = walletItems(entry.lines);
-    expect(items.map(item => (item.kind === 'hgs' ? `hgs:${item.group.key}` : item.line.type))).toEqual(['hgs:4', 'payment', 'hgs:3', 'hgs:none', 'rental']);
-    const groups = items.flatMap(item => (item.kind === 'hgs' ? [item.group] : []));
-    expect(groups.map(g => [g.key, g.lines.length, g.signed, g.passes, g.entries])).toEqual([['4', 1, -40, 1, 0], ['3', 2, -100, 2, 0], ['none', 1, -272, 0, 1]]);
-    expect(groups[1]).toMatchObject({ from: '2026-10-02', to: '2026-10-05' });
+    expect(items.map(item => (item.kind === 'hgs' ? `hgs:${item.group.key}` : item.line.type))).toEqual(['hgs:all', 'payment', 'rental']);
+    const group = items[0].kind === 'hgs' ? items[0].group : null;
+    expect(group).toMatchObject({ key: 'all', eventNo: null, signed: -412, charges: { count: 4, total: 412 }, from: '2026-10-02', to: '2026-11-03' });
+    const groups = group!.batches;
+    expect(groups.map(g => [g.key, g.eventNo, g.lines.length, g.signed, g.passes, g.entries, g.charges.count, g.charges.total]))
+      .toEqual([['4', 4, 1, -40, 1, 0, 1, 40], ['3', 3, 2, -100, 2, 0, 2, 100], ['none', null, 1, -272, 0, 1, 1, 272]]);
+    expect(groups[1]).toMatchObject({ from: '2026-10-02', to: '2026-10-05', batches: [] });
     expect(entry.balance).toBe(-9000 - 272 - 100 + 5000 - 40);
   });
 

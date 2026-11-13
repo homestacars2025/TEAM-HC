@@ -62,3 +62,21 @@ export async function transferBookingBalance(fromBooking: number, toBooking: num
   if (error) throw error;
   return data as TransferResult;
 }
+
+export interface HgsDeleteResult { deleted: number; total: number; releasedTransits: number }
+
+/**
+ * Deletes a booking's HGS charges with `delete_customer_hgs_batch` (finance only, checked
+ * there): one batch by its `event_no`, or every HGS charge of the booking when it's null.
+ * The portal transits they came from go back to "Add HGS from portal".
+ */
+export async function deleteHgsBatch(bookingId: number, eventNo: number | null, reason: string): Promise<HgsDeleteResult> {
+  const { data, error } = await supabase.rpc('delete_customer_hgs_batch', {
+    p_booking_id: bookingId,
+    p_event_no: eventNo,
+    p_reason: reason.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  const row = (data ?? {}) as { deleted?: unknown; total?: unknown; released_transits?: unknown };
+  return { deleted: Number(row.deleted) || 0, total: Number(row.total) || 0, releasedTransits: Number(row.released_transits) || 0 };
+}

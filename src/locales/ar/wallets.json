@@ -222,6 +222,27 @@
     "show": "عرض سطور HGS ({{count}})",
     "hide": "إخفاء سطور HGS"
   },
+  "hgsDelete": {
+    "actionAll": "حذف كل HGS لهذا الحجز",
+    "actionBatch": "حذف دفعة HGS هذه",
+    "titleAll": "حذف كل حركات HGS لهذا الحجز؟",
+    "titleBatch": "حذف دفعة HGS هذه؟",
+    "entries": "الحركات",
+    "total": "المجموع",
+    "dates": "التواريخ",
+    "released": "تعود عبوراتها من البوابة متاحة في «إضافة HGS من البوابة».",
+    "reason": "السبب (اختياري)",
+    "reasonPlaceholder": "مثلاً: حُمّلت على حجز خطأ",
+    "confirm": "حذف",
+    "deleting": "جارٍ الحذف…",
+    "failed": "تعذّر الحذف: {{reason}}",
+    "done_zero": "لم يُحذف شيء",
+    "done_one": "تم حذف حركة واحدة · {{amount}}",
+    "done_two": "تم حذف حركتين · {{amount}}",
+    "done_few": "تم حذف {{count}} حركات · {{amount}}",
+    "done_many": "تم حذف {{count}} حركة · {{amount}}",
+    "done_other": "تم حذف {{count}} حركة · {{amount}}"
+  },
   "portalHgs": {
     "action": "إضافة HGS",
     "title": "إضافة HGS من البوابة",

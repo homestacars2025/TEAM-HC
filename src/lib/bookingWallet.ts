@@ -272,8 +272,10 @@ export function hgsDetail(line: Pick<WalletLineRow, 'description' | 'created_at'
 }
 
 export interface HgsGroup {
-  /** The batch: its `event_no`, or `none` for the lines that have none. */
+  /** `all` for the booking's whole HGS; on a batch, its `event_no`, or `none` for the lines that have none. */
   key: string;
+  /** The batch's `event_no`. Null on the booking's whole HGS and on the lines without one. */
+  eventNo: number | null;
   /** Newest first, as every list in the wallet. */
   lines: WalletLine[];
   /** IN minus OUT, so a charge is negative like any line. */
@@ -282,16 +284,24 @@ export interface HgsGroup {
   to: string | null;
   passes: number;
   entries: number;
+  /** What `delete_customer_hgs_batch` removes: the OUT lines, counted and summed in lira. */
+  charges: { count: number; total: number };
+  /** On the booking's whole HGS, its batches, newest first. Empty on a batch. */
+  batches: HgsGroup[];
 }
 
 export type WalletItem = { kind: 'line'; line: WalletLine } | { kind: 'hgs'; group: HgsGroup };
 
-export function hgsGroup(lines: readonly WalletLine[], key = hgsBatchKey(lines[0]?.event_no)): HgsGroup {
+export function hgsGroup(lines: readonly WalletLine[], key = hgsBatchKey(lines[0]?.event_no), batches: HgsGroup[] = []): HgsGroup {
   const details = lines.map(hgsDetail);
   const dates = details.map(detail => detail.date).filter((date): date is string => !!date).sort();
   const passes = details.filter(detail => detail.pass).length;
+  const charges = lines.filter(line => line.direction === 'OUT');
   return {
     key,
+    eventNo: key === 'all' || key === 'none' ? null : Number(key),
+    charges: { count: charges.length, total: round2(charges.reduce((sum, line) => sum + line.amount, 0)) },
+    batches,
     lines: [...lines],
     signed: round2(lines.reduce((sum, line) => sum + line.signed, 0)),
     from: dates[0] ?? null,
@@ -329,11 +339,18 @@ export function foldHgs<T>(entries: readonly T[], isHgs: (entry: T) => boolean, 
   return folded;
 }
 
-/** A booking's lines, newest first, with each HGS batch folded into one line where its newest was. */
+/**
+ * A booking's lines, newest first, with all its HGS folded into one line where the newest
+ * was. Inside, the lines stay apart by batch (`foldHgs`), so a portal run never blends with
+ * another, or with what was typed by hand.
+ */
 export function walletItems(lines: readonly WalletLine[]): WalletItem[] {
-  return foldHgs(lines, line => line.kind === 'hgs', line => line.event_no).map(item => (item.kind === 'line'
-    ? { kind: 'line', line: item.item }
-    : { kind: 'hgs', group: hgsGroup(item.items, item.key) }));
+  const isHgs = (line: WalletLine) => line.kind === 'hgs';
+  const hgs = lines.filter(isHgs);
+  if (hgs.length === 0) return lines.map(line => ({ kind: 'line', line }));
+  const batches = foldHgs(hgs, () => true, line => line.event_no).flatMap(item => (item.kind === 'hgs' ? [hgsGroup(item.items, item.key)] : []));
+  const group = hgsGroup(hgs, 'all', batches);
+  return lines.flatMap<WalletItem>(line => (!isHgs(line) ? [{ kind: 'line', line }] : line === hgs[0] ? [{ kind: 'hgs', group }] : []));
 }
 
 /** `28/09`, with the year only when the range crosses one. */
