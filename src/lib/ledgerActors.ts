@@ -14,6 +14,8 @@ export interface LedgerActor {
   fullName: string;
   avatarUrl: string | null;
   avatarBg: string | null;
+  /** Picks the default 3D character when there's no photo. */
+  gender: string | null;
   role: string | null;
 }
 
@@ -35,27 +37,46 @@ const inFlight = new Map<string, Promise<void>>();
 
 interface ActorCardRow { id: string; full_name: string | null; avatar_url: string | null; avatar_bg: string | null; role: string | null }
 
-const toActor = (row: ActorCardRow): LedgerActor => ({
+const toActor = (row: ActorCardRow, gender: string | null): LedgerActor => ({
   id: row.id,
   fullName: (row.full_name ?? '').trim() || 'Unknown',
   avatarUrl: row.avatar_url || null,
   avatarBg: row.avatar_bg || null,
+  gender,
   role: row.role,
 });
+
+/**
+ * `ledger_actor_cards` has no gender, and the default character depends on it, so
+ * it's read from `profiles` alongside the RPC (staff can read staff). If that read
+ * fails, people without a photo get the neutral character, never an error.
+ */
+async function fetchGenders(ids: string[]): Promise<Map<string, string | null>> {
+  try {
+    const { data, error } = await supabase.from('profiles').select('id, gender').in('id', ids);
+    if (error) return new Map();
+    return new Map(((data ?? []) as { id: string; gender: string | null }[]).map((row) => [row.id, row.gender]));
+  } catch {
+    return new Map();
+  }
+}
 
 export const uniqueIds = (ids: Iterable<string | null | undefined>): string[] =>
   Array.from(new Set(Array.from(ids).filter((id): id is string => Boolean(id)))).sort();
 
-/** One RPC for every id not already known; ids asked for elsewhere are awaited, not asked twice. */
+/** One RPC (plus the genders, in parallel) for every id not already known; ids asked for elsewhere are awaited, not asked twice. */
 export async function loadLedgerActors(ids: Iterable<string | null | undefined>): Promise<Map<string, LedgerActor>> {
   const wanted = uniqueIds(ids);
   const missing = wanted.filter((id) => !actorCache.has(id) && !inFlight.has(id));
   if (missing.length > 0) {
     const request = (async () => {
-      const { data, error } = await supabase.rpc('ledger_actor_cards', { p_ids: missing });
+      const [{ data, error }, genders] = await Promise.all([
+        supabase.rpc('ledger_actor_cards', { p_ids: missing }),
+        fetchGenders(missing),
+      ]);
       if (error) throw new Error(error.message);
       missing.forEach((id) => actorCache.set(id, null));
-      ((data ?? []) as ActorCardRow[]).forEach((row) => actorCache.set(row.id, toActor(row)));
+      ((data ?? []) as ActorCardRow[]).forEach((row) => actorCache.set(row.id, toActor(row, genders.get(row.id) ?? null)));
     })();
     missing.forEach((id) => inFlight.set(id, request));
     request.then(
@@ -103,14 +124,6 @@ export function useLedgerActors(ids: Iterable<string | null | undefined>, enable
     return () => { active = false; };
   }, [key, enabled]);
   return state;
-}
-
-/** "Ahmet Yılmaz" → "AY"; one name → its first two letters. */
-export function actorInitials(name: string | null | undefined): string {
-  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  if (words.length === 1) return Array.from(words[0]).slice(0, 2).join('').toUpperCase();
-  return (Array.from(words[0])[0] + Array.from(words[words.length - 1])[0]).toUpperCase();
 }
 
 /** The signed-in person, for `created_by` on an insert. The database fills it anyway when this is null. */

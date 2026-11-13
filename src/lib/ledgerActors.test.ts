@@ -1,13 +1,21 @@
-import { actorInitials, changedFields, clearLedgerActorCache, loadLedgerActors } from './ledgerActors';
+import { changedFields, clearLedgerActorCache, loadLedgerActors } from './ledgerActors';
 
 const mockRpc = jest.fn();
-jest.mock('./supabase', () => ({ supabase: { rpc: (...args: unknown[]) => mockRpc(...args) } }));
+const mockGenders = jest.fn();
+jest.mock('./supabase', () => ({
+  supabase: {
+    rpc: (...args: unknown[]) => mockRpc(...args),
+    from: () => ({ select: () => ({ in: (_column: string, ids: string[]) => mockGenders(ids) }) }),
+  },
+}));
 
 const card = (id: string, name: string) => ({ id, full_name: name, avatar_url: null, avatar_bg: 'mint', role: 'admin' });
 
 beforeEach(() => {
   clearLedgerActorCache();
   mockRpc.mockReset();
+  mockGenders.mockReset();
+  mockGenders.mockResolvedValue({ data: [], error: null });
 });
 
 describe('loadLedgerActors', () => {
@@ -46,9 +54,23 @@ describe('loadLedgerActors', () => {
     expect((await loadLedgerActors(['y'])).get('y')?.fullName).toBe('Y');
   });
 
+  it('reads genders for the default avatar in the same round, and copes when it cannot', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [card('a', 'A'), card('b', 'B')], error: null });
+    mockGenders.mockResolvedValueOnce({ data: [{ id: 'a', gender: 'female' }], error: null });
+    const people = await loadLedgerActors(['a', 'b']);
+    expect(mockGenders).toHaveBeenCalledWith(['a', 'b']);
+    expect(people.get('a')?.gender).toBe('female');
+    expect(people.get('b')?.gender).toBeNull();
+
+    mockRpc.mockResolvedValueOnce({ data: [card('c', 'C')], error: null });
+    mockGenders.mockResolvedValueOnce({ data: null, error: { message: 'denied' } });
+    expect((await loadLedgerActors(['c'])).get('c')?.gender).toBeNull();
+  });
+
   it('makes no call when there is nobody to look up', async () => {
     expect((await loadLedgerActors([null, undefined])).size).toBe(0);
     expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockGenders).not.toHaveBeenCalled();
   });
 });
 
@@ -74,14 +96,5 @@ describe('changedFields', () => {
 
   it('has nothing to compare on a delete', () => {
     expect(changedFields(before, null)).toEqual([]);
-  });
-});
-
-describe('actorInitials', () => {
-  it('takes the first and last name', () => {
-    expect(actorInitials('Ahmet Can Yılmaz')).toBe('AY');
-    expect(actorInitials('lina')).toBe('LI');
-    expect(actorInitials('  ')).toBe('?');
-    expect(actorInitials('أحمد علي')).toBe('أع');
   });
 });

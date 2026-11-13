@@ -15,6 +15,7 @@ jest.mock('../../lib/supabase', () => {
     cars: [{ id: 4, plate_number: '34 ABC 12' }, { id: 7, plate_number: '34 XYZ 99' }],
     bookings: [{ id: 9, booking_number: 'HOM-09' }],
     cash_accounts: [],
+    profiles: [{ id: 'u-lina', gender: 'female' }, { id: 'u-kerem', gender: 'male' }],
   };
   const from = (table: string) => {
     const chain: Record<string, unknown> = {};
@@ -56,8 +57,9 @@ test('one call for everyone; creator, editor and the system each named', async (
   expect(screen.getByRole('button', { name: 'Automatic entry (HGS, fines, system). Show history' })).toBeInTheDocument();
   expect(mockRpc).toHaveBeenCalledTimes(1);
   expect(mockRpc).toHaveBeenCalledWith('ledger_actor_cards', { p_ids: ['u-kerem', 'u-lina'] });
-  expect(within(edited).getByText('LA')).toBeInTheDocument();
-  expect(edited.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/kerem.jpg');
+  const sources = Array.from(edited.querySelectorAll('img')).map((img) => img.getAttribute('src'));
+  expect(sources).toEqual([expect.stringMatching(/\/avatars\/staff-female\.webp$/), 'https://cdn.example/kerem.jpg']);
+  expect(within(edited).queryByText('LA')).not.toBeInTheDocument();
 });
 
 test('in Arabic, the same row reads سجّلها / آخر تعديل / النظام', async () => {

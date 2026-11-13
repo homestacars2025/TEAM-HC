@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useDateLocale } from '../../hooks/useDateLocale';
 import { formatLira, humanType } from '../../lib/bookingWallet';
 import { cn } from '../../lib/utils';
-import { getAvatarGradient } from '../../lib/staffAvatar';
+import HoverTip from '../HoverTip';
+import StaffAvatar from '../StaffAvatar';
 import {
-  actorInitials,
   auditActorIds,
   changedFields,
   fetchDeletedLedgerEntries,
@@ -29,10 +29,12 @@ import {
 
 interface LedgerActorsValue {
   enabled: boolean;
+  /** The list's people are still on their way. */
+  loading: boolean;
   actors: Map<string, LedgerActor>;
 }
 
-const LedgerActorsContext = createContext<LedgerActorsValue>({ enabled: false, actors: new Map() });
+const LedgerActorsContext = createContext<LedgerActorsValue>({ enabled: false, loading: false, actors: new Map() });
 
 /** Loads everyone on a list in one call. `enabled` is the finance check; the RPC is the backstop. */
 export const LedgerActorsProvider: React.FC<{
@@ -40,8 +42,8 @@ export const LedgerActorsProvider: React.FC<{
   enabled: boolean;
   children: React.ReactNode;
 }> = ({ ids, enabled, children }) => {
-  const { actors, error } = useLedgerActors(ids, enabled);
-  const value = useMemo(() => ({ enabled: enabled && !error, actors }), [enabled, error, actors]);
+  const { actors, loading, error } = useLedgerActors(ids, enabled);
+  const value = useMemo(() => ({ enabled: enabled && !error, loading, actors }), [enabled, loading, error, actors]);
   return <LedgerActorsContext.Provider value={value}>{children}</LedgerActorsContext.Provider>;
 };
 
@@ -72,31 +74,6 @@ const FIELD_KEY: Record<AuditField, string> = {
   account_id: 'account',
 };
 
-/** A floating label over an avatar, on hover or focus. */
-const HoverTip: React.FC<{ content: string; children: React.ReactNode }> = ({ content, children }) => {
-  const wrap = useRef<HTMLSpanElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const show = () => {
-    const rect = wrap.current?.getBoundingClientRect();
-    if (rect) setPos({ top: rect.top - 8, left: rect.left + rect.width / 2 });
-  };
-  return (
-    <>
-      <span ref={wrap} className="inline-flex" onMouseEnter={show} onMouseLeave={() => setPos(null)}>{children}</span>
-      {pos && ReactDOM.createPortal(
-        <div
-          role="tooltip"
-          className="pointer-events-none fixed z-[10003] max-w-[260px] -translate-x-1/2 -translate-y-full rounded-md bg-[#0f1117] px-2.5 py-1.5 text-center text-xs text-white shadow-md"
-          style={{ top: pos.top, left: pos.left }}
-        >
-          <bdi dir="auto">{content}</bdi>
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-};
-
 // ── Avatars ──────────────────────────────────────────────────────────────────
 
 const SystemGlyph: React.FC<{ size: number }> = ({ size }) => (
@@ -112,14 +89,18 @@ const PencilGlyph: React.FC = () => (
   </svg>
 );
 
-/** A photo when there is one, otherwise initials on the person's own colour. No `actor` and no `system`: still loading. */
+/**
+ * The same picture as the Team list: `StaffAvatar`, so a photo, or the 3D character
+ * on the person's colour. Never letters. A grey robot for automatic entries, and
+ * a placeholder only while the list's people are still loading.
+ */
 export const ActorAvatar: React.FC<{
   actor?: LedgerActor | null;
   system?: boolean;
   size?: number;
   className?: string;
 }> = ({ actor, system, size = 24, className }) => {
-  const [failed, setFailed] = useState<string | null>(null);
+  const { loading } = useContext(LedgerActorsContext);
   const base = cn('relative grid shrink-0 place-items-center overflow-hidden rounded-full ring-2 ring-white', className);
   const box: React.CSSProperties = { width: size, height: size };
   if (system) {
@@ -129,21 +110,10 @@ export const ActorAvatar: React.FC<{
       </span>
     );
   }
-  if (!actor) return <span className={cn(base, 'animate-pulse bg-[#eef0f3]')} style={box} aria-hidden="true" />;
-  if (actor.avatarUrl && failed !== actor.avatarUrl) {
-    return (
-      <span className={base} style={box} aria-hidden="true">
-        <img src={actor.avatarUrl} alt="" loading="lazy" onError={() => setFailed(actor.avatarUrl)} className="h-full w-full object-cover object-top" />
-      </span>
-    );
-  }
+  if (!actor && loading) return <span className={cn(base, 'animate-pulse bg-[#eef0f3]')} style={box} aria-hidden="true" />;
   return (
-    <span
-      className={cn(base, 'font-semibold text-[#33465c]')}
-      style={{ ...box, background: getAvatarGradient({ avatar_bg: actor.avatarBg }), fontSize: Math.max(8, Math.round(size * 0.4)) }}
-      aria-hidden="true"
-    >
-      <bdi>{actorInitials(actor.fullName)}</bdi>
+    <span className={cn(base, 'bg-white')} style={box} aria-hidden="true">
+      <StaffAvatar profile={actor ? { avatar_url: actor.avatarUrl, avatar_bg: actor.avatarBg, gender: actor.gender } : null} size={size} />
     </span>
   );
 };

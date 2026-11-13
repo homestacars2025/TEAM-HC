@@ -4559,7 +4559,11 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-kb-customer, .hc-kb-by, .hc-kb-action { grid-column: 1 / -1; }
 .hc-kb-customer { color: #0f1117 !important; font-weight: 600; }
 .hc-kb-who { display: inline-flex; align-items: center; gap: 8px; }
+.hc-kb-who > span { min-width: 0; }
 .hc-kb-who strong { display: block; color: #374151; font-size: 12.5px; font-weight: 600; }
+/* A long name is cut; the whole of it is in the tooltip. */
+.hc-kb-who-name { display: block; max-width: 160px; }
+.hc-kb-who-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hc-kb-who small { display: block; color: #9ca3af; font-size: 11.5px; }
 .hc-kb-note { max-width: 240px; margin-top: 4px; color: #6b7280; font-size: 11.5px; overflow-wrap: anywhere; }
 .hc-kb-action { display: flex !important; justify-content: flex-end; }

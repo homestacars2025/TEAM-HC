@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import HoverTip from '../components/HoverTip';
 import StaffAvatar from '../components/StaffAvatar';
 import Button from '../components/Button';
 import DateRangeFilter from '../components/DateRangeFilter';
@@ -21,10 +22,19 @@ interface ToastState { message: string; kind: 'success' | 'error' }
 const NUM: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 const MONO: React.CSSProperties = { ...NUM, fontFamily: 'var(--font-mono)' };
 
-const STATUS_CONFIG: Record<KabisStatus, { color: string; bg: string }> = {
-  pending:     { color: '#ea580c', bg: 'rgba(249,115,22,0.12)' },
-  checked_in:  { color: '#16a34a', bg: 'rgba(34,197,94,0.12)'  },
-  checked_out: { color: '#2563eb', bg: 'rgba(37,99,235,0.12)'  },
+/**
+ * Two meanings, two colours: anything check-in is green, anything check-out is red,
+ * the type pill and the status pill alike. A soft tint with darker text, as in the
+ * rest of the app. Pending is neither, so it stays neutral grey.
+ */
+const CHECK_IN  = { color: '#166534', bg: 'rgba(34,197,94,0.13)',   dot: '#22C55E' };
+const CHECK_OUT = { color: '#991B1B', bg: 'rgba(220,38,38,0.10)',   dot: '#DC2626' };
+const NEUTRAL   = { color: '#4B5563', bg: 'rgba(107,114,128,0.12)', dot: '#9CA3AF' };
+
+const STATUS_CONFIG: Record<KabisStatus, { color: string; bg: string; dot: string }> = {
+  pending:     NEUTRAL,
+  checked_in:  CHECK_IN,
+  checked_out: CHECK_OUT,
 };
 
 /**
@@ -35,14 +45,8 @@ const STATUS_CONFIG: Record<KabisStatus, { color: string; bg: string }> = {
 const ACTION_CONFIG: Record<KabisAction, {
   color: string; bg: string; target: KabisStatus;
 }> = {
-  delivery: {
-    color: '#3A74C2', bg: 'rgba(75,166,234,0.12)',
-    target: 'checked_in',
-  },
-  pickup: {
-    color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',
-    target: 'checked_out',
-  },
+  delivery: { ...CHECK_IN, target: 'checked_in' },
+  pickup:   { ...CHECK_OUT, target: 'checked_out' },
 };
 
 const INPUT_STYLE: React.CSSProperties = {
@@ -105,7 +109,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
       padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700,
       color: cfg.color, background: cfg.bg, whiteSpace: 'nowrap',
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
       {label}
     </span>
   );
@@ -401,7 +405,11 @@ const KabisPage: React.FC = () => {
             <span className="hc-kb-who">
               {entry.entered_by_name && <StaffAvatar profile={entry.entered_by_avatar} size={24} />}
               <span>
-                <strong>{dash(entry.entered_by_name)}</strong>
+                {entry.entered_by_name ? (
+                  <HoverTip content={entry.entered_by_name} className="hc-kb-who-name">
+                    <strong><bdi dir="auto">{entry.entered_by_name}</bdi></strong>
+                  </HoverTip>
+                ) : <strong>—</strong>}
                 <small style={NUM}>{formatDateTime(entry.entered_at, dateLocale)}</small>
               </span>
             </span>

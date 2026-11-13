@@ -58,7 +58,7 @@ describe('avatar background', () => {
   it.each([
     'contexts/CurrentUserContext.tsx',
     'hooks/useStaffProfiles.ts',
-    'pages/KabisPage.tsx',
+    'lib/queries/kabis.ts',
     'pages/OperationsPage.tsx',
   ])('%s loads the color wherever it loads the photo', file => {
     const selects = read(file).split('\n').filter(line => line.includes('avatar_url,'));
@@ -86,6 +86,7 @@ describe('staff avatars across the dashboard', () => {
     'components/accounting/CustodyTab.tsx',
     'pages/OperationsPage.tsx',
     'pages/KabisPage.tsx',
+    'components/wallet/LedgerActors.tsx',
   ])('%s renders the shared avatar and no initials', file => {
     const source = read(file);
     expect(source).toContain('<StaffAvatar');
