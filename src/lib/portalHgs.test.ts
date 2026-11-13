@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { hgsDetail } from './bookingWallet';
-import { addDays, applyPortalHgs, coveredUntil, manualHgsLines, previewPortalHgs, readTransits, suggestedFrom, transitsTotal } from './portalHgs';
+import { addDays, applyPortalHgs, coveredUntil, manualHgsLines, previewPortalHgs, outsideBookingTransits, readTransits, suggestedFrom, transitsTotal } from './portalHgs';
 
 const mockCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
 let mockData: unknown = [];
@@ -15,10 +15,17 @@ beforeEach(() => { mockCalls.length = 0; });
 
 describe('the database functions, and only them', () => {
   test('send the free range as given, null for an empty end', async () => {
-    mockData = [{ portal_id: 6235, tdate: '2026-10-17', amount: '59', road_type: 'public', note: '17-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ' }];
+    mockData = [
+      { portal_id: 6235, tdate: '2026-10-17', amount: '59', road_type: 'public', note: '17-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ', outside_booking: false, other_booking: null },
+      { portal_id: 6236, tdate: '2026-12-20', amount: '35', road_type: 'public', note: '20-12-2026 Çamlıca → Kurtköy', outside_booking: true, other_booking: 'HOM-12-26-004' },
+    ];
     const rows = await previewPortalHgs(710, null, null);
     expect(mockCalls).toEqual([{ fn: 'preview_customer_hgs', args: { p_booking_id: 710, p_from_date: null, p_to_date: null } }]);
-    expect(rows).toEqual([{ portalId: 6235, date: '2026-10-17', amount: 59, roadType: 'public', note: '17-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ' }]);
+    expect(rows).toEqual([
+      { portalId: 6235, date: '2026-10-17', amount: 59, roadType: 'public', note: '17-10-2026 ? → 15 TEMMUZ ŞEHİTLER KÖPRÜSÜ', outsideBooking: false, otherBooking: null },
+      { portalId: 6236, date: '2026-12-20', amount: 35, roadType: 'public', note: '20-12-2026 Çamlıca → Kurtköy', outsideBooking: true, otherBooking: 'HOM-12-26-004' },
+    ]);
+    expect(outsideBookingTransits(rows).map(row => row.portalId)).toEqual([6236]);
 
     mockData = [{ inserted_count: 25, inserted_total: '1903.0' }];
     expect(await applyPortalHgs(710, '2026-10-01', '2027-01-15')).toEqual({ count: 25, total: 1903 });

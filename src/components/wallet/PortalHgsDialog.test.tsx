@@ -21,7 +21,8 @@ const entry = {
   lines: [],
 } as unknown as BookingWallet;
 
-const transit = (portalId: number, date: string, amount: number) => ({ portalId, date, amount, roadType: 'public', note: `${date.split('-').reverse().join('-')} Çamlıca → Kurtköy` });
+const transit = (portalId: number, date: string, amount: number, outsideBooking = false, otherBooking: string | null = null) =>
+  ({ portalId, date, amount, roadType: 'public', note: `${date.split('-').reverse().join('-')} Çamlıca → Kurtköy`, outsideBooking, otherBooking });
 
 beforeEach(async () => {
   await act(async () => { await i18n.changeLanguage('en'); });
@@ -64,4 +65,72 @@ test('nothing new: the button is off and says so', async () => {
   const dialog = await open();
   expect(await within(dialog).findByText('No new transits to add.')).toBeInTheDocument();
   expect(within(dialog).getByRole('button', { name: 'No new transits to add' })).toBeDisabled();
+});
+
+test('rows outside the booking are marked, counted above the list, and asked about before charging', async () => {
+  mockPreview.mockResolvedValue([
+    transit(1, '2026-09-20', 40, true, 'HOM-09-26-011'),
+    transit(2, '2026-10-02', 65),
+    transit(3, '2026-12-09', 35, true),
+  ]);
+  const dialog = await open();
+  const list = await within(dialog).findByRole('region', { name: 'Transits to add' });
+  expect(list).toHaveTextContent('3 new transits·₺140·2 outside this booking');
+  expect(within(list).getAllByText('Outside this booking')).toHaveLength(2);
+  expect(within(list).getByText(/^On .HOM-09-26-011.'s dates$/)).toBeInTheDocument();
+
+  fireEvent.click(within(dialog).getByRole('button', { name: /^Add 3 transits/ }));
+  const ask = await screen.findByRole('alertdialog');
+  expect(ask).toHaveTextContent('Charge transits outside this booking?');
+  expect(ask).toHaveTextContent("2 of the 3 transits (₺75) are outside this booking's dates. 1 falls on another booking's dates.");
+  expect(mockApply).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(within(ask).getByRole('button', { name: 'Cancel' }), { key: 'Escape' });
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+  fireEvent.click(within(dialog).getByRole('button', { name: /^Add 3 transits/ }));
+  fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: /^Add 3 transits/ }));
+  await waitFor(() => expect(mockApply).toHaveBeenCalledWith(710, '2026-09-22', '2026-12-07'));
+});
+
+test('inside the booking it charges straight away, with no question', async () => {
+  const dialog = await open();
+  fireEvent.click(await within(dialog).findByRole('button', { name: /^Add 2 transits/ }));
+  await waitFor(() => expect(mockApply).toHaveBeenCalled());
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+});
+
+test('To before From reads nothing and says why', async () => {
+  const dialog = await open();
+  await within(dialog).findByRole('region', { name: 'Transits to add' });
+  mockPreview.mockClear();
+  fireEvent.change(within(dialog).getByLabelText('To'), { target: { value: '2026-09-01' } });
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('To is before From.');
+  expect(within(dialog).getByLabelText('To')).toHaveAttribute('aria-invalid', 'true');
+  await new Promise(resolve => setTimeout(resolve, 400));
+  expect(mockPreview).not.toHaveBeenCalled();
+  expect(within(dialog).getByRole('button', { name: 'No new transits to add' })).toBeDisabled();
+});
+
+test('typing a date reads once it settles, not on every change', async () => {
+  const dialog = await open();
+  await within(dialog).findByRole('region', { name: 'Transits to add' });
+  mockPreview.mockClear();
+  const from = within(dialog).getByLabelText('From');
+  fireEvent.change(from, { target: { value: '2026-09-25' } });
+  fireEvent.change(from, { target: { value: '2026-09-28' } });
+  fireEvent.change(from, { target: { value: '2026-10-01' } });
+  await waitFor(() => expect(mockPreview).toHaveBeenCalledWith(710, '2026-10-01', '2026-12-07'));
+  expect(mockPreview).toHaveBeenCalledTimes(1);
+});
+
+test('Arabic: the pills and the summary read in Arabic', async () => {
+  await act(async () => { await i18n.changeLanguage('ar'); });
+  mockPreview.mockResolvedValue([transit(1, '2026-09-20', 40, true, 'HOM-09-26-011')]);
+  const dialog = await open();
+  const list = await within(dialog).findByRole('region');
+  expect(list).toHaveTextContent('خارج تواريخ الحجز');
+  expect(list).toHaveTextContent(/ضمن حجز .HOM-09-26-011./);
+  expect(list).toHaveTextContent('1 خارج تواريخ الحجز');
 });

@@ -5926,8 +5926,13 @@ button.hc-sig:focus-visible { outline: 2px solid var(--accent); outline-offset: 
 .hc-phgs-period { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 .hc-phgs-period .hc-input { min-height: 44px; }
 @media (min-width: 640px) { .hc-phgs-period > :last-child { grid-column: auto; } }
-.hc-phgs-sum { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 10px; font-size: 14px; color: #0f1117; }
-.hc-phgs-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #F3F4F6; font-size: 13px; color: #374151; }
+.hc-phgs-sum { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 4px 6px; margin-bottom: 10px; font-size: 14px; color: #0f1117; }
+.hc-phgs-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding-block: 6px; border-bottom: 1px solid #F3F4F6; font-size: 13px; color: #374151; }
+.hc-phgs-sum .is-outside { color: #92400E; font-weight: 600; }
+.hc-phgs-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.hc-phgs-pill { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; }
+.hc-phgs-pill.is-outside { background: #FEF3C7; color: #92400E; }
+.hc-phgs-pill.is-other { background: #FEE2E2; color: #B42318; }
 /* HR: what the application endpoint flagged, the public link, labels per language and knock-out rules. */
 .hc-hr-flag.is-rejected { background: #FEE2E2; color: #B91C1C; }
 .hc-hr-flag.is-duplicate { background: #FFEDD5; color: #C2410C; cursor: pointer; }

@@ -4,11 +4,12 @@
  *
  * - `preview_customer_hgs(p_booking_id, p_from_date, p_to_date)`: the booking car's
  *   portal transits whose Istanbul day falls from `p_from_date` to `p_to_date` (null: the
- *   booking's start / end) on rented days only, not yet charged to a customer;
+ *   booking's start / end), not yet charged to a customer, each saying if it is outside
+ *   the booking (`outside_booking`) and on which other booking's days (`other_booking`);
  * - `apply_customer_hgs(p_booking_id, p_from_date, p_to_date)`: charges them, one `hgs` /
  *   OUT line each, and marks the transits.
  *
- * The range is free: the functions, not this code, keep out the days the car wasn't rented.
+ * The range is free: rows outside the booking are marked, and the dialog asks before charging them.
  *
  * Lira only. This never asks for, sends or stores an exchange rate: dollars are a view
  * concern, worked out elsewhere when someone chooses USD.
@@ -25,6 +26,10 @@ export interface PortalTransit {
   roadType: string;
   /** `DD-MM-YYYY ENTRY → EXIT`, the line the wallet will show. */
   note: string;
+  /** The day is not one of this booking's days. */
+  outsideBooking: boolean;
+  /** The car's other booking whose days it falls on, by number, if any. */
+  otherBooking: string | null;
 }
 
 export interface PortalFreshness {
@@ -48,11 +53,17 @@ export function readTransits(rows: unknown): PortalTransit[] {
     amount: num(row.amount),
     roadType: String(row.road_type ?? ''),
     note: String(row.note ?? ''),
+    outsideBooking: row.outside_booking === true,
+    otherBooking: row.other_booking ? String(row.other_booking) : null,
   }));
 }
 
 export const transitsTotal = (transits: readonly Pick<PortalTransit, 'amount'>[]) =>
   Math.round(transits.reduce((sum, t) => sum + t.amount, 0) * 100) / 100;
+
+/** The rows outside the booking, which the dialog asks about before charging. */
+export const outsideBookingTransits = <T extends Pick<PortalTransit, 'outsideBooking'>>(transits: readonly T[]): T[] =>
+  transits.filter(t => t.outsideBooking);
 
 const rangeArgs = (bookingId: number, fromDate: string | null, toDate: string | null) =>
   ({ p_booking_id: bookingId, p_from_date: fromDate || null, p_to_date: toDate || null });
