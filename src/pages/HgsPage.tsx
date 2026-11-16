@@ -10,6 +10,8 @@ import PlateChip from '../components/booking/PlateChip';
 import StatusArt from '../components/cars/StatusArt';
 import { ComplianceTriangle } from '../components/cars/Compliance';
 import { StatTile } from '../components/WalletParts';
+import HoverTip from '../components/HoverTip';
+import StaffAvatar from '../components/StaffAvatar';
 import HgsRangePicker, { CalendarIcon } from '../components/hgs/HgsRangePicker';
 import HgsStatementDialog from '../components/hgs/HgsStatementDialog';
 import { usePageAccess } from '../contexts/PageAccessContext';
@@ -19,14 +21,16 @@ import { useMoney } from '../hooks/useMoney';
 import { RateNote } from '../components/Money';
 import { formatPlate } from '../lib/custodyExpense';
 import {
-  HGS_FILTERS, HGS_SORTS, barcodeProblem, carParam, carParamKey, formatCount, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod,
-  periodDays, periodKey, rangeLabel, rangedRow, readRange, readSort, sortHgsRows, transitDate, transitPlace, transitTime,
-  type DayRange, type HgsCar, type HgsPeriod, type HgsRow, type HgsSort, type HgsTransit,
+  DEFAULT_HGS_SORT, HGS_FILTERS, HGS_FRESHNESS, HGS_SORTS, barcodeProblem, carParam, carParamKey, formatCount, freshnessCounts, hgsRowMatches, hgsRows,
+  hgsTiles, idleRows, inHgsFilter, inPeriod, periodDays, periodKey, rangeLabel, rangedRow, readRange, readSort, sortHgsRows, transitDate, transitPlace,
+  transitTime, uploadAge, withFreshness,
+  type DayRange, type HgsCar, type HgsCarFreshness, type HgsFreshness, type HgsPeriod, type HgsRow, type HgsSort, type HgsTransit,
 } from '../lib/hgs';
 import { ALL_MONTHS, currentMonth, readMonth, shiftMonth } from '../lib/pendingInvoices';
-import { getHgsCarTransits, getHgsCars, getHgsLastSync, getHgsTransits, importHgsPortalFile, saveHgsBarcode, type HgsCarTransit, type PortalImportResult } from '../lib/queries/hgs';
+import { getHgsCarTransits, getHgsCars, getHgsFreshness, getHgsLastSync, getHgsTransits, importHgsPortalFile, saveHgsBarcode, type HgsCarTransit, type PortalImportResult } from '../lib/queries/hgs';
 import { isPortalFile, readPortalFile } from '../lib/hgsPortal';
-import { istanbulDate } from '../lib/istanbulTime';
+import { BUSINESS_TIME_ZONE, istanbulDate } from '../lib/istanbulTime';
+import { useLedgerActors, type LedgerActor } from '../lib/ledgerActors';
 import { useTimeFormat } from '../lib/relative-time';
 import { formatDateDisplay, useDateLocale } from './AccountingPage';
 
@@ -40,6 +44,8 @@ interface HgsData {
   cars: HgsCar[];
   transits: HgsTransit[];
   lastSync: string | null;
+  /** `hgs_cars_freshness()` by car id; null when it couldn't load, empty for anyone outside finance. */
+  freshness: Map<number, HgsCarFreshness> | null;
 }
 
 const TOAST_MS = 3200;
@@ -237,13 +243,65 @@ const UploadResult: React.FC<{ state: UploadState; onDismiss: () => void }> = ({
   );
 };
 
+// ─── When the car's portal file was last uploaded ─────────────────────────────
+
+const ClockPaths = <><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" /><path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></>;
+
+/** The tile and pill colour of each level. */
+const FRESH_TONE: Record<HgsFreshness, 'received' | 'warn' | 'negative' | 'paid'> = { fresh: 'received', stale: 'warn', old: 'negative', never: 'paid' };
+
+const FreshnessPill: React.FC<{ level: HgsFreshness }> = ({ level }) => {
+  const { t } = useTranslation('hgs');
+  return <span className={`hc-pill hc-hgs-fresh-pill is-${level}`}>{t(`fresh.level.${level}`)}</span>;
+};
+
+/** Last update, with the exact time on hover, who uploaded it, what it added, and the car's last transit. */
+const FreshnessLine: React.FC<{ fresh: HgsCarFreshness; actor: LedgerActor | undefined }> = ({ fresh, actor }) => {
+  const { t } = useTranslation('hgs');
+  const locale = useDateLocale();
+  const age = fresh.uploadedAt ? uploadAge(fresh.uploadedAt, Date.now()) : null;
+  const ago = age ? (age.unit === 'now' ? t('fresh.now') : t(`fresh.${age.unit}`, { count: age.count })) : '';
+  const exact = fresh.uploadedAt
+    ? new Date(fresh.uploadedAt).toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: BUSINESS_TIME_ZONE })
+    : '';
+  const name = fresh.uploadedByName ?? actor?.fullName ?? null;
+  return (
+    <div className="hc-hgs-fresh">
+      <FreshnessPill level={fresh.freshness} />
+      {fresh.uploadedAt && age ? (
+        <span className="hc-hgs-fresh-when">
+          <span className="hc-hgs-fresh-label">{t('fresh.lastUpdate')}</span>
+          <HoverTip content={exact} className="inline-flex">
+            <time dateTime={fresh.uploadedAt} tabIndex={0} aria-label={`${ago} · ${exact}`}>{ago}</time>
+          </HoverTip>
+        </span>
+      ) : (
+        <span className="hc-hgs-fresh-when">{t('fresh.noFile')}</span>
+      )}
+      {fresh.uploadedAt && name && (
+        <span className="hc-hgs-fresh-who">
+          <StaffAvatar profile={actor ? { avatar_url: actor.avatarUrl, avatar_bg: actor.avatarBg, gender: actor.gender } : null} size={20} />
+          <bdi dir="auto">{name}</bdi>
+        </span>
+      )}
+      {fresh.uploadedAt && fresh.inserted !== null && (
+        <span className={`hc-hgs-fresh-new ${fresh.inserted > 0 ? 'is-some' : ''}`}>{t('fresh.new', { n: LTR(`+${formatCount(fresh.inserted)}`) })}</span>
+      )}
+      {fresh.lastTransitAt && (
+        <small className="hc-hgs-fresh-transit">{t('fresh.lastTransit', { date: formatDateDisplay(transitDate(fresh.lastTransitAt), locale) })}</small>
+      )}
+    </div>
+  );
+};
+
 // ─── One car ──────────────────────────────────────────────────────────────────
 
 const CarCard: React.FC<{
   row: HgsRow; period: HgsPeriod; range: DayRange | null; onRange: (next: DayRange | null) => void;
   open: boolean; onToggle: () => void; onAddBarcode: (() => void) | null;
   upload: UploadState | undefined; onUpload: (next: UploadState | undefined) => void; onExported: (fileName: string) => void;
-}> = ({ row, period, range, onRange, open, onToggle, onAddBarcode, upload, onUpload, onExported }) => {
+  uploader: LedgerActor | undefined;
+}> = ({ row, period, range, onRange, open, onToggle, onAddBarcode, upload, onUpload, onExported, uploader }) => {
   const { format: formatMoney } = useMoney();
   const { t } = useTranslation('hgs');
   const locale = useDateLocale();
@@ -277,6 +335,7 @@ const CarCard: React.FC<{
         <PortalUpload plate={row.plate} state={upload} onState={onUpload} />
       </div>
       </div>
+      {row.freshness && <FreshnessLine fresh={row.freshness} actor={uploader} />}
       {range && (
         <div className="hc-hgs-range-chip-row">
           <span className="hc-hgs-range-chip">
@@ -372,7 +431,7 @@ const HgsPage: React.FC = () => {
   const sort = readSort(params.get('sort'));
   const setSort = (next: HgsSort) => setParams(current => {
     const updated = new URLSearchParams(current);
-    if (next === 'amount') updated.delete('sort');
+    if (next === DEFAULT_HGS_SORT) updated.delete('sort');
     else updated.set('sort', next);
     return updated;
   }, { replace: true });
@@ -397,9 +456,10 @@ const HgsPage: React.FC = () => {
     const id = ++loadId.current;
     setRefreshing(true);
     try {
-      const [cars, transits, lastSync] = await Promise.all([getHgsCars(), getHgsTransits(), getHgsLastSync()]);
+      // Freshness is extra: if it fails, the page still loads, without it.
+      const [cars, transits, lastSync, freshness] = await Promise.all([getHgsCars(), getHgsTransits(), getHgsLastSync(), getHgsFreshness().catch(() => null)]);
       if (id !== loadId.current) return;
-      setData({ cars, transits, lastSync });
+      setData({ cars, transits, lastSync, freshness });
       setFailed(false);
     } catch {
       if (id === loadId.current) setFailed(true);
@@ -445,6 +505,13 @@ const HgsPage: React.FC = () => {
   }, { replace: true });
 
   const cars = useMemo(() => data?.cars ?? [], [data]);
+  /** Null outside finance (the RPC answers with no rows) or when it failed: the page goes on without it. */
+  const freshness = data?.freshness && data.freshness.size > 0 ? data.freshness : null;
+  const freshCounts = useMemo(() => freshnessCounts(freshness?.values() ?? []), [freshness]);
+  const staleCount = freshCounts.stale + freshCounts.old + freshCounts.never;
+  // Every uploader's picture in one call (`ledger_actor_cards`, finance only), cached by id.
+  const uploaderIds = useMemo(() => Array.from(freshness?.values() ?? []).map(row => row.uploadedBy), [freshness]);
+  const { actors: uploaders } = useLedgerActors(uploaderIds, freshness !== null);
   const transits = useMemo(() => data?.transits ?? [], [data]);
   const periodId = periodKey(period);
   const carRangeId = carRange ? periodKey(carRange) : '';
@@ -455,11 +522,11 @@ const HgsPage: React.FC = () => {
   /** The banner and the "without transits" tile follow the page's period, never one car's range. */
   const idle = useMemo(() => idleRows(baseRows), [baseRows]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const rows = useMemo(() => (rangedKey && carRange ? baseRows.map(row => (row.key === rangedKey ? rangedRow(row, cars, transits, carRange) : row)) : baseRows), [baseRows, rangedKey, carRangeId, cars, transits]);
+  const rows = useMemo(() => withFreshness(rangedKey && carRange ? baseRows.map(row => (row.key === rangedKey ? rangedRow(row, cars, transits, carRange) : row)) : baseRows, freshness), [baseRows, rangedKey, carRangeId, cars, transits, freshness]);
   const idleKeys = useMemo(() => new Set(idle.map(row => row.key)), [idle]);
   const chipCount = useMediaQuery('(min-width: 640px)') ? BANNER_CHIPS.wide : BANNER_CHIPS.narrow;
   const shown = useMemo(
-    () => sortHgsRows(rows.filter(row => hgsRowMatches(row, search) && (filter === 'used' ? row.transits > 0 : filter === 'idle' ? idleKeys.has(row.key) : true)), sort),
+    () => sortHgsRows(rows.filter(row => hgsRowMatches(row, search) && inHgsFilter(row, filter, idleKeys)), sort),
     [rows, search, filter, sort, idleKeys],
   );
 
@@ -467,7 +534,7 @@ const HgsPage: React.FC = () => {
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const showCar = (key: string) => {
     setSearch('');
-    if (filter === 'used') setFilter('all');
+    if (filter !== 'all' && filter !== 'idle') setFilter('all');
     setOpen(current => new Set(current).add(key));
     setFocusKey(key);
   };
@@ -548,13 +615,16 @@ const HgsPage: React.FC = () => {
         </div>
       </header>
       {failed && data && <p role="alert" className="hc-hgs-warn">{t('refreshFailed')}</p>}
+      {data && data.freshness === null && <p role="alert" className="hc-hgs-warn">{t('fresh.failed')}</p>}
 
-      {!loading && idle.length > 0 && (
+      {!loading && (idle.length > 0 || staleCount > 0) && (
         <section className="hc-hgs-banner" aria-labelledby="hgs-banner-title">
           <ComplianceTriangle severity="expired" size={48} className="hc-hgs-banner-art" />
           <div className="min-w-0">
             <h2 id="hgs-banner-title">
-              {globalRange
+              {idle.length === 0
+                ? t('banner.uploads', { count: staleCount })
+                : globalRange
                 ? t(globalRange.from === globalRange.to ? 'banner.day' : 'banner.range', { count: idle.length, range: LTR(rangeLabel(globalRange)) })
                 : allMonths
                 ? t('banner.ever', { count: idle.length })
@@ -562,7 +632,17 @@ const HgsPage: React.FC = () => {
                   ? t('banner.thisMonth', { count: idle.length })
                   : t('banner.month', { count: idle.length, month: monthName(month) })}
             </h2>
-            <ul className="hc-hgs-chips">
+            {staleCount > 0 && (
+              <p className="hc-hgs-banner-fresh">
+                {idle.length > 0 && <span>{t('banner.uploads', { count: staleCount })}</span>}
+                {(['stale', 'old', 'never'] as const).filter(level => freshCounts[level] > 0).map(level => (
+                  <button key={level} type="button" aria-pressed={filter === level} className={`hc-hgs-banner-count is-${level}`} onClick={() => { setSearch(''); setFilter(level); }}>
+                    {t(`banner.fresh_${level}`, { n: formatCount(freshCounts[level]) })}
+                  </button>
+                ))}
+              </p>
+            )}
+            {idle.length > 0 && <ul className="hc-hgs-chips">
               {idle.slice(0, chipCount).map(row => (
                 <li key={row.key}>
                   <button type="button" className="hc-hgs-chip" title={t('banner.open', { plate: formatPlate(row.plate) })} onClick={() => showCar(row.key)}>
@@ -579,9 +659,26 @@ const HgsPage: React.FC = () => {
                   </button>
                 </li>
               )}
-            </ul>
+            </ul>}
           </div>
         </section>
+      )}
+
+      {freshness && (
+        <div role="group" aria-label={t('fresh.tiles')} className="hc-tiles hc-tiles-filter hc-bk-tiles hc-hgs-fresh-tiles">
+          {HGS_FRESHNESS.map(level => (
+            <StatTile
+              key={level}
+              tone={FRESH_TONE[level]}
+              icon={ClockPaths}
+              label={t(`fresh.level.${level}`)}
+              sub={t(`fresh.tileSub.${level}`)}
+              value={formatCount(freshCounts[level])}
+              pressed={filter === level}
+              onPress={() => setFilter(level)}
+            />
+          ))}
+        </div>
       )}
 
       <div className={`hc-months ${globalRange ? 'is-ranged' : ''}`}>
@@ -626,7 +723,7 @@ const HgsPage: React.FC = () => {
           {[0, 1, 2, 3].map(i => <li key={i} className="hc-hgs-card hc-hgs-skeleton surface-depth"><span className="hc-bk-bone" /><span className="hc-bk-bone" /></li>)}
         </ul>
       ) : shown.length === 0 ? (
-        <p className="hc-bk-state surface-depth">{filter === 'used' && !search.trim() ? t('emptyUsed') : filter === 'idle' && !search.trim() ? t('emptyIdle') : t('empty')}</p>
+        <p className="hc-bk-state surface-depth">{search.trim() ? t('empty') : filter === 'used' ? t('emptyUsed') : filter === 'idle' ? t('emptyIdle') : (HGS_FRESHNESS as readonly string[]).includes(filter) ? t('emptyFresh') : t('empty')}</p>
       ) : (
         <>
           <p className="hc-bk-count">{t('count', { shown: formatCount(shown.length), total: formatCount(rows.length) })}</p>
@@ -644,6 +741,7 @@ const HgsPage: React.FC = () => {
                 upload={uploads[row.key]}
                 onUpload={next => setUploads(current => ({ ...current, [row.key]: next }))}
                 onExported={name => showToast(t('pdf.done', { name: LTR(name) }))}
+                uploader={row.freshness?.uploadedBy ? uploaders.get(row.freshness.uploadedBy) : undefined}
               />
             ))}
           </ul>

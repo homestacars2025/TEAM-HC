@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { periodBounds, type DayRange, type HgsCar, type HgsPeriod, type HgsTransit } from '../hgs';
+import { periodBounds, toFreshness, type DayRange, type HgsCar, type HgsCarFreshness, type HgsFreshnessRow, type HgsPeriod, type HgsTransit } from '../hgs';
 import { windowBounds, type StatementBooking, type StatementSource } from '../hgsStatement';
 import type { PortalRow } from '../hgsPortal';
 
@@ -50,6 +50,17 @@ export async function getHgsLastSync(): Promise<string | null> {
   const { data, error } = await supabase.from(TRANSITS).select('created_at').order('created_at', { ascending: false }).limit(1);
   if (error) throw error;
   return (data?.[0] as { created_at?: string } | undefined)?.created_at ?? null;
+}
+
+/**
+ * When each active car's portal file was last uploaded, by whom and how much it added, in
+ * one call: `hgs_cars_freshness()` leaves sold cars out and answers only for finance
+ * (`is_finance`), so anyone else gets an empty map.
+ */
+export async function getHgsFreshness(): Promise<Map<number, HgsCarFreshness>> {
+  const { data, error } = await supabase.rpc('hgs_cars_freshness');
+  if (error) throw error;
+  return new Map(((data ?? []) as HgsFreshnessRow[]).map(toFreshness).map(row => [row.carId, row]));
 }
 
 export interface HgsCarTransit {

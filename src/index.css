@@ -5966,3 +5966,36 @@ button.hc-hr-flag.is-duplicate:hover { text-decoration: underline; }
 @media (min-width: 1024px) { .hc-hr-rule { grid-template-columns: 1.2fr 1fr 1fr 1.4fr auto; } .hc-hr-rule-reason { grid-column: auto; } }
 .hc-phgs-suggest { display: inline-flex; align-items: center; min-height: 40px; margin-top: 8px; padding-inline: 12px; border: 1px solid rgba(180, 83, 9, 0.35); border-radius: 10px; background: #fff; color: #92400E; font-size: 13px; font-weight: 600; cursor: pointer; }
 .hc-phgs-suggest:hover { background: #FFF7ED; }
+
+/* ─── HGS: when each car's portal file was last uploaded ─────────────────────── */
+.hc-hgs-fresh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 16px 10px; border-top: 1px solid #f3f4f6; color: #4b5563; font-size: 12.5px; }
+.hc-pill.hc-hgs-fresh-pill { padding: 1px 9px; font-size: 11.5px; }
+.hc-hgs-fresh-pill.is-fresh { background: #dcfce7; color: #166534; }
+.hc-hgs-fresh-pill.is-stale { background: #fef3c7; color: #92400e; }
+.hc-hgs-fresh-pill.is-old { background: #fee2e2; color: #991b1b; }
+.hc-hgs-fresh-pill.is-never { background: #eef0f3; color: #4b5563; }
+.hc-hgs-fresh-when { display: inline-flex; align-items: baseline; gap: 6px; }
+.hc-hgs-fresh-label { color: #9ca3af; font-weight: 600; }
+.hc-hgs-fresh-when time { border-bottom: 1px dotted #cbd5e1; color: #0f1117; font-weight: 600; cursor: help; }
+.hc-hgs-fresh-when time:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.hc-hgs-fresh-who { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 220px; font-weight: 600; color: #374151; }
+.hc-hgs-fresh-who bdi { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-hgs-fresh-new { color: #9ca3af; font-weight: 600; }
+.hc-hgs-fresh-new.is-some { color: #166534; }
+.hc-hgs-fresh-transit { margin-inline-start: auto; color: #9ca3af; font-size: 11.5px; }
+@media (max-width: 639px) {
+  .hc-hgs-fresh { padding-inline: 12px; }
+  .hc-hgs-fresh-transit { flex-basis: 100%; margin-inline-start: 0; }
+}
+
+.hc-hgs-banner-fresh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 6px; font-size: 13px; font-weight: 600; }
+.hc-hgs-banner-count { display: inline-flex; align-items: center; min-height: 44px; padding: 2px 12px; border: 1px solid #fecaca; border-radius: 999px; background: #fff; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color 140ms ease, background-color 140ms ease; }
+.hc-hgs-banner-count.is-stale { color: #92400e; }
+.hc-hgs-banner-count.is-old { color: #991b1b; }
+.hc-hgs-banner-count.is-never { color: #4b5563; }
+.hc-hgs-banner-count:hover { border-color: #f87171; }
+.hc-hgs-banner-count[aria-pressed='true'] { border-width: 2px; border-color: currentColor; background: #fff7f7; }
+.hc-hgs-banner-count:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+@media (min-width: 768px) {
+  .hc-hgs-banner-count { min-height: 30px; }
+}

@@ -25,7 +25,12 @@
     "range_one": "{{count}} car has no HGS transits in {{range}} — check its HGS",
     "range_other": "{{count}} cars have no HGS transits in {{range}} — check their HGS",
     "day_one": "{{count}} car has no HGS transits on {{range}} — check its HGS",
-    "day_other": "{{count}} cars have no HGS transits on {{range}} — check their HGS"
+    "day_other": "{{count}} cars have no HGS transits on {{range}} — check their HGS",
+    "uploads_one": "{{count}} car needs a new HGS file",
+    "uploads_other": "{{count}} cars need a new HGS file",
+    "fresh_stale": "Stale: {{n}}",
+    "fresh_old": "Old: {{n}}",
+    "fresh_never": "Never uploaded: {{n}}"
   },
   "tiles": {
     "spend": "Total spend",
@@ -44,7 +49,8 @@
     "sort": "Sort",
     "sort_amount": "Amount",
     "sort_transits": "Transits",
-    "sort_last": "Last"
+    "sort_last": "Last",
+    "sort_update": "Updated"
   },
   "row": {
     "transits": "Transits",
@@ -137,5 +143,33 @@
     "failed": "Couldn't create the PDF. Try again.",
     "badRange": "Choose a start and an end date.",
     "done": "Downloaded {{name}}"
+  },
+  "emptyFresh": "No car in this group.",
+  "fresh": {
+    "tiles": "Last HGS upload, per car",
+    "lastUpdate": "Last update",
+    "now": "Just now",
+    "minutes_one": "{{count}} min ago",
+    "minutes_other": "{{count}} min ago",
+    "hours_one": "{{count}}h ago",
+    "hours_other": "{{count}}h ago",
+    "days_one": "1 day ago",
+    "days_other": "{{count}} days ago",
+    "noFile": "No HGS file uploaded yet",
+    "new": "{{n}} new",
+    "lastTransit": "Last transit: {{date}}",
+    "level": {
+      "fresh": "Up to date",
+      "stale": "Stale",
+      "old": "Old",
+      "never": "Never uploaded"
+    },
+    "tileSub": {
+      "fresh": "Uploaded in the last 3 days",
+      "stale": "3 to 7 days ago",
+      "old": "Over 7 days ago",
+      "never": "No file yet"
+    },
+    "failed": "Couldn't load the last upload times. Refresh to try again."
   }
 }

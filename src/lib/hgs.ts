@@ -127,6 +127,80 @@ export interface HgsRow {
   share: number;
   /** One of today's active cars, as opposed to one that only shows up through its transits. */
   active: boolean;
+  /** The car's last portal upload, once `withFreshness` has merged it in. */
+  freshness?: HgsCarFreshness | null;
+}
+
+// ─── When each car's portal file was last uploaded ───────────────────────────
+
+/** fresh: under 3 days; stale: 3 to 7; old: over 7; never: no file yet. The RPC decides. */
+export const HGS_FRESHNESS = ['fresh', 'stale', 'old', 'never'] as const;
+export type HgsFreshness = typeof HGS_FRESHNESS[number];
+
+/** One row of `hgs_cars_freshness()`: active cars only, and only for finance. */
+export interface HgsCarFreshness {
+  carId: number;
+  uploadedAt: string | null;
+  uploadedBy: string | null;
+  uploadedByName: string | null;
+  /** New rows that upload added. */
+  inserted: number | null;
+  /** The latest transit on the car, any period. */
+  lastTransitAt: string | null;
+  freshness: HgsFreshness;
+}
+
+export interface HgsFreshnessRow {
+  car_id: number | string;
+  last_upload_at: string | null;
+  last_upload_by: string | null;
+  last_upload_by_name: string | null;
+  last_upload_inserted: number | string | null;
+  last_transit_at: string | null;
+  freshness: string | null;
+}
+
+export function toFreshness(row: HgsFreshnessRow): HgsCarFreshness {
+  const uploadedAt = row.last_upload_at || null;
+  const level = HGS_FRESHNESS.includes(row.freshness as HgsFreshness) ? row.freshness as HgsFreshness : uploadedAt ? 'old' : 'never';
+  return {
+    carId: Number(row.car_id),
+    uploadedAt,
+    uploadedBy: row.last_upload_by || null,
+    uploadedByName: row.last_upload_by_name?.trim() || null,
+    inserted: row.last_upload_inserted == null ? null : Number(row.last_upload_inserted),
+    lastTransitAt: row.last_transit_at || null,
+    freshness: level,
+  };
+}
+
+/** Each row with its car's last upload, by car id. A car that isn't active gets none. */
+export function withFreshness(rows: readonly HgsRow[], freshness: ReadonlyMap<number, HgsCarFreshness> | null): HgsRow[] {
+  if (!freshness) return [...rows];
+  return rows.map(row => ({ ...row, freshness: row.carId !== null ? freshness.get(row.carId) ?? null : null }));
+}
+
+export type HgsFreshnessCounts = Record<HgsFreshness, number>;
+
+export function freshnessCounts(freshness: Iterable<HgsCarFreshness>): HgsFreshnessCounts {
+  const counts: HgsFreshnessCounts = { fresh: 0, stale: 0, old: 0, never: 0 };
+  for (const row of Array.from(freshness)) counts[row.freshness] += 1;
+  return counts;
+}
+
+/**
+ * How long ago, from the time that passed (as the RPC's 3- and 7-day lines are), so the
+ * words never disagree with the pill: under a minute, minutes, hours, then whole days.
+ */
+export function uploadAge(iso: string, now: number): { unit: 'now' | 'minutes' | 'hours' | 'days'; count: number } | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  const minutes = Math.floor(Math.max(now - ms, 0) / 60_000);
+  if (minutes < 1) return { unit: 'now', count: 0 };
+  if (minutes < 60) return { unit: 'minutes', count: minutes };
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return { unit: 'hours', count: hours };
+  return { unit: 'days', count: Math.floor(hours / 24) };
 }
 
 /**
@@ -209,22 +283,48 @@ export function hgsTiles(cars: readonly HgsCar[], transits: readonly HgsTransit[
   };
 }
 
-export const HGS_FILTERS = ['used', 'idle'] as const;
+export const HGS_FILTERS = ['used', 'idle', ...HGS_FRESHNESS] as const;
 export type HgsFilter = typeof HGS_FILTERS[number] | 'all';
 
-export const HGS_SORTS = ['amount', 'transits', 'last'] as const;
+/** `update`, the default, puts the car most in need of a new portal file first. */
+export const HGS_SORTS = ['update', 'amount', 'transits', 'last'] as const;
 export type HgsSort = typeof HGS_SORTS[number];
+export const DEFAULT_HGS_SORT: HgsSort = 'update';
 
 /** `?sort=`, with the default left out of the address. */
-export const readSort = (value: string | null): HgsSort => (HGS_SORTS.includes(value as HgsSort) ? value as HgsSort : 'amount');
+export const readSort = (value: string | null): HgsSort => (HGS_SORTS.includes(value as HgsSort) ? value as HgsSort : DEFAULT_HGS_SORT);
 
 /** Counts grouped like the lira figures beside them: 3.132. */
 export const formatCount = (n: number): string => n.toLocaleString('tr-TR');
 
-/** Highest first; a tie, or a car that never passed a toll, falls back to the plate. */
+/**
+ * Oldest update first: never uploaded, then the longest ago. A row with no update to show
+ * (a car that isn't active, or before the times load) goes last.
+ */
+const updateRank = (row: HgsRow): number => {
+  if (!row.freshness) return Infinity;
+  if (!row.freshness.uploadedAt) return -Infinity;
+  return Date.parse(row.freshness.uploadedAt) || 0;
+};
+
+/** `update` oldest first, the rest highest first; a tie, or a car that never passed a toll, falls back to the plate. */
 export function sortHgsRows(rows: readonly HgsRow[], sort: HgsSort): HgsRow[] {
+  if (sort === 'update') {
+    return [...rows].sort((a, b) => {
+      const [ra, rb] = [updateRank(a), updateRank(b)];
+      return (ra === rb ? 0 : ra < rb ? -1 : 1) || byPlate(a, b);
+    });
+  }
   const value = (row: HgsRow) => (sort === 'amount' ? row.amount : sort === 'transits' ? row.transits : row.last ? Date.parse(row.last) : -Infinity);
   return [...rows].sort((a, b) => value(b) - value(a) || byPlate(a, b));
+}
+
+/** The list's filter: the transit tiles, or one freshness tile. `idle` comes from `idleRows`. */
+export function inHgsFilter(row: HgsRow, filter: HgsFilter, idleKeys: ReadonlySet<string>): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'used') return row.transits > 0;
+  if (filter === 'idle') return idleKeys.has(row.key);
+  return row.freshness?.freshness === filter;
 }
 
 const squash = (text: string | null | undefined) => (text ?? '').toLocaleLowerCase('en').replace(/\s/g, '');

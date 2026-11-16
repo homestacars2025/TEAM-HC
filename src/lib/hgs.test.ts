@@ -1,4 +1,4 @@
-import { barcodeProblem, carParam, carParamKey, formatCount, hasBarcode, periodBounds, presetOf, presetRange, rangeLabel, rangedRow, readRange, readSort, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
+import { freshnessCounts, inHgsFilter, toFreshness, uploadAge, withFreshness, barcodeProblem, carParam, carParamKey, formatCount, hasBarcode, periodBounds, presetOf, presetRange, rangeLabel, rangedRow, readRange, readSort, hgsRowMatches, hgsRows, hgsTiles, idleRows, inPeriod, monthRange, sortHgsRows, transitDate, transitMonth, transitPlace, transitTime, type HgsCar, type HgsTransit } from './hgs';
 
 const car = (id: number, plate: string, barcode: string | null, model: string | null = 'Fiat Egea'): HgsCar => ({ id, plate, barcode, model });
 const CARS = [car(1, '34ABC100', '1129193640'), car(2, '34MDJ129', null, 'Renault Taliant'), car(3, '34MSR195', '  ', 'Citroen C4 X'), car(4, '06FHN975', '1131524991', 'Toyota Corolla'), car(5, '34ZZZ900', '1131498796')];
@@ -102,8 +102,8 @@ describe('tiles', () => {
   });
 });
 
-test('sort comes from the address, amount when it says nothing sensible', () => {
-  expect([readSort(null), readSort('transits'), readSort('last'), readSort('nonsense')]).toEqual(['amount', 'transits', 'last', 'amount']);
+test('sort comes from the address, last update when it says nothing sensible', () => {
+  expect([readSort(null), readSort('amount'), readSort('transits'), readSort('last'), readSort('nonsense')]).toEqual(['update', 'amount', 'transits', 'last', 'update']);
 });
 
 test('counts are grouped like the lira beside them', () => {
@@ -177,5 +177,56 @@ describe('a range of days', () => {
   test('the tiles follow a range like a month', () => {
     const tiles = hgsTiles(CARS, TRANSITS, { from: '2026-11-03', to: '2026-11-04' }, '2026-11');
     expect(tiles).toMatchObject({ transits: 2, spend: 89.5, used: 2 });
+  });
+});
+
+describe('freshness: the last portal upload per car', () => {
+  const now = Date.parse('2026-11-16T12:00:00Z');
+  const raw = (car_id: number, last_upload_at: string | null, freshness: string, extra: Record<string, unknown> = {}) => ({
+    car_id, last_upload_at, freshness, last_upload_by: last_upload_at ? 'u-lina' : null, last_upload_by_name: last_upload_at ? 'Lina' : null,
+    last_upload_inserted: last_upload_at ? 4 : null, last_transit_at: null, ...extra,
+  });
+  const FRESH = new Map([
+    raw(1, '2026-11-16T09:00:00Z', 'fresh'),
+    raw(2, '2026-11-12T09:00:00Z', 'stale'),
+    raw(3, null, 'never'),
+    raw(4, '2026-10-01T09:00:00Z', 'old', { last_upload_inserted: '0' }),
+  ].map(toFreshness).map(row => [row.carId, row]));
+  const CARS4: HgsCar[] = [
+    { id: 1, plate: '34AAA001', barcode: '1', model: null },
+    { id: 2, plate: '34AAA002', barcode: '2', model: null },
+    { id: 3, plate: '34AAA003', barcode: '3', model: null },
+    { id: 4, plate: '34AAA004', barcode: '4', model: null },
+  ];
+  const rows = withFreshness(hgsRows(CARS4, [transit(99, '2026-11-02', 5, '34GONE1')]), FRESH);
+
+  test('reads the RPC row, numbers as numbers', () => {
+    expect(FRESH.get(4)).toMatchObject({ inserted: 0, freshness: 'old', uploadedByName: 'Lina' });
+    expect(FRESH.get(3)).toMatchObject({ uploadedAt: null, uploadedBy: null, inserted: null, freshness: 'never' });
+    expect(toFreshness({ ...raw(5, null, 'nonsense'), car_id: '5' })).toMatchObject({ carId: 5, freshness: 'never' });
+  });
+
+  test('merges by car id; a car that is not active gets none', () => {
+    expect(rows.find(r => r.carId === 2)?.freshness?.freshness).toBe('stale');
+    expect(rows.find(r => r.carId === 99)?.freshness).toBeNull();
+    expect(withFreshness(rows, null).every(r => r.freshness === rows.find(o => o.key === r.key)?.freshness)).toBe(true);
+  });
+
+  test('default sort: never uploaded, then the oldest upload, then cars with no upload data', () => {
+    expect(sortHgsRows(rows, 'update').map(r => r.plate)).toEqual(['34AAA003', '34AAA004', '34AAA002', '34AAA001', '34GONE1']);
+  });
+
+  test('the freshness tiles filter by level, and count', () => {
+    expect(rows.filter(r => inHgsFilter(r, 'old', new Set())).map(r => r.carId)).toEqual([4]);
+    expect(rows.filter(r => inHgsFilter(r, 'all', new Set()))).toHaveLength(5);
+    expect(freshnessCounts(FRESH.values())).toEqual({ fresh: 1, stale: 1, old: 1, never: 1 });
+  });
+
+  test('age goes by the time that passed, like the pill', () => {
+    expect(uploadAge('2026-11-16T11:59:30Z', now)).toEqual({ unit: 'now', count: 0 });
+    expect(uploadAge('2026-11-16T10:00:00Z', now)).toEqual({ unit: 'hours', count: 2 });
+    expect(uploadAge('2026-11-13T13:00:00Z', now)).toEqual({ unit: 'days', count: 2 });
+    expect(uploadAge('2026-11-16T12:05:00Z', now)).toEqual({ unit: 'now', count: 0 });
+    expect(uploadAge('nonsense', now)).toBeNull();
   });
 });

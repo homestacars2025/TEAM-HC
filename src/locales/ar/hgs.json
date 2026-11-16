@@ -45,7 +45,16 @@
     "day_two": "سيارتان بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بهما",
     "day_few": "{{count}} سيارات بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
     "day_many": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
-    "day_other": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها"
+    "day_other": "{{count}} سيارة بلا أي عبور HGS في {{range}} — تحقّق من HGS الخاص بها",
+    "uploads_zero": "كل السيارات ملفها محدّث",
+    "uploads_one": "سيارة واحدة تحتاج ملف HGS جديداً",
+    "uploads_two": "سيارتان تحتاجان ملف HGS جديداً",
+    "uploads_few": "{{count}} سيارات تحتاج ملف HGS جديداً",
+    "uploads_many": "{{count}} سيارة تحتاج ملف HGS جديداً",
+    "uploads_other": "{{count}} سيارة تحتاج ملف HGS جديداً",
+    "fresh_stale": "قديم: {{n}}",
+    "fresh_old": "قديم جداً: {{n}}",
+    "fresh_never": "لم يُرفع: {{n}}"
   },
   "tiles": {
     "spend": "إجمالي المصروف",
@@ -68,7 +77,8 @@
     "sort": "الترتيب",
     "sort_amount": "المبلغ",
     "sort_transits": "العبور",
-    "sort_last": "الأحدث"
+    "sort_last": "الأحدث",
+    "sort_update": "التحديث"
   },
   "row": {
     "transits": "العبور",
@@ -169,5 +179,42 @@
     "failed": "تعذّر إنشاء ملف PDF. حاول مرة أخرى.",
     "badRange": "اختر تاريخ البداية وتاريخ النهاية.",
     "done": "تم تنزيل {{name}}"
+  },
+  "emptyFresh": "لا توجد سيارة في هذه المجموعة.",
+  "fresh": {
+    "tiles": "آخر رفع لملف HGS لكل سيارة",
+    "lastUpdate": "آخر تحديث",
+    "now": "الآن",
+    "minutes_one": "قبل دقيقة",
+    "minutes_two": "قبل دقيقتين",
+    "minutes_few": "قبل {{count}} دقائق",
+    "minutes_many": "قبل {{count}} دقيقة",
+    "minutes_other": "قبل {{count}} دقيقة",
+    "hours_one": "قبل ساعة",
+    "hours_two": "قبل ساعتين",
+    "hours_few": "قبل {{count}} ساعات",
+    "hours_many": "قبل {{count}} ساعة",
+    "hours_other": "قبل {{count}} ساعة",
+    "days_one": "قبل يوم",
+    "days_two": "قبل يومين",
+    "days_few": "قبل {{count}} أيام",
+    "days_many": "قبل {{count}} يوماً",
+    "days_other": "قبل {{count}} يوم",
+    "noFile": "لم يُرفع أي ملف HGS بعد",
+    "new": "{{n}} جديدة",
+    "lastTransit": "آخر عبور: {{date}}",
+    "level": {
+      "fresh": "محدّث",
+      "stale": "قديم",
+      "old": "قديم جداً",
+      "never": "لم يُرفع"
+    },
+    "tileSub": {
+      "fresh": "رُفع خلال آخر 3 أيام",
+      "stale": "قبل 3 إلى 7 أيام",
+      "old": "قبل أكثر من 7 أيام",
+      "never": "لا يوجد ملف بعد"
+    },
+    "failed": "تعذّر تحميل أوقات آخر رفع. اضغط تحديث للمحاولة مجدداً."
   }
 }
