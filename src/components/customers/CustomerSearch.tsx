@@ -18,11 +18,15 @@ interface CustomerSearchProps {
   required: boolean;
   /** A banned customer can't be booked, but can still owe for what they did. */
   allowBanned?: boolean;
+  /** What is typed, for a page that looks it up somewhere else too (a plate, say). */
+  onQueryChange?: (term: string) => void;
+  /** Puts the cursor in the field on open. */
+  autoFocus?: boolean;
 }
 
 export const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toLocaleUpperCase('tr');
 
-const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFor, formatDate, required, allowBanned = false }) => {
+const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFor, formatDate, required, allowBanned = false, onQueryChange, autoFocus = false }) => {
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
   const baseId = useId();
@@ -34,6 +38,9 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
   const [active, setActive] = useState(-1);
 
   const term = query.trim();
+  const reportQuery = useRef(onQueryChange);
+  reportQuery.current = onQueryChange;
+  useEffect(() => { reportQuery.current?.(term); }, [term]);
 
   useEffect(() => {
     setActive(-1);
@@ -96,6 +103,8 @@ const CustomerSearch: React.FC<CustomerSearchProps> = ({ onSelect, onNew, flagFo
         aria-autocomplete="list"
         aria-activedescendant={active >= 0 ? optionId(active) : undefined}
         aria-invalid={required}
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- only where the field is the whole step
+        autoFocus={autoFocus}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}

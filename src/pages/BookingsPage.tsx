@@ -61,6 +61,8 @@ import { istanbulDate } from '../lib/istanbulTime';
 import { readMonth, shiftMonth } from '../lib/pendingInvoices';
 import { formatMoney as formatLira } from '../lib/suppliers';
 import CustomerSearch, { initialsOf } from '../components/customers/CustomerSearch';
+import { useReceiveCash } from '../components/cash/ReceiveCashContext';
+import { CashIcon } from '../components/cash/ReceiveCashSheet';
 import { useIssueText } from '../components/cars/Compliance';
 import CustomerWalletSheet from '../components/wallet/CustomerWalletSheet';
 import CarryOverPrompt from '../components/wallet/CarryOverPrompt';
@@ -340,10 +342,12 @@ interface RowProps {
   onWallet: () => void;
   /** Absent when the signed-in user may not extend — the button is not rendered. */
   onExtend?: () => void;
+  /** Opens "Receive cash" on this booking; absent outside the dashboard shell. */
+  onReceiveCash?: () => void;
 }
 
 const BookingTableRow: React.FC<RowProps> = ({
-  booking, isSelected, today, onSelect, onEdit, onPrint, onWallet, onExtend,
+  booking, isSelected, today, onSelect, onEdit, onPrint, onWallet, onExtend, onReceiveCash,
 }) => {
   const { t } = useTranslation('bookings');
   const dateLocale = useDateLocale();
@@ -377,6 +381,12 @@ const BookingTableRow: React.FC<RowProps> = ({
       {active && <span role="img" aria-label={t('table.progress')} className="hc-bk-progress"><i style={{ width: `${Math.round(tripProgress(booking, today) * 100)}%` }} /></span>}
     </td>
     <td className="hc-bk-c-actions">
+      {/* Cash on a cancelled booking is refused by the server; the button isn't offered. */}
+      {onReceiveCash && booking.status !== 'cancelled' && (
+        <button type="button" className="hc-rc-row-cta" onClick={e => { e.stopPropagation(); onReceiveCash(); }} title={t('table.receiveCash')} aria-label={`${t('table.receiveCash')} · ${booking.booking_number}`}>
+          <CashIcon size={15} />
+        </button>
+      )}
       {/* A cancelled booking has nothing left to extend. */}
       {onExtend && booking.status !== 'cancelled' && (
         <ActionBtn onClick={onExtend} title={t('extend.action')} hoverColor="#16a34a">
@@ -3273,6 +3283,7 @@ const BOOKING_SELECT = `
 `;
 
 const BookingsPage: React.FC = () => {
+  const receiveCash = useReceiveCash();
   const { t: tf } = useTranslation('finance');
   const { t } = useTranslation('bookings');
   const { t: tc } = useTranslation('common');
@@ -3679,6 +3690,7 @@ const BookingsPage: React.FC = () => {
                     onPrint={() => printBookingContract(booking)}
                     onWallet={() => setWalletFor({ customerId: String(booking.customer_id), bookingId: booking.id })}
                     onExtend={() => setExtendTarget(booking)}
+                    onReceiveCash={receiveCash.available ? () => receiveCash.open({ bookingId: booking.id }) : undefined}
                   />
                 ))}
               </tbody>

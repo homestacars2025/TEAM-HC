@@ -16,6 +16,8 @@ import { PortalHgsDialog } from './PortalHgsDialog';
 import { HgsDeleteDialog, hgsWhen } from './HgsDeleteDialog';
 import MoveBalanceSheet from './MoveBalanceSheet';
 import { BalanceChip, CloseIcon, LineGlyph, MoveIcon } from './WalletParts';
+import ReceiveCashButton from '../cash/ReceiveCashButton';
+import { useReceiveCash } from '../cash/ReceiveCashContext';
 import { DeletedLedgerEntries, LedgerActorsProvider, LedgerStamp, useLedgerActorsEnabled } from './LedgerActors';
 import { usePageAccess } from '../../contexts/PageAccessContext';
 
@@ -300,6 +302,8 @@ const CustomerWalletSheet: React.FC<LineActions & {
   const [hgsDelete, setHgsDelete] = useState<{ entry: BookingWallet; group: HgsGroup; scope: 'all' | 'batch' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const scrolled = useRef(false);
+  // Cash received from here credits this wallet: read it again, and leave Escape to the cash sheet while it's open.
+  const { version: cashVersion, isOpen: cashOpen } = useReceiveCash();
 
   useEffect(() => {
     let active = true;
@@ -308,7 +312,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
       .then(next => { if (active) setData(next); })
       .catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [customerId, version, reload]);
+  }, [customerId, version, reload, cashVersion]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -319,7 +323,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
   useEffect(() => { sheet.current?.focus(); }, []);
 
   // The move sheet and the HGS dialogs take Escape first while they are open.
-  const layered = covered || portalHgs != null || hgsDelete != null;
+  const layered = covered || cashOpen || portalHgs != null || hgsDelete != null;
   useEffect(() => {
     if (layered) return undefined;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -405,6 +409,7 @@ const CustomerWalletSheet: React.FC<LineActions & {
             <h2><bdi dir="auto">{name || t('wallet.loading')}</bdi></h2>
             {data?.customer.is_banned && <BannedBadge reason={data.customer.ban_reason} showReason />}
           </div>
+          {data && <ReceiveCashButton variant="pill" prefill={{ customer: { id: customerId, name } }} />}
           <button type="button" className="hc-ce-close" onClick={onClose} aria-label={tc('actions.close')}><CloseIcon /></button>
         </header>
 

@@ -8,9 +8,8 @@ import { BUSINESS_TIME_ZONE, dayPart, istanbulDate, istanbulHour } from '../lib/
 import { getMyNotifications, getMyTasks } from '../lib/queries/tasks';
 import { countTasks, getTodaySchedule, type ScheduleItem } from '../lib/queries/schedule';
 import { custodyBalance, custodyTotals, getMyCustodyMovements, type CustodyMovement } from '../lib/queries/custody';
-import { holdingSummary } from '../lib/envelopes';
-import { formatMoney } from '../lib/suppliers';
-import { useMyEnvelopes } from '../hooks/useMyEnvelopes';
+import HeldEnvelopesCard from '../components/cash/HeldEnvelopesCard';
+import ReceiveCashButton from '../components/cash/ReceiveCashButton';
 import { getMyWalletEntries, walletBalance, walletTotals, type WalletEntry } from '../lib/queries/staffWallet';
 import { useTimeFormat } from '../lib/relative-time';
 import type { MyNotification, MyTask } from '../lib/types/tasks';
@@ -197,7 +196,6 @@ const ScheduleList: React.FC<{ items: ScheduleItem[] | null; failed: boolean; on
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const HomePage: React.FC = () => {
-  const { t: tf } = useTranslation('finance');
   const { t } = useTranslation('home');
   const { t: tn } = useTranslation('notifications');
   const dateLocale = useDateLocale();
@@ -301,8 +299,8 @@ const HomePage: React.FC = () => {
   const balance = wallet ? walletBalance(wallet) : null;
   const heldInCustody = custody ? custodyBalance(custody) : null;
   const thisMonth = today.slice(0, 7);
-  const { envelopes: myEnvelopes } = useMyEnvelopes(userId);
-  const envelopesHeld = useMemo(() => holdingSummary(myEnvelopes ?? [], Date.now()), [myEnvelopes]);
+  // `my_held_envelopes` gives finance (admins and the Accounting page) everyone's.
+  const seesAllEnvelopes = profile?.role === 'admin' || canAccessPage('accounting');
   const cardCount = [canAccessPage('tasks'), canOpenOperations, canOpenWallet, canOpenCustody, true].filter(Boolean).length;
 
   const part = dayPart(istanbulHour());
@@ -321,22 +319,12 @@ const HomePage: React.FC = () => {
         <p className="mt-1 min-h-5 text-sm text-gray-500">
           {counts && `${t('summary.tasks', { count: counts.today })} · ${t('summary.unread', { count: unreadCount })}`}
         </p>
+        <ReceiveCashButton variant="hero" className="mt-4" />
       </header>
 
       {canOpenCars && <ComplianceHomeCard summary={compliance.summary} />}
 
-      {envelopesHeld.count > 0 && (
-        <Link to="/dashboard/custody#envelopes" className={`hc-env-card surface-depth ${envelopesHeld.overdue ? 'is-late' : ''}`}>
-          <span className="min-w-0 flex-1">
-            <strong>{tf('envelopes.title')}</strong>
-            <small>{envelopesHeld.overdue ? tf('envelopes.overdue') : tf('envelopes.hint')}</small>
-          </span>
-          <span className="hc-env-card-sum">
-            <b>{tf('envelopes.count', { count: envelopesHeld.count })}</b>
-            <small><bdi dir="ltr">{envelopesHeld.totals.map(row => formatMoney(row.total, row.currency)).join(' · ')}</bdi></small>
-          </span>
-        </Link>
-      )}
+      <HeldEnvelopesCard everyone={seesAllEnvelopes} custodyRoute={canOpenCustody ? '/dashboard/custody' : null} />
 
       <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${showsPerformance ? `xl:grid-cols-4 ${LEFTOVER_CARD[cardCount] ?? ''}` : cardCount === 5 ? FIVE_CARDS : 'xl:grid-cols-4'}`}>
         <GoalsPanel onPresence={setShowsPerformance} onSettled={onGoalsSettled} />

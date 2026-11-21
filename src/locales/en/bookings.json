@@ -31,7 +31,8 @@
     "progress": "Trip progress",
     "showing": "Showing {{shown}} of {{total}}",
     "selected": "{{n}} selected",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "receiveCash": "Receive cash"
   },
   "form": {
     "newTitle": "New Booking",

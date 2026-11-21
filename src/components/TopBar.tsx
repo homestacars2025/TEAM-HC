@@ -4,6 +4,7 @@ import AccountMenu from './AccountMenu';
 import CommandPalette from './CommandPalette';
 import CurrencySwitcher from './CurrencySwitcher';
 import TasksBell from './TasksBell';
+import ReceiveCashButton from './cash/ReceiveCashButton';
 
 const IS_MAC = /mac|iphone|ipad/i.test(typeof navigator === 'undefined' ? '' : navigator.platform);
 
@@ -69,6 +70,8 @@ const TopBar: React.FC<TopBarProps> = ({ sidebarCollapsed, onToggleSidebar, onOp
       </button>
 
       <div className="flex-1" />
+
+      <ReceiveCashButton variant="top" />
 
       <button
         type="button"

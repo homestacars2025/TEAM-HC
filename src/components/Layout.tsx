@@ -9,6 +9,7 @@ import { hideBootSplash, loadBootFonts } from '../lib/bootSplash';
 import { InboxProvider } from '../lib/InboxContext';
 import { MailAccessProvider } from '../lib/mail/MailAccessContext';
 import { KabisLiveProvider } from '../lib/KabisLiveContext';
+import { ReceiveCashProvider } from './cash/ReceiveCashContext';
 import { readBootCollapsed } from '../lib/userSettings';
 import { CurrentUserProvider, useCurrentUser } from '../contexts/CurrentUserContext';
 import { usePageAccess } from '../contexts/PageAccessContext';
@@ -126,7 +127,9 @@ const Layout: React.FC = () => (
       <InboxProvider>
         <KabisLiveProvider>
           <MailAccessProvider>
-            <Shell />
+            <ReceiveCashProvider>
+              <Shell />
+            </ReceiveCashProvider>
           </MailAccessProvider>
         </KabisLiveProvider>
       </InboxProvider>

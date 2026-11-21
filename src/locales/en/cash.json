@@ -1,0 +1,110 @@
+{
+  "title": "Receive cash",
+  "close": "Close",
+  "back": "Back",
+  "next": "Continue",
+  "retry": "Try again",
+  "loading": "Opening the booking…",
+  "progress": "Step {{current}} of {{total}}",
+  "steps": {
+    "customer": "Who is paying?",
+    "booking": "Which booking?",
+    "purpose": "What is it for?",
+    "amount": "How much?",
+    "confirm": "Check and confirm"
+  },
+  "customer": {
+    "lead": "Search by name, phone or plate.",
+    "byPlate": "Bookings on this plate"
+  },
+  "booking": {
+    "dates": "{{start}} → {{end}}",
+    "empty": "This customer has no open or past bookings to take cash for.",
+    "failed": "Couldn't load the bookings."
+  },
+  "purpose": {
+    "rental": "Rental",
+    "deposit": "Deposit",
+    "extension": "Extension",
+    "hgs": "HGS",
+    "fine": "Fine",
+    "damage": "Damage",
+    "fuel": "Fuel",
+    "delivery": "Delivery",
+    "other": "Other"
+  },
+  "amount": {
+    "label": "Amount received",
+    "currency": "Currency",
+    "note": "Note (optional)",
+    "noteRequired": "Note (required for Other)",
+    "notePlaceholder": "What is the money for?"
+  },
+  "currency": {
+    "TRY": "Turkish lira",
+    "USD": "US dollar",
+    "EUR": "Euro"
+  },
+  "confirm": {
+    "youReceive": "You received",
+    "hint": "The customer's wallet is credited now. You'll get an envelope code to write on the envelope.",
+    "button": "Confirm receipt",
+    "saving": "Saving…"
+  },
+  "fields": {
+    "ref": "Envelope code",
+    "customer": "Customer",
+    "booking": "Booking",
+    "plate": "Plate",
+    "amount": "Amount",
+    "purpose": "Purpose",
+    "date": "Date",
+    "holder": "Held by",
+    "note": "Note"
+  },
+  "done": {
+    "title": "Cash received",
+    "lead": "Saved. The customer's wallet is credited.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy. Write the code down.",
+    "instruction": "Write the code on the envelope and hand it to finance.",
+    "withYou": "With you",
+    "print": "Print envelope label",
+    "printFailed": "Couldn't open the print view.",
+    "whatsapp": "Share via WhatsApp",
+    "shareTitle": "Cash received — Homesta Cars",
+    "finish": "Done"
+  },
+  "errors": {
+    "forbidden": "Your account can't receive cash. Ask an admin.",
+    "purpose": "Choose what the money is for.",
+    "amount": "Enter an amount above 0.",
+    "currency": "Choose ₺, $ or €.",
+    "note": "Add a note for \"Other\".",
+    "notFound": "That booking no longer exists. Pick another.",
+    "cancelled": "This booking is cancelled. Pick another.",
+    "rate": "There's no exchange rate for this currency today. Ask finance.",
+    "offline": "No connection. Nothing was saved — try again.",
+    "generic": "Couldn't save. Nothing was recorded — try again."
+  },
+  "held": {
+    "title": "My envelopes",
+    "titleAll": "Envelopes with staff",
+    "hint": "Hand them to finance today.",
+    "none": "No cash with you.",
+    "late_one": "{{count}} envelope held for over a day — hand it to finance.",
+    "late_other": "{{count}} envelopes held for over a day — hand them to finance.",
+    "count_one": "{{count}} envelope",
+    "count_other": "{{count}} envelopes",
+    "failed": "Couldn't load the envelopes.",
+    "more": "+{{n}} more",
+    "now": "Just now",
+    "minutes_one": "{{count}} min ago",
+    "minutes_other": "{{count}} min ago",
+    "hours_one": "{{count}} hour ago",
+    "hours_other": "{{count}} hours ago",
+    "days_one": "{{count}} day ago",
+    "days_other": "{{count}} days ago"
+  }
+}
